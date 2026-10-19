@@ -124,6 +124,11 @@ img { max-width: 100%; height: auto; display: block; }
   min-width: 0;
 }
 .brand img { width: 46px; height: 46px; object-fit: contain; }
+.brand img.brand-lockup {
+  width: auto;
+  height: 52px;
+  max-width: min(220px, 48vw);
+}
 .brand-copy { display: flex; flex-direction: column; line-height: 1.1; }
 .brand-copy strong {
   font-family: var(--font-display);
@@ -303,7 +308,8 @@ h3 { font-size: 28px; }
   justify-content: center;
 }
 .hero-mark img, .founder-emblem img {
-  width: min(420px, 100%);
+  width: min(520px, 100%);
+  height: auto;
   filter: drop-shadow(0 30px 50px rgba(0, 0, 0, 0.45));
 }
 .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
@@ -649,6 +655,10 @@ textarea { min-height: 160px; resize: vertical; line-height: 1.5; }
   .menu-toggle { display: inline-flex; align-items: center; justify-content: center; }
   .mobile-nav.open { display: block; }
   .brand-copy { display: none; }
+  .brand img.brand-lockup {
+    height: 44px;
+    max-width: min(168px, 42vw);
+  }
   .bottom-nav { display: flex; }
   main { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
   .approach-step { grid-template-columns: 1fr; }

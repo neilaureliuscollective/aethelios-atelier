@@ -109,9 +109,9 @@ export default function HomePage() {
           <figure className="founder-emblem">
             <img
               src="/brand/logo.webp"
-              alt="Aethelios Atelier wordmark"
-              width={720}
-              height={720}
+              alt="Aethelios Atelier"
+              width={1536}
+              height={1024}
               loading="lazy"
               decoding="async"
             />

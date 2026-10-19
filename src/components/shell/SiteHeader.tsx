@@ -20,7 +20,7 @@ export function SiteHeader({ user }: { user: User | null }) {
   return (
     <header className="site-header">
       <div className="site-header-inner">
-        <BrandMark />
+        <BrandMark variant="wordmark" withWordmark={false} size={48} priority />
         <nav className="nav-desktop" aria-label="Primary">
           {links.map((link) => (
             <AppLink key={link.href} href={link.href} aria-current={pathname === link.href ? "page" : undefined}>
