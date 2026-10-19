@@ -107,5 +107,87 @@ CREATE TABLE IF NOT EXISTS request_ledger (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS proposals (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  founder_id TEXT NOT NULL,
+  version INTEGER NOT NULL,
+  status TEXT NOT NULL,
+  scope_json TEXT NOT NULL,
+  change_summary TEXT,
+  based_on_submission_id TEXT,
+  supersedes_proposal_id TEXT,
+  payload_hash TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  published_at TEXT,
+  UNIQUE(project_id, version)
+);
+CREATE TABLE IF NOT EXISTS proposal_decisions (
+  id TEXT PRIMARY KEY,
+  proposal_id TEXT NOT NULL,
+  project_id TEXT NOT NULL,
+  author_id TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  body TEXT NOT NULL,
+  agreement_text TEXT,
+  agreed_version INTEGER NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS delivery_versions (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  founder_id TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  version INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  preview_url TEXT,
+  notes TEXT,
+  status TEXT NOT NULL,
+  payload_hash TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  published_at TEXT,
+  UNIQUE(project_id, kind, version)
+);
+CREATE TABLE IF NOT EXISTS delivery_feedback (
+  id TEXT PRIMARY KEY,
+  delivery_version_id TEXT NOT NULL,
+  project_id TEXT NOT NULL,
+  author_id TEXT NOT NULL,
+  author_kind TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  body TEXT NOT NULL,
+  expected_version INTEGER NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS content_requests (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  founder_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  detail TEXT NOT NULL,
+  status TEXT NOT NULL,
+  response TEXT,
+  created_at TEXT NOT NULL,
+  resolved_at TEXT
+);
+CREATE TABLE IF NOT EXISTS delivery_milestones (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  proposal_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL,
+  timing TEXT,
+  sort_order INTEGER NOT NULL,
+  status TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS projects_owner_id_idx ON projects (owner_id);
 CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions (user_id);
+CREATE INDEX IF NOT EXISTS proposals_project_id_idx ON proposals (project_id);
+CREATE INDEX IF NOT EXISTS delivery_versions_project_id_idx ON delivery_versions (project_id);
+CREATE INDEX IF NOT EXISTS content_requests_project_id_idx ON content_requests (project_id);
+CREATE INDEX IF NOT EXISTS delivery_milestones_project_id_idx ON delivery_milestones (project_id);

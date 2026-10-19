@@ -16,12 +16,14 @@ export function BrandMark({
   priority = false
 }: Props) {
   const src = variant === "wordmark" ? "/brand/logo.webp" : "/brand/icon.webp";
+  const lockup = variant === "wordmark";
   const inner = (
     <>
       <img
+        className={lockup ? "brand-lockup" : "brand-mark"}
         src={src}
         alt={withWordmark ? "" : "Aethelios Atelier"}
-        width={size}
+        width={lockup ? Math.round(size * 1.5) : size}
         height={size}
         decoding={priority ? "sync" : "async"}
         fetchPriority={priority ? "high" : "low"}

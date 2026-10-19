@@ -5,8 +5,14 @@ import type {
   ChatMessage,
   ClarificationResponse,
   ClientUpdate,
+  ContentRequest,
+  DeliveryFeedback,
+  DeliveryMilestone,
+  DeliveryVersion,
   FounderNote,
   Project,
+  Proposal,
+  ProposalDecision,
   RequestLedgerEntry,
   ReviewEvent,
   Session,
@@ -16,10 +22,16 @@ import type {
 } from "@/lib/types";
 import type { PersistenceAdapter } from "@/lib/persistence/adapter";
 import {
+  mapContentRequest,
+  mapDeliveryFeedback,
+  mapDeliveryMilestone,
+  mapDeliveryVersion,
   mapLedger,
   mapMessage,
   mapNote,
   mapProject,
+  mapProposal,
+  mapProposalDecision,
   mapResponse,
   mapReview,
   mapSession,
@@ -138,8 +150,90 @@ const SCHEMA_STATEMENTS = [
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS proposals (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    founder_id TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    status TEXT NOT NULL,
+    scope_json TEXT NOT NULL,
+    change_summary TEXT,
+    based_on_submission_id TEXT,
+    supersedes_proposal_id TEXT,
+    payload_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    published_at TEXT,
+    UNIQUE(project_id, version)
+  )`,
+  `CREATE TABLE IF NOT EXISTS proposal_decisions (
+    id TEXT PRIMARY KEY,
+    proposal_id TEXT NOT NULL,
+    project_id TEXT NOT NULL,
+    author_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    body TEXT NOT NULL,
+    agreement_text TEXT,
+    agreed_version INTEGER NOT NULL,
+    created_at TEXT NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS delivery_versions (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    founder_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    summary TEXT NOT NULL,
+    preview_url TEXT,
+    notes TEXT,
+    status TEXT NOT NULL,
+    payload_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    published_at TEXT,
+    UNIQUE(project_id, kind, version)
+  )`,
+  `CREATE TABLE IF NOT EXISTS delivery_feedback (
+    id TEXT PRIMARY KEY,
+    delivery_version_id TEXT NOT NULL,
+    project_id TEXT NOT NULL,
+    author_id TEXT NOT NULL,
+    author_kind TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    body TEXT NOT NULL,
+    expected_version INTEGER NOT NULL,
+    created_at TEXT NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS content_requests (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    founder_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    detail TEXT NOT NULL,
+    status TEXT NOT NULL,
+    response TEXT,
+    created_at TEXT NOT NULL,
+    resolved_at TEXT
+  )`,
+  `CREATE TABLE IF NOT EXISTS delivery_milestones (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    proposal_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    timing TEXT,
+    sort_order INTEGER NOT NULL,
+    status TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`,
   `CREATE INDEX IF NOT EXISTS projects_owner_id_idx ON projects (owner_id)`,
   `CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions (user_id)`,
+  `CREATE INDEX IF NOT EXISTS proposals_project_id_idx ON proposals (project_id)`,
+  `CREATE INDEX IF NOT EXISTS delivery_versions_project_id_idx ON delivery_versions (project_id)`,
+  `CREATE INDEX IF NOT EXISTS content_requests_project_id_idx ON content_requests (project_id)`,
+  `CREATE INDEX IF NOT EXISTS delivery_milestones_project_id_idx ON delivery_milestones (project_id)`,
   `ALTER TABLE submissions ADD COLUMN IF NOT EXISTS reviewed_version INTEGER NOT NULL DEFAULT 0`,
   `ALTER TABLE submissions ADD COLUMN IF NOT EXISTS payload_hash TEXT NOT NULL DEFAULT ''`
 ];
@@ -206,6 +300,12 @@ export class PostgresPersistence implements PersistenceAdapter {
   async resetForTests() {
     await this.client().unsafe(`
       DELETE FROM request_ledger;
+      DELETE FROM delivery_feedback;
+      DELETE FROM delivery_versions;
+      DELETE FROM proposal_decisions;
+      DELETE FROM proposals;
+      DELETE FROM content_requests;
+      DELETE FROM delivery_milestones;
       DELETE FROM clarification_responses;
       DELETE FROM client_updates;
       DELETE FROM founder_notes;
@@ -551,5 +651,242 @@ export class PostgresPersistence implements PersistenceAdapter {
         AND created_at >= ${isoSince}
     `;
     return Number((rows[0] as { c?: number } | undefined)?.c ?? 0);
+  }
+
+  async addProposal(proposal: Proposal) {
+    await this.client()`
+      INSERT INTO proposals(
+        id,project_id,founder_id,version,status,scope_json,change_summary,based_on_submission_id,supersedes_proposal_id,payload_hash,created_at,updated_at,published_at
+      )
+      VALUES (
+        ${proposal.id},
+        ${proposal.projectId},
+        ${proposal.founderId},
+        ${proposal.version},
+        ${proposal.status},
+        ${JSON.stringify(proposal.scope)},
+        ${proposal.changeSummary},
+        ${proposal.basedOnSubmissionId ?? null},
+        ${proposal.supersedesProposalId ?? null},
+        ${proposal.payloadHash},
+        ${proposal.createdAt},
+        ${proposal.updatedAt},
+        ${proposal.publishedAt ?? null}
+      )
+    `;
+    return proposal;
+  }
+
+  async getProposal(id: string) {
+    const rows = await this.client()`SELECT * FROM proposals WHERE id = ${id}`;
+    return rows[0] ? mapProposal(rows[0] as Row) : null;
+  }
+
+  async listProposals(projectId: string) {
+    const rows =
+      await this.client()`SELECT * FROM proposals WHERE project_id = ${projectId} ORDER BY version ASC`;
+    return rows.map((row) => mapProposal(row as Row));
+  }
+
+  async updateProposal(proposal: Proposal) {
+    await this.client()`
+      UPDATE proposals SET
+        status = ${proposal.status},
+        scope_json = ${JSON.stringify(proposal.scope)},
+        change_summary = ${proposal.changeSummary},
+        based_on_submission_id = ${proposal.basedOnSubmissionId ?? null},
+        supersedes_proposal_id = ${proposal.supersedesProposalId ?? null},
+        payload_hash = ${proposal.payloadHash},
+        updated_at = ${proposal.updatedAt},
+        published_at = ${proposal.publishedAt ?? null}
+      WHERE id = ${proposal.id}
+    `;
+    return proposal;
+  }
+
+  async addProposalDecision(decision: ProposalDecision) {
+    await this.client()`
+      INSERT INTO proposal_decisions(
+        id,proposal_id,project_id,author_id,kind,body,agreement_text,agreed_version,created_at
+      )
+      VALUES (
+        ${decision.id},
+        ${decision.proposalId},
+        ${decision.projectId},
+        ${decision.authorId},
+        ${decision.kind},
+        ${decision.body},
+        ${decision.agreementText ?? null},
+        ${decision.agreedVersion},
+        ${decision.createdAt}
+      )
+    `;
+    return decision;
+  }
+
+  async listProposalDecisions(projectId: string) {
+    const rows = await this.client()`
+      SELECT * FROM proposal_decisions WHERE project_id = ${projectId} ORDER BY created_at ASC
+    `;
+    return rows.map((row) => mapProposalDecision(row as Row));
+  }
+
+  async addDeliveryVersion(version: DeliveryVersion) {
+    await this.client()`
+      INSERT INTO delivery_versions(
+        id,project_id,founder_id,kind,version,title,summary,preview_url,notes,status,payload_hash,created_at,updated_at,published_at
+      )
+      VALUES (
+        ${version.id},
+        ${version.projectId},
+        ${version.founderId},
+        ${version.kind},
+        ${version.version},
+        ${version.title},
+        ${version.summary},
+        ${version.previewUrl ?? null},
+        ${version.notes},
+        ${version.status},
+        ${version.payloadHash},
+        ${version.createdAt},
+        ${version.updatedAt},
+        ${version.publishedAt ?? null}
+      )
+    `;
+    return version;
+  }
+
+  async getDeliveryVersion(id: string) {
+    const rows = await this.client()`SELECT * FROM delivery_versions WHERE id = ${id}`;
+    return rows[0] ? mapDeliveryVersion(rows[0] as Row) : null;
+  }
+
+  async listDeliveryVersions(projectId: string) {
+    const rows = await this.client()`
+      SELECT * FROM delivery_versions WHERE project_id = ${projectId} ORDER BY kind ASC, version ASC
+    `;
+    return rows.map((row) => mapDeliveryVersion(row as Row));
+  }
+
+  async updateDeliveryVersion(version: DeliveryVersion) {
+    await this.client()`
+      UPDATE delivery_versions SET
+        title = ${version.title},
+        summary = ${version.summary},
+        preview_url = ${version.previewUrl ?? null},
+        notes = ${version.notes},
+        status = ${version.status},
+        payload_hash = ${version.payloadHash},
+        updated_at = ${version.updatedAt},
+        published_at = ${version.publishedAt ?? null}
+      WHERE id = ${version.id}
+    `;
+    return version;
+  }
+
+  async addDeliveryFeedback(feedback: DeliveryFeedback) {
+    await this.client()`
+      INSERT INTO delivery_feedback(
+        id,delivery_version_id,project_id,author_id,author_kind,kind,body,expected_version,created_at
+      )
+      VALUES (
+        ${feedback.id},
+        ${feedback.deliveryVersionId},
+        ${feedback.projectId},
+        ${feedback.authorId},
+        ${feedback.authorKind},
+        ${feedback.kind},
+        ${feedback.body},
+        ${feedback.expectedVersion},
+        ${feedback.createdAt}
+      )
+    `;
+    return feedback;
+  }
+
+  async listDeliveryFeedback(projectId: string) {
+    const rows = await this.client()`
+      SELECT * FROM delivery_feedback WHERE project_id = ${projectId} ORDER BY created_at ASC
+    `;
+    return rows.map((row) => mapDeliveryFeedback(row as Row));
+  }
+
+  async addContentRequest(request: ContentRequest) {
+    await this.client()`
+      INSERT INTO content_requests(
+        id,project_id,founder_id,title,detail,status,response,created_at,resolved_at
+      )
+      VALUES (
+        ${request.id},
+        ${request.projectId},
+        ${request.founderId},
+        ${request.title},
+        ${request.detail},
+        ${request.status},
+        ${request.response ?? null},
+        ${request.createdAt},
+        ${request.resolvedAt ?? null}
+      )
+    `;
+    return request;
+  }
+
+  async getContentRequest(id: string) {
+    const rows = await this.client()`SELECT * FROM content_requests WHERE id = ${id}`;
+    return rows[0] ? mapContentRequest(rows[0] as Row) : null;
+  }
+
+  async listContentRequests(projectId: string) {
+    const rows = await this.client()`
+      SELECT * FROM content_requests WHERE project_id = ${projectId} ORDER BY created_at ASC
+    `;
+    return rows.map((row) => mapContentRequest(row as Row));
+  }
+
+  async updateContentRequest(request: ContentRequest) {
+    await this.client()`
+      UPDATE content_requests SET
+        status = ${request.status},
+        response = ${request.response ?? null},
+        resolved_at = ${request.resolvedAt ?? null}
+      WHERE id = ${request.id}
+    `;
+    return request;
+  }
+
+  async addDeliveryMilestone(milestone: DeliveryMilestone) {
+    await this.client()`
+      INSERT INTO delivery_milestones(
+        id,project_id,proposal_id,title,description,timing,sort_order,status,created_at,updated_at
+      )
+      VALUES (
+        ${milestone.id},
+        ${milestone.projectId},
+        ${milestone.proposalId},
+        ${milestone.title},
+        ${milestone.description},
+        ${milestone.timing ?? null},
+        ${milestone.sortOrder},
+        ${milestone.status},
+        ${milestone.createdAt},
+        ${milestone.updatedAt}
+      )
+    `;
+    return milestone;
+  }
+
+  async listDeliveryMilestones(projectId: string) {
+    const rows = await this.client()`
+      SELECT * FROM delivery_milestones WHERE project_id = ${projectId} ORDER BY sort_order ASC
+    `;
+    return rows.map((row) => mapDeliveryMilestone(row as Row));
+  }
+
+  async updateDeliveryMilestone(milestone: DeliveryMilestone) {
+    await this.client()`
+      UPDATE delivery_milestones SET status = ${milestone.status}, updated_at = ${milestone.updatedAt}
+      WHERE id = ${milestone.id}
+    `;
+    return milestone;
   }
 }
