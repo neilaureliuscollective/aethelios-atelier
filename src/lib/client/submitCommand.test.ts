@@ -118,6 +118,9 @@ describe("pending submit command", () => {
     expect(classifySubmitFailure({ status: 409, code: "uncertain", message: "The send completed without a readable receipt." })).toBe(
       "uncertain"
     );
+    expect(classifySubmitFailure({ status: 403, message: "forbidden" }, "verify")).toBe("uncertain");
+    expect(classifySubmitFailure({ status: 409, message: "conflict" }, "verify")).toBe("uncertain");
+    expect(classifySubmitFailure({ message: "Failed to fetch" }, "verify")).toBe("uncertain");
     delete (globalThis as { window?: unknown }).window;
   });
 });

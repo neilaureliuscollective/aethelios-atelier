@@ -1,4 +1,5 @@
 import { BrandMark } from "@/components/brand/BrandMark";
+import { AppLink } from "@/components/ui/AppLink";
 
 /** Dimensional product frame using real Atelier controls. This is the brief interface, not a client website. */
 export function HeroComposition() {
@@ -17,12 +18,16 @@ export function HeroComposition() {
           <span className="lbl">Vision</span>
           <p>A branded website that presents the business clearly and links to the booking destination already in use.</p>
         </div>
-        <div className="chips" aria-hidden="true">
-          <span className="chip" aria-pressed="true">
+        <div className="chips" role="group" aria-label="Commission paths">
+          <AppLink className="chip chip-control" href="/discover?interest=booking_connected_website">
             Booking-connected site
-          </span>
-          <span className="chip">Website</span>
-          <span className="chip">Digital infrastructure</span>
+          </AppLink>
+          <AppLink className="chip chip-control" href="/discover?interest=website">
+            Website
+          </AppLink>
+          <AppLink className="chip chip-control" href="/services#digital-infrastructure">
+            Digital infrastructure
+          </AppLink>
         </div>
         <p className="tiny composition-note">Concept of the Atelier workspace — not a completed client project.</p>
       </article>

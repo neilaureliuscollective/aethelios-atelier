@@ -56,8 +56,8 @@ export const dynamic = "force-dynamic";
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const runtime = publicRuntimeConfig();
   return (
-    <html lang="en">
-      <body className={`${display.variable} ${body.variable}`}>
+    <html lang="en" className={`${display.variable} ${body.variable}`}>
+      <body>
         <div className="atmosphere" aria-hidden="true" />
         <a className="skip-link" href="#main">
           Skip to content

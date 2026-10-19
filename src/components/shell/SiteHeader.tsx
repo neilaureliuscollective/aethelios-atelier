@@ -7,6 +7,7 @@ import { AppLink } from "@/components/ui/AppLink";
 import type { User } from "@/lib/types";
 
 const links = [
+  { href: "/discover", label: "Discover" },
   { href: "/services", label: "Services" },
   { href: "/approach", label: "Approach" },
   { href: "/about", label: "About" }
@@ -15,7 +16,11 @@ const links = [
 export function SiteHeader({ user }: { user: User | null }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const compact = pathname.startsWith("/project") || pathname.startsWith("/workspace") || pathname.startsWith("/founder");
+  const compact =
+    pathname.startsWith("/project") ||
+    pathname.startsWith("/workspace") ||
+    pathname.startsWith("/founder") ||
+    pathname.startsWith("/discover");
 
   return (
     <header className="site-header">

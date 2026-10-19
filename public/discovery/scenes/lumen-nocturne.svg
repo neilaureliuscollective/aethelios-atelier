@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" role="img" aria-hidden="true">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#14181c"/>
+      <stop offset="0.45" stop-color="#0b1014"/>
+      <stop offset="1" stop-color="#07090a"/>
+    </linearGradient>
+    <radialGradient id="moon" cx="78%" cy="18%" r="28%">
+      <stop offset="0" stop-color="#f3f0e7" stop-opacity=".9"/>
+      <stop offset="0.18" stop-color="#e8d5a3" stop-opacity=".35"/>
+      <stop offset="1" stop-color="#07090a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f0ddb0"/>
+      <stop offset="1" stop-color="#8a6a32"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1c3a32" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#0b1512" stop-opacity=".15"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#sky)"/>
+  <rect width="1600" height="1000" fill="url(#moon)"/>
+  <path d="M0 640 C220 600 340 540 520 560 C740 586 820 680 1040 670 C1220 662 1360 590 1600 610 L1600 1000 L0 1000 Z" fill="#0a0d0c"/>
+  <path d="M180 1000 L180 390 C180 250 430 150 800 150 C1170 150 1420 250 1420 390 L1420 1000" fill="none" stroke="url(#gold)" stroke-width="3"/>
+  <path d="M250 1000 L250 410 C250 290 460 210 800 210 C1140 210 1350 290 1350 410 L1350 1000" fill="url(#glass)"/>
+  <rect x="760" y="430" width="80" height="220" rx="40" fill="#07090a" stroke="#e8d5a3" stroke-opacity=".45"/>
+  <circle cx="800" cy="470" r="10" fill="#e8d5a3"/>
+  <g opacity=".35" fill="none" stroke="#e8d5a3" stroke-width="1">
+    <path d="M320 720 C480 680 620 760 800 730 C980 700 1140 760 1280 720"/>
+    <path d="M300 800 C500 760 700 840 900 800 C1100 760 1300 820 1400 790"/>
+  </g>
+  <rect x="0" y="0" width="1600" height="1000" fill="url(#gold)" opacity=".04"/>
+</svg>

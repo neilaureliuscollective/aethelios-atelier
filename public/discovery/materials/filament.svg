@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900" role="img" aria-labelledby="filTitle filDesc">
+  <title id="filTitle">Gold filament study</title>
+  <desc id="filDesc">Original gold linework over obsidian. Illustrative atmosphere only.</desc>
+  <rect width="1200" height="900" fill="#080C0B"/>
+  <g fill="none" stroke="#C7A45A" stroke-linecap="round">
+    <path d="M80 820 C200 420 320 300 600 260 C880 220 1040 360 1140 80" stroke-width="1.4" opacity="0.9"/>
+    <path d="M60 600 C260 540 400 700 640 640 C880 580 980 240 1180 200" stroke-width="1" opacity="0.55"/>
+    <path d="M140 120 C300 240 420 80 700 140 C980 200 1040 500 1180 760" stroke-width="1.2" opacity="0.7"/>
+  </g>
+  <circle cx="600" cy="260" r="5" fill="#E2C988"/>
+  <circle cx="1140" cy="80" r="4" fill="#E2C988"/>
+  <circle cx="140" cy="120" r="3" fill="#248368"/>
+</svg>

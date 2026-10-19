@@ -12,6 +12,7 @@ import {
 import { CONSENT_TEXT, INTELLIGENCE_DISPLAY_NAME, displayIntelligenceLabel } from "@/lib/copy";
 import { AppLink } from "@/components/ui/AppLink";
 import { DraftCompare } from "@/components/project/DraftCompare";
+import { DiscoveryImport } from "@/components/project/DiscoveryImport";
 import { LivingBrief } from "@/components/project/LivingBrief";
 import { SaveStatusBar } from "@/components/status/SaveStatus";
 import { api, ApiError } from "@/lib/client/api";
@@ -35,6 +36,7 @@ import {
   rejectSubmitCommand,
   type PendingSubmitCommand
 } from "@/lib/client/submitCommand";
+import { canCommitSubmitReadback, classifyVerificationFailure } from "@/lib/client/submitReadback";
 import { useSession } from "@/components/shell/SessionShell";
 import type { Brief, BriefFieldKey, ChatMessage, ClientProjectView, Project, Suggestion, User } from "@/lib/types";
 
@@ -326,6 +328,31 @@ export function GuidedBrief({
     }
   }, [guestBrief, guestId, messages, project]);
 
+  function applyImportedBrief(next: Brief) {
+    const session = sessionRef.current;
+    if (session && project) {
+      const stored = session.applyLocalEdit(next);
+      setStorageNote(
+        noteStorage(
+          stored,
+          "Browser storage is unavailable. Unconfirmed typing is only on this screen until a save succeeds."
+        )
+      );
+      if (session.reviewRequired) {
+        queueRef.current?.setReviewHold(true);
+        queueRef.current?.enqueue(next);
+        setStatus("Prepared direction was added locally. Resolve recovery before treating it as saved.");
+        return;
+      }
+      queueRef.current?.enqueue(next);
+      setStatus("Prepared direction added to this brief. Consent again before sending. Nothing has been submitted.");
+      return;
+    }
+    setGuestBrief(next);
+    setGuestConsent(false);
+    setStatus("Prepared direction added to this device draft. It has not been sent or added to an account.");
+  }
+
   function updateField(key: BriefFieldKey, value: string) {
     const next = applyClientValue(brief, key, value);
     const session = sessionRef.current;
@@ -486,13 +513,14 @@ export function GuidedBrief({
     setSubmitPending(true);
     const stillThisOperation = () => {
       const current = sessionRef.current;
-      if (!current || current.disposed) return false;
-      return (
-        submitSeqRef.current === submitToken &&
-        identitiesMatch(captured, current.identity) &&
-        ownerFence.allowsStorageWrite(captured) &&
-        ownerFence.isCurrent(captured.generation, captured.ownerId)
-      );
+      return canCommitSubmitReadback({
+        captured,
+        current: current?.identity ?? null,
+        fence: ownerFence,
+        disposed: Boolean(!current || current.disposed),
+        submitToken,
+        currentToken: submitSeqRef.current
+      });
     };
 
     try {
@@ -508,16 +536,33 @@ export function GuidedBrief({
           })
         }
       );
-      if (!ownerFence.allowsStorageWrite(captured)) return;
-      const view = await api<ClientProjectView>(`/api/projects/${command.projectId}`);
-      const verified = view.submission?.receiptId === result.receipt.receiptId;
-      if (!verified) {
-        if (stillThisOperation()) {
-          setPendingCommand(command);
-          setStatus("Submission is uncertain. Retry the same command — it will not create a second snapshot.");
-        }
+      if (!stillThisOperation()) return;
+      let view: ClientProjectView;
+      try {
+        view = await api<ClientProjectView>(`/api/projects/${command.projectId}`);
+      } catch (verifyError) {
+        classifyVerificationFailure(
+          verifyError instanceof ApiError
+            ? { status: verifyError.status, code: verifyError.code, message: verifyError.message }
+            : { message: verifyError instanceof Error ? verifyError.message : "network" }
+        );
+        if (!stillThisOperation()) return;
+        persistSubmitCommand(command);
+        setPendingCommand(command);
+        setStatus(
+          "Submission is unverified. The exact request is still pending. Retry the same command — it will not create a second snapshot."
+        );
         return;
       }
+      if (!stillThisOperation()) return;
+      const verified = view.submission?.receiptId === result.receipt.receiptId;
+      if (!verified) {
+        persistSubmitCommand(command);
+        setPendingCommand(command);
+        setStatus("Submission is uncertain. Retry the same command — it will not create a second snapshot.");
+        return;
+      }
+      if (!stillThisOperation()) return;
       archiveSubmitCommand(command, {
         receiptId: result.receipt.receiptId,
         submissionId: result.receipt.submissionId
@@ -536,9 +581,10 @@ export function GuidedBrief({
       const outcome = classifySubmitFailure(
         error instanceof ApiError
           ? { status: error.status, code: error.code, message: error.message }
-          : { message: error instanceof Error ? error.message : "network" }
+          : { message: error instanceof Error ? error.message : "network" },
+        "post"
       );
-      if (!ownerFence.allowsStorageWrite(captured)) return;
+      if (!stillThisOperation()) return;
       if (outcome === "rejected") {
         rejectSubmitCommand(
           command,
@@ -724,6 +770,14 @@ export function GuidedBrief({
             />
           ) : null}
           <p className="kicker">{project ? "Authenticated brief" : "Saved on this device"}</p>
+          <DiscoveryImport
+            brief={brief}
+            revision={project ? (draftSnap?.acknowledgedVersion ?? project.version) : null}
+            ownerId={user?.id ?? null}
+            projectId={project?.id ?? null}
+            blocked={Boolean(comparing)}
+            onApply={applyImportedBrief}
+          />
           {step < 5 ? (
             <>
               <h1 className="brief-heading">{FIELD_HINTS[visibleFields[0] ?? "vision"]}</h1>

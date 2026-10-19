@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" role="img" aria-hidden="true">
+  <defs>
+    <radialGradient id="fire" cx="50%" cy="72%" r="38%">
+      <stop offset="0" stop-color="#e8d5a3"/>
+      <stop offset=".35" stop-color="#c7a45a" stop-opacity=".7"/>
+      <stop offset="1" stop-color="#1a1612" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a231c"/>
+      <stop offset="1" stop-color="#15110e"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#wall)"/>
+  <rect x="260" y="180" width="1080" height="680" rx="18" fill="#1e1814" stroke="#c7a45a" stroke-opacity=".28"/>
+  <rect x="560" y="430" width="480" height="360" rx="8" fill="#120e0b"/>
+  <rect x="620" y="490" width="360" height="240" fill="url(#fire)"/>
+  <path d="M200 860 H1400" stroke="#a8883f" stroke-opacity=".4"/>
+  <g fill="#d9c4a0" opacity=".18">
+    <rect x="320" y="240" width="180" height="120"/>
+    <rect x="1100" y="240" width="180" height="120"/>
+  </g>
+</svg>

@@ -1,0 +1,248 @@
+.root {
+  min-height: 100%;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--c-surfaceStrong) 50%, var(--c-bg)), var(--c-bg));
+  color: var(--c-text);
+  font-family: var(--font-signal), "Syne", "Avenir Next", sans-serif;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(200px, 280px);
+  min-height: 720px;
+}
+
+.main {
+  padding: clamp(16px, 3cqi, 28px) clamp(16px, 3cqi, 28px) 48px;
+  border-right: 1px solid var(--c-rule);
+  min-width: 0;
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--c-rule) 80%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--c-rule) 80%, transparent) 1px, transparent 1px);
+  background-size: 48px 48px;
+  background-position: -1px -1px;
+}
+
+.bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.bar > span {
+  overflow-wrap: break-word;
+  max-width: min(100%, 28ch);
+}
+
+.bar nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px 8px;
+}
+
+.bar button {
+  appearance: none;
+  background: none;
+  border: 0;
+  color: var(--c-muted);
+  min-height: 44px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.bar button:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 3px;
+}
+
+.hero {
+  margin: clamp(22px, 4cqi, 36px) 0 28px;
+}
+
+.caption {
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-size: 11px;
+  color: var(--c-muted);
+}
+
+.hero h2 {
+  font-size: clamp(40px, 12cqi, 112px);
+  line-height: 0.84;
+  letter-spacing: -0.06em;
+  margin: 0;
+  text-transform: uppercase;
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: none;
+}
+
+.rule {
+  height: 8px;
+  background: var(--c-accent);
+  margin: 18px 0;
+  width: min(42%, 12rem);
+}
+
+.hero p {
+  color: var(--c-muted);
+  max-width: 46ch;
+  font-size: clamp(14px, 2cqi, 16px);
+  font-family: var(--font-body), "Figtree", sans-serif;
+}
+
+.poster {
+  position: relative;
+  display: grid;
+  min-height: 240px;
+}
+
+.poster img {
+  width: 100%;
+  height: min(36cqb, 360px);
+  min-height: 200px;
+  object-fit: cover;
+}
+
+.overlay {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 16px 18px;
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--c-bg) 82%, transparent));
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.tile {
+  min-height: 140px;
+  padding: 16px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+}
+
+.tile h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.tile p {
+  color: var(--c-muted);
+  font-family: var(--font-body), "Figtree", sans-serif;
+  font-size: 14px;
+}
+
+.timeline {
+  margin: 28px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 12px;
+}
+
+.timeline li {
+  display: grid;
+  gap: 4px;
+  padding-left: 16px;
+  border-left: 3px solid var(--c-accent);
+}
+
+.timeline p {
+  color: var(--c-muted);
+  font-family: var(--font-body), "Figtree", sans-serif;
+  margin: 0;
+}
+
+.rail {
+  padding: 22px 18px;
+  background: var(--c-surfaceStrong);
+  position: sticky;
+  top: 0;
+  align-self: stretch;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+
+.rail h3 {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.cta {
+  appearance: none;
+  min-height: 48px;
+  border: 0;
+  background: var(--c-cta);
+  color: var(--c-cta-text);
+  font: inherit;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.cta:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 3px;
+}
+
+.hint {
+  font-size: 13px;
+  color: var(--c-muted);
+  font-family: var(--font-body), "Figtree", sans-serif;
+}
+
+@container concept (max-width: 520px) {
+  .root {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+  }
+
+  .main {
+    border-right: 0;
+    background-size: 32px 32px;
+  }
+
+  .poster,
+  .tiles,
+  .timeline {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .poster img,
+  .overlay {
+    min-height: 0;
+    height: 180px;
+  }
+
+  .overlay {
+    height: auto;
+    min-height: 0;
+    padding: 14px;
+  }
+
+  .tile {
+    min-height: 0;
+  }
+
+  .rail {
+    position: static;
+    min-height: 0;
+    border-top: 8px solid var(--c-accent);
+    padding: 20px 16px 28px;
+  }
+
+  .hero h2 {
+    font-size: clamp(36px, 14cqi, 56px);
+    line-height: 0.92;
+  }
+}
