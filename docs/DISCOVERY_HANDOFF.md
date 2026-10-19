@@ -31,6 +31,10 @@ Status copy is **Direction prepared on this device**. It does not claim the dire
 
 Written intent (`intentNote`) is stored on the confirmed snapshot, included in fingerprints, shown in the recap, and mapped into the vision proposal. Editing it after confirmation marks the snapshot outdated without mutating it.
 
+Confirmation is atomic: `confirmDirection(draft, directionId, previous)` patches the intended direction and snapshots that draft in one step. Comparison “Use Hearth” cannot confirm the previously active Lumen. Preview actions carry a typed `PreviewActionContext` (`instanceId`, `directionId`, exact `draft`, `source: exploration | confirmed`). Recap dialogs stay on the confirmed snapshot after later live edits.
+
+Concept container queries use an ancestor wrapper (`container-name: concept`). Signal’s root grid can therefore collapse at 390px. Intake steps are integers 0–3 (`INTAKE_STEP_MIN` / `INTAKE_STEP_MAX`). Invalid stored steps recover to question 1 without discarding answers and without inventing a confirmation.
+
 Aethelios is named throughout new visitor copy. Live model access is not used. Diagnostic “Aethelios is available” controls are not in the visitor flow. Concepts are labeled as curated directions personalized from answers.
 
 Storage version is **2**. Version 1 envelopes still load. Missing notes stay empty; they are not invented. `clearDiscovery` only reports success after the key is gone.
@@ -66,8 +70,8 @@ import {
 
 Required behavior:
 
-1. Read a confirmed `DiscoverySelection` from discovery’s namespaced store (`aethelios.atelier.discovery.v1`) or an explicit in-memory handoff object. Never from the URL.
-2. Parse with `parseSelection`. Unknown catalog/template versions fail closed.
+1. Read a confirmed `DiscoverySelection` from discovery’s namespaced store (`aethelios.atelier.discovery.v1`) or an explicit in-memory handoff object. Never from the URL. Catalog version 1, template version 1, storage version 2. Bind later account/project import to that selection’s `selectionId` + `localRevision` and to the foundation brief’s revision.
+2. Parse with `parseSelection`. Unknown catalog/template versions fail closed. An invalid intake step is not a confirmed selection.
 3. Call `mapSelectionToBriefProposals(selection, currentBrief)`. Mapping version is **2** and includes `briefFingerprint`.
 4. Revalidate against the **current** brief at apply time, not only the brief used to generate the mapping. `applyProposals` rejects `stale_mapping` when fingerprints differ.
 5. For every proposal, require an explicit **append / replace / skip** decision. Omitted decisions fail closed. Empty fields are not auto-replaced.
