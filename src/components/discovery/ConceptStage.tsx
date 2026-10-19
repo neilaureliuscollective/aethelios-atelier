@@ -5,11 +5,13 @@ import {
   buildConceptContent,
   conceptSectionId,
   type DirectionId,
-  type DiscoveryDraft
+  type DiscoveryDraft,
+  type PreviewActionContext
 } from "@/lib/discovery";
 import { HearthConcept } from "./concepts/HearthConcept";
 import { LumenConcept } from "./concepts/LumenConcept";
 import { SignalConcept } from "./concepts/SignalConcept";
+import frame from "./concepts/frame.module.css";
 
 function scrollWithinPreview(instanceId: string, section: string) {
   const scroller = document.querySelector<HTMLElement>(`[data-preview-device="${instanceId}"]`);
@@ -27,12 +29,14 @@ export function ConceptStage({
   instanceId,
   draft,
   directionId,
+  source = "exploration",
   onAction
 }: {
   instanceId: string;
   draft: DiscoveryDraft;
   directionId: DirectionId;
-  onAction: (directionId: DirectionId) => void;
+  source?: PreviewActionContext["source"];
+  onAction: (context: PreviewActionContext) => void;
 }) {
   const content = buildConceptContent(draft, directionId);
   const onSection = useCallback((section: string) => {
@@ -43,10 +47,20 @@ export function ConceptStage({
     content,
     paletteId: draft.paletteId,
     visualDirectionId: draft.visualDirectionId,
-    onAction: () => onAction(directionId),
+    onAction: () => onAction({ instanceId, directionId, draft, source }),
     onSection
   };
-  if (directionId === "hearth") return <HearthConcept {...props} />;
-  if (directionId === "signal") return <SignalConcept {...props} />;
-  return <LumenConcept {...props} />;
+  const concept =
+    directionId === "hearth" ? (
+      <HearthConcept {...props} />
+    ) : directionId === "signal" ? (
+      <SignalConcept {...props} />
+    ) : (
+      <LumenConcept {...props} />
+    );
+  return (
+    <div className={frame.frame} data-concept-container={instanceId} data-preview-source={source}>
+      {concept}
+    </div>
+  );
 }

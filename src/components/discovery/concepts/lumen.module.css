@@ -1,6 +1,4 @@
 .root {
-  container-type: inline-size;
-  container-name: concept;
   min-height: 100%;
   background: var(--c-bg);
   color: var(--c-text);
