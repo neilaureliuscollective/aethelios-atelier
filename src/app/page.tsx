@@ -1,6 +1,7 @@
 import { AppLink } from "@/components/ui/AppLink";
 import { CalendarIcon, GlobeIcon, NodesIcon } from "@/components/ui/Icons";
 import { HeroComposition } from "@/components/marketing/HeroComposition";
+import { Reveal } from "@/components/motion/Reveal";
 import { SERVICE_CATALOG } from "@/lib/catalog";
 
 export default function HomePage() {
@@ -24,18 +25,18 @@ export default function HomePage() {
             scopes, and delivers. No subscription is required to start.
           </p>
           <div className="hero-actions">
-            <AppLink className="btn btn-gold" href="/project">
-              Begin your project
+            <AppLink className="btn btn-gold" href="/discover">
+              Explore your direction
             </AppLink>
-            <AppLink className="btn btn-ghost" href="/approach">
-              How it works
+            <AppLink className="btn btn-ghost" href="/project">
+              Begin your project
             </AppLink>
           </div>
         </div>
         <HeroComposition />
       </section>
 
-      <section className="container section" aria-labelledby="services-heading">
+      <Reveal as="section" className="container section" delay={1}>
         <div className="section-head">
           <p className="kicker">What Atelier delivers</p>
           <h2 id="services-heading">A focused offer, held open to what comes next.</h2>
@@ -46,28 +47,35 @@ export default function HomePage() {
           </p>
         </div>
         <div className="offer-mosaic">
-          <article className="surface-dimensional offer-card offer-website">
-            <GlobeIcon />
-            <h3>{website?.title}</h3>
-            <p className="muted">{website?.summary}</p>
-          </article>
-          <article className="surface-dimensional offer-card offer-booking">
-            <CalendarIcon />
-            <p className="tiny">Primary path</p>
-            <h3>{booking?.title}</h3>
-            <p className="muted">{booking?.summary}</p>
-            <p className="notice">Your existing booking provider continues to handle the bookings.</p>
-          </article>
-          <article className="surface-dense offer-card offer-infra">
-            <NodesIcon />
-            <p className="tiny">Exploratory</p>
-            <h3>{infra?.title}</h3>
-            <p className="muted">{infra?.summary}</p>
-          </article>
+          <AppLink className="offer-link" href="/discover?interest=website">
+            <article className="surface-dimensional offer-card offer-website">
+              <GlobeIcon />
+              <h3>{website?.title}</h3>
+              <p className="muted">{website?.summary}</p>
+              <p className="tiny">Open discovery for a branded website</p>
+            </article>
+          </AppLink>
+          <AppLink className="offer-link" href="/discover?interest=booking_connected_website">
+            <article className="surface-dimensional offer-card offer-booking">
+              <CalendarIcon />
+              <p className="tiny">Primary path</p>
+              <h3>{booking?.title}</h3>
+              <p className="muted">{booking?.summary}</p>
+              <p className="notice">Your existing booking provider continues to handle the bookings.</p>
+            </article>
+          </AppLink>
+          <AppLink className="offer-link" href="/services#digital-infrastructure">
+            <article className="surface-read offer-card offer-infra">
+              <NodesIcon />
+              <p className="tiny">Exploratory</p>
+              <h3>{infra?.title}</h3>
+              <p className="muted">{infra?.summary}</p>
+            </article>
+          </AppLink>
         </div>
-      </section>
+      </Reveal>
 
-      <section className="container section" aria-labelledby="path-heading">
+      <Reveal as="section" className="container section" delay={2}>
         <div className="section-head">
           <p className="kicker">A considered process</p>
           <h2 id="path-heading">A clear path from idea to execution.</h2>
@@ -77,22 +85,24 @@ export default function HomePage() {
           </p>
         </div>
         <div className="process">
-          {[
-            ["01", "Brief", "Describe the business, audience, and destination. Conversation and a structured path are both available."],
-            ["02", "Founder review", "Neil personally opens accepted submissions. Review starts only when he begins it."],
-            ["03", "Agreed scope", "A tailored scope, if the work is a fit. Estimates before this point are nonbinding."],
-            ["04", "Build", "Design, develop, and refine with you. Unlimited custom work is not offered."]
-          ].map(([num, title, copy]) => (
-            <article className="surface-glass process-card" key={num}>
-              <div className="num">{num}</div>
-              <h3>{title}</h3>
-              <p className="muted">{copy}</p>
-            </article>
+          {([
+            ["01", "Discover", "Try on a direction. Personalized previews stay on this device until you choose to add them to a brief.", "/discover"],
+            ["02", "Brief", "Describe the business, audience, and destination. Conversation and a structured path are both available.", "/project"],
+            ["03", "Founder review", "Neil personally opens accepted submissions. Review starts only when he begins it.", "/approach"],
+            ["04", "Build", "Design, develop, and refine with you. Unlimited custom work is not offered.", "/approach"]
+          ] as const).map(([num, title, copy, href], index) => (
+            <AppLink className="offer-link" href={href} key={num}>
+              <article className={`surface-read process-card reveal-delay-${index}`}>
+                <div className="num">{num}</div>
+                <h3>{title}</h3>
+                <p className="muted">{copy}</p>
+              </article>
+            </AppLink>
           ))}
         </div>
-      </section>
+      </Reveal>
 
-      <section className="container section" aria-labelledby="founder-heading">
+      <Reveal as="section" className="container section" variant="material">
         <div className="founder-band surface-dimensional">
           <div>
             <p className="kicker">Founder-led</p>
@@ -103,7 +113,7 @@ export default function HomePage() {
               for scope, price, and delivery.
             </p>
             <AppLink className="btn btn-gold" href="/project">
-              Begin your project
+              Begin a brief
             </AppLink>
           </div>
           <figure className="founder-emblem">
@@ -117,7 +127,7 @@ export default function HomePage() {
             />
           </figure>
         </div>
-      </section>
+      </Reveal>
     </>
   );
 }

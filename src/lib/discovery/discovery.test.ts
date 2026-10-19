@@ -220,7 +220,7 @@ describe("discovery selection", () => {
     expect(resetName.paletteId).toBe("ivory_hall");
     const resetPalette = resetField(draft, "paletteId");
     expect(resetPalette.businessName).toBe("Meridian Sitting Room");
-    expect(resetPalette.paletteId).toBe("ivory_hall");
+    expect(resetPalette.paletteId).toBe("nocturne");
   });
 
   it("toggles favorites and qualities independently", () => {
@@ -230,6 +230,14 @@ describe("discovery selection", () => {
     draft = toggleQuality(draft, "bold");
     expect(draft.favorites).toEqual([]);
     expect(draft.qualities).toContain("bold");
+  });
+
+  it("defaults new sessions to nocturne without recoloring a confirmed ivory_hall snapshot", () => {
+    expect(createDraft().paletteId).toBe("nocturne");
+    expect(createDraft().activeDirectionId).toBe("lumen");
+    const confirmed = confirmSelection(sampleDraft(), null);
+    expect(confirmed.visualPreferences.paletteId).toBe("ivory_hall");
+    expect(parseSelection(confirmed)?.visualPreferences.paletteId).toBe("ivory_hall");
   });
 
   it("rejects unknown catalog versions and malformed selections without inventing missing values", () => {

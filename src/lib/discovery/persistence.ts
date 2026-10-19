@@ -1,4 +1,5 @@
 import {
+  DISCOVERY_HANDOFF_KEY,
   DISCOVERY_STORAGE_KEY,
   DISCOVERY_STORAGE_VERSION,
   INTAKE_STEP_MAX,
@@ -177,6 +178,38 @@ export function clearDiscovery(storage: MemoryStorage | null, key = DISCOVERY_ST
     return { ok: false, state: "unavailable", reason: "Storage could not confirm that the saved sketch was removed." };
   }
   return { ok: true, state: "memory", envelope: null };
+}
+
+export function writeDiscoveryHandoff(selection: DiscoverySelection, storage: MemoryStorage | null = sessionMemory()) {
+  if (!storage) return { ok: false as const };
+  try {
+    storage.setItem(DISCOVERY_HANDOFF_KEY, JSON.stringify({ kind: "discovery_handoff", selection }));
+    return { ok: true as const };
+  } catch {
+    return { ok: false as const };
+  }
+}
+
+export function readDiscoveryHandoff(storage: MemoryStorage | null = sessionMemory()): DiscoverySelection | null {
+  if (!storage) return null;
+  try {
+    const raw = storage.getItem(DISCOVERY_HANDOFF_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { kind?: string; selection?: unknown };
+    if (parsed.kind !== "discovery_handoff") return null;
+    return parseSelection(parsed.selection);
+  } catch {
+    return null;
+  }
+}
+
+export function sessionMemory(): MemoryStorage | null {
+  try {
+    if (typeof window === "undefined" || !window.sessionStorage) return null;
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
 }
 
 export function browserStorage(): MemoryStorage | null {

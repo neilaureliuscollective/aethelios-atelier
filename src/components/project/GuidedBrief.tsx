@@ -12,6 +12,7 @@ import {
 import { CONSENT_TEXT, INTELLIGENCE_DISPLAY_NAME, displayIntelligenceLabel } from "@/lib/copy";
 import { AppLink } from "@/components/ui/AppLink";
 import { DraftCompare } from "@/components/project/DraftCompare";
+import { DiscoveryImport } from "@/components/project/DiscoveryImport";
 import { LivingBrief } from "@/components/project/LivingBrief";
 import { SaveStatusBar } from "@/components/status/SaveStatus";
 import { api, ApiError } from "@/lib/client/api";
@@ -325,6 +326,31 @@ export function GuidedBrief({
       setStorageNote("This browser blocked on-device storage. The fields on this screen are not saved yet.");
     }
   }, [guestBrief, guestId, messages, project]);
+
+  function applyImportedBrief(next: Brief) {
+    const session = sessionRef.current;
+    if (session && project) {
+      const stored = session.applyLocalEdit(next);
+      setStorageNote(
+        noteStorage(
+          stored,
+          "Browser storage is unavailable. Unconfirmed typing is only on this screen until a save succeeds."
+        )
+      );
+      if (session.reviewRequired) {
+        queueRef.current?.setReviewHold(true);
+        queueRef.current?.enqueue(next);
+        setStatus("Prepared direction was added locally. Resolve recovery before treating it as saved.");
+        return;
+      }
+      queueRef.current?.enqueue(next);
+      setStatus("Prepared direction added to this brief. Consent again before sending. Nothing has been submitted.");
+      return;
+    }
+    setGuestBrief(next);
+    setGuestConsent(false);
+    setStatus("Prepared direction added to this device draft. It has not been sent or added to an account.");
+  }
 
   function updateField(key: BriefFieldKey, value: string) {
     const next = applyClientValue(brief, key, value);
@@ -724,6 +750,12 @@ export function GuidedBrief({
             />
           ) : null}
           <p className="kicker">{project ? "Authenticated brief" : "Saved on this device"}</p>
+          <DiscoveryImport
+            brief={brief}
+            revision={project ? (draftSnap?.acknowledgedVersion ?? project.version) : null}
+            blocked={Boolean(comparing)}
+            onApply={applyImportedBrief}
+          />
           {step < 5 ? (
             <>
               <h1 className="brief-heading">{FIELD_HINTS[visibleFields[0] ?? "vision"]}</h1>

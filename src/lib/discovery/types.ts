@@ -5,6 +5,7 @@ export const DISCOVERY_TEMPLATE_VERSION = 1;
 export const DISCOVERY_STORAGE_VERSION = 2;
 export const SUPPORTED_STORAGE_VERSIONS = [1, 2] as const;
 export const DISCOVERY_STORAGE_KEY = "aethelios.atelier.discovery.v1";
+export const DISCOVERY_HANDOFF_KEY = "aethelios.atelier.discovery.handoff.v1";
 
 export const DISCOVERY_PHASES = [
   "enter",

@@ -36,7 +36,7 @@ function createBareDraft(): DiscoveryDraft {
     customerFeeling: "",
     qualities: [],
     headline: "",
-    paletteId: "ivory_hall",
+    paletteId: "nocturne",
     visualDirectionId: "glass",
     activeDirectionId: "lumen",
     serviceInterest: "unspecified",

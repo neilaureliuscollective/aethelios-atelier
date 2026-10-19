@@ -3,6 +3,7 @@
 import { conceptSectionId, type ConceptContent, type PaletteId, type VisualDirectionId } from "@/lib/discovery";
 import { paletteStyle } from "./paletteStyle";
 import { platesFor } from "./plates";
+import { ScenePlate } from "./ScenePlate";
 import styles from "./hearth.module.css";
 
 export function HearthConcept({
@@ -20,7 +21,7 @@ export function HearthConcept({
   onAction: () => void;
   onSection: (section: string) => void;
 }) {
-  const plates = platesFor(visualDirectionId);
+  const plates = platesFor(visualDirectionId, "hearth");
   return (
     <article
       className={styles.root}
@@ -53,8 +54,20 @@ export function HearthConcept({
           <p>{content.opening}</p>
           <p>{content.atmosphere}</p>
           <div className={styles.stack} id={conceptSectionId(instanceId, "image")}>
-            <img src={plates.primary} alt={plates.alt} width={1200} height={900} loading="lazy" decoding="async" />
-            <img src={plates.secondary} alt="" width={900} height={900} loading="lazy" decoding="async" />
+            <ScenePlate
+              src={plates.primary}
+              fallbackSrc={plates.fallback}
+              alt={plates.alt}
+              width={plates.width}
+              height={plates.height}
+            />
+            <ScenePlate
+              src={plates.secondary}
+              fallbackSrc={plates.fallback}
+              alt=""
+              width={1200}
+              height={900}
+            />
           </div>
           <p className={styles.caption}>{content.imageCaption}</p>
         </section>

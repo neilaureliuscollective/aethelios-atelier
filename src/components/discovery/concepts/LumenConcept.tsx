@@ -3,6 +3,7 @@
 import { conceptSectionId, type ConceptContent, type PaletteId, type VisualDirectionId } from "@/lib/discovery";
 import { paletteStyle } from "./paletteStyle";
 import { platesFor } from "./plates";
+import { ScenePlate } from "./ScenePlate";
 import styles from "./lumen.module.css";
 
 export function LumenConcept({
@@ -20,7 +21,7 @@ export function LumenConcept({
   onAction: () => void;
   onSection: (section: string) => void;
 }) {
-  const plates = platesFor(visualDirectionId);
+  const plates = platesFor(visualDirectionId, "lumen");
   return (
     <article
       className={styles.root}
@@ -53,7 +54,13 @@ export function LumenConcept({
         <p>{content.atmosphere}</p>
       </section>
       <figure className={styles.plate} id={conceptSectionId(instanceId, "image")}>
-        <img src={plates.primary} alt={plates.alt} width={1200} height={900} loading="lazy" decoding="async" />
+        <ScenePlate
+          src={plates.primary}
+          fallbackSrc={plates.fallback}
+          alt={plates.alt}
+          width={plates.width}
+          height={plates.height}
+        />
         <figcaption>{content.imageCaption}</figcaption>
       </figure>
       <section className={styles.services} id={conceptSectionId(instanceId, "services")}>

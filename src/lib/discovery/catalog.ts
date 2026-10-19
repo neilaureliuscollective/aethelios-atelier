@@ -125,38 +125,38 @@ export const PALETTES: Record<PaletteId, PaletteTokens> = {
     id: "nocturne",
     label: "Nocturne",
     summary: "Obsidian ground, ivory type, warm gold edges.",
-    preview: ["#080C0B", "#C7A45A", "#F3F0E7"],
+      preview: ["#080C0B", "#E8D5A3", "#C7A45A"],
     vars: {
-      bg: "#080C0B",
-      surface: "#121A17",
-      surfaceStrong: "#102E25",
+      bg: "#07090A",
+      surface: "#121416",
+      surfaceStrong: "#1A1712",
       text: "#F3F0E7",
-      muted: "#A7B6AC",
-      accent: "#E2C988",
+      muted: "#B7B1A4",
+      accent: "#E8D5A3",
       accentText: "#1A1408",
-      border: "rgba(199, 164, 90, 0.34)",
+      border: "rgba(232, 213, 163, 0.34)",
       cta: "#C7A45A",
       ctaText: "#1A1408",
-      rule: "rgba(243, 240, 231, 0.14)"
+      rule: "rgba(232, 213, 163, 0.18)"
     }
   },
   ivory_hall: {
     id: "ivory_hall",
     label: "Ivory hall",
-    summary: "Warm paper, charcoal type, deep emerald signals.",
-    preview: ["#F3F0E7", "#0B4635", "#121A17"],
+    summary: "Warm paper, charcoal type, gold as a thin editorial edge.",
+    preview: ["#F3F0E7", "#C7A45A", "#121A17"],
     vars: {
-      bg: "#F3F0E7",
-      surface: "#E8E4D6",
-      surfaceStrong: "#D9E3DC",
-      text: "#121A17",
-      muted: "#3F4C46",
-      accent: "#0B4635",
+      bg: "#F4F0E6",
+      surface: "#EBE4D4",
+      surfaceStrong: "#E3D8C4",
+      text: "#161410",
+      muted: "#5A5348",
+      accent: "#8A6A32",
       accentText: "#F3F0E7",
-      border: "rgba(18, 26, 23, 0.16)",
-      cta: "#0B4635",
+      border: "rgba(18, 20, 16, 0.14)",
+      cta: "#1A1408",
       ctaText: "#F3F0E7",
-      rule: "rgba(18, 26, 23, 0.12)"
+      rule: "rgba(18, 20, 16, 0.12)"
     }
   },
   hearth_linen: {
@@ -165,9 +165,9 @@ export const PALETTES: Record<PaletteId, PaletteTokens> = {
     summary: "Charcoal walls, sage quiet, pale gold warmth.",
     preview: ["#121A17", "#A7B6AC", "#E2C988"],
     vars: {
-      bg: "#161410",
-      surface: "#1E241F",
-      surfaceStrong: "#243028",
+      bg: "#1A1612",
+      surface: "#241E18",
+      surfaceStrong: "#2C241C",
       text: "#F3F0E7",
       muted: "#A7B6AC",
       accent: "#E2C988",
@@ -184,9 +184,9 @@ export const PALETTES: Record<PaletteId, PaletteTokens> = {
     summary: "Smoked emerald, ivory reading, gold as a thin edge.",
     preview: ["#102E25", "#F3F0E7", "#C7A45A"],
     vars: {
-      bg: "#0C221C",
-      surface: "#102E25",
-      surfaceStrong: "#0B4635",
+      bg: "#0A1210",
+      surface: "#121C18",
+      surfaceStrong: "#163028",
       text: "#F3F0E7",
       muted: "#A7B6AC",
       accent: "#C7A45A",
@@ -257,14 +257,14 @@ export const DIRECTIONS: Record<DirectionId, DirectionDefinition> = {
     id: "lumen",
     name: "Lumen",
     epithet: "The quiet room",
-    defaultPalette: "ivory_hall",
+    defaultPalette: "nocturne",
     defaultVisual: "glass",
     qualities: ["refined", "contemporary"],
     feeling: "Unhurried and considered — a visitor is given space before they are asked for anything.",
     emphasis:
-      "Editorial opening, one composed image, and services as a measured list rather than a catalog.",
+      "Cinematic editorial opening, layered atmosphere, and services as a measured list rather than a catalog.",
     customerAction: "Request a sitting — a demonstration of the path, not a live booking.",
-    layout: "Stacked editorial column with monumental type and hairline rules."
+    layout: "Stacked editorial column with monumental type, photographic depth, and hairline rules."
   },
   hearth: {
     id: "hearth",

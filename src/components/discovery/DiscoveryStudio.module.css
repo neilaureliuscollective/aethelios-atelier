@@ -29,27 +29,27 @@
 }
 
 .glowA {
-  width: 52vw;
-  height: 52vw;
-  right: -8vw;
-  top: -12vw;
-  background: radial-gradient(circle, rgba(36, 131, 104, 0.28), transparent 64%);
+  width: 46%;
+  height: 42%;
+  right: -6%;
+  top: -10%;
+  background: radial-gradient(circle, rgba(232, 213, 163, 0.12), transparent 64%);
   transform: translateZ(0);
 }
 
 .glowB {
-  width: 40vw;
-  height: 40vw;
-  left: -10vw;
-  top: 8vh;
-  background: radial-gradient(circle, rgba(11, 70, 53, 0.4), transparent 70%);
+  width: 32%;
+  height: 36%;
+  left: -8%;
+  top: 10%;
+  background: radial-gradient(circle, rgba(36, 131, 104, 0.1), transparent 70%);
 }
 
 .glowC {
-  width: 60vw;
-  height: 28vw;
-  left: 10vw;
-  bottom: -8vw;
+  width: 50%;
+  height: 24%;
+  left: 12%;
+  bottom: -8%;
   background: radial-gradient(circle, rgba(199, 164, 90, 0.1), transparent 68%);
 }
 
@@ -418,14 +418,14 @@
 
 .studio {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 280px;
   gap: 18px;
   align-items: start;
 }
 
 .studioWide {
   display: grid;
-  grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 280px);
 }
 
 .rail,
@@ -467,10 +467,11 @@
 .previewShell {
   border-radius: 28px;
   padding: 14px;
-  background: linear-gradient(180deg, rgba(18, 26, 23, 0.8), rgba(8, 12, 11, 0.94));
+  background: linear-gradient(180deg, rgba(18, 20, 22, 0.86), rgba(8, 12, 11, 0.94));
   border: 1px solid color-mix(in srgb, var(--d-gold) 28%, transparent);
   min-height: 720px;
   box-shadow: 0 28px 70px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(226, 201, 136, 0.14);
+  transition: box-shadow 320ms ease, opacity 320ms ease;
 }
 
 .previewShell[data-mode="mobile"] {
@@ -513,7 +514,7 @@
 
 .comparePanel[data-active="true"] {
   border-color: color-mix(in srgb, var(--d-gold) 55%, transparent);
-  background: color-mix(in srgb, var(--d-deep) 22%, transparent);
+  background: color-mix(in srgb, var(--d-charcoal) 70%, transparent);
   box-shadow: inset 3px 0 0 var(--d-gold);
 }
 
@@ -582,7 +583,7 @@
 .chip[aria-pressed="true"],
 .chip[aria-checked="true"],
 .chip[aria-current="true"] {
-  background: color-mix(in srgb, var(--d-emerald) 30%, var(--d-charcoal));
+  background: color-mix(in srgb, var(--d-gold) 22%, var(--d-charcoal));
   color: var(--d-pale);
 }
 
@@ -700,7 +701,7 @@
     position: static;
   }
   .studio > .rail {
-    order: 0;
+    order: -1;
     position: static;
   }
   .stickyPrimary {
@@ -803,7 +804,7 @@
 }
 
 .radioChip:has(:checked) {
-  background: color-mix(in srgb, var(--d-emerald) 30%, var(--d-charcoal));
+  background: color-mix(in srgb, var(--d-gold) 22%, var(--d-charcoal));
   color: var(--d-pale);
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
+import { trustedSpecFromDiscovery } from "@/lib/design-spec";
 import {
   buildConceptContent,
   conceptSectionId,
@@ -21,7 +22,7 @@ function scrollWithinPreview(instanceId: string, section: string) {
   const targetRect = target.getBoundingClientRect();
   scroller.scrollTo({
     top: scroller.scrollTop + (targetRect.top - scrollerRect.top),
-    behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"
+    behavior: "auto"
   });
 }
 
@@ -38,6 +39,7 @@ export function ConceptStage({
   source?: PreviewActionContext["source"];
   onAction: (context: PreviewActionContext) => void;
 }) {
+  const spec = trustedSpecFromDiscovery(draft, directionId);
   const content = buildConceptContent(draft, directionId);
   const onSection = useCallback((section: string) => {
     scrollWithinPreview(instanceId, section);
@@ -45,8 +47,8 @@ export function ConceptStage({
   const props = {
     instanceId,
     content,
-    paletteId: draft.paletteId,
-    visualDirectionId: draft.visualDirectionId,
+    paletteId: spec.paletteId,
+    visualDirectionId: spec.visualDirectionId,
     onAction: () => onAction({ instanceId, directionId, draft, source }),
     onSection
   };

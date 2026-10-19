@@ -9,6 +9,7 @@ import {
   useState,
   type CSSProperties
 } from "react";
+import { AppLink } from "@/components/ui/AppLink";
 import {
   DIRECTION_ORDER,
   DIRECTIONS,
@@ -25,6 +26,7 @@ import {
   currentGuideView,
   defaultPaletteFor,
   hasUnpublishedChanges,
+  isServiceInterestId,
   mapSelectionToBriefProposals,
   patchDraft,
   previewInstanceId,
@@ -35,6 +37,7 @@ import {
   toggleFavorite,
   toggleQuality,
   writeDiscovery,
+  writeDiscoveryHandoff,
   type DirectionId,
   type DiscoveryDraft,
   type DiscoveryPhase,
@@ -172,6 +175,7 @@ export function DiscoveryStudio() {
 
   useEffect(() => {
     const result = readDiscovery(browserStorage());
+    const interest = new URLSearchParams(window.location.search).get("interest");
     if (result.ok && result.state === "opted_in" && result.envelope) {
       dispatch({
         type: "hydrate",
@@ -189,6 +193,8 @@ export function DiscoveryStudio() {
           status: result.notice ?? ""
         }
       });
+    } else if (isServiceInterestId(interest)) {
+      dispatch({ type: "patch", patch: { serviceInterest: interest } });
     } else if (!result.ok) {
       dispatch({
         type: "persist",
@@ -258,6 +264,7 @@ export function DiscoveryStudio() {
 
   const confirm = useCallback((directionId: DirectionId = state.draft.activeDirectionId) => {
     const result = confirmDirection(state.draft, directionId, state.confirmed);
+    writeDiscoveryHandoff(result.selection);
     dispatch({ type: "confirm", draft: result.draft, selection: result.selection });
   }, [state.draft, state.confirmed]);
 
@@ -271,7 +278,7 @@ export function DiscoveryStudio() {
       <div className={styles.frame}>
         <div className={styles.innerNav}>
           <div className={styles.brandLockup}>
-            <img src="/discovery/brand/icon.webp" alt="" width={36} height={36} />
+            <img src="/brand/icon.webp" alt="" width={36} height={36} />
             <span className={styles.brandCopy}>
               <strong>AETHELIOS</strong>
               <span>Discovery studio</span>
@@ -301,9 +308,8 @@ export function DiscoveryStudio() {
         <div className={styles.guide} data-state={guide.state} aria-live="polite">
           <div className={styles.chipRow}>
             <span className={styles.badge}>{guide.labeled === "curated" ? "Curated" : "Live model"}</span>
-            <strong>{guide.title}</strong>
+            <strong>Personalized from your answers. Not live model output.</strong>
           </div>
-          <p className={styles.fine}>{guide.body}</p>
         </div>
 
         <p className={styles.status} role="status">
@@ -836,16 +842,6 @@ function StudioBody({
 
   return (
     <section className={`${styles.studio} ${comparing ? "" : styles.studioWide}`.trim()}>
-      <aside className={styles.rail} data-mobile-dock="true">
-        <div className={styles.solid}>
-          <p className={styles.kicker}>Studio controls</p>
-          <h2 className={styles.heading} data-discovery-heading tabIndex={-1}>
-            {comparing ? "Compare" : "Shape this direction"}
-          </h2>
-          <StudioControls {...controlProps} />
-        </div>
-      </aside>
-
       <div className={styles.previewColumn}>
         {comparing ? (
           <>
@@ -953,6 +949,15 @@ function StudioBody({
           />
         )}
       </div>
+      <aside className={styles.rail} data-mobile-dock="true">
+        <div className={styles.solid}>
+          <p className={styles.kicker}>Studio controls</p>
+          <h2 className={styles.heading} data-discovery-heading tabIndex={-1}>
+            {comparing ? "Compare" : "Shape this direction"}
+          </h2>
+          <StudioControls {...controlProps} />
+        </div>
+      </aside>
     </section>
   );
 }
@@ -1074,6 +1079,9 @@ function ReviewBody({
           <button className={`${styles.btn} ${styles.btnGold}`} type="button" onClick={() => onConfirm()}>
             Use this direction
           </button>
+          <AppLink className={`${styles.btn} ${styles.btnGhost}`} href="/project">
+            Add to your brief
+          </AppLink>
           <button className={`${styles.btn} ${styles.btnGhost}`} type="button" onClick={onCopy} disabled={!mapping}>
             Copy summary
           </button>

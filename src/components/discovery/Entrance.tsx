@@ -1,5 +1,6 @@
 "use client";
 
+import { AppLink } from "@/components/ui/AppLink";
 import styles from "./DiscoveryStudio.module.css";
 
 export function Entrance({ onExplore }: { onExplore: () => void }) {
@@ -20,6 +21,9 @@ export function Entrance({ onExplore }: { onExplore: () => void }) {
           <button className={`${styles.btn} ${styles.btnGold}`} type="button" onClick={onExplore}>
             Explore your direction
           </button>
+          <AppLink className={`${styles.btn} ${styles.btnGhost}`} href="/project">
+            I already know what I need
+          </AppLink>
         </div>
         <p className={styles.fine}>
           Aethelios is the product and the in-app intelligence. Live guidance is not on in this
@@ -29,7 +33,7 @@ export function Entrance({ onExplore }: { onExplore: () => void }) {
         </p>
         <img
           className={styles.wordmark}
-          src="/discovery/brand/logo.webp"
+          src="/brand/logo.webp"
           alt="Aethelios Atelier"
           width={256}
           height={256}
@@ -47,8 +51,8 @@ export function Entrance({ onExplore }: { onExplore: () => void }) {
             <span>Preview stage · not a live website</span>
           </div>
           <div className={styles.mini}>
-            <div style={{ padding: "28px 26px 36px", color: "#121A17" }}>
-              <p style={{ letterSpacing: "0.22em", fontSize: 11, textTransform: "uppercase", color: "#3F4C46" }}>
+            <div style={{ padding: "28px 26px 36px", color: "#F3F0E7", background: "#07090A" }}>
+              <p style={{ letterSpacing: "0.22em", fontSize: 11, textTransform: "uppercase", color: "#E8D5A3" }}>
                 Your business
               </p>
               <h2
@@ -62,14 +66,14 @@ export function Entrance({ onExplore }: { onExplore: () => void }) {
               >
                 A quieter way to be found.
               </h2>
-              <p style={{ color: "#3F4C46", maxWidth: "36ch" }}>
-                An editorial opening, a composed atmosphere, and a clear next step toward the booking
-                tool you already use.
+              <p style={{ color: "#B7B1A4", maxWidth: "36ch" }}>
+                A cinematic editorial opening, composed atmosphere, and a clear next step toward the
+                booking tool you already use.
               </p>
               <img
-                src="/discovery/materials/arch.svg"
+                src="/discovery/scenes/lumen-nocturne.svg"
                 alt=""
-                width={1200}
+                width={1600}
                 height={420}
                 style={{ marginTop: 22, height: 220, objectFit: "cover", borderRadius: 4 }}
               />

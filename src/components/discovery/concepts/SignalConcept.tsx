@@ -3,6 +3,7 @@
 import { conceptSectionId, type ConceptContent, type PaletteId, type VisualDirectionId } from "@/lib/discovery";
 import { paletteStyle } from "./paletteStyle";
 import { platesFor } from "./plates";
+import { ScenePlate } from "./ScenePlate";
 import styles from "./signal.module.css";
 
 export function SignalConcept({
@@ -20,7 +21,7 @@ export function SignalConcept({
   onAction: () => void;
   onSection: (section: string) => void;
 }) {
-  const plates = platesFor(visualDirectionId);
+  const plates = platesFor(visualDirectionId, "signal");
   return (
     <article
       className={styles.root}
@@ -55,7 +56,13 @@ export function SignalConcept({
           <p>{content.atmosphere}</p>
         </section>
         <section className={styles.poster} id={conceptSectionId(instanceId, "image")}>
-          <img src={plates.primary} alt={plates.alt} width={1200} height={900} loading="lazy" decoding="async" />
+          <ScenePlate
+            src={plates.primary}
+            fallbackSrc={plates.fallback}
+            alt={plates.alt}
+            width={plates.width}
+            height={plates.height}
+          />
           <div className={styles.overlay}>
             <p className={styles.caption}>{content.imageCaption}</p>
           </div>
