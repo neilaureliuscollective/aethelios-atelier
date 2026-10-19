@@ -8,8 +8,8 @@ export const runtime = "nodejs";
 export async function GET() {
   try {
     const auth = await requireSession();
-    const service = new ProjectService(getStore());
-    return json({ ok: true, queue: service.founderQueue(auth.user) });
+    const service = new ProjectService(await getStore());
+    return json({ ok: true, queue: await service.founderQueue(auth.user) });
   } catch (error) {
     return handleError(error);
   }

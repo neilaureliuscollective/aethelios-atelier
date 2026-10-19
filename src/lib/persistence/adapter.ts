@@ -12,58 +12,63 @@ import type {
   User
 } from "@/lib/types";
 
+export type PersistenceKind = "sqlite_local" | "memory" | "postgres";
+
+export type MaybePromise<T> = T | Promise<T>;
+
 export type PersistenceAdapter = {
-  readonly kind: "sqlite_local" | "memory";
+  readonly kind: PersistenceKind;
   readonly labeled: true;
   ready(): boolean;
-  resetForTests(): void;
-  runInTransaction<T>(fn: () => T): T;
+  ping(): MaybePromise<void>;
+  resetForTests(): MaybePromise<void>;
+  runInTransaction<T>(fn: () => MaybePromise<T>): Promise<T>;
 
-  upsertUser(user: User): User;
-  getUserById(id: string): User | null;
-  getUserByEmail(email: string): User | null;
-  listUsers(): User[];
+  upsertUser(user: User): MaybePromise<User>;
+  getUserById(id: string): MaybePromise<User | null>;
+  getUserByEmail(email: string): MaybePromise<User | null>;
+  listUsers(): MaybePromise<User[]>;
 
-  createSession(session: Session): Session;
-  getSession(id: string): Session | null;
-  deleteSession(id: string): void;
+  createSession(session: Session): MaybePromise<Session>;
+  getSession(id: string): MaybePromise<Session | null>;
+  deleteSession(id: string): MaybePromise<void>;
 
-  createProject(project: Project): Project;
-  getProject(id: string): Project | null;
-  listProjectsByOwner(ownerId: string): Project[];
-  listSubmittedProjects(): Project[];
-  getProjectByOwnerAndGuestDraft(ownerId: string, guestDraftId: string): Project | null;
-  updateProject(project: Project): Project;
-  getSubmissionByIdempotencyKey(key: string): Submission | null;
+  createProject(project: Project): MaybePromise<Project>;
+  getProject(id: string): MaybePromise<Project | null>;
+  listProjectsByOwner(ownerId: string): MaybePromise<Project[]>;
+  listSubmittedProjects(): MaybePromise<Project[]>;
+  getProjectByOwnerAndGuestDraft(ownerId: string, guestDraftId: string): MaybePromise<Project | null>;
+  updateProject(project: Project): MaybePromise<Project>;
+  getSubmissionByIdempotencyKey(key: string): MaybePromise<Submission | null>;
 
-  createSubmission(submission: Submission): Submission;
-  getSubmission(id: string): Submission | null;
-  getSubmissionByIdempotency(projectId: string, key: string): Submission | null;
-  listSubmissions(projectId: string): Submission[];
+  createSubmission(submission: Submission): MaybePromise<Submission>;
+  getSubmission(id: string): MaybePromise<Submission | null>;
+  getSubmissionByIdempotency(projectId: string, key: string): MaybePromise<Submission | null>;
+  listSubmissions(projectId: string): MaybePromise<Submission[]>;
 
-  addMessage(message: ChatMessage): ChatMessage;
-  listMessages(projectId: string): ChatMessage[];
+  addMessage(message: ChatMessage): MaybePromise<ChatMessage>;
+  listMessages(projectId: string): MaybePromise<ChatMessage[]>;
 
-  addSuggestion(suggestion: Suggestion): Suggestion;
-  getSuggestion(id: string): Suggestion | null;
-  listSuggestions(projectId: string): Suggestion[];
-  updateSuggestion(suggestion: Suggestion): Suggestion;
+  addSuggestion(suggestion: Suggestion): MaybePromise<Suggestion>;
+  getSuggestion(id: string): MaybePromise<Suggestion | null>;
+  listSuggestions(projectId: string): MaybePromise<Suggestion[]>;
+  updateSuggestion(suggestion: Suggestion): MaybePromise<Suggestion>;
 
-  addFounderNote(note: FounderNote): FounderNote;
-  listFounderNotes(projectId: string): FounderNote[];
-  updateFounderNote(note: FounderNote): FounderNote;
+  addFounderNote(note: FounderNote): MaybePromise<FounderNote>;
+  listFounderNotes(projectId: string): MaybePromise<FounderNote[]>;
+  updateFounderNote(note: FounderNote): MaybePromise<FounderNote>;
 
-  addClientUpdate(update: ClientUpdate): ClientUpdate;
-  listClientUpdates(projectId: string): ClientUpdate[];
+  addClientUpdate(update: ClientUpdate): MaybePromise<ClientUpdate>;
+  listClientUpdates(projectId: string): MaybePromise<ClientUpdate[]>;
 
-  addClarificationResponse(response: ClarificationResponse): ClarificationResponse;
-  listClarificationResponses(projectId: string): ClarificationResponse[];
+  addClarificationResponse(response: ClarificationResponse): MaybePromise<ClarificationResponse>;
+  listClarificationResponses(projectId: string): MaybePromise<ClarificationResponse[]>;
 
-  addReviewEvent(event: ReviewEvent): ReviewEvent;
-  listReviewEvents(projectId: string): ReviewEvent[];
+  addReviewEvent(event: ReviewEvent): MaybePromise<ReviewEvent>;
+  listReviewEvents(projectId: string): MaybePromise<ReviewEvent[]>;
 
-  putLedger(entry: RequestLedgerEntry): RequestLedgerEntry;
-  getLedger(id: string): RequestLedgerEntry | null;
+  putLedger(entry: RequestLedgerEntry): MaybePromise<RequestLedgerEntry>;
+  getLedger(id: string): MaybePromise<RequestLedgerEntry | null>;
 
-  countAssistantMessagesSince(projectId: string, isoSince: string): number;
+  countAssistantMessagesSince(projectId: string, isoSince: string): MaybePromise<number>;
 };

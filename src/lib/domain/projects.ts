@@ -46,7 +46,7 @@ function stripPrivate<T extends { privateNotes?: FounderNote[] }>(view: T) {
 export class ProjectService {
   constructor(private readonly store: PersistenceAdapter) {}
 
-  createProject(owner: User, brief?: Brief, guestDraftId?: string) {
+  async createProject(owner: User, brief?: Brief, guestDraftId?: string) {
     const normalized = normalizeBrief(brief ?? createEmptyBrief());
     const stamp = now();
     const project: Project = {
@@ -63,18 +63,18 @@ export class ProjectService {
     return this.store.createProject(project);
   }
 
-  adoptGuestDraft(owner: User, draft: GuestDraft, confirmed: boolean) {
+  async adoptGuestDraft(owner: User, draft: GuestDraft, confirmed: boolean) {
     if (!confirmed) {
       throw new ForbiddenError("Guest drafts are not adopted until you confirm the review.");
     }
     if (draft.kind !== "guest_draft") {
       throw new ForbiddenError("Only labeled guest drafts can be adopted.");
     }
-    const existing = this.store.getProjectByOwnerAndGuestDraft(owner.id, draft.draftId);
+    const existing = await this.store.getProjectByOwnerAndGuestDraft(owner.id, draft.draftId);
     if (existing) return existing;
-    const project = this.createProject(owner, draft.brief, draft.draftId);
+    const project = await this.createProject(owner, draft.brief, draft.draftId);
     for (const message of draft.messages) {
-      this.store.addMessage({
+      await this.store.addMessage({
         id: createId("msg"),
         projectId: project.id,
         authorKind: message.authorKind,
@@ -87,32 +87,36 @@ export class ProjectService {
     return project;
   }
 
-  listForOwner(user: User) {
+  async listForOwner(user: User) {
     return this.store.listProjectsByOwner(user.id);
   }
 
-  getOwnedProject(id: string, user: User) {
-    const project = this.store.getProject(id);
+  async getOwnedProject(id: string, user: User) {
+    const project = await this.store.getProject(id);
     if (!project) throw new NotFoundError("Project not found.");
     assertOwner(project, user);
     return project;
   }
 
-  clientView(id: string, user: User): ClientProjectView {
-    const project = this.getOwnedProject(id, user);
-    return this.buildClientView(project, { user, session: { id: "", userId: user.id, createdAt: "", expiresAt: "" }, adapter: "simulated" });
+  async clientView(id: string, user: User): Promise<ClientProjectView> {
+    const project = await this.getOwnedProject(id, user);
+    return this.buildClientView(project, {
+      user,
+      session: { id: "", userId: user.id, createdAt: "", expiresAt: "" },
+      adapter: "simulated"
+    });
   }
 
-  founderView(id: string, founder: User): FounderProjectView {
+  async founderView(id: string, founder: User): Promise<FounderProjectView> {
     assertFounder(founder);
-    const project = this.store.getProject(id);
+    const project = await this.store.getProject(id);
     if (!project) throw new NotFoundError("Project not found.");
-    const owner = this.store.getUserById(project.ownerId);
+    const owner = await this.store.getUserById(project.ownerId);
     if (!owner) throw new NotFoundError("Owner not found.");
-    const base = this.buildClientView(project, null);
+    const base = await this.buildClientView(project, null);
     return {
       ...base,
-      privateNotes: this.store.listFounderNotes(project.id),
+      privateNotes: await this.store.listFounderNotes(project.id),
       owner: {
         id: owner.id,
         email: owner.email,
@@ -122,12 +126,14 @@ export class ProjectService {
     };
   }
 
-  founderQueue(founder: User) {
+  async founderQueue(founder: User) {
     assertFounder(founder);
-    return this.store.listSubmittedProjects().map((project) => {
-      const owner = this.store.getUserById(project.ownerId);
-      const reviews = this.store.listReviewEvents(project.id);
-      return {
+    const projects = await this.store.listSubmittedProjects();
+    const queue = [];
+    for (const project of projects) {
+      const owner = await this.store.getUserById(project.ownerId);
+      const reviews = await this.store.listReviewEvents(project.id);
+      queue.push({
         id: project.id,
         title: briefTitle(project.brief),
         status: project.status,
@@ -136,18 +142,19 @@ export class ProjectService {
         owner: owner
           ? { id: owner.id, email: owner.email, displayName: owner.displayName, adapter: owner.adapter }
           : null
-      };
-    });
+      });
+    }
+    return queue;
   }
 
-  saveBrief(
+  async saveBrief(
     projectId: string,
     user: User,
     brief: Brief,
     expectedVersion: number,
     localGeneration?: number
   ) {
-    const project = this.getOwnedProject(projectId, user);
+    const project = await this.getOwnedProject(projectId, user);
     if (project.version !== expectedVersion) {
       throw new ConflictError(
         "The saved brief is newer than this edit. Your latest typing was not overwritten.",
@@ -163,11 +170,11 @@ export class ProjectService {
       version: project.version + 1,
       updatedAt: stamp
     };
-    const saved = this.store.updateProject(next);
+    const saved = await this.store.updateProject(next);
     return { project: saved, appliedLocalGeneration: localGeneration ?? null };
   }
 
-  submit(
+  async submit(
     projectId: string,
     user: User,
     consent: boolean,
@@ -183,9 +190,9 @@ export class ProjectService {
     if (!Number.isInteger(expectedVersion) || expectedVersion < 1) {
       throw new ForbiddenError("Consent must name the exact saved revision under review.");
     }
-    const project = this.getOwnedProject(projectId, user);
+    const project = await this.getOwnedProject(projectId, user);
     const ledgerId = `${user.id}:${idempotencyKey}`;
-    const prior = this.store.getLedger(ledgerId);
+    const prior = await this.store.getLedger(ledgerId);
     if (prior?.ownerId && prior.ownerId !== user.id) {
       throw new ForbiddenError("This retry belongs to another account.");
     }
@@ -194,8 +201,8 @@ export class ProjectService {
     }
 
     const existing =
-      this.store.getSubmissionByIdempotency(projectId, idempotencyKey) ??
-      this.store.getSubmissionByIdempotencyKey(idempotencyKey);
+      (await this.store.getSubmissionByIdempotency(projectId, idempotencyKey)) ??
+      (await this.store.getSubmissionByIdempotencyKey(idempotencyKey));
     if (existing) {
       if (existing.ownerId !== user.id) {
         throw new ForbiddenError("This retry belongs to another account.");
@@ -209,7 +216,7 @@ export class ProjectService {
       if (existing.consentText !== CONSENT_TEXT) {
         throw new ConflictError("This retry key was issued for a different consent record.");
       }
-      const readBack = this.store.getSubmission(existing.id);
+      const readBack = await this.store.getSubmission(existing.id);
       if (!readBack?.receiptId) {
         throw new ConflictError("A receipt could not be independently read back.");
       }
@@ -233,22 +240,22 @@ export class ProjectService {
       throw new ConflictError("This retry key was issued for a different reviewed snapshot.");
     }
 
-    return this.store.runInTransaction(() => {
-      const insideExisting = this.store.getSubmissionByIdempotency(projectId, idempotencyKey);
+    return this.store.runInTransaction(async () => {
+      const insideExisting = await this.store.getSubmissionByIdempotency(projectId, idempotencyKey);
       if (insideExisting) {
         if (insideExisting.reviewedVersion !== expectedVersion || insideExisting.consentText !== CONSENT_TEXT) {
           throw new ConflictError("This retry key was issued for a different reviewed snapshot.");
         }
         return { submission: insideExisting, duplicate: true as const };
       }
-      const current = this.getOwnedProject(projectId, user);
+      const current = await this.getOwnedProject(projectId, user);
       if (current.version !== expectedVersion) {
         throw new ConflictError(
           "This consent applies to a different saved revision. Save the brief, review it, and send that exact version.",
           current.version
         );
       }
-      this.store.putLedger({
+      await this.store.putLedger({
         id: ledgerId,
         ownerId: user.id,
         projectId,
@@ -260,7 +267,7 @@ export class ProjectService {
       });
       const stamp = now();
       const snapshot = structuredClone(current.brief);
-      const created = this.store.createSubmission({
+      const created = await this.store.createSubmission({
         id: createId("sub"),
         projectId: current.id,
         ownerId: user.id,
@@ -274,17 +281,17 @@ export class ProjectService {
         reviewedVersion: expectedVersion,
         payloadHash
       });
-      this.store.updateProject({
+      await this.store.updateProject({
         ...current,
         status: current.status === "draft" ? "submitted" : current.status,
         latestSubmissionId: created.id,
         updatedAt: stamp
       });
-      const readBack = this.store.getSubmission(created.id);
+      const readBack = await this.store.getSubmission(created.id);
       if (!readBack?.receiptId) {
         throw new ConflictError("Submission stored but the receipt could not be independently confirmed.");
       }
-      this.store.putLedger({
+      await this.store.putLedger({
         id: ledgerId,
         ownerId: user.id,
         projectId,
@@ -299,10 +306,10 @@ export class ProjectService {
     });
   }
 
-  markUncertain(ownerId: string, idempotencyKey: string, projectId: string, operation: string) {
+  async markUncertain(ownerId: string, idempotencyKey: string, projectId: string, operation: string) {
     const ledgerId = `${ownerId}:${idempotencyKey}`;
-    const prior = this.store.getLedger(ledgerId);
-    this.store.putLedger({
+    const prior = await this.store.getLedger(ledgerId);
+    await this.store.putLedger({
       id: ledgerId,
       ownerId,
       projectId,
@@ -315,8 +322,8 @@ export class ProjectService {
     });
   }
 
-  addClientMessage(projectId: string, user: User, body: string) {
-    this.getOwnedProject(projectId, user);
+  async addClientMessage(projectId: string, user: User, body: string) {
+    await this.getOwnedProject(projectId, user);
     return this.store.addMessage({
       id: createId("msg"),
       projectId,
@@ -327,7 +334,7 @@ export class ProjectService {
     });
   }
 
-  addSystemMessage(projectId: string, body: string, liveAi = false, metadata?: ChatMessage["metadata"]) {
+  async addSystemMessage(projectId: string, body: string, liveAi = false, metadata?: ChatMessage["metadata"]) {
     return this.store.addMessage({
       id: createId("msg"),
       projectId,
@@ -339,15 +346,15 @@ export class ProjectService {
     });
   }
 
-  proposeSuggestion(
+  async proposeSuggestion(
     projectId: string,
     fieldKey: BriefFieldKey,
     proposedValue: string,
     rationale?: string
   ) {
-    const project = this.store.getProject(projectId);
+    const project = await this.store.getProject(projectId);
     if (!project) throw new NotFoundError();
-    const suggestion = this.store.addSuggestion({
+    const suggestion = await this.store.addSuggestion({
       id: createId("sug"),
       projectId,
       fieldKey,
@@ -363,26 +370,26 @@ export class ProjectService {
       pendingSuggestionId: suggestion.id,
       unresolvedQuestion: brief[fieldKey].unresolvedQuestion
     };
-    this.store.updateProject({ ...project, brief, updatedAt: now() });
+    await this.store.updateProject({ ...project, brief, updatedAt: now() });
     return suggestion;
   }
 
-  resolveSuggestion(
+  async resolveSuggestion(
     projectId: string,
     suggestionId: string,
     user: User,
     action: "accept" | "reject" | "edit",
     editedValue?: string
   ) {
-    const project = this.getOwnedProject(projectId, user);
-    const suggestion = this.store.getSuggestion(suggestionId);
+    const project = await this.getOwnedProject(projectId, user);
+    const suggestion = await this.store.getSuggestion(suggestionId);
     if (!suggestion || suggestion.projectId !== projectId) {
       throw new NotFoundError("Suggestion not found.");
     }
     const stamp = now();
     const nextStatus = action === "accept" ? "accepted" : action === "reject" ? "rejected" : "edited";
     const updated: Suggestion = { ...suggestion, status: nextStatus, resolvedAt: stamp };
-    this.store.updateSuggestion(updated);
+    await this.store.updateSuggestion(updated);
     const brief = { ...project.brief };
     const field = { ...brief[suggestion.fieldKey] };
     if (action === "accept") {
@@ -400,7 +407,7 @@ export class ProjectService {
       }
     }
     brief[suggestion.fieldKey] = field;
-    this.store.updateProject({
+    await this.store.updateProject({
       ...project,
       brief,
       title: briefTitle(brief),
@@ -410,23 +417,23 @@ export class ProjectService {
     return updated;
   }
 
-  startReview(projectId: string, founder: User) {
+  async startReview(projectId: string, founder: User) {
     assertFounder(founder);
-    const project = this.store.getProject(projectId);
+    const project = await this.store.getProject(projectId);
     if (!project) throw new NotFoundError();
     if (!project.latestSubmissionId) {
       throw new ForbiddenError("Review can begin only after a submitted snapshot exists.");
     }
-    const existing = this.store.listReviewEvents(projectId);
+    const existing = await this.store.listReviewEvents(projectId);
     if (existing.length) return existing[0]!;
-    const event = this.store.addReviewEvent({
+    const event = await this.store.addReviewEvent({
       id: createId("rev"),
       projectId,
       founderId: founder.id,
       kind: "review_started",
       createdAt: now()
     });
-    this.store.updateProject({
+    await this.store.updateProject({
       ...project,
       status: "founder_reviewing",
       updatedAt: now()
@@ -434,14 +441,14 @@ export class ProjectService {
     return event;
   }
 
-  addPrivateNote(
+  async addPrivateNote(
     projectId: string,
     founder: User,
     body: string,
     kind: FounderNote["kind"] = "private_note"
   ) {
     assertFounder(founder);
-    const project = this.store.getProject(projectId);
+    const project = await this.store.getProject(projectId);
     if (!project) throw new NotFoundError();
     return this.store.addFounderNote({
       id: createId("note"),
@@ -455,7 +462,7 @@ export class ProjectService {
     });
   }
 
-  publishUpdate(
+  async publishUpdate(
     projectId: string,
     founder: User,
     kind: ClientUpdateKind,
@@ -463,9 +470,9 @@ export class ProjectService {
     requiresResponse?: boolean
   ) {
     assertFounder(founder);
-    const project = this.store.getProject(projectId);
+    const project = await this.store.getProject(projectId);
     if (!project) throw new NotFoundError();
-    const update = this.store.addClientUpdate({
+    const update = await this.store.addClientUpdate({
       id: createId("upd"),
       projectId,
       founderId: founder.id,
@@ -477,17 +484,17 @@ export class ProjectService {
     let status = project.status;
     if (kind === "clarification") status = "clarification_requested";
     if (kind === "decision") status = "decision_published";
-    this.store.updateProject({ ...project, status, updatedAt: now() });
+    await this.store.updateProject({ ...project, status, updatedAt: now() });
     return update;
   }
 
-  respondToClarification(projectId: string, user: User, updateId: string, body: string) {
-    const project = this.getOwnedProject(projectId, user);
-    const update = this.store.listClientUpdates(projectId).find((item) => item.id === updateId);
+  async respondToClarification(projectId: string, user: User, updateId: string, body: string) {
+    const project = await this.getOwnedProject(projectId, user);
+    const update = (await this.store.listClientUpdates(projectId)).find((item) => item.id === updateId);
     if (!update || update.kind !== "clarification") {
       throw new NotFoundError("Clarification not found.");
     }
-    const response = this.store.addClarificationResponse({
+    const response = await this.store.addClarificationResponse({
       id: createId("clr"),
       updateId,
       projectId,
@@ -496,8 +503,8 @@ export class ProjectService {
       createdAt: now()
     });
     if (project.status === "clarification_requested") {
-      const reviews = this.store.listReviewEvents(projectId);
-      this.store.updateProject({
+      const reviews = await this.store.listReviewEvents(projectId);
+      await this.store.updateProject({
         ...project,
         status: reviews.length ? "founder_reviewing" : "submitted",
         updatedAt: now()
@@ -506,18 +513,18 @@ export class ProjectService {
     return response;
   }
 
-  private buildClientView(project: Project, auth: AuthContext | null): ClientProjectView {
+  private async buildClientView(project: Project, auth: AuthContext | null): Promise<ClientProjectView> {
     const submission = project.latestSubmissionId
-      ? this.store.getSubmission(project.latestSubmissionId)
-      : this.store.listSubmissions(project.id).at(-1) ?? null;
-    const reviews = this.store.listReviewEvents(project.id);
+      ? await this.store.getSubmission(project.latestSubmissionId)
+      : (await this.store.listSubmissions(project.id)).at(-1) ?? null;
+    const reviews = await this.store.listReviewEvents(project.id);
     return toClientView(
       {
         project,
-        suggestions: this.store.listSuggestions(project.id),
-        messages: this.store.listMessages(project.id),
-        updates: this.store.listClientUpdates(project.id),
-        clarificationResponses: this.store.listClarificationResponses(project.id),
+        suggestions: await this.store.listSuggestions(project.id),
+        messages: await this.store.listMessages(project.id),
+        updates: await this.store.listClientUpdates(project.id),
+        clarificationResponses: await this.store.listClarificationResponses(project.id),
         submission,
         reviewStartedAt: reviews[0]?.createdAt ?? null
       },

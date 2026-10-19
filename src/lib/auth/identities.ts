@@ -25,12 +25,12 @@ export const SIMULATED_USERS: Array<Omit<User, "createdAt">> = [
   }
 ];
 
-export function seedSimulatedUsers(store: PersistenceAdapter, founderEmails: string[]) {
+export async function seedSimulatedUsers(store: PersistenceAdapter, founderEmails: string[]) {
   const now = new Date().toISOString();
   for (const seed of SIMULATED_USERS) {
-    const existing = store.getUserByEmail(seed.email);
+    const existing = await store.getUserByEmail(seed.email);
     const role = founderEmails.includes(seed.email.toLowerCase()) ? "founder" : seed.role;
-    store.upsertUser({
+    await store.upsertUser({
       ...(existing ?? { createdAt: now }),
       ...seed,
       role,

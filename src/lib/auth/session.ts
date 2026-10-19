@@ -17,17 +17,17 @@ export async function readSession(): Promise<AuthContext | null> {
   if (!sessionId) return null;
   let store;
   try {
-    store = getStore();
+    store = await getStore();
   } catch {
     return null;
   }
-  const session = store.getSession(sessionId);
+  const session = await store.getSession(sessionId);
   if (!session) return null;
   if (new Date(session.expiresAt).getTime() < Date.now()) {
-    store.deleteSession(session.id);
+    await store.deleteSession(session.id);
     return null;
   }
-  const user = store.getUserById(session.userId);
+  const user = await store.getUserById(session.userId);
   if (!user) return null;
   return { user, session, adapter: "simulated" };
 }
@@ -54,13 +54,13 @@ export async function createSimulatedSession(email: string): Promise<AuthContext
       "Auth is not configured. No hosted identity provider is connected."
     );
   }
-  const store = getStore();
-  const user = store.getUserByEmail(email);
+  const store = await getStore();
+  const user = await store.getUserByEmail(email);
   if (!user) {
     throw new UnconfiguredError("That simulated identity is not available.");
   }
   const now = Date.now();
-  const session = store.createSession({
+  const session = await store.createSession({
     id: createId("sess"),
     userId: user.id,
     createdAt: new Date(now).toISOString(),
@@ -82,7 +82,7 @@ export async function clearSession() {
   const sessionId = jar.get(SESSION_COOKIE)?.value;
   if (sessionId) {
     try {
-      getStore().deleteSession(sessionId);
+      await (await getStore()).deleteSession(sessionId);
     } catch {
       // Persistence may be unconfigured during sign-out; still clear the cookie.
     }

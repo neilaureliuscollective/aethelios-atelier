@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   devIndicators: false,
   typedRoutes: true,
-  serverExternalPackages: [],
+  serverExternalPackages: ["postgres"],
   images: {
     formats: ["image/webp"],
     dangerouslyAllowSVG: false

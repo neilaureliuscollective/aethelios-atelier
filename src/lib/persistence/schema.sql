@@ -1,5 +1,6 @@
 -- Additive local schema candidate for Aethelios Atelier.
--- Canonical runtime implementation: src/lib/persistence/sqlite.ts
+-- Canonical local runtime: src/lib/persistence/sqlite.ts
+-- Hosted Postgres: src/lib/persistence/schema.postgres.sql and src/lib/persistence/postgres.ts
 -- Do not apply this to the Aethelios production database.
 
 CREATE TABLE IF NOT EXISTS users (

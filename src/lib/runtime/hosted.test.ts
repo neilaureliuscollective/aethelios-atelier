@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { parseOriginHostname, simulatedAuthAllowed } from "@/lib/runtime/hosted";
+import {
+  hostedEphemeralPersistenceReason,
+  parseOriginHostname,
+  readDatabaseUrl,
+  simulatedAuthAllowed
+} from "@/lib/runtime/hosted";
 
 describe("isolated-local simulator gate", () => {
   it("refuses simulated auth on a hosted platform even if adapter settings are copied", () => {
@@ -149,5 +154,22 @@ describe("isolated-local simulator gate", () => {
         ATELIER_PUBLIC_ORIGIN: "https://atelier.example.com"
       }).allowed
     ).toBe(false);
+  });
+
+  it("refuses sqlite and memory on Vercel and prefers dedicated postgres URLs", () => {
+    expect(hostedEphemeralPersistenceReason("sqlite_local", { VERCEL: "1" })).toMatch(/postgres/i);
+    expect(hostedEphemeralPersistenceReason("memory", { VERCEL: "1" })).toMatch(/ephemeral/i);
+    expect(hostedEphemeralPersistenceReason("postgres", { VERCEL: "1" })).toBeNull();
+    expect(hostedEphemeralPersistenceReason("sqlite_local", {})).toBeNull();
+    expect(
+      readDatabaseUrl({
+        ATELIER_DATABASE_URL: "postgres://dedicated",
+        POSTGRES_URL: "postgres://vercel",
+        DATABASE_URL: "postgres://generic"
+      })
+    ).toBe("postgres://dedicated");
+    expect(readDatabaseUrl({ POSTGRES_URL: "postgres://vercel", DATABASE_URL: "postgres://generic" })).toBe(
+      "postgres://vercel"
+    );
   });
 });

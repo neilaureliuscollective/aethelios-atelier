@@ -16,9 +16,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const auth = await requireSession();
     const { id } = await context.params;
     const body = bodySchema.parse(await readJson(request));
-    const store = getStore();
+    const store = await getStore();
     const projects = new ProjectService(store);
-    const project = projects.getOwnedProject(id, auth.user);
+    const project = await projects.getOwnedProject(id, auth.user);
     const aurelius = new AureliusBoundary(store, projects);
     const result = await aurelius.reply({
       project,
@@ -26,7 +26,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       message: body.body,
       signal: request.signal
     });
-    const view = projects.clientView(id, auth.user);
+    const view = await projects.clientView(id, auth.user);
     return json({
       ok: true,
       liveAi: result.liveAi,

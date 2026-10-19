@@ -4,13 +4,13 @@ This application is a standalone product. It does not import Aethelios, Carreón
 
 ## Stack decision
 
-Next.js 15 (App Router) + React 19 + TypeScript is the maintainable typed stack for a website that *is* the application: routes, server-validated APIs, and a PWA shell in one codebase. Persistence uses `node:sqlite` (Node 22) behind an adapter interface, with an in-memory adapter for tests. Auth is a labeled simulated-identity adapter. OpenAI is an optional server-only boundary and stays off unless `ATELIER_OPENAI_ENABLED=true` and `OPENAI_API_KEY` are both set.
+Next.js 15 (App Router) + React 19 + TypeScript is the maintainable typed stack for a website that *is* the application: routes, server-validated APIs, and a PWA shell in one codebase. Persistence uses `node:sqlite` (Node 22) locally, an in-memory adapter for tests, and a dedicated Postgres adapter (`postgres`) for Vercel / Neon. Auth is a labeled simulated-identity adapter on isolated local machines and is refused on hosted platforms until a real provider is connected. OpenAI is an optional server-only boundary and stays off unless `ATELIER_OPENAI_ENABLED=true` and `OPENAI_API_KEY` are both set.
 
 ## Adapters
 
 | Concern | Local candidate | Hosted later |
 | --- | --- | --- |
-| Persistence | `sqlite_local` in `.data/atelier.sqlite` | Dedicated Atelier database — never the Aethelios production DB |
+| Persistence | `sqlite_local` in `.data/atelier.sqlite` | Dedicated Atelier Postgres (`ATELIER_PERSISTENCE_ADAPTER=postgres` + `DATABASE_URL` / `POSTGRES_URL`) — never the Aethelios production DB. sqlite and memory are refused on Vercel. |
 | Auth | Simulated identities | Real identity provider |
 | In-app intelligence (Aethelios; internal `aurelius` identifiers) | Disabled unless explicitly enabled | Same boundary, with spend approval |
 | Billing | Isolated module, not activated | Future Stripe work in `src/lib/billing/boundary.ts` only |
@@ -29,4 +29,6 @@ Unconfigured adapters fail closed and report the missing connection instead of s
 
 ## Schema
 
-See `src/lib/persistence/schema.sql` and `src/lib/persistence/sqlite.ts`. Additive only. Do not apply to a shared production database.
+See `src/lib/persistence/schema.sql`, `src/lib/persistence/schema.postgres.sql`, `src/lib/persistence/sqlite.ts`, and `src/lib/persistence/postgres.ts`. Additive only. Do not apply to a shared production database.
+
+Hosted deployment steps: `docs/VERCEL.md`.

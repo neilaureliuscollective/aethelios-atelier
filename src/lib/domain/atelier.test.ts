@@ -10,12 +10,12 @@ import { MemoryPersistence } from "@/lib/persistence/memory";
 import { seedSimulatedUsers } from "@/lib/auth/identities";
 import type { User } from "@/lib/types";
 
-function setup() {
+async function setup() {
   const store = new MemoryPersistence();
-  seedSimulatedUsers(store, ["neil.local@atelier.invalid"]);
-  const owner = store.getUserByEmail("owner.local@atelier.invalid") as User;
-  const other = store.getUserByEmail("owner-two.local@atelier.invalid") as User;
-  const founder = store.getUserByEmail("neil.local@atelier.invalid") as User;
+  await seedSimulatedUsers(store, ["neil.local@atelier.invalid"]);
+  const owner = (await store.getUserByEmail("owner.local@atelier.invalid")) as User;
+  const other = (await store.getUserByEmail("owner-two.local@atelier.invalid")) as User;
+  const founder = (await store.getUserByEmail("neil.local@atelier.invalid")) as User;
   const service = new ProjectService(store);
   return { store, owner, other, founder, service };
 }
@@ -34,8 +34,8 @@ describe("commission lifecycle", () => {
     process.env = { ...originalEnv };
   });
 
-  it("adopts a guest draft only after explicit confirmation and keeps later edits off the snapshot", () => {
-    const { owner, service } = setup();
+  it("adopts a guest draft only after explicit confirmation and keeps later edits off the snapshot", async () => {
+    const { owner, service } = await setup();
     const guest = createGuestDraft();
     guest.brief.vision.value = "A calm studio site that links to my existing booking page.";
     guest.brief.vision.provenance = "client_statement";
@@ -49,9 +49,9 @@ describe("commission lifecycle", () => {
       createdAt: new Date().toISOString()
     });
 
-    expect(() => service.adoptGuestDraft(owner, guest, false)).toThrow(ForbiddenError);
+    await expect(service.adoptGuestDraft(owner, guest, false)).rejects.toBeInstanceOf(ForbiddenError);
 
-    const project = service.adoptGuestDraft(owner, guest, true);
+    const project = await service.adoptGuestDraft(owner, guest, true);
     expect(project.ownerId).toBe(owner.id);
     expect(project.adoptedFromGuestId).toBe(guest.draftId);
     expect(project.status).toBe("draft");
@@ -59,7 +59,7 @@ describe("commission lifecycle", () => {
     const parsed = parseGuestDraft(guest);
     expect(parsed?.kind).toBe("guest_draft");
 
-    const saved = service.saveBrief(
+    const saved = await service.saveBrief(
       project.id,
       owner,
       {
@@ -73,7 +73,7 @@ describe("commission lifecycle", () => {
       project.version
     );
 
-    const { submission } = service.submit(
+    const { submission } = await service.submit(
       saved.project.id,
       owner,
       true,
@@ -84,8 +84,8 @@ describe("commission lifecycle", () => {
     expect(submission.consentText).toBe(CONSENT_TEXT);
     expect(submission.snapshot.bookingProvider.value).toBe("Square Appointments");
 
-    const submittedProject = service.getOwnedProject(saved.project.id, owner);
-    service.saveBrief(
+    const submittedProject = await service.getOwnedProject(saved.project.id, owner);
+    await service.saveBrief(
       saved.project.id,
       owner,
       {
@@ -99,7 +99,7 @@ describe("commission lifecycle", () => {
       submittedProject.version
     );
 
-    const view = service.clientView(project.id, owner);
+    const view = await service.clientView(project.id, owner);
     expect(view.submission?.snapshot.bookingProvider.value).toBe("Square Appointments");
     expect(view.project.brief.bookingProvider.value).toContain("Edited after submit");
     expect(view.reviewStartedAt).toBeNull();
@@ -107,10 +107,10 @@ describe("commission lifecycle", () => {
     expect(view.project.status).toBe("submitted");
   });
 
-  it("denies a second user and keeps founder notes out of the client view", () => {
-    const { owner, other, founder, service } = setup();
-    const project = service.createProject(owner, createEmptyBrief());
-    service.saveBrief(
+  it("denies a second user and keeps founder notes out of the client view", async () => {
+    const { owner, other, founder, service } = await setup();
+    const project = await service.createProject(owner, createEmptyBrief());
+    await service.saveBrief(
       project.id,
       owner,
       {
@@ -119,69 +119,76 @@ describe("commission lifecycle", () => {
       },
       1
     );
-    service.submit(project.id, owner, true, "idem-2", 2);
+    await service.submit(project.id, owner, true, "idem-2", 2);
 
-    expect(() => service.clientView(project.id, other)).toThrow(ForbiddenError);
-    expect(() => service.saveBrief(project.id, other, project.brief, 2)).toThrow(ForbiddenError);
-    expect(() => service.founderQueue(owner)).toThrow(ForbiddenError);
-    expect(() => service.founderView(project.id, owner)).toThrow(ForbiddenError);
+    await expect(service.clientView(project.id, other)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(service.saveBrief(project.id, other, project.brief, 2)).rejects.toBeInstanceOf(
+      ForbiddenError
+    );
+    await expect(service.founderQueue(owner)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(service.founderView(project.id, owner)).rejects.toBeInstanceOf(ForbiddenError);
 
-    const note = service.addPrivateNote(project.id, founder, "Internal price sketch 8400 — never publish", "internal_proposal");
+    const note = await service.addPrivateNote(
+      project.id,
+      founder,
+      "Internal price sketch 8400 — never publish",
+      "internal_proposal"
+    );
     expect(note.kind).toBe("internal_proposal");
 
-    const client = service.clientView(project.id, owner);
+    const client = await service.clientView(project.id, owner);
     expect("privateNotes" in client).toBe(false);
     expect(JSON.stringify(client)).not.toContain("8400");
     expect(JSON.stringify(client)).not.toContain("Internal price");
 
-    const founderView = service.founderView(project.id, founder);
+    const founderView = await service.founderView(project.id, founder);
     expect(founderView.privateNotes[0]?.body).toContain("Internal price sketch");
   });
 
-  it("does not show founder review until an authorized review event", () => {
-    const { owner, founder, service } = setup();
-    const project = service.createProject(owner);
-    service.submit(project.id, owner, true, "idem-review", 1);
-    const before = service.clientView(project.id, owner);
+  it("does not show founder review until an authorized review event", async () => {
+    const { owner, founder, service } = await setup();
+    const project = await service.createProject(owner);
+    await service.submit(project.id, owner, true, "idem-review", 1);
+    const before = await service.clientView(project.id, owner);
     expect(before.reviewStartedAt).toBeNull();
     expect(before.nextStep.code).toBe("awaiting_founder_receipt");
 
-    service.startReview(project.id, founder);
-    const after = service.clientView(project.id, owner);
+    await service.startReview(project.id, founder);
+    const after = await service.clientView(project.id, owner);
     expect(after.reviewStartedAt).toBeTruthy();
     expect(after.project.status).toBe("founder_reviewing");
     expect(after.nextStep.code).toBe("founder_is_reviewing");
   });
 
-  it("publishes clarifications to the owner and keeps retries idempotent", () => {
-    const { owner, founder, service } = setup();
-    const project = service.createProject(owner);
-    const first = service.submit(project.id, owner, true, "same-key", 1);
-    const second = service.submit(project.id, owner, true, "same-key", 1);
+  it("publishes clarifications to the owner and keeps retries idempotent", async () => {
+    const { owner, founder, service } = await setup();
+    const project = await service.createProject(owner);
+    const first = await service.submit(project.id, owner, true, "same-key", 1);
+    const second = await service.submit(project.id, owner, true, "same-key", 1);
     expect(second.duplicate).toBe(true);
     expect(second.submission.id).toBe(first.submission.id);
 
-    service.startReview(project.id, founder);
-    const update = service.publishUpdate(
+    await service.startReview(project.id, founder);
+    const update = await service.publishUpdate(
       project.id,
       founder,
       "clarification",
       "Which booking platform do you currently use?"
     );
-    const view = service.clientView(project.id, owner);
+    const view = await service.clientView(project.id, owner);
     expect(view.project.status).toBe("clarification_requested");
     expect(view.nextStep.code).toBe("respond_to_clarification");
 
-    service.respondToClarification(project.id, owner, update.id, "Square Appointments");
-    const after = service.clientView(project.id, owner);
+    await service.respondToClarification(project.id, owner, update.id, "Square Appointments");
+    const after = await service.clientView(project.id, owner);
     expect(after.clarificationResponses).toHaveLength(1);
     expect(after.project.status).toBe("founder_reviewing");
   });
 
-  it("preserves newer typing when a stale save is rejected", () => {
-    const { owner, service } = setup();
-    const project = service.createProject(owner);
-    const first = service.saveBrief(
+  it("preserves newer typing when a stale save is rejected", async () => {
+    const { owner, service } = await setup();
+    const project = await service.createProject(owner);
+    const first = await service.saveBrief(
       project.id,
       owner,
       {
@@ -192,7 +199,7 @@ describe("commission lifecycle", () => {
       1
     );
     try {
-      service.saveBrief(
+      await service.saveBrief(
         project.id,
         owner,
         {
@@ -206,24 +213,26 @@ describe("commission lifecycle", () => {
     } catch (error) {
       expect(error).toBeInstanceOf(ConflictError);
       expect((error as ConflictError).currentVersion).toBe(first.project.version);
-      expect(((error as ConflictError).currentBrief as { vision: { value: string } }).vision.value).toBe("first");
+      expect(((error as ConflictError).currentBrief as { vision: { value: string } }).vision.value).toBe(
+        "first"
+      );
     }
     expect(first.project.brief.vision.value).toBe("first");
-    expect(service.getOwnedProject(project.id, owner).brief.vision.value).toBe("first");
+    expect((await service.getOwnedProject(project.id, owner)).brief.vision.value).toBe("first");
   });
 
-  it("records uncertain retries as owner-bound ledger entries without duplicating consent", () => {
-    const { owner, service, store } = setup();
-    const project = service.createProject(owner);
-    service.markUncertain(owner.id, "retry-1", project.id, "submit");
-    const ledger = store.getLedger(`${owner.id}:retry-1`);
+  it("records uncertain retries as owner-bound ledger entries without duplicating consent", async () => {
+    const { owner, service, store } = await setup();
+    const project = await service.createProject(owner);
+    await service.markUncertain(owner.id, "retry-1", project.id, "submit");
+    const ledger = await store.getLedger(`${owner.id}:retry-1`);
     expect(ledger?.status).toBe("uncertain");
     expect(ledger?.ownerId).toBe(owner.id);
-    const result = service.submit(project.id, owner, true, "retry-1", 1);
+    const result = await service.submit(project.id, owner, true, "retry-1", 1);
     expect(result.duplicate).toBe(false);
-    const again = service.submit(project.id, owner, true, "retry-1", 1);
+    const again = await service.submit(project.id, owner, true, "retry-1", 1);
     expect(again.duplicate).toBe(true);
-    expect(store.listSubmissions(project.id)).toHaveLength(1);
+    expect(await store.listSubmissions(project.id)).toHaveLength(1);
   });
 
   it("maps stored Aurelius labels to Aethelios without rewriting persisted identifiers", () => {
@@ -234,42 +243,43 @@ describe("commission lifecycle", () => {
     );
   });
 
-  it("keeps Aethelios unavailable without disguising fixtures as live AI", () => {
-    const { owner, service, store } = setup();
-    const project = service.createProject(owner);
+  it("keeps Aethelios unavailable without disguising fixtures as live AI", async () => {
+    const { owner, service, store } = await setup();
+    const project = await service.createProject(owner);
     const boundary = new AureliusBoundary(store, service);
     const status = aureliusStatus();
     expect(status.ready).toBe(false);
     expect(status.live).toBe(false);
     expect(unavailableNotice()).toContain("not a live AI reply");
 
-    return boundary
-      .reply({ project, user: owner, message: "Can you quote a website?" })
-      .then((result) => {
-        expect(result.liveAi).toBe(false);
-        expect(result.message.liveAi).toBe(false);
-        expect(result.message.body).toContain("not a live AI reply");
-        const view = service.clientView(project.id, owner);
-        expect(view.messages.some((item) => item.authorKind === "client")).toBe(true);
-        expect(view.project.brief.vision.value).toBe("");
-      });
+    const result = await boundary.reply({
+      project,
+      user: owner,
+      message: "Can you quote a website?"
+    });
+    expect(result.liveAi).toBe(false);
+    expect(result.message.liveAi).toBe(false);
+    expect(result.message.body).toContain("not a live AI reply");
+    const view = await service.clientView(project.id, owner);
+    expect(view.messages.some((item) => item.authorKind === "client")).toBe(true);
+    expect(view.project.brief.vision.value).toBe("");
   });
 
-  it("does not treat suggestions as approved content", () => {
-    const { owner, service } = setup();
-    const project = service.createProject(owner);
-    const suggestion = service.proposeSuggestion(
+  it("does not treat suggestions as approved content", async () => {
+    const { owner, service } = await setup();
+    const project = await service.createProject(owner);
+    const suggestion = await service.proposeSuggestion(
       project.id,
       "audience",
       "Busy wellness clients booking evening appointments",
       "Inferred from the vision"
     );
-    const pending = service.clientView(project.id, owner);
+    const pending = await service.clientView(project.id, owner);
     expect(pending.suggestions[0]?.status).toBe("pending");
     expect(pending.project.brief.audience.pendingSuggestionId).toBe(suggestion.id);
 
-    service.resolveSuggestion(project.id, suggestion.id, owner, "accept");
-    const accepted = service.clientView(project.id, owner);
+    await service.resolveSuggestion(project.id, suggestion.id, owner, "accept");
+    const accepted = await service.clientView(project.id, owner);
     expect(accepted.project.brief.audience.provenance).toBe("ai_suggestion_accepted");
     expect(accepted.project.brief.audience.provenance).not.toBe("founder_decision");
   });

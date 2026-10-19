@@ -38,8 +38,10 @@ export class MemoryPersistence implements PersistenceAdapter {
     return true;
   }
 
-  runInTransaction<T>(fn: () => T): T {
-    return fn();
+  async ping() {}
+
+  async runInTransaction<T>(fn: () => T | Promise<T>): Promise<T> {
+    return await fn();
   }
 
   resetForTests() {

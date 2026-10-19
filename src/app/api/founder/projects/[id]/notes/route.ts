@@ -16,8 +16,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const auth = await requireSession();
     const { id } = await context.params;
     const payload = bodySchema.parse(await readJson(request));
-    const service = new ProjectService(getStore());
-    const note = service.addPrivateNote(id, auth.user, payload.body, payload.kind);
+    const service = new ProjectService(await getStore());
+    const note = await service.addPrivateNote(id, auth.user, payload.body, payload.kind);
     return json({
       ok: true,
       note,

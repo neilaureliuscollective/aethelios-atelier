@@ -18,9 +18,16 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const auth = await requireSession();
     const { id } = await context.params;
     const body = bodySchema.parse(await readJson(request));
-    const service = new ProjectService(getStore());
-    const result = service.submit(id, auth.user, body.consent, body.idempotencyKey, body.expectedVersion);
-    const confirmed = getStore().getSubmission(result.submission.id);
+    const store = await getStore();
+    const service = new ProjectService(store);
+    const result = await service.submit(
+      id,
+      auth.user,
+      body.consent,
+      body.idempotencyKey,
+      body.expectedVersion
+    );
+    const confirmed = await store.getSubmission(result.submission.id);
     if (!confirmed) {
       return json(
         {

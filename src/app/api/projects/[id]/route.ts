@@ -17,8 +17,8 @@ export async function GET(_: Request, context: { params: Promise<{ id: string }>
   try {
     const auth = await requireSession();
     const { id } = await context.params;
-    const service = new ProjectService(getStore());
-    const view = service.clientView(id, auth.user);
+    const service = new ProjectService(await getStore());
+    const view = await service.clientView(id, auth.user);
     return json({ ok: true, ...view });
   } catch (error) {
     return handleError(error);
@@ -30,8 +30,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const auth = await requireSession();
     const { id } = await context.params;
     const body = patchSchema.parse(await readJson(request));
-    const service = new ProjectService(getStore());
-    const result = service.saveBrief(
+    const service = new ProjectService(await getStore());
+    const result = await service.saveBrief(
       id,
       auth.user,
       normalizeBrief(body.brief),

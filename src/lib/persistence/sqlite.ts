@@ -160,10 +160,12 @@ export class SqlitePersistence implements PersistenceAdapter {
     return true;
   }
 
-  runInTransaction<T>(fn: () => T): T {
+  async ping() {}
+
+  async runInTransaction<T>(fn: () => T | Promise<T>): Promise<T> {
     this.db.exec("BEGIN IMMEDIATE");
     try {
-      const result = fn();
+      const result = await fn();
       this.db.exec("COMMIT");
       return result;
     } catch (error) {

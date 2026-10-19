@@ -51,4 +51,34 @@ describe("fail-closed configuration", () => {
     expect(config.auth.ready).toBe(false);
     expect(config.auth.missing).toMatch(/even if ATELIER_ISOLATED_LOCAL/i);
   });
+
+  it("does not treat sqlite or memory as ready on Vercel", () => {
+    process.env.VERCEL = "1";
+    process.env.ATELIER_PERSISTENCE_ADAPTER = "sqlite_local";
+    const sqlite = loadConfig();
+    expect(sqlite.persistence.ready).toBe(false);
+    expect(sqlite.persistence.ready === false && sqlite.persistence.missing).toMatch(/postgres/i);
+
+    process.env.ATELIER_PERSISTENCE_ADAPTER = "memory";
+    const memory = loadConfig();
+    expect(memory.persistence.ready).toBe(false);
+    expect(memory.persistence.ready === false && memory.persistence.missing).toMatch(/ephemeral/i);
+  });
+
+  it("keeps postgres unready until a dedicated database URL is present", () => {
+    process.env.VERCEL = "1";
+    process.env.ATELIER_PERSISTENCE_ADAPTER = "postgres";
+    delete process.env.DATABASE_URL;
+    delete process.env.POSTGRES_URL;
+    delete process.env.ATELIER_DATABASE_URL;
+    const missing = loadConfig();
+    expect(missing.persistence.ready).toBe(false);
+    expect(missing.persistence.ready === false && missing.persistence.missing).toMatch(/DATABASE_URL/);
+
+    process.env.POSTGRES_URL = "postgres://atelier:atelier@localhost/atelier";
+    const ready = loadConfig();
+    expect(ready.persistence.ready).toBe(true);
+    expect(ready.persistence.adapter).toBe("postgres");
+    expect(JSON.stringify(publicRuntimeConfig())).not.toContain("postgres://atelier");
+  });
 });

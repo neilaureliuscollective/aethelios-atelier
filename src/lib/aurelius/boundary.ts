@@ -61,10 +61,10 @@ export class AureliusBoundary {
     signal?: AbortSignal;
   }) {
     const status = aureliusStatus();
-    this.projects.addClientMessage(input.project.id, input.user, input.message);
+    await this.projects.addClientMessage(input.project.id, input.user, input.message);
 
     if (!status.ready) {
-      const notice = this.projects.addSystemMessage(input.project.id, UNAVAILABLE, false, {
+      const notice = await this.projects.addSystemMessage(input.project.id, UNAVAILABLE, false, {
         liveAi: false,
         reason: status.reason
       });
@@ -73,9 +73,9 @@ export class AureliusBoundary {
 
     const config = loadConfig();
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const used = this.store.countAssistantMessagesSince(input.project.id, since);
+    const used = await this.store.countAssistantMessagesSince(input.project.id, since);
     if (used >= config.openAiDailyLimit) {
-      const notice = this.projects.addSystemMessage(
+      const notice = await this.projects.addSystemMessage(
         input.project.id,
         `${INTELLIGENCE_DISPLAY_NAME} has reached the configured daily limit for this commission. Your brief is unchanged. Continue manually or try again later.`,
         false,
@@ -85,13 +85,13 @@ export class AureliusBoundary {
     }
 
     const client = new OpenAI({ apiKey: config.openAiKey, timeout: config.openAiTimeoutMs });
-    const history = this.store.listMessages(input.project.id).slice(-12);
+    const history = (await this.store.listMessages(input.project.id)).slice(-12);
     const toolsUsed: string[] = [];
 
     const runTools = async (name: string, raw: string) => {
       toolsUsed.push(name);
       if (name === "read_brief") {
-        const latest = this.store.getProject(input.project.id);
+        const latest = await this.store.getProject(input.project.id);
         return JSON.stringify(briefForModel(latest?.brief ?? input.project.brief));
       }
       if (name === "list_services") {
@@ -104,7 +104,7 @@ export class AureliusBoundary {
       if (name === "propose_brief_update") {
         const parsed = proposeBriefUpdateSchema.safeParse(JSON.parse(raw || "{}"));
         if (!parsed.success) return JSON.stringify({ error: "invalid_tool_input" });
-        const suggestion = this.projects.proposeSuggestion(
+        const suggestion = await this.projects.proposeSuggestion(
           input.project.id,
           parsed.data.fieldKey,
           parsed.data.proposedValue,
@@ -120,7 +120,7 @@ export class AureliusBoundary {
       if (name === "add_unresolved_question") {
         const parsed = addUnresolvedQuestionSchema.safeParse(JSON.parse(raw || "{}"));
         if (!parsed.success) return JSON.stringify({ error: "invalid_tool_input" });
-        const latest = this.store.getProject(input.project.id);
+        const latest = await this.store.getProject(input.project.id);
         if (!latest) return JSON.stringify({ error: "missing_project" });
         const brief = { ...latest.brief };
         brief[parsed.data.fieldKey] = {
@@ -131,7 +131,7 @@ export class AureliusBoundary {
               : brief[parsed.data.fieldKey].provenance,
           unresolvedQuestion: parsed.data.question
         };
-        this.store.updateProject({ ...latest, brief, updatedAt: new Date().toISOString() });
+        await this.store.updateProject({ ...latest, brief, updatedAt: new Date().toISOString() });
         return JSON.stringify({ ok: true });
       }
       return JSON.stringify({ error: "unknown_tool" });
@@ -190,7 +190,7 @@ export class AureliusBoundary {
       const text =
         completion.choices[0]?.message?.content?.trim() ||
         "I captured that. Review the living brief — suggestions stay pending until you accept them.";
-      const saved = this.store.addMessage({
+      const saved = await this.store.addMessage({
         id: `msg_${crypto.randomUUID()}`,
         projectId: input.project.id,
         authorKind: "assistant",
@@ -201,7 +201,7 @@ export class AureliusBoundary {
       });
       return { message: saved, liveAi: true as const, status, toolsUsed };
     } catch (error) {
-      const failed = this.projects.addSystemMessage(
+      const failed = await this.projects.addSystemMessage(
         input.project.id,
         `${INTELLIGENCE_DISPLAY_NAME} could not complete that reply. Your brief and previous messages are unchanged. You can retry the same question or continue the structured brief.`,
         false,

@@ -21,8 +21,8 @@ export async function POST(request: Request) {
     if (!draft) {
       throw new ForbiddenError("The guest draft could not be read.");
     }
-    const service = new ProjectService(getStore());
-    const project = service.adoptGuestDraft(auth.user, draft, body.confirmed);
+    const service = new ProjectService(await getStore());
+    const project = await service.adoptGuestDraft(auth.user, draft, body.confirmed);
     return json({
       ok: true,
       project,

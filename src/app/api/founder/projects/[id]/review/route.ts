@@ -9,8 +9,8 @@ export async function POST(_: Request, context: { params: Promise<{ id: string }
   try {
     const auth = await requireSession();
     const { id } = await context.params;
-    const service = new ProjectService(getStore());
-    const event = service.startReview(id, auth.user);
+    const service = new ProjectService(await getStore());
+    const event = await service.startReview(id, auth.user);
     return json({
       ok: true,
       event,

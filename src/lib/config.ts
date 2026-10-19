@@ -2,17 +2,26 @@ import "server-only";
 import path from "node:path";
 import { z } from "zod";
 import { CONSENT_TEXT } from "@/lib/copy";
-import { simulatedAuthAllowed } from "@/lib/runtime/hosted";
+import {
+  hostedEphemeralPersistenceReason,
+  hostedPlatformName,
+  readDatabaseUrl,
+  simulatedAuthAllowed
+} from "@/lib/runtime/hosted";
 
 export { CONSENT_TEXT };
 
 const schema = z.object({
   nodeEnv: z.enum(["development", "test", "production"]).default("development"),
-  persistenceAdapter: z.enum(["sqlite_local", "memory", "unconfigured"]).default("unconfigured"),
+  persistenceAdapter: z
+    .enum(["sqlite_local", "memory", "postgres", "unconfigured"])
+    .default("unconfigured"),
   dataDir: z.string().default(".data"),
+  databaseUrl: z.string().optional().default(""),
   authAdapter: z.enum(["simulated", "unconfigured"]).default("unconfigured"),
   sessionSecret: z.string().optional().default(""),
   founderEmails: z.string().default("neil.local@atelier.invalid"),
+  publicOrigin: z.string().optional().default(""),
   openAiEnabled: z.string().optional().default("false"),
   openAiKey: z.string().optional().default(""),
   openAiModel: z.string().default("gpt-4o-mini"),
@@ -22,14 +31,33 @@ const schema = z.object({
   billingEnabled: z.string().optional().default("false")
 });
 
+export type PersistenceState =
+  | {
+      adapter: "sqlite_local";
+      ready: true;
+      sqlitePath: string;
+    }
+  | {
+      adapter: "memory";
+      ready: true;
+    }
+  | {
+      adapter: "postgres";
+      ready: true;
+      databaseUrl: string;
+    }
+  | {
+      adapter: "sqlite_local" | "memory" | "postgres" | "unconfigured";
+      ready: false;
+      sqlitePath?: string;
+      databaseUrl?: string;
+      missing?: string;
+    };
+
 export type AppConfig = z.infer<typeof schema> & {
   founderEmailList: string[];
-  persistence: {
-    adapter: "sqlite_local" | "memory" | "unconfigured";
-    ready: boolean;
-    sqlitePath?: string;
-    missing?: string;
-  };
+  platform: string | null;
+  persistence: PersistenceState;
   auth: {
     adapter: "simulated" | "unconfigured";
     ready: boolean;
@@ -54,9 +82,17 @@ function readEnv() {
     nodeEnv: process.env.NODE_ENV ?? "development",
     persistenceAdapter: process.env.ATELIER_PERSISTENCE_ADAPTER ?? "unconfigured",
     dataDir: process.env.ATELIER_DATA_DIR ?? ".data",
+    databaseUrl: readDatabaseUrl(process.env),
     authAdapter: process.env.ATELIER_AUTH_ADAPTER ?? "unconfigured",
     sessionSecret: process.env.ATELIER_SESSION_SECRET ?? "",
     founderEmails: process.env.ATELIER_FOUNDER_EMAILS ?? "neil.local@atelier.invalid",
+    publicOrigin:
+      process.env.ATELIER_PUBLIC_ORIGIN ||
+      (process.env.VERCEL_PROJECT_PRODUCTION_URL
+        ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+        : process.env.VERCEL_URL
+          ? `https://${process.env.VERCEL_URL}`
+          : ""),
     openAiEnabled: process.env.ATELIER_OPENAI_ENABLED ?? "false",
     openAiKey: process.env.OPENAI_API_KEY ?? "",
     openAiModel: process.env.OPENAI_MODEL ?? "gpt-4o-mini",
@@ -67,6 +103,39 @@ function readEnv() {
   });
 }
 
+function persistenceState(env: z.infer<typeof schema>): PersistenceState {
+  if (env.persistenceAdapter === "unconfigured") {
+    return { adapter: "unconfigured", ready: false, missing: "ATELIER_PERSISTENCE_ADAPTER" };
+  }
+
+  const ephemeral = hostedEphemeralPersistenceReason(env.persistenceAdapter);
+  if (ephemeral) {
+    return { adapter: env.persistenceAdapter, ready: false, missing: ephemeral };
+  }
+
+  if (env.persistenceAdapter === "postgres") {
+    const databaseUrl = env.databaseUrl.trim();
+    if (!databaseUrl) {
+      return {
+        adapter: "postgres",
+        ready: false,
+        missing: "DATABASE_URL (or POSTGRES_URL / ATELIER_DATABASE_URL)"
+      };
+    }
+    return { adapter: "postgres", ready: true, databaseUrl };
+  }
+
+  if (env.persistenceAdapter === "sqlite_local") {
+    return {
+      adapter: "sqlite_local",
+      ready: true,
+      sqlitePath: path.resolve(env.dataDir, "atelier.sqlite")
+    };
+  }
+
+  return { adapter: "memory", ready: true };
+}
+
 export function loadConfig(): AppConfig {
   const env = readEnv();
   const founderEmailList = env.founderEmails
@@ -74,7 +143,7 @@ export function loadConfig(): AppConfig {
     .map((item) => item.trim().toLowerCase())
     .filter(Boolean);
 
-  const persistenceReady = env.persistenceAdapter !== "unconfigured";
+  const persistence = persistenceState(env);
   const simulated = simulatedAuthAllowed(process.env);
   const authReady = simulated.allowed;
   const openAiExplicitlyEnabled = env.openAiEnabled === "true";
@@ -83,20 +152,8 @@ export function loadConfig(): AppConfig {
   return {
     ...env,
     founderEmailList,
-    persistence: persistenceReady
-      ? {
-          adapter: env.persistenceAdapter,
-          ready: true,
-          sqlitePath:
-            env.persistenceAdapter === "sqlite_local"
-              ? path.resolve(env.dataDir, "atelier.sqlite")
-              : undefined
-        }
-      : {
-          adapter: "unconfigured",
-          ready: false,
-          missing: "ATELIER_PERSISTENCE_ADAPTER"
-        },
+    platform: hostedPlatformName(process.env),
+    persistence,
     auth: authReady
       ? { adapter: "simulated", ready: true, labeled: true }
       : {
@@ -127,6 +184,7 @@ export function loadConfig(): AppConfig {
 export function publicRuntimeConfig() {
   const config = loadConfig();
   return {
+    platform: config.platform,
     persistence: {
       adapter: config.persistence.adapter,
       ready: config.persistence.ready,
@@ -167,4 +225,3 @@ export function publicRuntimeConfig() {
     }
   };
 }
-

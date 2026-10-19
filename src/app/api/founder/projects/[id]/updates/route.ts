@@ -17,8 +17,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const auth = await requireSession();
     const { id } = await context.params;
     const payload = bodySchema.parse(await readJson(request));
-    const service = new ProjectService(getStore());
-    const update = service.publishUpdate(
+    const service = new ProjectService(await getStore());
+    const update = await service.publishUpdate(
       id,
       auth.user,
       payload.kind,

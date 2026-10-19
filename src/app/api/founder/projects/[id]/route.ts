@@ -9,8 +9,8 @@ export async function GET(_: Request, context: { params: Promise<{ id: string }>
   try {
     const auth = await requireSession();
     const { id } = await context.params;
-    const service = new ProjectService(getStore());
-    return json({ ok: true, ...service.founderView(id, auth.user) });
+    const service = new ProjectService(await getStore());
+    return json({ ok: true, ...(await service.founderView(id, auth.user)) });
   } catch (error) {
     return handleError(error);
   }

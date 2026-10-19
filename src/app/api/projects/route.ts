@@ -14,11 +14,11 @@ const createSchema = z.object({
 export async function GET() {
   try {
     const auth = await requireSession();
-    const service = new ProjectService(getStore());
+    const service = new ProjectService(await getStore());
     return json({
       ok: true,
       labeledPersistence: true,
-      projects: service.listForOwner(auth.user)
+      projects: await service.listForOwner(auth.user)
     });
   } catch (error) {
     return handleError(error);
@@ -29,8 +29,8 @@ export async function POST(request: Request) {
   try {
     const auth = await requireSession();
     const body = createSchema.parse(await readJson(request));
-    const service = new ProjectService(getStore());
-    const project = service.createProject(
+    const service = new ProjectService(await getStore());
+    const project = await service.createProject(
       auth.user,
       body.brief ? normalizeBrief(body.brief) : undefined
     );

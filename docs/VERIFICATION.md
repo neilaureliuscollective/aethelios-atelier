@@ -64,5 +64,6 @@ Request-observed browser regressions (production `next start` + sqlite_local):
 - Hosted auth or database
 - Stripe / payments
 - Notifications
-- Production deployment
+- Production Vercel authentication or a live hosted database in this environment
+- A live Vercel project created from this machine (the repository is prepared; import it as a new Vercel project per `docs/VERCEL.md`)
 - Software-keyboard testing on a physical phone (not available in this environment)

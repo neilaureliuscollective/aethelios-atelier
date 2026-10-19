@@ -18,9 +18,9 @@ export async function POST(
     const auth = await requireSession();
     const { id, cid } = await context.params;
     const payload = bodySchema.parse(await readJson(request));
-    const service = new ProjectService(getStore());
-    const response = service.respondToClarification(id, auth.user, cid, payload.body);
-    return json({ ok: true, response, view: service.clientView(id, auth.user) });
+    const service = new ProjectService(await getStore());
+    const response = await service.respondToClarification(id, auth.user, cid, payload.body);
+    return json({ ok: true, response, view: await service.clientView(id, auth.user) });
   } catch (error) {
     return handleError(error);
   }

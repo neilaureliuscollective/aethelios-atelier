@@ -23,6 +23,21 @@ Simulated identities (labeled, not production auth):
 
 Sign-in does **not** adopt a guest draft or submit a brief. Adoption is an explicit review at `/account/adopt`.
 
+## Fresh Vercel project
+
+Import this GitHub repository as a **new** Vercel project (Node 22, pnpm, Next.js). Attach a dedicated Neon / Vercel Postgres database. Do not reuse the Aethelios production database or copy local simulated-auth flags.
+
+Step-by-step: [docs/VERCEL.md](docs/VERCEL.md).
+
+Hosted defaults:
+
+- `ATELIER_PERSISTENCE_ADAPTER=postgres`
+- `DATABASE_URL` or `POSTGRES_URL` from the dedicated database
+- `ATELIER_AUTH_ADAPTER=unconfigured` — simulated identities are refused on Vercel
+- OpenAI and billing stay off until separately authorized
+
+Public marketing pages deploy. Workspace sign-in waits for a real identity provider.
+
 ## Checks
 
 ```bash
@@ -39,12 +54,13 @@ node scripts/browser-regressions.mjs
 
 See `.env.example`. Fail-closed rules:
 
-- Persistence requires `ATELIER_PERSISTENCE_ADAPTER=sqlite_local` or `memory`.
-- Auth requires `ATELIER_AUTH_ADAPTER=simulated` until a real provider exists.
+- Local persistence: `ATELIER_PERSISTENCE_ADAPTER=sqlite_local` or `memory`.
+- Hosted persistence: `postgres` plus `DATABASE_URL` / `POSTGRES_URL`. sqlite and memory are refused on Vercel.
+- Auth requires `ATELIER_AUTH_ADAPTER=simulated` on an isolated local machine until a real provider exists. Hosted platforms always refuse simulated auth.
 - Aethelios stays unavailable unless `ATELIER_OPENAI_ENABLED=true` **and** `OPENAI_API_KEY` are set. Live model calls are not made by default and were not used in this implementation. Internal identifiers may still use the older `aurelius` name; visitor-facing copy maps that to Aethelios.
 - Billing is not activated. Do not set Stripe keys.
 
-Data is stored in `.data/` (gitignored). This is not a hosted database.
+Local data is stored in `.data/` (gitignored). That file is not a hosted database.
 
 ## Brand assets
 
@@ -52,11 +68,11 @@ Approved logo and icon live in `public/brand/original/`. Optimized derivatives a
 
 ## Launch blockers (external)
 
-- Real authentication (the current adapter is simulated and labeled)
-- Dedicated hosted database (do not reuse Aethelios production)
+- Real authentication (the current adapter is simulated, labeled, and refused on Vercel)
+- Dedicated hosted database credentials in the Vercel project (adapter exists; do not reuse Aethelios production)
 - Authorized OpenAI spend (`ATELIER_OPENAI_ENABLED` + key)
 - Final service pricing
-- Domain, TLS, and deployment
+- Production domain assignment after the first Vercel import
 - Notifications (not implemented; the UI says so)
 - Billing / Stripe (explicitly inactive)
 

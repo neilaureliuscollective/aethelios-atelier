@@ -2,6 +2,7 @@ node_modules
 .next
 out
 .data
+.vercel
 .env
 .env.local
 .env.*.local

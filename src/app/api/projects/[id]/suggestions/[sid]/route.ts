@@ -19,9 +19,9 @@ export async function POST(
     const auth = await requireSession();
     const { id, sid } = await context.params;
     const body = bodySchema.parse(await readJson(request));
-    const service = new ProjectService(getStore());
-    const suggestion = service.resolveSuggestion(id, sid, auth.user, body.action, body.editedValue);
-    return json({ ok: true, suggestion, view: service.clientView(id, auth.user) });
+    const service = new ProjectService(await getStore());
+    const suggestion = await service.resolveSuggestion(id, sid, auth.user, body.action, body.editedValue);
+    return json({ ok: true, suggestion, view: await service.clientView(id, auth.user) });
   } catch (error) {
     return handleError(error);
   }

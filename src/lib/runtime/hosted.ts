@@ -48,6 +48,22 @@ function isExactLoopbackOrigin(env: Env): boolean {
   return isExactLoopbackHostname(parseOriginHostname(origin));
 }
 
+export function readDatabaseUrl(env: Env = process.env): string {
+  return (env.ATELIER_DATABASE_URL || env.POSTGRES_URL || env.DATABASE_URL || "").trim();
+}
+
+export function hostedEphemeralPersistenceReason(
+  adapter: string,
+  env: Env = process.env
+): string | null {
+  const hosted = hostedPlatformName(env);
+  if (!hosted) return null;
+  if (adapter === "sqlite_local" || adapter === "memory") {
+    return `${adapter} is ephemeral on hosted platform (${hosted}). Set ATELIER_PERSISTENCE_ADAPTER=postgres and DATABASE_URL (or POSTGRES_URL) to a dedicated Atelier database — never the Aethelios production database.`;
+  }
+  return null;
+}
+
 export function simulatedAuthAllowed(env: Env = process.env): {
   allowed: boolean;
   reason?: string;
