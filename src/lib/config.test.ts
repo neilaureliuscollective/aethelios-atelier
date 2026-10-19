@@ -41,4 +41,14 @@ describe("fail-closed configuration", () => {
     expect(config.auth.ready).toBe(false);
     expect(config.auth.missing).toMatch(/hosted platform/i);
   });
+
+  it("refuses hosted simulated auth even if ATELIER_ISOLATED_LOCAL is copied", () => {
+    process.env.ATELIER_AUTH_ADAPTER = "simulated";
+    process.env.ATELIER_ALLOW_SIMULATED_AUTH = "true";
+    process.env.ATELIER_ISOLATED_LOCAL = "true";
+    process.env.VERCEL = "1";
+    const config = loadConfig();
+    expect(config.auth.ready).toBe(false);
+    expect(config.auth.missing).toMatch(/even if ATELIER_ISOLATED_LOCAL/i);
+  });
 });

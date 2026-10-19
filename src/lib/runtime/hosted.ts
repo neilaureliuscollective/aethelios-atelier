@@ -22,6 +22,15 @@ export function isIsolatedLocal(env: Env = process.env): boolean {
   return env.ATELIER_ISOLATED_LOCAL === "true";
 }
 
+function isLoopbackOrigin(env: Env): boolean {
+  const origin = (env.ATELIER_PUBLIC_ORIGIN ?? env.VERCEL_URL ?? "").toLowerCase();
+  return (
+    origin.includes("127.0.0.1") ||
+    origin.includes("localhost") ||
+    origin.startsWith("http://[::1]")
+  );
+}
+
 export function simulatedAuthAllowed(env: Env = process.env): {
   allowed: boolean;
   reason?: string;
@@ -36,10 +45,17 @@ export function simulatedAuthAllowed(env: Env = process.env): {
     };
   }
   const hosted = hostedPlatformName(env);
-  if (hosted && !isIsolatedLocal(env)) {
+  if (hosted) {
     return {
       allowed: false,
-      reason: `Simulated auth is refused on hosted platform (${hosted}). Set ATELIER_ISOLATED_LOCAL=true only for a deliberately isolated local/production-mode test — never on a public host.`
+      reason: `Simulated auth is refused on hosted platform (${hosted}), even if ATELIER_ISOLATED_LOCAL is set.`
+    };
+  }
+  if (env.NODE_ENV === "production" && !isIsolatedLocal(env) && !isLoopbackOrigin(env)) {
+    return {
+      allowed: false,
+      reason:
+        "Production-mode simulated auth requires ATELIER_ISOLATED_LOCAL=true on loopback. Hosted execution is refused."
     };
   }
   return { allowed: true };

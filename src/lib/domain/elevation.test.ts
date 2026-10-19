@@ -114,6 +114,37 @@ describe("elevation reliability", () => {
     expect(service.clientView(two.id, owner).project.id).toBe(two.id);
   });
 
+  it("does not return an old submission before matching the reviewed request", () => {
+    const { owner, service } = users(new MemoryPersistence());
+    const project = service.createProject(owner, {
+      ...createEmptyBrief(),
+      vision: { key: "vision", value: "Reviewed snapshot", provenance: "client_statement" }
+    });
+    const sent = service.submit(project.id, owner, true, "reuse-key", project.version);
+    const later = service.saveBrief(
+      project.id,
+      owner,
+      {
+        ...project.brief,
+        vision: { key: "vision", value: "Newer working draft", provenance: "client_statement" }
+      },
+      project.version
+    );
+    expect(() => service.submit(project.id, owner, true, "reuse-key", later.project.version)).toThrow(
+      ConflictError
+    );
+    const exact = service.submit(project.id, owner, true, "reuse-key", project.version);
+    expect(exact.duplicate).toBe(true);
+    expect(exact.submission.receiptId).toBe(sent.submission.receiptId);
+    expect(exact.submission.reviewedVersion).toBe(project.version);
+    expect(exact.submission.snapshot.vision.value).toBe("Reviewed snapshot");
+    const revised = service.submit(project.id, owner, true, "revised-key", later.project.version);
+    expect(revised.duplicate).toBe(false);
+    expect(revised.submission.receiptId).not.toBe(sent.submission.receiptId);
+    expect(revised.submission.reviewedVersion).toBe(later.project.version);
+    expect(revised.submission.snapshot.vision.value).toBe("Newer working draft");
+  });
+
   it("keeps founder-private notes out of client payloads", () => {
     const { owner, founder, service } = users(new MemoryPersistence());
     const project = service.createProject(owner);

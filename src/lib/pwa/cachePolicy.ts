@@ -29,6 +29,16 @@ export function isCacheablePublicAsset(pathname: string, contentType?: string | 
   return STATIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
 
+export function uncertainWriteResponse() {
+  return {
+    ok: false as const,
+    delivered: "uncertain" as const,
+    message:
+      "The request did not return a response. The server may already have stored it. Retry the same command — do not send a new one.",
+    retainRetry: true as const
+  };
+}
+
 export function shouldCacheResponse(input: {
   method: string;
   pathname: string;

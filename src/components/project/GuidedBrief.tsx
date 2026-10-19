@@ -11,14 +11,28 @@ import {
 } from "@/lib/guest/draft";
 import { CONSENT_TEXT } from "@/lib/copy";
 import { AppLink } from "@/components/ui/AppLink";
+import { DraftCompare } from "@/components/project/DraftCompare";
 import { LivingBrief } from "@/components/project/LivingBrief";
 import { SaveStatusBar } from "@/components/status/SaveStatus";
 import { api, ApiError } from "@/lib/client/api";
 import { actionErrorMessage } from "@/lib/client/asyncAction";
+import {
+  DraftSession,
+  acknowledgeStoredRecovery,
+  loadDraftRecovery,
+  type DraftSessionState
+} from "@/lib/client/draftSession";
+import { identitiesMatch, type OperationIdentity } from "@/lib/client/operationIdentity";
 import { ownerFence } from "@/lib/client/ownerFence";
-import { readOwnerJson, writeOwnerJson } from "@/lib/client/ownerScope";
 import { CoalescedSaveQueue, type SaveFailure, type SaveStatus } from "@/lib/client/saveQueue";
-import { buildSubmitCommand, loadSubmitCommand, persistSubmitCommand } from "@/lib/client/submitCommand";
+import {
+  archiveSubmitCommand,
+  buildSubmitCommand,
+  loadConfirmedSubmit,
+  loadSubmitCommand,
+  persistSubmitCommand,
+  type PendingSubmitCommand
+} from "@/lib/client/submitCommand";
 import { useSession } from "@/components/shell/SessionShell";
 import type { Brief, BriefFieldKey, ChatMessage, Project, Suggestion, User } from "@/lib/types";
 
@@ -43,19 +57,13 @@ type ProjectResponse = {
   messages: ChatMessage[];
 };
 
-type DraftRecovery = {
-  brief: Brief;
-  acknowledgedVersion: number;
-  updatedAt: string;
-  unconfirmed?: boolean;
-};
-
 function saveFailure(error: unknown): SaveFailure {
   if (error instanceof ApiError) {
     if (error.status === 409) {
       return {
         kind: "conflict",
         currentVersion: error.currentVersion,
+        serverBrief: error.currentBrief,
         message: error.message
       };
     }
@@ -69,6 +77,10 @@ function saveFailure(error: unknown): SaveFailure {
   };
 }
 
+function noteStorage(result: { ok: boolean } | undefined, fallback: string) {
+  return result && !result.ok ? fallback : null;
+}
+
 export function GuidedBrief({
   projectId,
   createNew = false
@@ -80,74 +92,100 @@ export function GuidedBrief({
   const { user, generation, loading } = useSession();
   const [step, setStep] = useState(1);
   const [pane, setPane] = useState<"edit" | "summary">("edit");
-  const [brief, setBrief] = useState<Brief>(() => createGuestDraft().brief);
+  const [guestBrief, setGuestBrief] = useState<Brief>(() => createGuestDraft().brief);
+  const [draftSnap, setDraftSnap] = useState<DraftSessionState | null>(null);
   const [guestId, setGuestId] = useState<string | null>(null);
   const [project, setProject] = useState<Project | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [status, setStatus] = useState("");
-  const [consent, setConsent] = useState(false);
-  const [consentVersion, setConsentVersion] = useState<number | null>(null);
+  const [guestConsent, setGuestConsent] = useState(false);
   const [chatInput, setChatInput] = useState("");
   const [chatPending, setChatPending] = useState(false);
   const [chatError, setChatError] = useState("");
   const [receipt, setReceipt] = useState<string | null>(null);
-  const [saveTick, setSaveTick] = useState(0);
-  const [saveStatus, setSaveStatus] = useState<SaveStatus | "guest">("guest");
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [storageNote, setStorageNote] = useState<string | null>(null);
   const [loadError, setLoadError] = useState("");
   const [submitPending, setSubmitPending] = useState(false);
   const [creating, setCreating] = useState(false);
   const [aureliusNote, setAureliusNote] = useState("Checking assistant availability…");
+  const [pendingCommand, setPendingCommand] = useState<PendingSubmitCommand | null>(null);
+  const [confirmedCommand, setConfirmedCommand] = useState<PendingSubmitCommand | null>(null);
   const queueRef = useRef<CoalescedSaveQueue<Brief> | null>(null);
+  const sessionRef = useRef<DraftSession | null>(null);
   const creatingRef = useRef(false);
-  const briefRef = useRef(brief);
-  briefRef.current = brief;
+  const editorRef = useRef<HTMLTextAreaElement | null>(null);
 
-  const attachQueue = useCallback((nextProject: Project, owner: User) => {
-    queueRef.current?.subscribe(() => undefined);
-    const queue = new CoalescedSaveQueue<Brief>(nextProject.version, async (payload, expectedVersion) => {
-      try {
-        const result = await api<{ project: Project }>(`/api/projects/${nextProject.id}`, {
-          method: "PATCH",
-          body: JSON.stringify({ brief: payload, expectedVersion })
-        });
-        if (!ownerFence.isCurrent(ownerFence.generation, owner.id)) {
-          throw { kind: "uncertain", message: "Account changed before this save confirmed." } satisfies SaveFailure;
+  const brief = draftSnap?.brief ?? guestBrief;
+  const consent = draftSnap ? draftSnap.consent : guestConsent;
+  const saveStatus: SaveStatus | "guest" = project ? (draftSnap?.status ?? "unsaved") : "guest";
+
+  const bindSession = useCallback((session: DraftSession) => {
+    sessionRef.current?.dispose();
+    sessionRef.current = session;
+    setDraftSnap(session.snapshot());
+    return session.subscribe(() => setDraftSnap(session.snapshot()));
+  }, []);
+
+  const attachQueue = useCallback((nextProject: Project, owner: User, session: DraftSession) => {
+    queueRef.current?.dispose();
+    const queue = new CoalescedSaveQueue<Brief>(
+      session.acknowledgedVersion,
+      async (payload, expectedVersion) => {
+        const captured: OperationIdentity = {
+          ownerId: owner.id,
+          projectId: nextProject.id,
+          generation: ownerFence.generation
+        };
+        sessionRef.current?.markSaving(captured);
+        try {
+          const result = await api<{ project: Project }>(`/api/projects/${nextProject.id}`, {
+            method: "PATCH",
+            body: JSON.stringify({ brief: payload, expectedVersion })
+          });
+          acknowledgeStoredRecovery(captured, payload, result.project.version);
+          const current = sessionRef.current;
+          if (current && !current.disposed) {
+            current.acknowledge(payload, result.project.version, captured);
+          }
+          if (current && !current.disposed && identitiesMatch(captured, current.identity)) {
+            setProject(result.project);
+            setStorageNote(null);
+          }
+          return { version: result.project.version };
+        } catch (error) {
+          const failure = saveFailure(error);
+          const current = sessionRef.current;
+          if (current && !current.disposed && identitiesMatch(captured, current.identity)) {
+            if (failure.kind === "conflict") {
+              const serverBrief = (failure.serverBrief as Brief | undefined) ?? current.acknowledgedBrief;
+              current.enterConflict(serverBrief, failure.currentVersion ?? current.acknowledgedVersion, captured);
+            } else {
+              current.markUncertain(failure.message, captured);
+            }
+          }
+          throw failure;
         }
-        setProject(result.project);
-        const stored = writeOwnerJson(
-          owner.id,
-          "draft",
-          {
-            brief: payload,
-            acknowledgedVersion: result.project.version,
-            updatedAt: new Date().toISOString()
-          } satisfies DraftRecovery,
-          nextProject.id
-        );
-        if (!stored.ok) {
-          setStorageNote("Browser storage is unavailable. The server copy is saved; this device cannot keep a recovery draft.");
-        }
-        return { version: result.project.version };
-      } catch (error) {
-        throw saveFailure(error);
-      }
-    });
+      },
+      450,
+      undefined,
+      session.status === "saved" ? "saved" : "unsaved"
+    );
     const unsub = queue.subscribe(() => {
-      setSaveTick((n) => n + 1);
-      setSaveStatus(queue.status);
       setSaveMessage(queue.lastError);
     });
     queueRef.current = queue;
-    setSaveStatus(queue.status);
-    return unsub;
+    return () => {
+      unsub();
+      queue.dispose();
+    };
   }, []);
 
   useEffect(() => {
     if (loading) return;
-    let unsub: (() => void) | undefined;
+    let unsubQueue: (() => void) | undefined;
+    let unsubSession: (() => void) | undefined;
     const gen = generation;
     const ownerId = user?.id ?? null;
 
@@ -168,19 +206,25 @@ export function GuidedBrief({
           setProject(view.project);
           setSuggestions(view.suggestions);
           setMessages(view.messages);
-          const recovery = readOwnerJson<DraftRecovery>(user.id, "draft", projectId);
-          const pendingCommand = loadSubmitCommand(user.id, projectId);
-          if (pendingCommand) {
-            setStatus("A previous send is still pending confirmation. Retry the same command — it will not create a second snapshot.");
+          const recovery = loadDraftRecovery(user.id, projectId);
+          const pending = loadSubmitCommand(user.id, projectId);
+          const confirmed = loadConfirmedSubmit(user.id, projectId);
+          setPendingCommand(pending);
+          setConfirmedCommand(confirmed);
+          if (pending) {
+            setStatus("An earlier send is still unconfirmed. Retry that exact request — it will not create a second snapshot.");
           }
-          if (recovery?.unconfirmed) {
-            setBrief(recovery.brief);
-            setSaveStatus("uncertain");
-            setSaveMessage("This device has an unconfirmed draft. Save again to confirm.");
-          } else {
-            setBrief(view.project.brief);
+          const identity: OperationIdentity = {
+            ownerId: user.id,
+            projectId: view.project.id,
+            generation: gen
+          };
+          const session = new DraftSession(identity, view.project.brief, view.project.version, recovery);
+          unsubSession = bindSession(session);
+          unsubQueue = attachQueue(view.project, user, session);
+          if (session.recoveryOpen) {
+            setSaveMessage("This device still has unconfirmed text. It is not saved until the server acknowledges this exact wording.");
           }
-          unsub = attachQueue(view.project, user);
         } catch (error) {
           if (!ownerFence.isCurrent(gen, ownerId)) return;
           setLoadError(actionErrorMessage(error, "This commission could not be opened."));
@@ -214,40 +258,29 @@ export function GuidedBrief({
         return;
       }
 
-      if (user && !projectId && !createNew) {
-        const guest = readGuestDraft() ?? createGuestDraft();
-        writeGuestDraft(guest);
-        setGuestId(guest.draftId);
-        setBrief(guest.brief);
-        setProject(null);
-        setMessages(
-          guest.messages.map((item) => ({
-            ...item,
-            projectId: guest.draftId
-          }))
-        );
-        setSaveStatus("guest");
-        return;
-      }
-
       const guest = readGuestDraft() ?? createGuestDraft();
       writeGuestDraft(guest);
       setGuestId(guest.draftId);
-      setBrief(guest.brief);
+      setGuestBrief(guest.brief);
       setProject(null);
+      setDraftSnap(null);
       setMessages(
         guest.messages.map((item) => ({
           ...item,
           projectId: guest.draftId
         }))
       );
-      setSaveStatus("guest");
     })();
 
     return () => {
-      unsub?.();
+      unsubQueue?.();
+      unsubSession?.();
+      queueRef.current?.dispose();
+      sessionRef.current?.dispose();
+      queueRef.current = null;
+      sessionRef.current = null;
     };
-  }, [attachQueue, createNew, generation, loading, projectId, router, user]);
+  }, [attachQueue, bindSession, createNew, generation, loading, projectId, router, user]);
 
   useEffect(() => {
     if (project || !guestId) return;
@@ -256,7 +289,7 @@ export function GuidedBrief({
     try {
       writeGuestDraft({
         ...guest,
-        brief,
+        brief: guestBrief,
         draftId: guestId,
         messages: messages.map((m) => ({
           id: m.id,
@@ -270,47 +303,51 @@ export function GuidedBrief({
     } catch {
       setStorageNote("This browser blocked on-device storage. The fields on this screen are not saved yet.");
     }
-  }, [brief, guestId, messages, project]);
-
-  function persistRecovery(nextBrief: Brief) {
-    if (!project || !user) return;
-    const stored = writeOwnerJson(
-      user.id,
-      "draft",
-      {
-        brief: nextBrief,
-        acknowledgedVersion: queueRef.current?.acknowledgedVersion ?? project.version,
-        updatedAt: new Date().toISOString(),
-        unconfirmed: true
-      } satisfies DraftRecovery,
-      project.id
-    );
-    if (!stored.ok) {
-      setStorageNote("Browser storage is unavailable. Unconfirmed typing is only on this screen until a save succeeds.");
-    }
-  }
+  }, [guestBrief, guestId, messages, project]);
 
   function updateField(key: BriefFieldKey, value: string) {
     const next = applyClientValue(brief, key, value);
-    setBrief(next);
-    if (consentVersion !== null) {
-      setConsent(false);
-      setConsentVersion(null);
+    const session = sessionRef.current;
+    if (session && project) {
+      const stored = session.applyLocalEdit(next);
+      setStorageNote(
+        noteStorage(
+          stored,
+          "Browser storage is unavailable. Unconfirmed typing is only on this screen until a save succeeds."
+        )
+      );
+      queueRef.current?.enqueue(next);
+      return;
     }
-    persistRecovery(next);
-    queueRef.current?.enqueue(next);
-    if (!project) setSaveStatus("guest");
+    setGuestBrief(next);
+    setGuestConsent(false);
   }
 
-  async function reloadSaved() {
-    if (!project) return;
-    const view = await api<ProjectResponse>(`/api/projects/${project.id}`);
-    setProject(view.project);
-    setBrief(view.project.brief);
-    setSuggestions(view.suggestions);
-    setMessages(view.messages);
-    attachQueue(view.project, user!);
-    setStatus("Loaded the saved copy. Re-apply any typing you still need.");
+  function focusEditor() {
+    window.requestAnimationFrame(() => {
+      editorRef.current?.focus();
+    });
+  }
+
+  function keepLocalCopy() {
+    const session = sessionRef.current;
+    const queue = queueRef.current;
+    if (!session || !queue) return;
+    const serverVersion = session.keepLocalAfterCompare();
+    queue.enqueue(session.localBrief);
+    queue.resumeAfterReconcile(serverVersion);
+    setStatus("This device copy is kept. It stays unsaved until the server acknowledges this exact wording.");
+    focusEditor();
+  }
+
+  function takeSavedCopy() {
+    const session = sessionRef.current;
+    const queue = queueRef.current;
+    if (!session || !queue) return;
+    session.takeServerCopy();
+    queue.adoptAcknowledged(session.acknowledgedVersion);
+    setStatus("The saved copy is now the working draft. Review it before sending.");
+    focusEditor();
   }
 
   async function sendChat() {
@@ -340,15 +377,19 @@ export function GuidedBrief({
       setChatPending(false);
       return;
     }
+    const session = sessionRef.current;
+    const captured = session?.identity ?? null;
     try {
       const result = await api<{ view: ProjectResponse; liveAi: boolean }>(`/api/projects/${project.id}/messages`, {
         method: "POST",
         body: JSON.stringify({ body: text })
       });
+      if (!captured || !sessionRef.current || !identitiesMatch(captured, sessionRef.current.identity)) {
+        return;
+      }
       setMessages(result.view.messages);
-      setBrief(result.view.project.brief);
       setSuggestions(result.view.suggestions);
-      setProject(result.view.project);
+      sessionRef.current.syncRemoteProject(result.view.project.brief, result.view.project.version, captured);
       setChatInput("");
     } catch (error) {
       setChatError(actionErrorMessage(error, "The message was not delivered. Your text is still here."));
@@ -359,64 +400,58 @@ export function GuidedBrief({
 
   async function resolveSuggestion(id: string, action: "accept" | "reject") {
     if (!project) return;
+    const session = sessionRef.current;
+    const captured = session?.identity ?? null;
     const result = await api<{ view: ProjectResponse }>(`/api/projects/${project.id}/suggestions/${id}`, {
       method: "POST",
       body: JSON.stringify({ action })
     });
-    setBrief(result.view.project.brief);
+    if (!captured || !sessionRef.current || !identitiesMatch(captured, sessionRef.current.identity)) {
+      return;
+    }
     setSuggestions(result.view.suggestions);
-    setProject(result.view.project);
+    const applied = sessionRef.current.applyAcceptedBrief(
+      result.view.project.brief,
+      result.view.project.version,
+      captured
+    );
+    if (applied === "applied") {
+      queueRef.current?.adoptAcknowledged(result.view.project.version);
+      setProject(result.view.project);
+    } else if (applied === "needs_review") {
+      setStatus("The suggestion was stored, but your newer typing is still here. Review both copies before replacing either.");
+    }
   }
 
-  async function submit() {
-    if (!project || !user) {
-      window.location.href = "/account?next=/account/adopt";
-      return;
-    }
-    if (!consent || consentVersion === null) {
-      setStatus("Explicit consent is required for the saved revision currently on review.");
-      return;
-    }
-    const queue = queueRef.current;
-    if (queue) await queue.flush();
-    if (queue?.hasUnconfirmedEdits) {
-      setStatus("Newer edits are not confirmed as saved. Wait for save, then review that revision before sending.");
-      return;
-    }
-    const expectedVersion = queue?.acknowledgedVersion ?? project.version;
-    if (consentVersion !== expectedVersion) {
-      setConsent(false);
-      setConsentVersion(null);
-      setStatus("The brief changed after you consented. Review the saved revision and consent again.");
-      return;
-    }
-    const existing = loadSubmitCommand(user.id, project.id);
-    const command =
-      existing ??
-      buildSubmitCommand({
-        idempotencyKey: crypto.randomUUID(),
-        projectId: project.id,
-        ownerId: user.id,
-        expectedVersion,
-        brief: briefRef.current,
-        consentText: CONSENT_TEXT
-      });
+  async function sendCommand(command: PendingSubmitCommand) {
+    if (!project || !user) return;
     const stored = persistSubmitCommand(command);
     if (!stored.ok) {
-      setStorageNote("This send cannot be recovered after a reload because browser storage is unavailable. Keep this screen open until a receipt appears.");
+      setStorageNote(
+        "This send cannot be recovered after a reload because browser storage is unavailable. Keep this screen open until a receipt appears."
+      );
     }
     if (submitPending) return;
     setSubmitPending(true);
     try {
-      const result = await api<{ receipt: { receiptId: string } }>(`/api/projects/${project.id}/submit`, {
-        method: "POST",
-        body: JSON.stringify({
-          consent: true,
-          consentTextAcknowledged: true,
-          idempotencyKey: command.idempotencyKey,
-          expectedVersion: command.expectedVersion
-        })
+      const result = await api<{ receipt: { receiptId: string; submissionId: string; version: number } }>(
+        `/api/projects/${project.id}/submit`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            consent: true,
+            consentTextAcknowledged: true,
+            idempotencyKey: command.idempotencyKey,
+            expectedVersion: command.expectedVersion
+          })
+        }
+      );
+      archiveSubmitCommand(command, {
+        receiptId: result.receipt.receiptId,
+        submissionId: result.receipt.submissionId
       });
+      setPendingCommand(null);
+      setConfirmedCommand(loadConfirmedSubmit(user.id, project.id));
       setReceipt(result.receipt.receiptId);
       if (guestId) {
         const guest = readGuestDraft();
@@ -424,6 +459,7 @@ export function GuidedBrief({
       }
       window.location.href = `/workspace/${project.id}`;
     } catch (error) {
+      setPendingCommand(command);
       setStatus(
         error instanceof ApiError
           ? error.message
@@ -434,9 +470,52 @@ export function GuidedBrief({
     }
   }
 
+  async function retryPending() {
+    if (!pendingCommand) return;
+    await sendCommand(pendingCommand);
+  }
+
+  async function submitReviewedRevision() {
+    if (!project || !user) {
+      window.location.href = "/account?next=/account/adopt";
+      return;
+    }
+    const session = sessionRef.current;
+    if (!session) return;
+    if (!session.consent || session.consentVersion === null) {
+      setStatus("Explicit consent is required for the saved revision currently on review.");
+      return;
+    }
+    const queue = queueRef.current;
+    if (queue) await queue.flush();
+    if (queue?.hasUnconfirmedEdits || session.isUnconfirmed) {
+      setStatus("Newer edits are not confirmed as saved. Wait for save, then review that revision before sending.");
+      return;
+    }
+    const expectedVersion = session.acknowledgedVersion;
+    if (session.consentVersion !== expectedVersion) {
+      session.setConsent(false);
+      setStatus("The brief changed after you consented. Review the saved revision and consent again.");
+      return;
+    }
+    if (pendingCommand) {
+      setStatus("An earlier send is still unconfirmed. Retry that exact request before sending a new revision.");
+      return;
+    }
+    const command = buildSubmitCommand({
+      idempotencyKey: crypto.randomUUID(),
+      projectId: project.id,
+      ownerId: user.id,
+      expectedVersion,
+      brief: session.localBrief,
+      consentText: CONSENT_TEXT
+    });
+    await sendCommand(command);
+  }
+
   const visibleFields = useMemo(() => fieldsForStep(step, brief), [step, brief]);
-  const queueStatus = queueRef.current?.status ?? saveStatus;
-  void saveTick;
+  const compareAgainst = draftSnap?.serverBrief;
+  const comparing = Boolean(draftSnap && (draftSnap.recoveryOpen || draftSnap.conflictOpen) && compareAgainst);
 
   if (loading) {
     return (
@@ -498,11 +577,10 @@ export function GuidedBrief({
             ))}
           </ol>
           <SaveStatusBar
-            status={project ? queueStatus : "guest"}
-            message={saveMessage}
+            status={saveStatus}
+            message={draftSnap?.lastError ?? saveMessage}
             storageNote={storageNote}
             onRetry={() => queueRef.current?.retry()}
-            onReload={() => void reloadSaved()}
           />
           {user && !projectId && !createNew ? (
             <p className="notice" style={{ marginTop: 12 }}>
@@ -517,6 +595,20 @@ export function GuidedBrief({
           <p className="step-progress-mobile tiny">
             Step {step} of 5 · {STEPS[step - 1]?.label}
           </p>
+          {comparing && compareAgainst && draftSnap ? (
+            <DraftCompare
+              title={draftSnap.conflictOpen ? "A newer saved copy exists" : "This device has unconfirmed text"}
+              explanation={
+                draftSnap.conflictOpen
+                  ? "Your current wording was not overwritten. Compare it with the saved copy, then choose which text to keep."
+                  : "The text on this device is not saved yet. It will stay unsaved until the server acknowledges this exact wording."
+              }
+              local={draftSnap.brief}
+              server={compareAgainst}
+              onKeepLocal={keepLocalCopy}
+              onTakeServer={takeSavedCopy}
+            />
+          ) : null}
           <p className="kicker">{project ? "Authenticated brief" : "Saved on this device"}</p>
           {step < 5 ? (
             <>
@@ -525,7 +617,7 @@ export function GuidedBrief({
                 Start with the idea. You can refine details as you go. Answers stay as you move between steps.
                 Aurelius being unavailable does not block this brief.
               </p>
-              {visibleFields.map((key) => (
+              {visibleFields.map((key, index) => (
                 <div key={key} style={{ marginTop: 18 }}>
                   <label>
                     <span className="lbl">{FIELD_LABELS[key]}</span>
@@ -545,6 +637,7 @@ export function GuidedBrief({
                       </div>
                     ) : (
                       <textarea
+                        ref={index === 0 ? editorRef : undefined}
                         value={brief[key].value}
                         onChange={(event) => updateField(key, event.target.value)}
                         placeholder={FIELD_HINTS[key]}
@@ -606,26 +699,60 @@ export function GuidedBrief({
                   checked={consent}
                   onChange={(event) => {
                     const checked = event.target.checked;
-                    setConsent(checked);
-                    setConsentVersion(checked ? (queueRef.current?.acknowledgedVersion ?? project?.version ?? null) : null);
+                    const session = sessionRef.current;
+                    if (session) {
+                      const ok = session.setConsent(checked);
+                      if (checked && !ok) {
+                        setStatus("Save and review the current revision before consenting. Unconfirmed text is not ready to send.");
+                      }
+                      return;
+                    }
+                    setGuestConsent(checked);
                   }}
                 />{" "}
                 {CONSENT_TEXT}
               </label>
               {status ? <p className="notice notice-warn">{status}</p> : null}
-              {receipt ? <p className="notice">Receipt {receipt}</p> : null}
+              {receipt ? (
+                <article className="receipt-card surface-glass">
+                  <p className="tiny">Confirmed receipt</p>
+                  <p>Receipt {receipt} is stored. This is a request for review, not acceptance.</p>
+                </article>
+              ) : null}
+              {confirmedCommand?.receiptId && !receipt ? (
+                <article className="receipt-card surface-glass">
+                  <p className="tiny">Confirmed receipt</p>
+                  <p>Receipt {confirmedCommand.receiptId} is already stored for an earlier revision.</p>
+                  <AppLink href={`/workspace/${project?.id ?? ""}`}>View receipt</AppLink>
+                </article>
+              ) : null}
               <div className="row brief-actions">
                 <button className="btn btn-ghost" type="button" onClick={() => setStep(4)}>
-                  Back
+                  Edit the current working draft
                 </button>
-                <button
-                  className="btn btn-gold"
-                  type="button"
-                  disabled={submitPending || (Boolean(project) && Boolean(queueRef.current?.hasUnconfirmedEdits))}
-                  onClick={() => void submit()}
-                >
-                  {submitPending ? "Sending…" : project ? "Send to Neil" : "Sign in to send"}
-                </button>
+                {pendingCommand ? (
+                  <button className="btn btn-gold" type="button" disabled={submitPending} onClick={() => void retryPending()}>
+                    {submitPending ? "Retrying…" : "Retry earlier send"}
+                  </button>
+                ) : (
+                  <button
+                    className="btn btn-gold"
+                    type="button"
+                    disabled={
+                      submitPending ||
+                      (Boolean(project) && (Boolean(queueRef.current?.hasUnconfirmedEdits) || Boolean(draftSnap?.status && draftSnap.status !== "saved")))
+                    }
+                    onClick={() => void submitReviewedRevision()}
+                  >
+                    {submitPending
+                      ? "Sending…"
+                      : project
+                        ? confirmedCommand
+                          ? "Send this newly reviewed revision"
+                          : "Send to Neil"
+                        : "Sign in to send"}
+                  </button>
+                )}
               </div>
             </>
           )}

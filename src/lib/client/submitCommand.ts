@@ -10,6 +10,10 @@ export type PendingSubmitCommand = {
   payloadHash: string;
   consentText: string;
   createdAt: string;
+  status: "pending" | "confirmed";
+  receiptId?: string;
+  submissionId?: string;
+  confirmedAt?: string;
 };
 
 export function buildSubmitCommand(input: {
@@ -27,7 +31,8 @@ export function buildSubmitCommand(input: {
     expectedVersion: input.expectedVersion,
     payloadHash: submitFingerprint(input),
     consentText: input.consentText,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    status: "pending"
   };
 }
 
@@ -36,5 +41,27 @@ export function persistSubmitCommand(command: PendingSubmitCommand) {
 }
 
 export function loadSubmitCommand(ownerId: string, projectId: string) {
-  return readOwnerJson<PendingSubmitCommand>(ownerId, "submit", projectId);
+  const command = readOwnerJson<PendingSubmitCommand>(ownerId, "submit", projectId);
+  if (!command) return null;
+  if (command.status === "confirmed") return null;
+  return command;
+}
+
+export function loadConfirmedSubmit(ownerId: string, projectId: string) {
+  const command = readOwnerJson<PendingSubmitCommand>(ownerId, "submit", projectId);
+  if (command?.status === "confirmed") return command;
+  return null;
+}
+
+export function archiveSubmitCommand(
+  command: PendingSubmitCommand,
+  receipt: { receiptId: string; submissionId: string }
+) {
+  return persistSubmitCommand({
+    ...command,
+    status: "confirmed",
+    receiptId: receipt.receiptId,
+    submissionId: receipt.submissionId,
+    confirmedAt: new Date().toISOString()
+  });
 }

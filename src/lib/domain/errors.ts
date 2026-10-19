@@ -22,7 +22,11 @@ export class ForbiddenError extends DomainError {
 }
 
 export class ConflictError extends DomainError {
-  constructor(message: string, readonly currentVersion?: number) {
+  constructor(
+    message: string,
+    readonly currentVersion?: number,
+    readonly currentBrief?: unknown
+  ) {
     super(message, "conflict", 409);
   }
 }

@@ -39,7 +39,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         receiptId: confirmed.receiptId,
         submittedAt: confirmed.createdAt,
         submissionId: confirmed.id,
-        version: body.expectedVersion
+        version: confirmed.reviewedVersion
       },
       note: "Submitted is not the same as founder review. This receipt confirms the snapshot was stored."
     });

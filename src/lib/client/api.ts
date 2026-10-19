@@ -12,6 +12,11 @@ export class ApiError extends Error {
     const payload = this.body as { currentVersion?: number } | undefined;
     return typeof payload?.currentVersion === "number" ? payload.currentVersion : undefined;
   }
+
+  get currentBrief() {
+    const payload = this.body as { currentBrief?: unknown } | undefined;
+    return payload?.currentBrief;
+  }
 }
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {

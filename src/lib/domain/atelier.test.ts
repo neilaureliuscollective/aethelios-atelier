@@ -190,7 +190,7 @@ describe("commission lifecycle", () => {
       1,
       1
     );
-    expect(() =>
+    try {
       service.saveBrief(
         project.id,
         owner,
@@ -200,8 +200,13 @@ describe("commission lifecycle", () => {
         },
         1,
         2
-      )
-    ).toThrow(ConflictError);
+      );
+      throw new Error("expected conflict");
+    } catch (error) {
+      expect(error).toBeInstanceOf(ConflictError);
+      expect((error as ConflictError).currentVersion).toBe(first.project.version);
+      expect(((error as ConflictError).currentBrief as { vision: { value: string } }).vision.value).toBe("first");
+    }
     expect(first.project.brief.vision.value).toBe("first");
     expect(service.getOwnedProject(project.id, owner).brief.vision.value).toBe("first");
   });

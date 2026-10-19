@@ -151,7 +151,8 @@ export class ProjectService {
     if (project.version !== expectedVersion) {
       throw new ConflictError(
         "The saved brief is newer than this edit. Your latest typing was not overwritten.",
-        project.version
+        project.version,
+        project.brief
       );
     }
     const stamp = now();
@@ -202,6 +203,12 @@ export class ProjectService {
       if (existing.projectId !== projectId) {
         throw new ConflictError("This retry key is bound to a different commission.");
       }
+      if (existing.reviewedVersion !== expectedVersion) {
+        throw new ConflictError("This retry key was issued for a different reviewed snapshot.");
+      }
+      if (existing.consentText !== CONSENT_TEXT) {
+        throw new ConflictError("This retry key was issued for a different consent record.");
+      }
       const readBack = this.store.getSubmission(existing.id);
       if (!readBack?.receiptId) {
         throw new ConflictError("A receipt could not be independently read back.");
@@ -212,7 +219,8 @@ export class ProjectService {
     if (project.version !== expectedVersion) {
       throw new ConflictError(
         "This consent applies to a different saved revision. Save the brief, review it, and send that exact version.",
-        project.version
+        project.version,
+        project.brief
       );
     }
     const payloadHash = submitFingerprint({
@@ -228,6 +236,9 @@ export class ProjectService {
     return this.store.runInTransaction(() => {
       const insideExisting = this.store.getSubmissionByIdempotency(projectId, idempotencyKey);
       if (insideExisting) {
+        if (insideExisting.reviewedVersion !== expectedVersion || insideExisting.consentText !== CONSENT_TEXT) {
+          throw new ConflictError("This retry key was issued for a different reviewed snapshot.");
+        }
         return { submission: insideExisting, duplicate: true as const };
       }
       const current = this.getOwnedProject(projectId, user);
@@ -259,7 +270,9 @@ export class ProjectService {
         consentedAt: stamp,
         receiptId: createReceiptId(),
         idempotencyKey,
-        createdAt: stamp
+        createdAt: stamp,
+        reviewedVersion: expectedVersion,
+        payloadHash
       });
       this.store.updateProject({
         ...current,

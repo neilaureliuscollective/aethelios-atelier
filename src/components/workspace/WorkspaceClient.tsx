@@ -195,13 +195,39 @@ export function WorkspaceDetail({ id }: { id: string }) {
           </div>
         </div>
         {view.submission ? (
-          <p className="muted">
-            Receipt {view.submission.receiptId} · {new Date(view.submission.createdAt).toLocaleString()}
-          </p>
+          <article className="receipt-card">
+            <p className="tiny">Confirmed receipt</p>
+            <p>
+              Receipt {view.submission.receiptId} · {new Date(view.submission.createdAt).toLocaleString()}
+            </p>
+            <p className="muted">
+              Reviewed revision {view.submission.reviewedVersion}. This is a stored request for review, not
+              acceptance or a delivery date.
+            </p>
+          </article>
         ) : (
           <p className="muted">No snapshot has been sent. Submission is a request for review, not acceptance or a delivery date.</p>
         )}
         <p className="notice">Edits to the working draft do not change a submitted snapshot.</p>
+        <div className="row" style={{ marginTop: 16 }}>
+          {view.submission ? (
+            <button className="btn btn-ghost" type="button" onClick={() => setMode("snapshot")}>
+              View confirmed receipt
+            </button>
+          ) : null}
+          <a className="btn btn-ghost" href={`/project/${view.project.id}`}>
+            Edit the current working draft
+          </a>
+          {view.submission ? (
+            <a className="btn btn-gold" href={`/project/${view.project.id}`}>
+              Review a new revision
+            </a>
+          ) : (
+            <a className="btn btn-gold" href={`/project/${view.project.id}`}>
+              Review and send
+            </a>
+          )}
+        </div>
       </article>
 
       {openClarification ? (

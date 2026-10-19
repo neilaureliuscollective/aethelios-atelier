@@ -57,6 +57,8 @@ CREATE TABLE IF NOT EXISTS submissions (
   receipt_id TEXT NOT NULL UNIQUE,
   idempotency_key TEXT NOT NULL,
   created_at TEXT NOT NULL,
+  reviewed_version INTEGER NOT NULL DEFAULT 0,
+  payload_hash TEXT NOT NULL DEFAULT '',
   UNIQUE(project_id, idempotency_key)
 );
 CREATE TABLE IF NOT EXISTS messages (
@@ -140,6 +142,18 @@ export class SqlitePersistence implements PersistenceAdapter {
     this.db.exec("PRAGMA journal_mode = WAL;");
     this.db.exec("PRAGMA foreign_keys = ON;");
     this.db.exec(SCHEMA);
+    this.ensureSubmissionRequestColumns();
+  }
+
+  private ensureSubmissionRequestColumns() {
+    const columns = this.db.prepare("PRAGMA table_info(submissions)").all() as Array<{ name: string }>;
+    const names = new Set(columns.map((column) => column.name));
+    if (!names.has("reviewed_version")) {
+      this.db.exec("ALTER TABLE submissions ADD COLUMN reviewed_version INTEGER NOT NULL DEFAULT 0");
+    }
+    if (!names.has("payload_hash")) {
+      this.db.exec("ALTER TABLE submissions ADD COLUMN payload_hash TEXT NOT NULL DEFAULT ''");
+    }
   }
 
   ready() {
@@ -310,8 +324,8 @@ export class SqlitePersistence implements PersistenceAdapter {
   createSubmission(submission: Submission) {
     this.db
       .prepare(
-        `INSERT INTO submissions(id,project_id,owner_id,snapshot_json,title,consent_text,consented_at,receipt_id,idempotency_key,created_at)
-         VALUES(?,?,?,?,?,?,?,?,?,?)`
+        `INSERT INTO submissions(id,project_id,owner_id,snapshot_json,title,consent_text,consented_at,receipt_id,idempotency_key,created_at,reviewed_version,payload_hash)
+         VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`
       )
       .run(
         submission.id,
@@ -323,7 +337,9 @@ export class SqlitePersistence implements PersistenceAdapter {
         submission.consentedAt,
         submission.receiptId,
         submission.idempotencyKey,
-        submission.createdAt
+        submission.createdAt,
+        submission.reviewedVersion,
+        submission.payloadHash
       );
     return submission;
   }
@@ -603,7 +619,9 @@ export class SqlitePersistence implements PersistenceAdapter {
       consentedAt: String(row.consented_at),
       receiptId: String(row.receipt_id),
       idempotencyKey: String(row.idempotency_key),
-      createdAt: String(row.created_at)
+      createdAt: String(row.created_at),
+      reviewedVersion: Number(row.reviewed_version ?? 0),
+      payloadHash: String(row.payload_hash ?? "")
     };
   }
 

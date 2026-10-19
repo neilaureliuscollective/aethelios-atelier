@@ -123,6 +123,10 @@ const retry = await req(`/api/projects/${id}/submit`, {
   }
 });
 check("idempotent retry does not duplicate", retry.status === 200 && retry.json.duplicate === true);
+check(
+  "receipt version comes from persisted submission",
+  retry.json.receipt?.version === savedVersion && retry.json.receipt?.receiptId === submit.json.receipt?.receiptId
+);
 
 const laterBrief = {
   ...brief,
@@ -134,6 +138,36 @@ const laterSave = await req(`/api/projects/${id}`, {
   body: { expectedVersion: savedVersion, brief: laterBrief }
 });
 check("later draft save after submit", laterSave.status === 200);
+
+const reusedChanged = await req(`/api/projects/${id}/submit`, {
+  method: "POST",
+  cookie: owner,
+  body: {
+    consent: true,
+    consentTextAcknowledged: true,
+    idempotencyKey: `${RUN}-key-1`,
+    expectedVersion: laterSave.json.project.version
+  }
+});
+check("reused key with a different reviewed version conflicts", reusedChanged.status === 409);
+
+const revised = await req(`/api/projects/${id}/submit`, {
+  method: "POST",
+  cookie: owner,
+  body: {
+    consent: true,
+    consentTextAcknowledged: true,
+    idempotencyKey: `${RUN}-key-revised`,
+    expectedVersion: laterSave.json.project.version
+  }
+});
+check(
+  "deliberate revised submission gets a new receipt",
+  revised.status === 200 &&
+    revised.json.receipt?.receiptId &&
+    revised.json.receipt.receiptId !== submit.json.receipt.receiptId &&
+    revised.json.receipt.version === laterSave.json.project.version
+);
 
 const createdTwo = await req("/api/projects", { method: "POST", body: { brief }, cookie: owner });
 check("second project created", createdTwo.status === 201, createdTwo.json.project?.id);

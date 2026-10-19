@@ -89,6 +89,35 @@ if (projectId) {
   }
   await page.goto(`${BASE}/project/${projectId}`, { waitUntil: "networkidle0" });
   await shot(page, 1440, "guided_brief_owned");
+  const session = await page.evaluate(async () => {
+    const res = await fetch("/api/session");
+    return res.json();
+  });
+  const view = await page.evaluate(async (id) => {
+    const res = await fetch(`/api/projects/${id}`);
+    return res.json();
+  }, projectId);
+  await page.evaluate((ownerId, id, serverBrief) => {
+    const local = structuredClone(serverBrief);
+    local.vision.value = "Recovered device wording that has not been acknowledged yet.";
+    local.vision.provenance = "client_statement";
+    sessionStorage.setItem(
+      `atelier.account.${ownerId}.draft.${id}`,
+      JSON.stringify({
+        localBrief: local,
+        acknowledgedBrief: serverBrief,
+        acknowledgedVersion: 1,
+        unconfirmed: true,
+        updatedAt: new Date().toISOString()
+      })
+    );
+  }, session.user.id, projectId, view.project.brief);
+  await page.goto(`${BASE}/project/${projectId}`, { waitUntil: "networkidle0" });
+  await shot(page, 1440, "recovered_draft_compare");
+  await shot(page, 390, "recovered_draft_compare");
+  await page.goto(`${BASE}/workspace/${projectId}`, { waitUntil: "networkidle0" });
+  await shot(page, 390, "confirmed_receipt");
+  await shot(page, 1440, "confirmed_receipt");
 }
 
 await page.goto(`${BASE}/account`, { waitUntil: "networkidle0" });

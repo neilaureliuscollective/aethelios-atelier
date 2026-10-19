@@ -4,14 +4,12 @@ export function SaveStatusBar({
   status,
   message,
   storageNote,
-  onRetry,
-  onReload
+  onRetry
 }: {
   status: SaveStatus | "guest";
   message?: string | null;
   storageNote?: string | null;
   onRetry?: () => void;
-  onReload?: () => void;
 }) {
   const label =
     status === "guest"
@@ -36,14 +34,9 @@ export function SaveStatusBar({
         {storageNote ? <span className="save-status-msg">{storageNote}</span> : null}
       </p>
       <div className="row">
-        {(status === "uncertain" || status === "conflict" || status === "rejected") && onRetry ? (
+        {(status === "uncertain" || status === "rejected") && onRetry ? (
           <button className="btn btn-ghost btn-compact" type="button" onClick={onRetry}>
             Retry save
-          </button>
-        ) : null}
-        {status === "conflict" && onReload ? (
-          <button className="btn btn-ghost btn-compact" type="button" onClick={onReload}>
-            Reload saved copy
           </button>
         ) : null}
       </div>

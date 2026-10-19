@@ -39,7 +39,7 @@ export function SessionShell({
 
   const applyUser = useCallback((next: User | null) => {
     const previousId = ownerFence.ownerId;
-    if (previousId && previousId !== next?.id) {
+    if (previousId && next === null) {
       clearOwnerScopedData(previousId);
     }
     const gen = ownerFence.switchTo(next?.id ?? null);

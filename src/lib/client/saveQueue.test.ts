@@ -53,7 +53,7 @@ describe("coalesced save queue", () => {
     expect(queue.status).toBe("saved");
   });
 
-  it("keeps latest typing on conflict and records the server version", async () => {
+  it("keeps the local payload on conflict without advancing the acknowledged version", async () => {
     const queue = new CoalescedSaveQueue<string>(
       1,
       async () => {
@@ -69,6 +69,33 @@ describe("coalesced save queue", () => {
     queue.enqueue("kept locally");
     await queue.flush();
     expect(queue.status).toBe("conflict");
-    expect(queue.acknowledgedVersion).toBe(4);
+    expect(queue.acknowledgedVersion).toBe(1);
+    expect(queue.conflictVersion).toBe(4);
+    expect(queue.hasUnconfirmedEdits).toBe(true);
+  });
+
+  it("does not dispatch after dispose", async () => {
+    const calls: string[] = [];
+    const queue = new CoalescedSaveQueue<string>(1, async (payload) => {
+      calls.push(payload);
+      return { version: 2 };
+    }, 0);
+    queue.dispose();
+    queue.enqueue("late");
+    await queue.flush();
+    expect(calls).toEqual([]);
+  });
+
+  it("ignores a delayed success after dispose instead of advancing the version", async () => {
+    const first = deferred<{ version: number }>();
+    const queue = new CoalescedSaveQueue<string>(1, async () => first.promise, 0);
+    queue.enqueue("stale-project");
+    await Promise.resolve();
+    queue.dispose();
+    first.resolve({ version: 9 });
+    await first.promise;
+    await Promise.resolve();
+    expect(queue.acknowledgedVersion).toBe(1);
+    expect(queue.disposed).toBe(true);
   });
 });

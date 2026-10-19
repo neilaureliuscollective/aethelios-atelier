@@ -17,7 +17,8 @@ export function handleError(error: unknown) {
         ok: false,
         error: error.code,
         message: error.message,
-        currentVersion: "currentVersion" in error ? error.currentVersion : undefined
+        currentVersion: "currentVersion" in error ? error.currentVersion : undefined,
+        currentBrief: "currentBrief" in error ? error.currentBrief : undefined
       },
       error.status === 202 ? 409 : error.status
     );

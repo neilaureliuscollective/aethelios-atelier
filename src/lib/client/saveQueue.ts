@@ -7,6 +7,7 @@ export type SaveResult = {
 export type SaveFailure = {
   kind: "conflict" | "rejected" | "uncertain";
   currentVersion?: number;
+  serverBrief?: unknown;
   message: string;
 };
 
@@ -14,8 +15,11 @@ export class CoalescedSaveQueue<T> {
   acknowledgedVersion: number;
   status: SaveStatus;
   lastError: string | null = null;
+  conflictVersion: number | null = null;
+  disposed = false;
   private inFlight = false;
   private pending: T | null = null;
+  private inFlightPayload: T | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private listeners = new Set<() => void>();
   private flight: Promise<void> = Promise.resolve();
@@ -27,10 +31,11 @@ export class CoalescedSaveQueue<T> {
     private readonly timers: {
       setTimeout: typeof setTimeout;
       clearTimeout: typeof clearTimeout;
-    } = { setTimeout, clearTimeout }
+    } = { setTimeout, clearTimeout },
+    initialStatus: SaveStatus = "saved"
   ) {
     this.acknowledgedVersion = initialVersion;
-    this.status = "saved";
+    this.status = initialStatus;
   }
 
   get hasUnconfirmedEdits() {
@@ -50,7 +55,14 @@ export class CoalescedSaveQueue<T> {
     return () => this.listeners.delete(listener);
   }
 
+  dispose() {
+    this.disposed = true;
+    this.clearTimer();
+    this.listeners.clear();
+  }
+
   enqueue(payload: T) {
+    if (this.disposed) return;
     this.pending = payload;
     if (this.status !== "saving") this.status = "unsaved";
     this.emit();
@@ -58,6 +70,7 @@ export class CoalescedSaveQueue<T> {
   }
 
   async flush() {
+    if (this.disposed) return;
     this.clearTimer();
     await this.flight;
     if (this.pending && this.status !== "conflict" && this.status !== "rejected") {
@@ -67,11 +80,35 @@ export class CoalescedSaveQueue<T> {
   }
 
   retry() {
+    if (this.disposed) return;
+    if (this.status === "conflict") return;
     if (this.status !== "saving") this.status = "unsaved";
     this.schedule(0);
   }
 
+  /** After the user reviews a conflict, write local text against the server version. */
+  resumeAfterReconcile(serverVersion: number) {
+    if (this.disposed) return;
+    this.acknowledgedVersion = serverVersion;
+    this.conflictVersion = null;
+    this.status = "unsaved";
+    this.schedule(0);
+  }
+
+  /** Adopt the reviewed server snapshot without retrying an older payload. */
+  adoptAcknowledged(version: number) {
+    if (this.disposed) return;
+    this.acknowledgedVersion = version;
+    this.conflictVersion = null;
+    this.pending = null;
+    this.inFlightPayload = null;
+    this.status = "saved";
+    this.lastError = null;
+    this.emit();
+  }
+
   private schedule(ms: number) {
+    if (this.disposed) return;
     this.clearTimer();
     if (ms <= 0) {
       void this.run();
@@ -88,6 +125,7 @@ export class CoalescedSaveQueue<T> {
   }
 
   private async run() {
+    if (this.disposed) return this.flight;
     if (this.inFlight) return this.flight;
     if (this.pending === null) return this.flight;
     this.inFlight = true;
@@ -97,25 +135,28 @@ export class CoalescedSaveQueue<T> {
 
   private async drain() {
     try {
-      while (this.pending && this.status !== "conflict" && this.status !== "rejected") {
+      while (!this.disposed && this.pending && this.status !== "conflict" && this.status !== "rejected") {
         const payload = this.pending;
         this.pending = null;
+        this.inFlightPayload = payload;
         this.status = "saving";
         this.emit();
         const expected = this.acknowledgedVersion;
         try {
           const result = await this.saveFn(payload, expected);
+          if (this.disposed) return;
           this.acknowledgedVersion = result.version;
           this.lastError = null;
+          this.inFlightPayload = null;
           this.status = this.pending ? "unsaved" : "saved";
         } catch (error) {
+          if (this.disposed) return;
           const failure = error as SaveFailure;
           if (!this.pending) this.pending = payload;
+          this.inFlightPayload = null;
           if (failure.kind === "conflict") {
             this.status = "conflict";
-            if (typeof failure.currentVersion === "number") {
-              this.acknowledgedVersion = failure.currentVersion;
-            }
+            this.conflictVersion = typeof failure.currentVersion === "number" ? failure.currentVersion : null;
           } else if (failure.kind === "rejected") {
             this.status = "rejected";
           } else {
@@ -132,6 +173,7 @@ export class CoalescedSaveQueue<T> {
   }
 
   private emit() {
+    if (this.disposed) return;
     for (const listener of this.listeners) listener();
   }
 }

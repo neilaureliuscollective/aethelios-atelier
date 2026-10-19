@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { ATELIER_CACHE_PREFIX, isPersonalizedPath, shouldCacheResponse } from "@/lib/pwa/cachePolicy";
+import {
+  ATELIER_CACHE_PREFIX,
+  isPersonalizedPath,
+  shouldCacheResponse,
+  uncertainWriteResponse
+} from "@/lib/pwa/cachePolicy";
 
 describe("offline cache policy", () => {
   it("refuses personalized HTML, APIs, and authenticated routes", () => {
@@ -50,5 +55,13 @@ describe("offline cache policy", () => {
       })
     ).toBe(false);
     expect(ATELIER_CACHE_PREFIX).toBe("atelier-static-");
+  });
+
+  it("describes a failed write as uncertain rather than definitely not delivered", () => {
+    const payload = uncertainWriteResponse();
+    expect(payload.delivered).toBe("uncertain");
+    expect(payload.ok).toBe(false);
+    expect(payload.message).not.toMatch(/not delivered/i);
+    expect(payload.retainRetry).toBe(true);
   });
 });

@@ -115,6 +115,8 @@ export type Submission = {
   receiptId: string;
   idempotencyKey: string;
   createdAt: string;
+  reviewedVersion: number;
+  payloadHash: string;
 };
 
 export type FounderNote = {

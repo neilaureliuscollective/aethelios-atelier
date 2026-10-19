@@ -62,8 +62,10 @@ self.addEventListener("fetch", (event) => {
           new Response(
             JSON.stringify({
               ok: false,
-              delivered: false,
-              message: "This device is offline. The request was not delivered."
+              delivered: "uncertain",
+              retainRetry: true,
+              message:
+                "The request did not return a response. The server may already have stored it. Retry the same command — do not send a new one."
             }),
             { status: 503, headers: { "Content-Type": "application/json" } }
           )

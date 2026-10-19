@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/** HTTP fetch time and body bytes only. Not LCP, INP, CLS, or rendered responsiveness. */
 const BASE = process.env.ATELIER_BASE ?? "http://127.0.0.1:3000";
 const paths = ["/", "/services", "/project", "/offline"];
 

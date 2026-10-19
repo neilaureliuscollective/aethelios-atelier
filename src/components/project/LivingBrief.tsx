@@ -49,13 +49,14 @@ export function LivingBrief({
                 <p>
                   <strong>Aurelius suggestion — not approved.</strong> {pending.proposedValue}
                 </p>
+                {pending.rationale ? <p className="muted">Context: {pending.rationale}</p> : null}
                 {onResolve ? (
                   <div className="row" style={{ marginTop: 8 }}>
                     <button className="btn btn-gold" type="button" onClick={() => onResolve(pending.id, "accept")}>
-                      Accept
+                      Accept suggestion
                     </button>
                     <button className="btn btn-ghost" type="button" onClick={() => onResolve(pending.id, "reject")}>
-                      Reject
+                      Keep my wording
                     </button>
                   </div>
                 ) : null}
