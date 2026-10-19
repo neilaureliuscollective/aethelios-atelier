@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900" role="img" aria-labelledby="archTitle archDesc">
+  <title id="archTitle">Architectural glass study</title>
+  <desc id="archDesc">An original illustrative composition of arches, emerald glass, and gold filament. Not a photograph of a completed project.</desc>
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#102E25"/>
+      <stop offset="0.55" stop-color="#080C0B"/>
+      <stop offset="1" stop-color="#121A17"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="38%" r="42%">
+      <stop offset="0" stop-color="#248368" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#080C0B" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#E2C988"/>
+      <stop offset="1" stop-color="#C7A45A"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="900" fill="url(#sky)"/>
+  <rect width="1200" height="900" fill="url(#glow)"/>
+  <g fill="none" stroke="url(#gold)" stroke-width="3">
+    <path d="M180 820 V340 C180 160 380 70 600 70 C820 70 1020 160 1020 340 V820"/>
+    <path d="M260 820 V360 C260 200 430 130 600 130 C770 130 940 200 940 360 V820"/>
+    <path d="M360 820 V410 C360 250 480 200 600 200 C720 200 840 250 840 410 V820"/>
+  </g>
+  <path d="M180 820 H1020" stroke="#C7A45A" stroke-opacity="0.45" stroke-width="2"/>
+  <ellipse cx="600" cy="430" rx="210" ry="210" fill="#0B4635" fill-opacity="0.35"/>
+  <circle cx="600" cy="430" r="118" fill="none" stroke="#E2C988" stroke-width="2" opacity="0.7"/>
+  <path d="M600 250 L668 430 L600 610 L532 430 Z" fill="none" stroke="#E2C988" stroke-width="2.5"/>
+  <circle cx="600" cy="430" r="8" fill="#E2C988"/>
+  <g opacity="0.35" stroke="#A7B6AC" fill="none">
+    <path d="M80 760 C220 640 280 620 360 720"/>
+    <path d="M840 720 C920 600 1040 590 1140 730"/>
+  </g>
+</svg>

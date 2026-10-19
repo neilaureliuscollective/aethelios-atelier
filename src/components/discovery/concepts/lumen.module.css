@@ -1,0 +1,238 @@
+.root {
+  min-height: 100%;
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-family: var(--font-lumen), "Fraunces", "Palatino Linotype", serif;
+  padding: clamp(22px, 4.2cqi, 36px) clamp(16px, 3.2cqi, 28px) clamp(48px, 6cqi, 64px);
+}
+
+.mast {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: baseline;
+  border-bottom: 1px solid var(--c-rule);
+  padding-bottom: 18px;
+  margin-bottom: clamp(22px, 4cqi, 36px);
+}
+
+.word {
+  font-size: 13px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+  max-width: min(100%, 36ch);
+}
+
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  color: var(--c-muted);
+  font-size: 13px;
+}
+
+.nav button {
+  appearance: none;
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  min-height: 44px;
+  font: inherit;
+}
+
+.nav button:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 3px;
+}
+
+.opening {
+  max-width: 18em;
+  margin: clamp(28px, 8cqb, 72px) 0;
+}
+
+.kicker {
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-size: 11px;
+  color: var(--c-muted);
+  font-family: var(--font-body), sans-serif;
+}
+
+.opening h2 {
+  font-weight: 500;
+  font-size: clamp(32px, 10cqi, 84px);
+  line-height: 0.92;
+  margin: 12px 0 18px;
+  letter-spacing: -0.03em;
+  overflow-wrap: break-word;
+}
+
+.opening p {
+  font-family: var(--font-body), sans-serif;
+  color: var(--c-muted);
+  font-size: clamp(15px, 2.1cqi, 17px);
+  max-width: 38ch;
+}
+
+.plate {
+  margin: 8px 0 48px;
+}
+
+.plate img {
+  width: 100%;
+  height: 280px;
+  height: min(38cqb, 420px);
+  min-height: 180px;
+  object-fit: cover;
+  object-position: 50% 42%;
+  border-radius: 2px;
+}
+
+.plate figcaption {
+  margin-top: 10px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+  font-family: var(--font-body), sans-serif;
+}
+
+.services {
+  display: grid;
+  gap: 0;
+  max-width: 42rem;
+  min-width: 0;
+}
+
+.service {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 18px;
+  padding: 22px 0;
+  border-top: 1px solid var(--c-rule);
+  min-width: 0;
+}
+
+.index {
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  color: var(--c-accent);
+}
+
+.service h3 {
+  margin: 0 0 6px;
+  font-size: clamp(20px, 3.4cqi, 28px);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.service p,
+.journey p,
+.action p,
+.closing {
+  font-family: var(--font-body), sans-serif;
+  color: var(--c-muted);
+}
+
+.journey {
+  margin-top: 48px;
+  max-width: 42rem;
+}
+
+.journey details {
+  border-top: 1px solid var(--c-rule);
+}
+
+.journey summary {
+  list-style: none;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  font-size: clamp(17px, 2.4cqi, 20px);
+}
+
+.journey summary::-webkit-details-marker { display: none; }
+
+.action {
+  margin-top: 48px;
+  padding-top: 28px;
+  border-top: 1px solid var(--c-rule);
+}
+
+.cta {
+  appearance: none;
+  background: transparent;
+  color: var(--c-text);
+  border: 0;
+  border-bottom: 1px solid var(--c-accent);
+  border-radius: 0;
+  min-height: 48px;
+  padding: 0;
+  font: inherit;
+  font-size: clamp(18px, 2.6cqi, 22px);
+  cursor: pointer;
+}
+
+.cta:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 4px;
+}
+
+.hint {
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--c-muted);
+  font-family: var(--font-body), sans-serif;
+}
+
+.closing {
+  margin-top: 48px;
+  font-size: 14px;
+}
+
+@container concept (max-width: 520px) {
+  .mast {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .word {
+    letter-spacing: 0.14em;
+    font-size: 12px;
+    max-width: 100%;
+  }
+
+  .nav {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 4px 10px;
+  }
+
+  .opening {
+    max-width: none;
+    margin: 20px 0 28px;
+  }
+
+  .opening h2 {
+    font-size: clamp(30px, 11cqi, 44px);
+    line-height: 1.02;
+  }
+
+  .opening p {
+    max-width: none;
+  }
+
+  .service {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .plate img {
+    height: 200px;
+    min-height: 160px;
+  }
+}

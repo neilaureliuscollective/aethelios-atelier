@@ -1,0 +1,6 @@
+.frame {
+  container-type: inline-size;
+  container-name: concept;
+  min-width: 0;
+  min-height: 100%;
+}
