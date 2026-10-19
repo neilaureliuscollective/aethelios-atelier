@@ -4,7 +4,7 @@
 
 - Independently reviewed foundation: `d97a3186decbd2c5f2e66648fcf69651760f15af`
 - Branch at that review: `cursor/atelier-standalone-foundation-fc70`
-- This parallel branch: `cursor/atelier-discovery-studio-8909` at `7bbe8c0a0a2fb912251e567f3278ce4bc3d8acb2`
+- This parallel branch: `cursor/atelier-discovery-studio-8909`
 - Isolation: git worktree `/workspace/discovery-studio`, Next port **3010**, local `.next` and `.data` in this worktree only
 
 Main was README-only at the review. This work is not based on empty `main`.
