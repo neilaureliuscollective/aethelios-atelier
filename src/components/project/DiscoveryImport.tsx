@@ -1,27 +1,32 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { FIELD_LABELS } from "@/lib/brief";
 import {
   applyDiscoveryImport,
   browserStorage,
-  prepareDiscoveryImport,
+  captureDiscoveryImportReview,
   readDiscovery,
   readDiscoveryHandoff,
+  reviewCaptureIsCurrent,
   type ApplyDecision,
-  type DiscoveryBriefMapping,
-  type DiscoverySelection
+  type DiscoverySelection,
+  type ImportReviewCapture
 } from "@/lib/discovery";
 import type { Brief, BriefFieldKey } from "@/lib/types";
 
 export function DiscoveryImport({
   brief,
   revision,
+  ownerId = null,
+  projectId = null,
   blocked,
   onApply
 }: {
   brief: Brief;
   revision?: number | null;
+  ownerId?: string | null;
+  projectId?: string | null;
   blocked?: boolean;
   onApply: (next: Brief) => void;
 }) {
@@ -29,7 +34,7 @@ export function DiscoveryImport({
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [decisions, setDecisions] = useState<Partial<Record<BriefFieldKey, ApplyDecision>>>({});
-  const [boundRevision, setBoundRevision] = useState<number | null>(null);
+  const [capture, setCapture] = useState<ImportReviewCapture | null>(null);
 
   useEffect(() => {
     const handoff = readDiscoveryHandoff();
@@ -45,12 +50,17 @@ export function DiscoveryImport({
     setSelection(null);
   }, [brief]);
 
-  const prepared = useMemo(() => {
-    if (!selection) return null;
-    return prepareDiscoveryImport({ rawSelection: selection, currentBrief: brief });
-  }, [selection, brief]);
-
-  const mapping: DiscoveryBriefMapping | null = prepared && prepared.ok ? prepared.mapping : null;
+  const mapping = capture?.mapping ?? null;
+  const staleOpen =
+    Boolean(open && capture && selection) &&
+    !reviewCaptureIsCurrent({
+      capture: capture as ImportReviewCapture,
+      currentBrief: brief,
+      currentSelection: selection,
+      currentOwnerId: ownerId,
+      currentProjectId: projectId,
+      currentRevision: typeof revision === "number" ? revision : null
+    });
 
   if (!selection) return null;
 
@@ -59,22 +69,43 @@ export function DiscoveryImport({
       setMessage("Resolve the recovery comparison before adding a prepared direction.");
       return;
     }
-    setOpen(true);
-    setBoundRevision(typeof revision === "number" ? revision : null);
-    setMessage("Choose append, replace, or skip for each proposed field. This is not a submission.");
-    if (mapping) {
-      setDecisions(Object.fromEntries(mapping.proposals.map((item) => [item.field, item.conflict ? "skip" : "replace"])));
+    const reviewed = captureDiscoveryImportReview({
+      rawSelection: selection,
+      currentBrief: brief,
+      ownerId,
+      projectId,
+      briefRevision: typeof revision === "number" ? revision : null
+    });
+    if (!reviewed.ok) {
+      setMessage(reviewed.reason);
+      return;
     }
+    setCapture(reviewed.capture);
+    setOpen(true);
+    setMessage("Choose append, replace, or skip for each proposed field. This is not a submission.");
+    setDecisions(
+      Object.fromEntries(
+        reviewed.capture.mapping.proposals.map((item) => [item.field, item.conflict ? "skip" : "replace"])
+      )
+    );
   }
 
   function apply() {
-    if (!selection) return;
+    if (!selection || !capture) return;
+    if (staleOpen) {
+      setMessage(
+        "The brief, prepared direction, or account changed while this review was open. Your newer text is still here. Review the import again before anything is applied."
+      );
+      return;
+    }
     const result = applyDiscoveryImport({
-      rawSelection: selection,
+      capture,
       currentBrief: brief,
+      currentSelection: selection,
       decisions,
-      expectedRevision: boundRevision,
-      currentRevision: typeof revision === "number" ? revision : boundRevision
+      currentOwnerId: ownerId,
+      currentProjectId: projectId,
+      currentRevision: typeof revision === "number" ? revision : null
     });
     if (!result.ok) {
       setMessage(result.reason);
@@ -82,6 +113,7 @@ export function DiscoveryImport({
     }
     onApply(result.brief);
     setOpen(false);
+    setCapture(null);
     setMessage(
       "Prepared direction added to this brief. Review the fields and consent before sending. Nothing was submitted or saved to an account."
     );
@@ -99,6 +131,12 @@ export function DiscoveryImport({
         and is not an account save.
       </p>
       {message ? <p className="notice">{message}</p> : null}
+      {staleOpen ? (
+        <p className="notice notice-warn">
+          Newer brief edits, a different direction snapshot, or a different account were detected.
+          The open review will not overwrite them.
+        </p>
+      ) : null}
       {!open ? (
         <button className="btn btn-ghost btn-compact" type="button" onClick={startReview}>
           Review adding this to the brief
@@ -131,12 +169,24 @@ export function DiscoveryImport({
             </fieldset>
           ))}
           <div className="row">
-            <button className="btn btn-gold" type="button" onClick={apply}>
+            <button className="btn btn-gold" type="button" onClick={apply} disabled={staleOpen}>
               Apply to this brief
             </button>
-            <button className="btn btn-ghost" type="button" onClick={() => setOpen(false)}>
+            <button
+              className="btn btn-ghost"
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                setCapture(null);
+              }}
+            >
               Cancel
             </button>
+            {staleOpen ? (
+              <button className="btn btn-ghost" type="button" onClick={startReview}>
+                Review again
+              </button>
+            ) : null}
           </div>
         </div>
       )}

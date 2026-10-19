@@ -61,7 +61,8 @@ const intercept = {
   dropSubmitAfterCommit: false,
   committedSubmit: null,
   blockServiceWorker: true,
-  failNonGet: false
+  failNonGet: false,
+  submitPostedFor: null
 };
 
 function asCdpRequest(event) {
@@ -873,6 +874,60 @@ check(
   navReceipt.submission?.receiptId === heldSubmitJson.receipt?.receiptId,
   navReceipt.submission?.receiptId
 );
+
+const readbackProject = await createProject(page, "Held readback must not return after sign-out");
+await page.goto(`${BASE}/project/${readbackProject.project.id}`, { waitUntil: "load" });
+await waitForOwnedBrief(page);
+await waitUntil(async () => (await saveLabel(page)) === "Saved", 12000, "readback project saved");
+await goToReview(page);
+await page.click("input[type=checkbox]");
+intercept.submitPostedFor = null;
+const readbackHold = armHold((request) => {
+  const url = request.url();
+  const method = request.method();
+  if (method === "POST" && url.includes(`/api/projects/${readbackProject.project.id}/submit`)) {
+    intercept.submitPostedFor = readbackProject.project.id;
+    return false;
+  }
+  return (
+    intercept.submitPostedFor === readbackProject.project.id &&
+    method === "GET" &&
+    new RegExp(`/api/projects/${readbackProject.project.id}(?:\\?|$)`).test(new URL(url).pathname)
+  );
+});
+const sendClicked = await clickButton(page, "Send to Neil|Send this newly reviewed");
+check("submit send control was clicked for held readback", sendClicked === true);
+const heldReadback = await readbackHold.seen;
+check("submit verification GET was held after POST", Boolean(heldReadback), heldReadback?.url);
+await spaNavigate(page, "/account");
+await page.waitForSelector("button");
+const readbackSignOutHold = armHold(
+  (request) => request.method() === "POST" && request.url().includes("/api/session/sign-out")
+);
+await clickButton(page, "Sign out");
+await readbackSignOutHold.seen;
+const keysAfterSubmitSignOut = await ownerStorageKeys(page, ownerAId);
+check(
+  "explicit sign-out during held submit readback clears account recovery",
+  keysAfterSubmitSignOut.length === 0,
+  keysAfterSubmitSignOut.join(",")
+);
+readbackHold.release();
+await wait(500);
+const keysAfterLateReadback = await ownerStorageKeys(page, ownerAId);
+check(
+  "late submit verification GET does not recreate signed-out recovery",
+  keysAfterLateReadback.length === 0,
+  keysAfterLateReadback.join(",")
+);
+check(
+  "late submit readback does not restore a false receipt",
+  !(await page.content()).includes("Confirmed receipt")
+);
+readbackSignOutHold.release();
+await page.waitForNavigation({ waitUntil: "load", timeout: 12000 }).catch(() => {});
+await connectFetch();
+await signIn(page, "owner.local@atelier.invalid");
 
 const reuse = await page.evaluate(async (id) => {
   const current = await (await fetch(`/api/projects/${id}`)).json();

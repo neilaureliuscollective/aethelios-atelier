@@ -78,11 +78,15 @@ export function rejectSubmitCommand(command: PendingSubmitCommand, reason: strin
   });
 }
 
-export function classifySubmitFailure(error: {
-  status?: number;
-  code?: string;
-  message?: string;
-}): "rejected" | "uncertain" {
+export function classifySubmitFailure(
+  error: {
+    status?: number;
+    code?: string;
+    message?: string;
+  },
+  phase: "post" | "verify" = "post"
+): "rejected" | "uncertain" {
+  if (phase === "verify") return "uncertain";
   const message = (error.message ?? "").toLowerCase();
   if (error.code === "uncertain") return "uncertain";
   if (message.includes("receipt") && (message.includes("independently") || message.includes("readable"))) {
