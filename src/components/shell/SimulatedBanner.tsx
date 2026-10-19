@@ -7,6 +7,7 @@ export function SimulatedBanner({
   auth: { adapter: string; labeled: boolean; ready: boolean };
   user: User | null;
 }) {
+  if (auth.adapter === "authjs" && auth.ready) return null;
   if (!auth.ready && !auth.labeled) return null;
   return (
     <div className="sim-banner" role="status">

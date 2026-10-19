@@ -65,6 +65,33 @@ describe("fail-closed configuration", () => {
     expect(memory.persistence.ready === false && memory.persistence.missing).toMatch(/ephemeral/i);
   });
 
+  it("does not activate Auth.js from empty or placeholder-free missing provider credentials", () => {
+    process.env.ATELIER_AUTH_ADAPTER = "authjs";
+    process.env.VERCEL = "1";
+    delete process.env.AUTH_SECRET;
+    delete process.env.ATELIER_SESSION_SECRET;
+    delete process.env.AUTH_GOOGLE_ID;
+    delete process.env.AUTH_GOOGLE_SECRET;
+    delete process.env.AUTH_RESEND_KEY;
+    delete process.env.AUTH_RESEND_FROM;
+    delete process.env.ATELIER_AUTH_EMAIL_CAPTURE;
+    const missing = loadConfig();
+    expect(missing.auth.ready).toBe(false);
+    expect(missing.auth.adapter).toBe("authjs");
+    expect(missing.auth.missing).toMatch(/AUTH_SECRET|provider/i);
+    expect(JSON.stringify(publicRuntimeConfig())).not.toContain("sk-");
+
+    process.env.AUTH_SECRET = "s".repeat(40);
+    process.env.AUTH_GOOGLE_ID = "google-client-id";
+    process.env.AUTH_GOOGLE_SECRET = "google-client-secret";
+    const ready = loadConfig();
+    expect(ready.auth.ready).toBe(true);
+    expect(ready.auth.adapter).toBe("authjs");
+    expect(ready.auth.labeled).toBe(false);
+    expect(publicRuntimeConfig().auth.providers).toEqual([{ id: "google", label: "Google", capture: false }]);
+    expect(JSON.stringify(publicRuntimeConfig())).not.toContain("google-client-secret");
+  });
+
   it("keeps postgres unready until a dedicated database URL is present", () => {
     process.env.VERCEL = "1";
     process.env.ATELIER_PERSISTENCE_ADAPTER = "postgres";

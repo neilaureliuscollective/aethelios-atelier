@@ -256,7 +256,7 @@ export function FounderGuard({ children }: { children: React.ReactNode }) {
     return (
       <section className="container section">
         <h1>Founder authorization required</h1>
-        <p className="lede">This workspace is enforced on the server. Sign in with the simulated founder identity to continue.</p>
+        <p className="lede">This workspace is enforced on the server. Sign in with an authorized founder account to continue.</p>
         <a className="btn btn-gold" href="/account">
           Sign in
         </a>

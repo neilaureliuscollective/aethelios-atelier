@@ -32,6 +32,9 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     error?: string;
   } & T;
   if (!response.ok) {
+    if (response.status === 401 && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("atelier:session-expired"));
+    }
     throw new ApiError(data.message ?? "Request failed", response.status, data.error, data);
   }
   return data;

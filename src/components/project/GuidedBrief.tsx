@@ -69,7 +69,7 @@ function saveFailure(error: unknown): SaveFailure {
         message: error.message
       };
     }
-    if (error.status === 400 || error.status === 403) {
+    if (error.status === 400 || error.status === 401 || error.status === 403) {
       return { kind: "rejected", message: error.message };
     }
   }

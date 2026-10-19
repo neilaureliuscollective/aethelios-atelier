@@ -46,6 +46,7 @@ pnpm lint
 pnpm test
 pnpm build
 node scripts/api-flow.mjs
+node scripts/auth-acceptance.mjs
 node scripts/privacy-browser.mjs
 node scripts/browser-regressions.mjs
 ```
@@ -56,7 +57,8 @@ See `.env.example`. Fail-closed rules:
 
 - Local persistence: `ATELIER_PERSISTENCE_ADAPTER=sqlite_local` or `memory`.
 - Hosted persistence: `postgres` plus `DATABASE_URL` / `POSTGRES_URL`. sqlite and memory are refused on Vercel.
-- Auth requires `ATELIER_AUTH_ADAPTER=simulated` on an isolated local machine until a real provider exists. Hosted platforms always refuse simulated auth.
+- Local auth may use labeled simulated identities (`ATELIER_AUTH_ADAPTER=simulated`) on an isolated machine. Hosted platforms always refuse simulated auth.
+- Hosted accounts use Auth.js (`ATELIER_AUTH_ADAPTER=authjs`) with Google and/or Resend. Until those credentials are set, sign-in stays unready rather than faking production auth. Setup: [docs/AUTH.md](docs/AUTH.md).
 - Aethelios stays unavailable unless `ATELIER_OPENAI_ENABLED=true` **and** `OPENAI_API_KEY` are set. Live model calls are not made by default and were not used in this implementation. Internal identifiers may still use the older `aurelius` name; visitor-facing copy maps that to Aethelios.
 - Billing is not activated. Do not set Stripe keys.
 
@@ -68,7 +70,7 @@ Approved logo and icon live in `public/brand/original/`. Optimized derivatives a
 
 ## Launch blockers (external)
 
-- Real authentication (the current adapter is simulated, labeled, and refused on Vercel)
+- Hosted Auth.js credentials in the Vercel project (Google and/or Resend). The adapter exists and stays fail-closed until those secrets are set. See [docs/AUTH.md](docs/AUTH.md).
 - Dedicated hosted database credentials in the Vercel project (adapter exists; do not reuse Aethelios production)
 - Authorized OpenAI spend (`ATELIER_OPENAI_ENABLED` + key)
 - Final service pricing

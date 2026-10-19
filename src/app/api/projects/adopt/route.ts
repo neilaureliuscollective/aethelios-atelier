@@ -9,7 +9,7 @@ import { getStore } from "@/lib/persistence/store";
 export const runtime = "nodejs";
 
 const bodySchema = z.object({
-  confirmed: z.literal(true),
+  confirmed: z.boolean(),
   draft: z.unknown()
 });
 

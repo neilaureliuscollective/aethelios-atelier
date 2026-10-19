@@ -89,6 +89,6 @@ export function classifySubmitFailure(error: {
     return "uncertain";
   }
   const status = error.status ?? 0;
-  if (status === 400 || status === 403 || status === 409) return "rejected";
+  if (status === 400 || status === 401 || status === 403 || status === 409) return "rejected";
   return "uncertain";
 }

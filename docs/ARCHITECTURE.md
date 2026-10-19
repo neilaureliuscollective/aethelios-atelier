@@ -4,14 +4,14 @@ This application is a standalone product. It does not import Aethelios, Carreón
 
 ## Stack decision
 
-Next.js 15 (App Router) + React 19 + TypeScript is the maintainable typed stack for a website that *is* the application: routes, server-validated APIs, and a PWA shell in one codebase. Persistence uses `node:sqlite` (Node 22) locally, an in-memory adapter for tests, and a dedicated Postgres adapter (`postgres`) for Vercel / Neon. Auth is a labeled simulated-identity adapter on isolated local machines and is refused on hosted platforms until a real provider is connected. OpenAI is an optional server-only boundary and stays off unless `ATELIER_OPENAI_ENABLED=true` and `OPENAI_API_KEY` are both set.
+Next.js 15 (App Router) + React 19 + TypeScript is the maintainable typed stack for a website that *is* the application: routes, server-validated APIs, and a PWA shell in one codebase. Persistence uses `node:sqlite` (Node 22) locally, an in-memory adapter for tests, and a dedicated Postgres adapter (`postgres`) for Vercel / Neon. Auth is a labeled simulated-identity adapter on isolated local machines. Hosted platforms refuse simulated auth and use Auth.js (`next-auth` v5) with Google and/or Resend once credentials are set. Until then Auth.js stays unready instead of inventing production sign-in. OpenAI is an optional server-only boundary and stays off unless `ATELIER_OPENAI_ENABLED=true` and `OPENAI_API_KEY` are both set.
 
 ## Adapters
 
 | Concern | Local candidate | Hosted later |
 | --- | --- | --- |
 | Persistence | `sqlite_local` in `.data/atelier.sqlite` | Dedicated Atelier Postgres (`ATELIER_PERSISTENCE_ADAPTER=postgres` + `DATABASE_URL` / `POSTGRES_URL`) — never the Aethelios production DB. sqlite and memory are refused on Vercel. |
-| Auth | Simulated identities | Real identity provider |
+| Auth | Simulated identities | Auth.js with Google and/or Resend (`ATELIER_AUTH_ADAPTER=authjs`). Setup: `docs/AUTH.md`. |
 | In-app intelligence (Aethelios; internal `aurelius` identifiers) | Disabled unless explicitly enabled | Same boundary, with spend approval |
 | Billing | Isolated module, not activated | Future Stripe work in `src/lib/billing/boundary.ts` only |
 
