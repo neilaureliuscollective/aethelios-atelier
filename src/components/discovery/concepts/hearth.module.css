@@ -1,0 +1,166 @@
+.root {
+  min-height: 100%;
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-family: var(--font-hearth), "Outfit", "Segoe UI", sans-serif;
+  padding: 24px;
+}
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.mark {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.top nav {
+  display: flex;
+  gap: 8px;
+}
+
+.top button {
+  appearance: none;
+  min-height: 44px;
+  border: 0;
+  background: color-mix(in srgb, var(--c-surface) 80%, transparent);
+  color: var(--c-text);
+  border-radius: 999px;
+  padding: 0 14px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 22px;
+  margin-top: 28px;
+  align-items: start;
+}
+
+.story h2 {
+  font-size: clamp(34px, 5vw, 58px);
+  line-height: 1.05;
+  font-weight: 560;
+  margin: 8px 0 16px;
+}
+
+.kicker {
+  color: var(--c-accent);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-size: 12px;
+}
+
+.story p {
+  color: var(--c-muted);
+  font-size: 17px;
+}
+
+.stack {
+  position: relative;
+  min-height: 280px;
+  margin: 28px 0;
+}
+
+.stack img {
+  width: 72%;
+  height: 220px;
+  object-fit: cover;
+  border-radius: 28px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+}
+
+.stack img:last-child {
+  position: absolute;
+  right: 0;
+  top: 48px;
+  width: 58%;
+  height: 200px;
+}
+
+.welcome {
+  background: var(--c-surface);
+  border-radius: 28px;
+  padding: 22px;
+  border: 1px solid var(--c-border);
+}
+
+.welcome h3 {
+  margin: 0 0 8px;
+  font-size: 26px;
+}
+
+.hours {
+  display: grid;
+  gap: 8px;
+  color: var(--c-muted);
+  margin: 16px 0 22px;
+}
+
+.cta {
+  width: 100%;
+  min-height: 48px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--c-cta);
+  color: var(--c-cta-text);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.hint {
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--c-muted);
+}
+
+.services {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 12px;
+}
+
+.card {
+  background: var(--c-surfaceStrong);
+  border-radius: 24px;
+  padding: 4px 18px;
+  border: 1px solid var(--c-border);
+}
+
+.card summary {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.card p {
+  color: var(--c-muted);
+  padding-bottom: 16px;
+}
+
+.caption {
+  font-size: 12px;
+  color: var(--c-muted);
+  margin-top: 8px;
+}
+
+@media (max-width: 720px) {
+  .grid { grid-template-columns: 1fr; }
+  .stack img, .stack img:last-child {
+    position: relative;
+    width: 100%;
+    top: 0;
+    height: 180px;
+  }
+  .stack img:last-child { margin-top: -48px; }
+}
