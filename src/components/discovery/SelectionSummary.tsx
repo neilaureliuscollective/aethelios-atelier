@@ -7,9 +7,9 @@ import {
   draftFromSelection,
   previewInstanceId,
   undecidedFromSelection,
-  type DirectionId,
   type DiscoveryBriefMapping,
-  type DiscoverySelection
+  type DiscoverySelection,
+  type PreviewActionContext
 } from "@/lib/discovery";
 import { ConceptStage } from "./ConceptStage";
 import styles from "./DiscoveryStudio.module.css";
@@ -27,7 +27,7 @@ export function SelectionSummary({
   mapping: DiscoveryBriefMapping;
   unpublished?: boolean;
   heading?: string;
-  onAction?: (directionId: DirectionId) => void;
+  onAction?: (context: PreviewActionContext) => void;
 }) {
   const direction = DIRECTIONS[selection.selectedDirectionId];
   const palette = PALETTES[selection.visualPreferences.paletteId];
@@ -37,7 +37,13 @@ export function SelectionSummary({
   const instanceId = previewInstanceId("recap", selection.selectedDirectionId);
 
   return (
-    <article className={styles.solid} aria-labelledby="selection-summary-heading">
+    <article
+      className={styles.solid}
+      aria-labelledby="selection-summary-heading"
+      data-confirmed-direction={selection.selectedDirectionId}
+      data-confirmed-name={selection.businessName}
+      data-confirmed-revision={selection.localRevision}
+    >
       <p className={styles.badge}>Direction prepared on this device</p>
       <h2 id="selection-summary-heading">{heading}</h2>
       <p className={styles.fine}>
@@ -52,6 +58,7 @@ export function SelectionSummary({
               instanceId={instanceId}
               draft={recapDraft}
               directionId={selection.selectedDirectionId}
+              source="confirmed"
               onAction={onAction ?? (() => undefined)}
             />
           </div>

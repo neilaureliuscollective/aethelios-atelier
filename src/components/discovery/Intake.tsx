@@ -5,8 +5,10 @@ import {
   BUSINESS_TYPES,
   FEELING_COPY,
   FEELING_IDS,
+  INTAKE_STEP_COUNT,
   INTENT_COPY,
   INTENT_IDS,
+  sanitizeIntakeStep,
   type DiscoveryDraft
 } from "@/lib/discovery";
 import styles from "./DiscoveryStudio.module.css";
@@ -24,10 +26,11 @@ export function Intake({
   onStep: (step: number) => void;
   onContinue: () => void;
 }) {
+  const current = sanitizeIntakeStep(step).step;
   return (
     <section className={styles.panel}>
-      <p className={styles.kicker}>About the business · {step + 1} of 4</p>
-      {step === 0 ? (
+      <p className={styles.kicker}>About the business · {current + 1} of {INTAKE_STEP_COUNT}</p>
+      {current === 0 ? (
         <>
           <h2 className={styles.heading} data-discovery-heading tabIndex={-1}>What is the name of the business?</h2>
           <p className={styles.lede}>You can leave this open. The preview will say “Your business” until you name it.</p>
@@ -44,7 +47,7 @@ export function Intake({
           </label>
         </>
       ) : null}
-      {step === 1 ? (
+      {current === 1 ? (
         <>
           <h2 className={styles.heading} data-discovery-heading tabIndex={-1}>What kind of business is this?</h2>
           <p className={styles.lede}>Start with an appointment-based practice if that is closest. Unknown is allowed.</p>
@@ -67,7 +70,7 @@ export function Intake({
           </div>
         </>
       ) : null}
-      {step === 2 ? (
+      {current === 2 ? (
         <>
           <h2 className={styles.heading} data-discovery-heading tabIndex={-1}>What should this make possible?</h2>
           <p className={styles.lede}>Choose the closest aim. You can add a sentence if you already know more.</p>
@@ -99,7 +102,7 @@ export function Intake({
           </label>
         </>
       ) : null}
-      {step === 3 ? (
+      {current === 3 ? (
         <>
           <h2 className={styles.heading} data-discovery-heading tabIndex={-1}>How should customers feel?</h2>
           <p className={styles.lede}>This shapes atmosphere. It is not a growth promise.</p>
@@ -135,17 +138,17 @@ export function Intake({
         <button
           className={`${styles.btn} ${styles.btnGhost}`}
           type="button"
-          onClick={() => onStep(Math.max(0, step - 1))}
-          disabled={step === 0}
+          onClick={() => onStep(Math.max(0, current - 1))}
+          disabled={current === 0}
         >
           Back
         </button>
         <button
           className={`${styles.btn} ${styles.btnGold}`}
           type="button"
-          onClick={() => (step >= 3 ? onContinue() : onStep(step + 1))}
+          onClick={() => (current >= 3 ? onContinue() : onStep(current + 1))}
         >
-          {step >= 3 ? "Choose qualities" : "Continue"}
+          {current >= 3 ? "Choose qualities" : "Continue"}
         </button>
       </div>
     </section>

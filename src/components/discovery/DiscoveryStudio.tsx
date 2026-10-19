@@ -19,7 +19,7 @@ import {
   browserStorage,
   buildConceptContent,
   clearDiscovery,
-  confirmSelection,
+  confirmDirection,
   createDraft,
   createEnvelope,
   currentGuideView,
@@ -31,6 +31,7 @@ import {
   readDiscovery,
   recommendDirection,
   resetField,
+  sanitizeIntakeStep,
   toggleFavorite,
   toggleQuality,
   writeDiscovery,
@@ -40,6 +41,7 @@ import {
   type DiscoverySelection,
   type PaletteId,
   type PersistenceState,
+  type PreviewActionContext,
   type PreviewMode,
   type VisualDirectionId
 } from "@/lib/discovery";
@@ -78,7 +80,7 @@ type Action =
   | { type: "intake"; step: number }
   | { type: "patch"; patch: Partial<DiscoveryDraft> }
   | { type: "draft"; draft: DiscoveryDraft }
-  | { type: "confirm"; selection: DiscoverySelection }
+  | { type: "confirm"; draft: DiscoveryDraft; selection: DiscoverySelection }
   | { type: "preview"; mode: PreviewMode }
   | { type: "persist"; optIn: boolean; persistenceState: PersistenceState; message: string }
   | { type: "status"; status: string }
@@ -100,7 +102,7 @@ function reducer(state: State, action: Action): State {
         status: ""
       };
     case "intake":
-      return { ...state, intakeStep: action.step };
+      return { ...state, intakeStep: sanitizeIntakeStep(action.step).step };
     case "patch":
       return { ...state, draft: patchDraft(state.draft, action.patch) };
     case "draft":
@@ -108,6 +110,7 @@ function reducer(state: State, action: Action): State {
     case "confirm":
       return {
         ...state,
+        draft: action.draft,
         confirmed: action.selection,
         phase: "review",
         farthest: "review",
@@ -155,7 +158,7 @@ const initial: State = {
 export function DiscoveryStudio() {
   const [state, dispatch] = useReducer(reducer, initial);
   const [demoOpen, setDemoOpen] = useState(false);
-  const [demoDirection, setDemoDirection] = useState<DirectionId>("lumen");
+  const [demo, setDemo] = useState<PreviewActionContext | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const hydrated = useRef(false);
   const skipPhaseFocus = useRef(true);
@@ -180,7 +183,10 @@ export function DiscoveryStudio() {
           intakeStep: result.envelope.intakeStep,
           persistenceOptIn: true,
           persistenceState: "opted_in",
-          persistenceMessage: "Returning to the direction saved on this device. This is not an account."
+          persistenceMessage: result.notice
+            ? result.notice
+            : "Returning to the direction saved on this device. This is not an account.",
+          status: result.notice ?? ""
         }
       });
     } else if (!result.ok) {
@@ -232,14 +238,11 @@ export function DiscoveryStudio() {
     [state.confirmed]
   );
   const guide = currentGuideView();
-  const demoContent = buildConceptContent(
-    { ...state.draft, activeDirectionId: demoDirection },
-    demoDirection
-  );
+  const demoContent = demo ? buildConceptContent(demo.draft, demo.directionId) : null;
 
   const go = useCallback((phase: DiscoveryPhase) => dispatch({ type: "phase", phase }), []);
-  const onAction = useCallback((directionId: DirectionId) => {
-    setDemoDirection(directionId);
+  const onAction = useCallback((context: PreviewActionContext) => {
+    setDemo(context);
     setDemoOpen(true);
   }, []);
 
@@ -253,9 +256,10 @@ export function DiscoveryStudio() {
     }
   };
 
-  const confirm = () => {
-    dispatch({ type: "confirm", selection: confirmSelection(state.draft, state.confirmed) });
-  };
+  const confirm = useCallback((directionId: DirectionId = state.draft.activeDirectionId) => {
+    const result = confirmDirection(state.draft, directionId, state.confirmed);
+    dispatch({ type: "confirm", draft: result.draft, selection: result.selection });
+  }, [state.draft, state.confirmed]);
 
   return (
     <div className={`${styles.root} discovery-root`}>
@@ -426,23 +430,30 @@ export function DiscoveryStudio() {
         )}
       </div>
 
+      {demo && demoContent ? (
       <dialog
         ref={dialogRef}
         className={styles.dialog}
         aria-labelledby="demo-title"
         onClose={() => setDemoOpen(false)}
-        data-demo-direction={demoDirection}
+        data-demo-direction={demo.directionId}
+        data-demo-name={demoContent.businessName}
+        data-demo-source={demo.source}
+        data-demo-instance={demo.instanceId}
+        data-demo-headline={demoContent.headline}
       >
         <p className={styles.kicker}>
-          {DIRECTIONS[demoDirection].name} · {demoContent.businessName}
+          {demo.source === "confirmed" ? "Confirmed direction" : "Current exploration"} ·{" "}
+          {DIRECTIONS[demo.directionId].name} · {demoContent.businessName}
         </p>
         <h2 id="demo-title">{demoContent.actionLabel}</h2>
         <p>
           This is how {demoContent.businessName} could invite someone to continue in the{" "}
-          {DIRECTIONS[demoDirection].name} direction. It does not book an appointment, send a request,
+          {DIRECTIONS[demo.directionId].name} direction. It does not book an appointment, send a request,
           or take payment. A finished commission can later connect the booking provider the business
           already uses.
         </p>
+        <p className={styles.fine}>{demoContent.headline}</p>
         <ol>
           <li>See the offering.</li>
           <li>Choose to continue.</li>
@@ -457,6 +468,7 @@ export function DiscoveryStudio() {
           </button>
         </div>
       </dialog>
+      ) : null}
     </div>
   );
 }
@@ -466,21 +478,32 @@ function PreviewFrame({
   directionId,
   instanceId,
   mode,
+  source = "exploration",
   onAction
 }: {
   draft: DiscoveryDraft;
   directionId: DirectionId;
   instanceId: string;
   mode: PreviewMode;
-  onAction: (directionId: DirectionId) => void;
+  source?: PreviewActionContext["source"];
+  onAction: (context: PreviewActionContext) => void;
 }) {
+  const previewDraft = { ...draft, activeDirectionId: directionId };
   return (
-    <div className={styles.previewShell} data-mode={mode} data-preview-instance={instanceId}>
+    <div
+      className={styles.previewShell}
+      data-mode={mode}
+      data-preview-instance={instanceId}
+      data-preview-source={source}
+      data-preview-direction={directionId}
+      data-preview-name={previewDraft.businessName}
+    >
       <div className={styles.device} data-preview-device={instanceId}>
         <ConceptStage
           instanceId={instanceId}
-          draft={{ ...draft, activeDirectionId: directionId }}
+          draft={previewDraft}
           directionId={directionId}
+          source={source}
           onAction={onAction}
         />
       </div>
@@ -542,7 +565,7 @@ function StudioControls({
   onPatch: (patch: Partial<DiscoveryDraft>) => void;
   onDraft: (draft: DiscoveryDraft) => void;
   onPreview: (mode: PreviewMode) => void;
-  onConfirm: () => void;
+  onConfirm: (directionId?: DirectionId) => void;
   onCompare: () => void;
   onStudio: () => void;
   onReview: () => void;
@@ -551,6 +574,7 @@ function StudioControls({
   const radioSuffix = "studio";
   return (
     <>
+      <div className={styles.stickyPrimary}>
       <NativeRadioRow
         name={`direction-${radioSuffix}`}
         value={state.draft.activeDirectionId}
@@ -585,16 +609,17 @@ function StudioControls({
             Compare two
           </button>
         )}
-        <button className={`${styles.btn} ${styles.btnEmerald}`} type="button" onClick={onConfirm}>
+        <button className={`${styles.btn} ${styles.btnEmerald}`} type="button" onClick={() => onConfirm()}>
           Use this direction
         </button>
         <button className={`${styles.btn} ${styles.btnGhost}`} type="button" onClick={onReview}>
           Review
         </button>
       </div>
+      </div>
       {unpublished ? (
-        <p className={styles.notice}>
-          Preview changes are not in the prepared snapshot until you use this direction again.
+        <p className={styles.notice} data-unpublished="true">
+          Working changes differ from the last confirmed direction. Use this direction again to update the snapshot.
         </p>
       ) : null}
       {compact ? (
@@ -778,22 +803,23 @@ function StudioBody({
   onPatch: (patch: Partial<DiscoveryDraft>) => void;
   onDraft: (draft: DiscoveryDraft) => void;
   onPreview: (mode: PreviewMode) => void;
-  onAction: (directionId: DirectionId) => void;
-  onConfirm: () => void;
+  onAction: (context: PreviewActionContext) => void;
+  onConfirm: (directionId?: DirectionId) => void;
   onCompare: () => void;
   onStudio: () => void;
   onReview: () => void;
 }) {
   const comparing = state.phase === "compare";
   const compareIds = state.draft.compareIds;
-  const [compact, setCompact] = useState(false);
+  const [narrow, setNarrow] = useState(false);
   useEffect(() => {
     const media = window.matchMedia("(max-width: 1100px)");
-    const update = () => setCompact(media.matches);
+    const update = () => setNarrow(media.matches);
     update();
     media.addEventListener("change", update);
     return () => media.removeEventListener("change", update);
   }, []);
+  const compact = narrow || comparing;
   const controlProps = {
     state,
     suggested,
@@ -814,7 +840,7 @@ function StudioBody({
         <div className={styles.solid}>
           <p className={styles.kicker}>Studio controls</p>
           <h2 className={styles.heading} data-discovery-heading tabIndex={-1}>
-            {comparing ? "Compare with the same answers" : "Shape this direction"}
+            {comparing ? "Compare" : "Shape this direction"}
           </h2>
           <StudioControls {...controlProps} />
         </div>
@@ -855,7 +881,12 @@ function StudioBody({
                 const instanceId = previewInstanceId("compare", id, slot);
                 const content = buildConceptContent(state.draft, id);
                 return (
-                  <div className={styles.comparePanel} key={`${id}-${slot}`}>
+                  <div
+                    className={styles.comparePanel}
+                    key={`${id}-${slot}`}
+                    data-active={state.draft.activeDirectionId === id ? "true" : "false"}
+                    data-compare-direction={id}
+                  >
                     <p className={styles.selectedHint}>
                       {DIRECTIONS[id].name}
                       {state.draft.activeDirectionId === id ? " · current studio direction" : ""}
@@ -866,15 +897,14 @@ function StudioBody({
                       directionId={id}
                       instanceId={instanceId}
                       mode={state.previewMode}
+                      source="exploration"
                       onAction={onAction}
                     />
                     <button
-                      className={`${styles.btn} ${styles.btnGhost}`}
+                      className={`${styles.btn} ${id === state.draft.activeDirectionId ? styles.btnEmerald : styles.btnGhost}`}
                       type="button"
-                      onClick={() => {
-                        onPatch({ activeDirectionId: id });
-                        onConfirm();
-                      }}
+                      data-confirm-direction={id}
+                      onClick={() => onConfirm(id)}
                     >
                       Use {DIRECTIONS[id].name}
                     </button>
@@ -943,10 +973,10 @@ function ReviewBody({
   unpublished: boolean;
   mapping: ReturnType<typeof mapSelectionToBriefProposals> | null;
   onPatch: (patch: Partial<DiscoveryDraft>) => void;
-  onConfirm: () => void;
+  onConfirm: (directionId?: DirectionId) => void;
   onBack: () => void;
   onCopy: () => void;
-  onAction: (directionId: DirectionId) => void;
+  onAction: (context: PreviewActionContext) => void;
 }) {
   return (
     <section className={styles.reviewGrid}>
@@ -959,9 +989,9 @@ function ReviewBody({
           Confirm a snapshot to keep exactly what you chose. Later preview edits do not silently change
           it. Nothing is submitted, and nothing is added to an account.
         </p>
-        <div className={styles.notice}>
+        <div className={styles.notice} data-unpublished={unpublished ? "true" : "false"}>
           {unpublished
-            ? "You are looking at the last confirmed selection in the recap. The studio now has unpublished changes. Use this direction again to refresh the snapshot."
+            ? "You are looking at the last confirmed selection in the recap. Current exploration has unpublished changes. Use this direction again to refresh the snapshot."
             : confirmed
               ? "The recap is the last confirmed selection, and it matches the current studio."
               : "Use this direction to freeze a snapshot for review."}
@@ -1041,7 +1071,7 @@ function ReviewBody({
           <button className={`${styles.btn} ${styles.btnGhost}`} type="button" onClick={onBack}>
             Back to studio
           </button>
-          <button className={`${styles.btn} ${styles.btnGold}`} type="button" onClick={onConfirm}>
+          <button className={`${styles.btn} ${styles.btnGold}`} type="button" onClick={() => onConfirm()}>
             Use this direction
           </button>
           <button className={`${styles.btn} ${styles.btnGhost}`} type="button" onClick={onCopy} disabled={!mapping}>
