@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900" role="img" aria-labelledby="marTitle marDesc">
+  <title id="marTitle">Stone and gold study</title>
+  <desc id="marDesc">Original veined ground plane. Not a photograph of a venue.</desc>
+  <rect width="1200" height="900" fill="#121A17"/>
+  <g fill="none" stroke="#A7B6AC" stroke-opacity="0.35">
+    <path d="M0 620 C180 580 260 700 420 640 C580 580 640 760 860 700 C1040 650 1120 780 1200 720" stroke-width="2"/>
+    <path d="M0 740 C220 700 300 820 520 760 C740 700 820 860 1200 790" stroke-width="1.4"/>
+    <path d="M40 200 C200 260 180 120 360 180 C540 240 500 80 760 140 C980 190 1040 60 1200 110" stroke-width="1.2"/>
+  </g>
+  <path d="M0 820 L1200 760 L1200 900 L0 900 Z" fill="#0B4635" opacity="0.35"/>
+  <rect x="80" y="80" width="280" height="8" fill="#C7A45A"/>
+</svg>
