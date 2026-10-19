@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 900" role="img" aria-labelledby="orbTitle orbDesc">
+  <title id="orbTitle">Emerald volume study</title>
+  <desc id="orbDesc">Original sphere and orbit drawing. Not the official emblem geometry.</desc>
+  <defs>
+    <radialGradient id="orb" cx="38%" cy="32%" r="62%">
+      <stop offset="0" stop-color="#248368"/>
+      <stop offset="0.45" stop-color="#0B4635"/>
+      <stop offset="1" stop-color="#080C0B"/>
+    </radialGradient>
+  </defs>
+  <rect width="900" height="900" fill="#080C0B"/>
+  <circle cx="450" cy="450" r="260" fill="url(#orb)"/>
+  <ellipse cx="450" cy="450" rx="340" ry="92" fill="none" stroke="#C7A45A" stroke-width="2" transform="rotate(-18 450 450)" opacity="0.8"/>
+  <ellipse cx="450" cy="450" rx="300" ry="70" fill="none" stroke="#E2C988" stroke-width="1" transform="rotate(22 450 450)" opacity="0.55"/>
+  <circle cx="450" cy="450" r="6" fill="#E2C988"/>
+</svg>
