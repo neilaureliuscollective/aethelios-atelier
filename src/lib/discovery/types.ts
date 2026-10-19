@@ -17,6 +17,10 @@ export const DISCOVERY_PHASES = [
 
 export type DiscoveryPhase = (typeof DISCOVERY_PHASES)[number];
 
+export const INTAKE_STEP_MIN = 0;
+export const INTAKE_STEP_MAX = 3;
+export const INTAKE_STEP_COUNT = INTAKE_STEP_MAX - INTAKE_STEP_MIN + 1;
+
 export const BUSINESS_TYPES = [
   "appointment",
   "local_service",
@@ -96,6 +100,13 @@ export type DiscoveryDraft = {
   exclusions: string;
   favorites: DirectionId[];
   compareIds: [DirectionId, DirectionId];
+};
+
+export type PreviewActionContext = {
+  instanceId: string;
+  directionId: DirectionId;
+  draft: DiscoveryDraft;
+  source: "exploration" | "confirmed";
 };
 
 export type DiscoverySelection = {

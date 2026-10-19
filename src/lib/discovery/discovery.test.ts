@@ -16,7 +16,9 @@ import {
   clearDiscovery,
   createEnvelope,
   parseEnvelope,
+  parseEnvelopeWithRecovery,
   readDiscovery,
+  sanitizeIntakeStep,
   writeDiscovery,
   type MemoryStorage
 } from "./persistence";
@@ -24,6 +26,7 @@ import { LIMITS, displayName, sanitizePlainText } from "./sanitize";
 import {
   allPreviewSectionIds,
   conceptSectionId,
+  confirmDirection,
   confirmSelection,
   createDraft,
   draftFingerprint,
@@ -37,7 +40,14 @@ import {
   toggleFavorite,
   toggleQuality
 } from "./selection";
-import { DISCOVERY_CATALOG_VERSION, DISCOVERY_STORAGE_VERSION } from "./types";
+import {
+  DIRECTION_IDS,
+  DISCOVERY_CATALOG_VERSION,
+  DISCOVERY_STORAGE_VERSION,
+  INTAKE_STEP_COUNT,
+  INTAKE_STEP_MAX,
+  INTAKE_STEP_MIN
+} from "./types";
 
 function memory(): MemoryStorage & { store: Map<string, string> } {
   const store = new Map<string, string>();
@@ -111,6 +121,23 @@ describe("discovery selection", () => {
     expect(again.localRevision).toBe(2);
     expect(again.createdAt).toBe(confirmed.createdAt);
     expect(again.businessName).toBe("Edited later");
+  });
+
+  it("confirms the clicked direction from the resulting draft, not the previous render", () => {
+    const draft = sampleDraft();
+    expect(draft.activeDirectionId).toBe("lumen");
+    for (const directionId of DIRECTION_IDS) {
+      const result = confirmDirection(draft, directionId, null, new Date("2026-10-19T19:00:00.000Z"));
+      expect(draft.activeDirectionId).toBe("lumen");
+      expect(result.draft.activeDirectionId).toBe(directionId);
+      expect(result.selection.selectedDirectionId).toBe(directionId);
+      expect(result.selection.businessName).toBe("Meridian Sitting Room");
+      expect(humanDirectionSummary(result.selection)).toContain(directionId === "lumen" ? "Lumen" : directionId === "hearth" ? "Hearth" : "Signal");
+      const mapping = mapSelectionToBriefProposals(result.selection);
+      expect(mapping.proposals.find((item) => item.field === "references")?.proposedValue).toContain(
+        directionId === "lumen" ? "Lumen" : directionId === "hearth" ? "Hearth" : "Signal"
+      );
+    }
   });
 
   it("preserves intentNote in the snapshot, fingerprint, summary, and mapping", () => {
@@ -355,6 +382,107 @@ describe("discovery persistence and safety", () => {
     expect(readDiscovery(null).ok).toBe(false);
   });
 
+  it("sanitizes intake steps to finite integers in range without inventing answers", () => {
+    expect(INTAKE_STEP_MIN).toBe(0);
+    expect(INTAKE_STEP_MAX).toBe(3);
+    expect(INTAKE_STEP_COUNT).toBe(4);
+    expect(sanitizeIntakeStep(0)).toEqual({ step: 0, recovered: false });
+    expect(sanitizeIntakeStep(3)).toEqual({ step: 3, recovered: false });
+    expect(sanitizeIntakeStep(4)).toEqual({ step: 0, recovered: true });
+    expect(sanitizeIntakeStep(-1)).toEqual({ step: 0, recovered: true });
+    expect(sanitizeIntakeStep(-2)).toEqual({ step: 0, recovered: true });
+    expect(sanitizeIntakeStep(2.7)).toEqual({ step: 0, recovered: true });
+    expect(sanitizeIntakeStep(1.5)).toEqual({ step: 0, recovered: true });
+    expect(sanitizeIntakeStep("2")).toEqual({ step: 0, recovered: true });
+    expect(sanitizeIntakeStep(true)).toEqual({ step: 0, recovered: true });
+    expect(sanitizeIntakeStep({})).toEqual({ step: 0, recovered: true });
+    expect(sanitizeIntakeStep(undefined)).toEqual({ step: 0, recovered: true });
+    expect(sanitizeIntakeStep(Number.NaN)).toEqual({ step: 0, recovered: true });
+    expect(sanitizeIntakeStep(Number.POSITIVE_INFINITY)).toEqual({ step: 0, recovered: true });
+    expect(sanitizeIntakeStep(null)).toEqual({ step: 0, recovered: true });
+  });
+
+  it("recovers an invalid intake step while keeping valid answers", () => {
+    const draft = sampleDraft();
+    const recovered = parseEnvelopeWithRecovery({
+      version: 2,
+      kind: "discovery_session",
+      savedAt: "2026-10-19T17:00:00.000Z",
+      draft,
+      confirmed: null,
+      phase: "intake",
+      intakeStep: 4
+    });
+    expect(recovered?.envelope.draft.businessName).toBe("Meridian Sitting Room");
+    expect(recovered?.envelope.draft.intentNote).toBe("People should book without calling the desk.");
+    expect(recovered?.envelope.intakeStep).toBe(0);
+    expect(recovered?.envelope.phase).toBe("intake");
+    expect(recovered?.envelope.confirmed).toBeNull();
+    expect(recovered?.notice).toMatch(/question number was not valid/i);
+    expect(createEnvelope(draft, null, "intake", 4).intakeStep).toBe(0);
+    expect(parseEnvelope({
+      version: 2,
+      kind: "discovery_session",
+      draft,
+      confirmed: null,
+      phase: "intake",
+      intakeStep: -2
+    })?.intakeStep).toBe(0);
+
+    for (const intakeStep of [2.5, "3", true, 99, Number.POSITIVE_INFINITY]) {
+      const recoveredInvalid = parseEnvelopeWithRecovery({
+        version: 2,
+        kind: "discovery_session",
+        savedAt: "2026-10-19T17:00:00.000Z",
+        draft,
+        confirmed: null,
+        phase: "intake",
+        intakeStep
+      });
+      expect(recoveredInvalid?.envelope.draft.businessName).toBe("Meridian Sitting Room");
+      expect(recoveredInvalid?.envelope.draft.intentNote).toBe("People should book without calling the desk.");
+      expect(recoveredInvalid?.envelope.intakeStep).toBe(0);
+      expect(recoveredInvalid?.envelope.phase).toBe("intake");
+      expect(recoveredInvalid?.envelope.confirmed).toBeNull();
+      expect(recoveredInvalid?.notice).toMatch(/question number was not valid/i);
+    }
+  });
+
+  it("keeps a valid confirmation when only the intake step is invalid", () => {
+    const draft = sampleDraft();
+    const confirmed = confirmSelection(draft, null);
+    const recovered = parseEnvelopeWithRecovery({
+      version: 2,
+      kind: "discovery_session",
+      savedAt: "2026-10-19T17:00:00.000Z",
+      draft,
+      confirmed,
+      phase: "studio",
+      intakeStep: 4
+    });
+    expect(recovered?.envelope.draft.businessName).toBe("Meridian Sitting Room");
+    expect(recovered?.envelope.confirmed?.selectedDirectionId).toBe("lumen");
+    expect(recovered?.envelope.confirmed?.businessName).toBe("Meridian Sitting Room");
+    expect(recovered?.envelope.intakeStep).toBe(0);
+    expect(recovered?.envelope.phase).toBe("studio");
+    expect(recovered?.notice).toMatch(/question number was not valid/i);
+  });
+
+  it("does not treat a valid draft with a broken confirmation as a confirmed selection", () => {
+    const recovered = parseEnvelopeWithRecovery({
+      version: 2,
+      kind: "discovery_session",
+      draft: sampleDraft(),
+      confirmed: { selectionId: "bad" },
+      phase: "review",
+      intakeStep: 1
+    });
+    expect(recovered?.envelope.draft.businessName).toBe("Meridian Sitting Room");
+    expect(recovered?.envelope.confirmed).toBeNull();
+    expect(recovered?.envelope.phase).toBe("studio");
+    expect(recovered?.notice).toBeTruthy();
+  });
+
   it("accepts a version 1 envelope without inventing missing notes", () => {
     const draft = sampleDraft();
     const v1 = {
@@ -439,12 +567,15 @@ describe("discovery persistence and safety", () => {
 });
 
 describe("concept preview CSS", () => {
-  it("uses container queries instead of viewport breakpoints for concept layout", () => {
+  it("queries an ancestor container rather than the layout root itself", () => {
     const dir = path.join(process.cwd(), "src/components/discovery/concepts");
+    const frame = fs.readFileSync(path.join(dir, "frame.module.css"), "utf8");
+    expect(frame).toContain("container-type: inline-size");
+    expect(frame).toContain("container-name: concept");
     for (const file of ["lumen.module.css", "hearth.module.css", "signal.module.css"]) {
       const css = fs.readFileSync(path.join(dir, file), "utf8");
-      expect(css).toContain("container-type: inline-size");
       expect(css).toContain("@container concept");
+      expect(css).not.toContain("container-type: inline-size");
       expect(css).not.toMatch(/@media\s*\(max-width:\s*720px\)/);
       expect(css).not.toMatch(/\d+vw/);
       expect(css).not.toMatch(/\d+vh/);

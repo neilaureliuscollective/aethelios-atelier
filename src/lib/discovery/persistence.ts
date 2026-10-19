@@ -1,6 +1,8 @@
 import {
   DISCOVERY_STORAGE_KEY,
   DISCOVERY_STORAGE_VERSION,
+  INTAKE_STEP_MAX,
+  INTAKE_STEP_MIN,
   SUPPORTED_STORAGE_VERSIONS,
   isDiscoveryPhase,
   type DiscoveryDraft,
@@ -18,8 +20,18 @@ export type MemoryStorage = {
 };
 
 export type PersistenceResult =
-  | { ok: true; state: Extract<PersistenceState, "opted_in">; envelope: StoredDiscoveryEnvelope }
+  | { ok: true; state: Extract<PersistenceState, "opted_in">; envelope: StoredDiscoveryEnvelope; notice?: string }
   | { ok: false; state: Exclude<PersistenceState, "opted_in" | "memory">; reason: string };
+
+export function sanitizeIntakeStep(value: unknown): { step: number; recovered: boolean } {
+  if (typeof value !== "number" || !Number.isFinite(value) || !Number.isInteger(value)) {
+    return { step: INTAKE_STEP_MIN, recovered: true };
+  }
+  if (value < INTAKE_STEP_MIN || value > INTAKE_STEP_MAX) {
+    return { step: INTAKE_STEP_MIN, recovered: true };
+  }
+  return { step: value, recovered: false };
+}
 
 export function createEnvelope(
   draft: DiscoveryDraft,
@@ -35,11 +47,17 @@ export function createEnvelope(
     draft: sanitizeDraft(draft),
     confirmed,
     phase,
-    intakeStep: Number.isFinite(intakeStep) ? Math.max(0, Math.min(4, Math.floor(intakeStep))) : 0
+    intakeStep: sanitizeIntakeStep(intakeStep).step
   };
 }
 
 export function parseEnvelope(input: unknown): StoredDiscoveryEnvelope | null {
+  return parseEnvelopeWithRecovery(input)?.envelope ?? null;
+}
+
+export function parseEnvelopeWithRecovery(
+  input: unknown
+): { envelope: StoredDiscoveryEnvelope; notice: string | null } | null {
   if (!input || typeof input !== "object") return null;
   const raw = input as Partial<StoredDiscoveryEnvelope>;
   if (raw.kind !== "discovery_session") return null;
@@ -48,17 +66,44 @@ export function parseEnvelope(input: unknown): StoredDiscoveryEnvelope | null {
   }
   const draft = parseDraft(raw.draft);
   if (!draft) return null;
-  const confirmed = raw.confirmed == null ? null : parseSelection(raw.confirmed);
-  if (raw.confirmed != null && !confirmed) return null;
-  if (!isDiscoveryPhase(raw.phase)) return null;
+
+  const notices: string[] = [];
+  let confirmed: DiscoverySelection | null = null;
+  if (raw.confirmed != null) {
+    confirmed = parseSelection(raw.confirmed);
+    if (!confirmed) {
+      notices.push("The saved confirmation could not be read. Your answers are still here.");
+    }
+  }
+
+  const step = sanitizeIntakeStep(raw.intakeStep);
+  if (step.recovered) {
+    notices.push("The saved question number was not valid. Your answers are still here.");
+  }
+
+  let phase: DiscoveryPhase = isDiscoveryPhase(raw.phase) ? raw.phase : "intake";
+  if (!isDiscoveryPhase(raw.phase)) {
+    notices.push("The saved stage was not valid. Your answers are still here.");
+  }
+  if (phase === "review" && !confirmed) {
+    phase = "studio";
+    notices.push("There was no confirmed direction to review, so the studio was opened instead.");
+  }
+  if (phase === "intake") {
+    // Step is already clamped to 0–3 so a question always renders.
+  }
+
   return {
-    version: DISCOVERY_STORAGE_VERSION,
-    kind: "discovery_session",
-    savedAt: typeof raw.savedAt === "string" ? raw.savedAt : "",
-    draft,
-    confirmed,
-    phase: raw.phase,
-    intakeStep: typeof raw.intakeStep === "number" ? raw.intakeStep : 0
+    envelope: {
+      version: DISCOVERY_STORAGE_VERSION,
+      kind: "discovery_session",
+      savedAt: typeof raw.savedAt === "string" ? raw.savedAt : "",
+      draft,
+      confirmed,
+      phase,
+      intakeStep: step.step
+    },
+    notice: notices[0] ?? null
   };
 }
 
@@ -76,15 +121,20 @@ export function readDiscovery(
     } catch {
       return { ok: false, state: "malformed", reason: "Stored discovery JSON could not be parsed." };
     }
-    const envelope = parseEnvelope(parsed);
-    if (!envelope) {
+    const recovered = parseEnvelopeWithRecovery(parsed);
+    if (!recovered) {
       return {
         ok: false,
         state: "malformed",
         reason: "Stored discovery is from an unknown catalog, template, or schema version."
       };
     }
-    return { ok: true, state: "opted_in", envelope };
+    return {
+      ok: true,
+      state: "opted_in",
+      envelope: recovered.envelope,
+      notice: recovered.notice ?? undefined
+    };
   } catch {
     return { ok: false, state: "unavailable", reason: "Storage is blocked or unavailable." };
   }

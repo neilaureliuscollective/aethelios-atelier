@@ -149,6 +149,19 @@ export function createSelectionId(): string {
   return `dsel_${Math.random().toString(36).slice(2)}_${Date.now()}`;
 }
 
+export function confirmDirection(
+  draft: DiscoveryDraft,
+  directionId: DirectionId,
+  previous: DiscoverySelection | null,
+  now = new Date()
+): { draft: DiscoveryDraft; selection: DiscoverySelection } {
+  const nextDraft = patchDraft(draft, { activeDirectionId: directionId });
+  return {
+    draft: nextDraft,
+    selection: confirmSelection(nextDraft, previous, now)
+  };
+}
+
 export function confirmSelection(
   draft: DiscoveryDraft,
   previous: DiscoverySelection | null,
