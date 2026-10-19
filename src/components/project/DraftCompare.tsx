@@ -37,6 +37,14 @@ export function DraftCompare({
         {title}
       </h2>
       <p className="lede">{explanation}</p>
+      <div className="row recovery-actions">
+        <button className="btn btn-gold" type="button" onClick={onKeepLocal}>
+          {keepLabel}
+        </button>
+        <button className="btn btn-ghost" type="button" onClick={onTakeServer}>
+          {takeLabel}
+        </button>
+      </div>
       {differences.length === 0 ? (
         <p className="muted">The wording matches. You can continue from the saved copy.</p>
       ) : (
@@ -58,14 +66,6 @@ export function DraftCompare({
           ))}
         </div>
       )}
-      <div className="row recovery-actions">
-        <button className="btn btn-gold" type="button" onClick={onKeepLocal}>
-          {keepLabel}
-        </button>
-        <button className="btn btn-ghost" type="button" onClick={onTakeServer}>
-          {takeLabel}
-        </button>
-      </div>
     </section>
   );
 }

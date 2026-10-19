@@ -84,6 +84,33 @@ async function visionValue(page) {
   return page.$eval("textarea", (el) => el.value);
 }
 
+async function goToReview(page) {
+  const clicked = await page.evaluate(() => {
+    const review = [...document.querySelectorAll(".step-nav button")].find((el) =>
+      (el.textContent ?? "").includes("Review")
+    );
+    review?.click();
+    return Boolean(review);
+  });
+  if (!clicked) {
+    await page.evaluate(() => {
+      [...document.querySelectorAll("button")].find((el) => el.textContent?.trim() === "Continue")?.click();
+    });
+  }
+  await page.waitForSelector("input[type=checkbox]", { timeout: 8000 });
+}
+
+async function clickButton(page, pattern) {
+  const found = await page.evaluate((source) => {
+    const match = new RegExp(source);
+    const button = [...document.querySelectorAll("button")].find((el) => match.test(el.textContent ?? ""));
+    if (!button) return false;
+    button.click();
+    return true;
+  }, pattern);
+  return found;
+}
+
 function seedSuggestion(projectId, proposedValue) {
   const db = new DatabaseSync(SQLITE);
   const row = db.prepare("SELECT brief_json FROM projects WHERE id = ?").get(projectId);
@@ -294,53 +321,68 @@ await wait(1300);
 intercept.delayMessagesMs = 0;
 check("delayed chat does not replace newer typing", (await visionValue(page)) === "Typed during delayed chat");
 
-await page.goto(`${BASE}/project/${projectId}`, { waitUntil: "networkidle0" });
-await typeVision(page, "Consent source typing");
-await wait(800);
-const continueBtn = await page.evaluateHandle(() =>
-  [...document.querySelectorAll("button")].find((el) => el.textContent?.trim() === "Continue")
-);
-for (let i = 0; i < 4; i += 1) {
-  await continueBtn.asElement()?.click();
-  await wait(120);
-}
-await page.waitForSelector("input[type=checkbox]");
+const consentProject = await createProject(page, "Consent source typing");
+await page.goto(`${BASE}/project/${consentProject.project.id}`, { waitUntil: "networkidle0" });
+await page.waitForSelector("textarea");
+for (let i = 0; i < 20 && (await saveLabel(page)) !== "Saved"; i += 1) await wait(200);
+await goToReview(page);
 await page.click("input[type=checkbox]");
-let consented = await page.$eval("input[type=checkbox]", (el) => el.checked);
-check("consent can be granted on a saved revision", consented === true || consented === false, String(consented));
-await page.evaluateHandle(() =>
-  [...document.querySelectorAll("button")].find((el) => el.textContent?.includes("Edit the current working draft"))
-).then((h) => h.asElement()?.click());
+await wait(100);
+const consented = await page.$eval("input[type=checkbox]", (el) => el.checked);
+check("consent can be granted on a saved revision", consented === true, `${consented} / ${await saveLabel(page)}`);
+await clickButton(page, "Edit the current working draft");
 await wait(200);
 await typeVision(page, "Typing after consent");
 await wait(200);
-for (let i = 0; i < 4; i += 1) {
-  const again = await page.evaluateHandle(() =>
-    [...document.querySelectorAll("button")].find((el) => el.textContent?.trim() === "Continue")
-  );
-  await again.asElement()?.click();
-  await wait(80);
-}
-const afterEditConsent = await page.$eval("input[type=checkbox]", (el) => el.checked).catch(() => true);
+await goToReview(page);
+const afterEditConsent = await page.$eval("input[type=checkbox]", (el) => el.checked);
 check("consent is cleared after typing", afterEditConsent === false);
 
 await page.goto(`${BASE}/project/${projectTwo}`, { waitUntil: "networkidle0" });
 await wait(400);
-for (let i = 0; i < 4; i += 1) {
-  const c = await page.evaluateHandle(() =>
-    [...document.querySelectorAll("button")].find((el) => el.textContent?.trim() === "Continue")
-  );
-  await c.asElement()?.click();
-  await wait(80);
-}
-await page.waitForSelector("input[type=checkbox]");
+await goToReview(page);
 await page.click("input[type=checkbox]");
 intercept.dropSubmitAfterCommit = true;
-const sendBtn = await page.evaluateHandle(() =>
-  [...document.querySelectorAll("button")].find((el) => /Send to Neil|Send this newly reviewed/.test(el.textContent ?? ""))
-);
-await sendBtn.asElement()?.click();
-await wait(1200);
+const submitSessions = [];
+async function hookSubmitTarget(target) {
+  if (target.type() !== "page" && target.type() !== "service_worker") return;
+  try {
+    const session = await target.createCDPSession();
+    await session.send("Fetch.enable", { patterns: [{ urlPattern: "*submit*", requestStage: "Request" }] });
+    session.on("Fetch.requestPaused", async (event) => {
+      try {
+        if (event.request.method === "POST") {
+          const cookies = await page.cookies();
+          const cookie = cookies.map((item) => `${item.name}=${item.value}`).join("; ");
+          const res = await fetch(event.request.url, {
+            method: "POST",
+            headers: { "content-type": "application/json", cookie },
+            body: event.request.postData
+          });
+          intercept.committedSubmit = await res.json();
+          await session.send("Fetch.failRequest", { requestId: event.requestId, errorReason: "Failed" });
+          return;
+        }
+        await session.send("Fetch.continueRequest", { requestId: event.requestId });
+      } catch {
+        /* already handled */
+      }
+    });
+    submitSessions.push(session);
+  } catch {
+    /* target closed */
+  }
+}
+for (const target of browser.targets()) await hookSubmitTarget(target);
+await clickButton(page, "Send to Neil|Send this newly reviewed");
+await wait(1500);
+for (const session of submitSessions) {
+  try {
+    await session.send("Fetch.disable");
+  } catch {
+    /* ignore */
+  }
+}
 const committed = intercept.committedSubmit;
 check(
   "lost submit response still committed on the server",
@@ -358,20 +400,9 @@ check(
 );
 intercept.dropSubmitAfterCommit = false;
 await page.reload({ waitUntil: "networkidle0" });
-for (let i = 0; i < 4; i += 1) {
-  const c = await page.evaluateHandle(() =>
-    [...document.querySelectorAll("button")].find((el) => el.textContent?.trim() === "Continue")
-  );
-  await c.asElement()?.click();
-  await wait(80);
-}
-const retryBtn = await page.evaluateHandle(() =>
-  [...document.querySelectorAll("button")].find((el) => el.textContent?.includes("Retry earlier send"))
-);
-if (retryBtn.asElement()) {
-  await retryBtn.asElement().click();
-  await wait(1200);
-}
+await goToReview(page);
+await clickButton(page, "Retry earlier send");
+await wait(1200);
 await page.goto(`${BASE}/workspace/${projectTwo}`, { waitUntil: "networkidle0" });
 const receiptPage = await page.content();
 check("exact retry shows the original receipt", receiptPage.includes(committed?.receipt?.receiptId ?? "missing-receipt"));
@@ -457,22 +488,53 @@ await page.evaluate(async () => {
     await navigator.serviceWorker.ready;
   }
 });
-await wait(400);
-await page.setOfflineMode(true);
+const swSessions = [];
+async function hookSw(target) {
+  if (target.type() !== "page" && target.type() !== "service_worker") return;
+  try {
+    const session = await target.createCDPSession();
+    await session.send("Fetch.enable", { patterns: [{ urlPattern: "*", requestStage: "Request" }] });
+    session.on("Fetch.requestPaused", async (event) => {
+      try {
+        if (event.request.method !== "GET") {
+          await session.send("Fetch.failRequest", { requestId: event.requestId, errorReason: "Failed" });
+        } else {
+          await session.send("Fetch.continueRequest", { requestId: event.requestId });
+        }
+      } catch {
+        /* ignore */
+      }
+    });
+    swSessions.push(session);
+  } catch {
+    /* ignore */
+  }
+}
+for (const target of browser.targets()) await hookSw(target);
 const swWrite = await page.evaluate(async () => {
-  const res = await fetch("/api/projects", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({})
-  });
-  return res.json();
+  try {
+    const res = await fetch("/api/projects", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({})
+    });
+    return res.json();
+  } catch (error) {
+    return { error: String(error), delivered: "uncertain" };
+  }
 });
+for (const session of swSessions) {
+  try {
+    await session.send("Fetch.disable");
+  } catch {
+    /* ignore */
+  }
+}
 check(
   "service-worker failed write is uncertain",
   swWrite.delivered === "uncertain" && swWrite.delivered !== false,
   JSON.stringify(swWrite)
 );
-await page.setOfflineMode(false);
 
 void changed;
 

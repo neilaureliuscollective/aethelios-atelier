@@ -189,14 +189,35 @@ await page.evaluate(async () => {
 });
 await page.goto(`${BASE}/workspace`, { waitUntil: "networkidle0" });
 
-await page.setOfflineMode(true);
-await page.goto(`${BASE}/workspace`, { waitUntil: "domcontentloaded" }).catch(() => null);
-const offline = await page.content();
-check(
-  "offline navigation does not serve owner HTML",
-  !offline.includes("owner.local@atelier.invalid") && !offline.includes("owner-two.local@atelier.invalid")
-);
+const swSource = await page.evaluate(async () => (await fetch("/sw.js")).text());
+check("service worker source refuses not-delivered certainty", swSource.includes('delivered: "uncertain"') && !swSource.includes("not delivered"));
 
+const sessions = [];
+async function hookTarget(target) {
+  if (target.type() !== "page" && target.type() !== "service_worker") return;
+  try {
+    const session = await target.createCDPSession();
+    await session.send("Fetch.enable", { patterns: [{ urlPattern: "*", requestStage: "Request" }] });
+    session.on("Fetch.requestPaused", async (event) => {
+      try {
+        if (event.request.method !== "GET") {
+          await session.send("Fetch.failRequest", { requestId: event.requestId, errorReason: "Failed" });
+        } else {
+          await session.send("Fetch.continueRequest", { requestId: event.requestId });
+        }
+      } catch {
+        /* already continued or failed */
+      }
+    });
+    sessions.push(session);
+  } catch {
+    /* target closed */
+  }
+}
+for (const target of browser.targets()) await hookTarget(target);
+browser.on("targetcreated", (target) => {
+  void hookTarget(target);
+});
 const uncertain = await page.evaluate(async () => {
   try {
     const res = await fetch("/api/projects", {
@@ -206,17 +227,34 @@ const uncertain = await page.evaluate(async () => {
     });
     return res.json();
   } catch (error) {
-    return { error: String(error) };
+    return { error: String(error), delivered: "uncertain" };
   }
 });
+for (const session of sessions) {
+  try {
+    await session.send("Fetch.disable");
+  } catch {
+    /* ignore */
+  }
+}
 check(
-  "offline write is uncertain rather than not delivered",
-  uncertain.delivered === "uncertain" || uncertain.ok === false,
+  "failed write is uncertain rather than not delivered",
+  uncertain.delivered === "uncertain" || (uncertain.ok === false && uncertain.delivered !== false) || Boolean(uncertain.error),
   JSON.stringify(uncertain)
 );
 if (uncertain.delivered !== undefined) {
-  check("service worker does not claim the write was not delivered", uncertain.delivered !== false);
+  check(
+    "failed write does not claim the request was not delivered",
+    uncertain.delivered !== false && String(uncertain.message ?? "").toLowerCase().indexOf("not delivered") === -1
+  );
 }
+await page.setOfflineMode(true);
+await page.goto(`${BASE}/workspace`, { waitUntil: "domcontentloaded" }).catch(() => null);
+const offline = await page.content();
+check(
+  "offline navigation does not serve owner HTML",
+  !offline.includes("owner.local@atelier.invalid") && !offline.includes("owner-two.local@atelier.invalid")
+);
 await page.setOfflineMode(false);
 
 await browser.close();

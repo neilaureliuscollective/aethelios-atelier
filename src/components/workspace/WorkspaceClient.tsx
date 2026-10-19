@@ -178,7 +178,7 @@ export function WorkspaceDetail({ id }: { id: string }) {
           Working draft
         </button>
       </div>
-      <article className="surface-dimensional" style={{ padding: 24, marginTop: 16 }}>
+      <article className="surface-dimensional workspace-status">
         <h2>{view.nextStep.label}</h2>
         <div className="timeline" aria-label="Commission progress">
           <div className="timeline-step">

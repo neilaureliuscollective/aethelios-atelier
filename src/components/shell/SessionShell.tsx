@@ -38,9 +38,15 @@ export function SessionShell({
   const [generation, setGeneration] = useState(0);
 
   const applyUser = useCallback((next: User | null) => {
-    const previousId = ownerFence.ownerId;
+    const remembered =
+      typeof window === "undefined" ? null : window.sessionStorage.getItem("atelier.lastOwner");
+    const previousId = ownerFence.ownerId ?? remembered;
     if (previousId && next === null) {
       clearOwnerScopedData(previousId);
+      window.sessionStorage.removeItem("atelier.lastOwner");
+    }
+    if (next?.id && typeof window !== "undefined") {
+      window.sessionStorage.setItem("atelier.lastOwner", next.id);
     }
     const gen = ownerFence.switchTo(next?.id ?? null);
     setGeneration(gen);
