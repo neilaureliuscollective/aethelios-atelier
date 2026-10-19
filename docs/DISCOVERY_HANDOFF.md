@@ -2,10 +2,12 @@
 
 ## Exact base
 
-- Independently reviewed foundation: `d97a3186decbd2c5f2e66648fcf69651760f15af`
+- Independently reviewed foundation at branch start: `d97a3186decbd2c5f2e66648fcf69651760f15af`
 - Branch at that review: `cursor/atelier-standalone-foundation-fc70`
 - This parallel branch: `cursor/atelier-discovery-studio-8909`
 - Isolation: git worktree `/workspace/discovery-studio`, Next port **3010**, local `.next` and `.data` in this worktree only
+- First discovery pass HEAD: `f94259080deaa59932b48196373ac2c338165002`
+- This elevation continues from that HEAD. Foundation later commits (`0baf583`, `343aa7a`) were not merged or rebased.
 
 Main was README-only at the review. This work is not based on empty `main`.
 
@@ -23,15 +25,19 @@ No shared components, APIs, auth, persistence, guest draft, service worker, mani
 
 ## What works now
 
-`/discover` is a full discovery studio: immersive entrance, progressive intake, quality selection, three distinct interactive concepts, studio editing, desktop/mobile preview, two-direction comparison, shortlist, confirmable `DiscoverySelection` snapshot, brief-mapping preview, and a copyable summary.
+`/discover` is a discovery studio: immersive entrance, progressive intake, quality selection, three distinct interactive concepts (Lumen, Hearth, Signal), studio editing, desktop and genuine phone-in-desktop previews (container queries), two independently usable comparison panels, shortlist, confirmable `DiscoverySelection` snapshot, customer-facing recap, and a copyable summary.
 
 Status copy is **Direction prepared on this device**. It does not claim the direction was sent or added to an account.
 
-Aethelios is named throughout new visitor copy. Live model access is not used. Concepts are labeled as curated directions personalized from answers.
+Written intent (`intentNote`) is stored on the confirmed snapshot, included in fingerprints, shown in the recap, and mapped into the vision proposal. Editing it after confirmation marks the snapshot outdated without mutating it.
+
+Aethelios is named throughout new visitor copy. Live model access is not used. Diagnostic “Aethelios is available” controls are not in the visitor flow. Concepts are labeled as curated directions personalized from answers.
+
+Storage version is **2**. Version 1 envelopes still load. Missing notes stay empty; they are not invented. `clearDiscovery` only reports success after the key is gone.
 
 ## Remaining integration (small, explicit)
 
-The other worker owns saving, recovery, authentication, and submission. Discovery must not write guest drafts, mutate projects, or call submit APIs. When that controller is repaired, consume the confirmed selection through it.
+The foundation worker owns saving, recovery, authentication, and submission. Discovery must not write guest drafts, mutate projects, or call submit APIs. When that controller is repaired, consume the confirmed selection through it.
 
 ### 1. Homepage / header entry
 
@@ -52,7 +58,9 @@ import {
   mapSelectionToBriefProposals,
   applyProposals,
   parseSelection,
-  type DiscoverySelection
+  fingerprintBrief,
+  type DiscoverySelection,
+  type ApplyDecision
 } from "@/lib/discovery";
 ```
 
@@ -60,15 +68,17 @@ Required behavior:
 
 1. Read a confirmed `DiscoverySelection` from discovery’s namespaced store (`aethelios.atelier.discovery.v1`) or an explicit in-memory handoff object. Never from the URL.
 2. Parse with `parseSelection`. Unknown catalog/template versions fail closed.
-3. Call `mapSelectionToBriefProposals(selection, currentBrief)`.
-4. For each proposal, if `conflict` is true, the repaired revision-aware controller must offer **append / replace / skip**. Empty fields may replace after consent.
-5. Apply only through `applyProposals` after those decisions. Do not assign discovery objects onto `Brief` fields; values are strings with provenance `client_statement`.
-6. Preserve unrelated fields (`timing`, `budget`, `bookingProvider`, `existingWebsite`, `goals` are never inferred).
-7. Bind import to the current brief revision. Stale revisions must fail closed the same way submission already does.
-8. Require **fresh consent** before any submit. Import is not submit.
-9. Do not auto-import for a signed-in account.
+3. Call `mapSelectionToBriefProposals(selection, currentBrief)`. Mapping version is **2** and includes `briefFingerprint`.
+4. Revalidate against the **current** brief at apply time, not only the brief used to generate the mapping. `applyProposals` rejects `stale_mapping` when fingerprints differ.
+5. For every proposal, require an explicit **append / replace / skip** decision. Omitted decisions fail closed. Empty fields are not auto-replaced.
+6. `projectType` may only be replaced with a supported choice or skipped. Append is rejected (`invalid_project_type_append`).
+7. Apply only through `applyProposals` after those decisions. Do not assign discovery objects onto `Brief` fields; values are strings with provenance `client_statement`.
+8. Preserve unrelated fields (`timing`, `budget`, `bookingProvider`, `existingWebsite`, `goals` are never inferred).
+9. Bind import to the current brief revision. Stale revisions must fail closed the same way submission already does.
+10. Require **fresh consent** before any submit. Import is not submit.
+11. Do not auto-import for a signed-in account.
 
-Suggested UX copy: “Add this prepared direction to your brief?” with append/replace/skip per conflicting field.
+Suggested UX copy: “Add this prepared direction to your brief?” with append/replace/skip per proposed field.
 
 ### 3. Selection display in client / founder workspaces
 
@@ -77,7 +87,7 @@ Suggested UX copy: “Add this prepared direction to your brief?” with append/
 - the client project workspace, after import
 - the founder review of a project that includes an imported discovery snapshot
 
-Do not mount it there until those screens are stable. Pass the confirmed `DiscoverySelection` plus its mapping. Do not imply founder review has started.
+Do not mount it there until those screens are stable. Pass the confirmed `DiscoverySelection` plus its mapping. Do not imply founder review has started. Keep schema IDs out of the primary visitor experience.
 
 ### 4. Protected copy that still says Aurelius
 
@@ -99,10 +109,11 @@ Do **not** rename these while the other worker is editing them. Listed for a lat
 
 ```ts
 {
-  version: 1,
+  version: 2,
   kind: "discovery_brief_mapping",
   sourceSelectionId: string,
   sourceRevision: number,
+  briefFingerprint: string,
   proposals: Array<{
     field: BriefFieldKey,
     proposedValue: string,
@@ -118,4 +129,4 @@ Do **not** rename these while the other worker is editing them. Listed for a lat
 }
 ```
 
-`applyProposals(brief, mapping, decisions)` exists for tests and the future controller. Discovery UI never calls project APIs.
+`applyProposals(currentBrief, mapping, decisions)` returns `{ ok: true, brief }` or `{ ok: false, code, reason }`. Discovery UI never calls project APIs.
