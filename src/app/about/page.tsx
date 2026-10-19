@@ -1,0 +1,31 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "About" };
+
+export default function AboutPage() {
+  return (
+    <section className="container section">
+      <p className="kicker">About</p>
+      <h1>A studio with one accountable founder.</h1>
+      <p className="lede">
+        Aethelios Atelier is the practice of Neil Stutes. It exists to turn a founder’s need into a
+        commission that can actually be built — with clear provenance, no fabricated social proof,
+        and no pretence of unlimited custom work.
+      </p>
+      <div className="card-grid" style={{ marginTop: 28 }}>
+        <article className="panel value-card">
+          <h3>Strategic foundation</h3>
+          <p className="muted">Clarity, structure, and systems for what is next — written before build begins.</p>
+        </article>
+        <article className="panel value-card">
+          <h3>Bespoke infrastructure</h3>
+          <p className="muted">Tailored digital platforms when they are a fit, never as a disguised template mill.</p>
+        </article>
+        <article className="panel value-card">
+          <h3>Founder-led partnership</h3>
+          <p className="muted">Deep collaboration from strategy to delivery, with Neil accountable for the work.</p>
+        </article>
+      </div>
+    </section>
+  );
+}
