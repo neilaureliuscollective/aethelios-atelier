@@ -19,6 +19,18 @@ const nextConfig: NextConfig = {
       ]
     },
     {
+      source: "/manifest.webmanifest",
+      headers: [{ key: "Cache-Control", value: "no-cache, no-store, must-revalidate" }]
+    },
+    {
+      source: "/favicon.ico",
+      headers: [{ key: "Cache-Control", value: "no-cache, no-store, must-revalidate" }]
+    },
+    {
+      source: "/apple-touch-icon.png",
+      headers: [{ key: "Cache-Control", value: "no-cache, no-store, must-revalidate" }]
+    },
+    {
       source: "/(.*)",
       headers: [
         { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },

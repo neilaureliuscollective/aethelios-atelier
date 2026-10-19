@@ -2,6 +2,7 @@
   "name": "Aethelios Atelier",
   "short_name": "Atelier",
   "description": "Founder-led digital infrastructure. Shape a commission for Neil Stutes.",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -9,16 +10,28 @@
   "theme_color": "#080C0B",
   "icons": [
     {
-      "src": "/brand/icon-192.png",
+      "src": "/brand/install/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/brand/icon-512.png",
+      "src": "/brand/install/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "/brand/install/icon-192-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/brand/install/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
