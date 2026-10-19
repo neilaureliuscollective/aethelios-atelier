@@ -26,9 +26,12 @@ Unconfigured adapters fail closed and report the missing connection instead of s
 - Founder notes and internal proposals are served only on founder routes.
 - Client views never include private notes.
 - Review progress is shown only after `review_started`.
+- Unpublished proposal and delivery-version drafts stay on founder routes.
+- Client agreement names an exact published version; later edits create a new version.
+- Payments are not collected; founder-set prices stay labeled `not_collected`.
 
 ## Schema
 
-See `src/lib/persistence/schema.sql`, `src/lib/persistence/schema.postgres.sql`, `src/lib/persistence/sqlite.ts`, and `src/lib/persistence/postgres.ts`. Additive only. Do not apply to a shared production database.
+See `src/lib/persistence/schema.sql`, `src/lib/persistence/schema.postgres.sql`, `src/lib/persistence/sqlite.ts`, and `src/lib/persistence/postgres.ts`. Additive only. Do not apply to a shared production database. Proposal, decision, delivery-version, feedback, content-request, and milestone tables are versioned records for the client approval workflow.
 
 Hosted deployment steps: `docs/VERCEL.md`.

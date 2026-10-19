@@ -50,7 +50,11 @@ export const PROJECT_STATUSES = [
   "submitted",
   "clarification_requested",
   "founder_reviewing",
-  "decision_published"
+  "decision_published",
+  "proposal_ready",
+  "proposal_changes_requested",
+  "scope_confirmed",
+  "delivery_review"
 ] as const;
 
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
@@ -172,6 +176,182 @@ export type Project = {
   latestSubmissionId?: string;
 };
 
+export const PROPOSAL_STATUSES = [
+  "draft",
+  "published",
+  "superseded",
+  "changes_requested",
+  "approved"
+] as const;
+
+export type ProposalStatus = (typeof PROPOSAL_STATUSES)[number];
+
+export type ProposalMilestone = {
+  title: string;
+  description: string;
+  timing?: string;
+};
+
+export type ProposalPrice = {
+  amount: string;
+  currency: "USD";
+  terms: string;
+  paymentStatus: "not_collected";
+};
+
+export type ProposalScope = {
+  summary: string;
+  deliverables: string[];
+  includedPages: string[];
+  includedFeatures: string[];
+  exclusions: string[];
+  clientResponsibilities: string[];
+  milestones: ProposalMilestone[];
+  price: ProposalPrice;
+  brandDirection: string;
+};
+
+export type Proposal = {
+  id: string;
+  projectId: string;
+  founderId: string;
+  version: number;
+  status: ProposalStatus;
+  scope: ProposalScope;
+  changeSummary: string;
+  basedOnSubmissionId?: string;
+  supersedesProposalId?: string;
+  payloadHash: string;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt?: string;
+};
+
+export type ProposalDecisionKind = "approve" | "request_changes";
+
+export type ProposalDecision = {
+  id: string;
+  proposalId: string;
+  projectId: string;
+  authorId: string;
+  kind: ProposalDecisionKind;
+  body: string;
+  agreementText?: string;
+  agreedVersion: number;
+  createdAt: string;
+};
+
+export const DELIVERY_VERSION_KINDS = ["design", "build"] as const;
+export type DeliveryVersionKind = (typeof DELIVERY_VERSION_KINDS)[number];
+
+export const DELIVERY_VERSION_STATUSES = [
+  "draft",
+  "awaiting_review",
+  "changes_requested",
+  "approved",
+  "superseded"
+] as const;
+export type DeliveryVersionStatus = (typeof DELIVERY_VERSION_STATUSES)[number];
+
+export type DeliveryVersion = {
+  id: string;
+  projectId: string;
+  founderId: string;
+  kind: DeliveryVersionKind;
+  version: number;
+  title: string;
+  summary: string;
+  previewUrl?: string;
+  notes: string;
+  status: DeliveryVersionStatus;
+  payloadHash: string;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt?: string;
+};
+
+export type DeliveryFeedbackKind = "comment" | "request_changes" | "approve";
+
+export type DeliveryFeedback = {
+  id: string;
+  deliveryVersionId: string;
+  projectId: string;
+  authorId: string;
+  authorKind: "client" | "founder";
+  kind: DeliveryFeedbackKind;
+  body: string;
+  expectedVersion: number;
+  createdAt: string;
+};
+
+export const CONTENT_REQUEST_STATUSES = ["requested", "provided", "waived"] as const;
+export type ContentRequestStatus = (typeof CONTENT_REQUEST_STATUSES)[number];
+
+export type ContentRequest = {
+  id: string;
+  projectId: string;
+  founderId: string;
+  title: string;
+  detail: string;
+  status: ContentRequestStatus;
+  response?: string;
+  createdAt: string;
+  resolvedAt?: string;
+};
+
+export const MILESTONE_STATUSES = ["upcoming", "current", "waiting_on_client", "complete"] as const;
+export type MilestoneStatus = (typeof MILESTONE_STATUSES)[number];
+
+export type DeliveryMilestone = {
+  id: string;
+  projectId: string;
+  proposalId: string;
+  title: string;
+  description: string;
+  timing?: string;
+  sortOrder: number;
+  status: MilestoneStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type DeliveryHandoff = {
+  generatedAt: string;
+  projectId: string;
+  title: string;
+  confirmedProposalId: string | null;
+  confirmedProposalVersion: number | null;
+  markdown: string;
+};
+
+export type FounderAttentionCode =
+  | "awaiting_review_start"
+  | "open_clarification"
+  | "awaiting_proposal_response"
+  | "requested_revision"
+  | "missing_client_content"
+  | "awaiting_delivery_review"
+  | "next_milestone";
+
+export type FounderAttentionItem = {
+  code: FounderAttentionCode;
+  label: string;
+  detail: string;
+};
+
+export type FounderQueueItem = {
+  id: string;
+  title: string;
+  status: ProjectStatus;
+  updatedAt: string;
+  reviewStartedAt: string | null;
+  owner: Pick<User, "id" | "email" | "displayName" | "adapter"> | null;
+  attention: FounderAttentionItem[];
+  currentProposalVersion: number | null;
+  confirmedProposalVersion: number | null;
+  nextMilestone: string | null;
+};
+
 export type ClientProjectView = {
   project: Project;
   suggestions: Suggestion[];
@@ -180,12 +360,19 @@ export type ClientProjectView = {
   clarificationResponses: ClarificationResponse[];
   submission: Submission | null;
   reviewStartedAt: string | null;
+  proposals: Proposal[];
+  proposalDecisions: ProposalDecision[];
+  deliveryVersions: DeliveryVersion[];
+  deliveryFeedback: DeliveryFeedback[];
+  contentRequests: ContentRequest[];
+  milestones: DeliveryMilestone[];
   nextStep: NextStep;
 };
 
 export type FounderProjectView = ClientProjectView & {
   privateNotes: FounderNote[];
   owner: Pick<User, "id" | "email" | "displayName" | "adapter">;
+  handoff: DeliveryHandoff | null;
 };
 
 export type NextStep = {
@@ -195,7 +382,12 @@ export type NextStep = {
     | "awaiting_founder_receipt"
     | "respond_to_clarification"
     | "founder_is_reviewing"
-    | "read_founder_update";
+    | "read_founder_update"
+    | "review_proposal"
+    | "proposal_revision_in_progress"
+    | "provide_client_content"
+    | "review_delivery_version"
+    | "read_confirmed_scope";
   label: string;
   detail: string;
 };

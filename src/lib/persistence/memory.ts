@@ -2,8 +2,14 @@ import type {
   ChatMessage,
   ClarificationResponse,
   ClientUpdate,
+  ContentRequest,
+  DeliveryFeedback,
+  DeliveryMilestone,
+  DeliveryVersion,
   FounderNote,
   Project,
+  Proposal,
+  ProposalDecision,
   RequestLedgerEntry,
   ReviewEvent,
   Session,
@@ -33,6 +39,12 @@ export class MemoryPersistence implements PersistenceAdapter {
   private responses = new Map<string, ClarificationResponse[]>();
   private reviews = new Map<string, ReviewEvent[]>();
   private ledger = new Map<string, RequestLedgerEntry>();
+  private proposals = new Map<string, Proposal[]>();
+  private proposalDecisions = new Map<string, ProposalDecision[]>();
+  private deliveryVersions = new Map<string, DeliveryVersion[]>();
+  private deliveryFeedback = new Map<string, DeliveryFeedback[]>();
+  private contentRequests = new Map<string, ContentRequest[]>();
+  private milestones = new Map<string, DeliveryMilestone[]>();
 
   ready() {
     return true;
@@ -57,6 +69,12 @@ export class MemoryPersistence implements PersistenceAdapter {
     this.responses.clear();
     this.reviews.clear();
     this.ledger.clear();
+    this.proposals.clear();
+    this.proposalDecisions.clear();
+    this.deliveryVersions.clear();
+    this.deliveryFeedback.clear();
+    this.contentRequests.clear();
+    this.milestones.clear();
   }
 
   upsertUser(user: User) {
@@ -260,5 +278,136 @@ export class MemoryPersistence implements PersistenceAdapter {
     return (this.messages.get(projectId) ?? []).filter(
       (message) => message.authorKind === "assistant" && message.liveAi && message.createdAt >= isoSince
     ).length;
+  }
+
+  addProposal(proposal: Proposal) {
+    const list = this.proposals.get(proposal.projectId) ?? [];
+    list.push(clone(proposal));
+    this.proposals.set(proposal.projectId, list);
+    return clone(proposal);
+  }
+
+  getProposal(id: string) {
+    for (const list of this.proposals.values()) {
+      const found = list.find((item) => item.id === id);
+      if (found) return clone(found);
+    }
+    return null;
+  }
+
+  listProposals(projectId: string) {
+    return (this.proposals.get(projectId) ?? [])
+      .slice()
+      .sort((a, b) => a.version - b.version)
+      .map(clone);
+  }
+
+  updateProposal(proposal: Proposal) {
+    const list = this.proposals.get(proposal.projectId) ?? [];
+    const index = list.findIndex((item) => item.id === proposal.id);
+    if (index >= 0) list[index] = clone(proposal);
+    this.proposals.set(proposal.projectId, list);
+    return clone(proposal);
+  }
+
+  addProposalDecision(decision: ProposalDecision) {
+    const list = this.proposalDecisions.get(decision.projectId) ?? [];
+    list.push(clone(decision));
+    this.proposalDecisions.set(decision.projectId, list);
+    return clone(decision);
+  }
+
+  listProposalDecisions(projectId: string) {
+    return (this.proposalDecisions.get(projectId) ?? []).map(clone);
+  }
+
+  addDeliveryVersion(version: DeliveryVersion) {
+    const list = this.deliveryVersions.get(version.projectId) ?? [];
+    list.push(clone(version));
+    this.deliveryVersions.set(version.projectId, list);
+    return clone(version);
+  }
+
+  getDeliveryVersion(id: string) {
+    for (const list of this.deliveryVersions.values()) {
+      const found = list.find((item) => item.id === id);
+      if (found) return clone(found);
+    }
+    return null;
+  }
+
+  listDeliveryVersions(projectId: string) {
+    return (this.deliveryVersions.get(projectId) ?? [])
+      .slice()
+      .sort((a, b) => a.kind.localeCompare(b.kind) || a.version - b.version)
+      .map(clone);
+  }
+
+  updateDeliveryVersion(version: DeliveryVersion) {
+    const list = this.deliveryVersions.get(version.projectId) ?? [];
+    const index = list.findIndex((item) => item.id === version.id);
+    if (index >= 0) list[index] = clone(version);
+    this.deliveryVersions.set(version.projectId, list);
+    return clone(version);
+  }
+
+  addDeliveryFeedback(feedback: DeliveryFeedback) {
+    const list = this.deliveryFeedback.get(feedback.projectId) ?? [];
+    list.push(clone(feedback));
+    this.deliveryFeedback.set(feedback.projectId, list);
+    return clone(feedback);
+  }
+
+  listDeliveryFeedback(projectId: string) {
+    return (this.deliveryFeedback.get(projectId) ?? []).map(clone);
+  }
+
+  addContentRequest(request: ContentRequest) {
+    const list = this.contentRequests.get(request.projectId) ?? [];
+    list.push(clone(request));
+    this.contentRequests.set(request.projectId, list);
+    return clone(request);
+  }
+
+  getContentRequest(id: string) {
+    for (const list of this.contentRequests.values()) {
+      const found = list.find((item) => item.id === id);
+      if (found) return clone(found);
+    }
+    return null;
+  }
+
+  listContentRequests(projectId: string) {
+    return (this.contentRequests.get(projectId) ?? []).map(clone);
+  }
+
+  updateContentRequest(request: ContentRequest) {
+    const list = this.contentRequests.get(request.projectId) ?? [];
+    const index = list.findIndex((item) => item.id === request.id);
+    if (index >= 0) list[index] = clone(request);
+    this.contentRequests.set(request.projectId, list);
+    return clone(request);
+  }
+
+  addDeliveryMilestone(milestone: DeliveryMilestone) {
+    const list = this.milestones.get(milestone.projectId) ?? [];
+    list.push(clone(milestone));
+    this.milestones.set(milestone.projectId, list);
+    return clone(milestone);
+  }
+
+  listDeliveryMilestones(projectId: string) {
+    return (this.milestones.get(projectId) ?? [])
+      .slice()
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map(clone);
+  }
+
+  updateDeliveryMilestone(milestone: DeliveryMilestone) {
+    const list = this.milestones.get(milestone.projectId) ?? [];
+    const index = list.findIndex((item) => item.id === milestone.id);
+    if (index >= 0) list[index] = clone(milestone);
+    this.milestones.set(milestone.projectId, list);
+    return clone(milestone);
   }
 }

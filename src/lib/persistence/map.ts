@@ -3,8 +3,14 @@ import type {
   ChatMessage,
   ClarificationResponse,
   ClientUpdate,
+  ContentRequest,
+  DeliveryFeedback,
+  DeliveryMilestone,
+  DeliveryVersion,
   FounderNote,
   Project,
+  Proposal,
+  ProposalDecision,
   RequestLedgerEntry,
   ReviewEvent,
   Session,
@@ -13,6 +19,7 @@ import type {
   User
 } from "@/lib/types";
 import { normalizeBrief } from "@/lib/brief";
+import { normalizeProposalScope } from "@/lib/domain/proposal";
 
 export type Row = Record<string, unknown>;
 
@@ -170,6 +177,100 @@ export function mapLedger(row: Row): RequestLedgerEntry {
     payloadHash: asString(row.payload_hash),
     status: row.status as RequestLedgerEntry["status"],
     resultJson: asOptionalString(row.result_json),
+    createdAt: asString(row.created_at),
+    updatedAt: asString(row.updated_at)
+  };
+}
+
+export function mapProposal(row: Row): Proposal {
+  return {
+    id: asString(row.id),
+    projectId: asString(row.project_id),
+    founderId: asString(row.founder_id),
+    version: asNumber(row.version),
+    status: row.status as Proposal["status"],
+    scope: normalizeProposalScope(parseJson(asString(row.scope_json, "{}"))),
+    changeSummary: asString(row.change_summary),
+    basedOnSubmissionId: asOptionalString(row.based_on_submission_id),
+    supersedesProposalId: asOptionalString(row.supersedes_proposal_id),
+    payloadHash: asString(row.payload_hash),
+    createdAt: asString(row.created_at),
+    updatedAt: asString(row.updated_at),
+    publishedAt: asOptionalString(row.published_at)
+  };
+}
+
+export function mapProposalDecision(row: Row): ProposalDecision {
+  return {
+    id: asString(row.id),
+    proposalId: asString(row.proposal_id),
+    projectId: asString(row.project_id),
+    authorId: asString(row.author_id),
+    kind: row.kind as ProposalDecision["kind"],
+    body: asString(row.body),
+    agreementText: asOptionalString(row.agreement_text),
+    agreedVersion: asNumber(row.agreed_version),
+    createdAt: asString(row.created_at)
+  };
+}
+
+export function mapDeliveryVersion(row: Row): DeliveryVersion {
+  return {
+    id: asString(row.id),
+    projectId: asString(row.project_id),
+    founderId: asString(row.founder_id),
+    kind: row.kind as DeliveryVersion["kind"],
+    version: asNumber(row.version),
+    title: asString(row.title),
+    summary: asString(row.summary),
+    previewUrl: asOptionalString(row.preview_url),
+    notes: asString(row.notes),
+    status: row.status as DeliveryVersion["status"],
+    payloadHash: asString(row.payload_hash),
+    createdAt: asString(row.created_at),
+    updatedAt: asString(row.updated_at),
+    publishedAt: asOptionalString(row.published_at)
+  };
+}
+
+export function mapDeliveryFeedback(row: Row): DeliveryFeedback {
+  return {
+    id: asString(row.id),
+    deliveryVersionId: asString(row.delivery_version_id),
+    projectId: asString(row.project_id),
+    authorId: asString(row.author_id),
+    authorKind: row.author_kind as DeliveryFeedback["authorKind"],
+    kind: row.kind as DeliveryFeedback["kind"],
+    body: asString(row.body),
+    expectedVersion: asNumber(row.expected_version),
+    createdAt: asString(row.created_at)
+  };
+}
+
+export function mapContentRequest(row: Row): ContentRequest {
+  return {
+    id: asString(row.id),
+    projectId: asString(row.project_id),
+    founderId: asString(row.founder_id),
+    title: asString(row.title),
+    detail: asString(row.detail),
+    status: row.status as ContentRequest["status"],
+    response: asOptionalString(row.response),
+    createdAt: asString(row.created_at),
+    resolvedAt: asOptionalString(row.resolved_at)
+  };
+}
+
+export function mapDeliveryMilestone(row: Row): DeliveryMilestone {
+  return {
+    id: asString(row.id),
+    projectId: asString(row.project_id),
+    proposalId: asString(row.proposal_id),
+    title: asString(row.title),
+    description: asString(row.description),
+    timing: asOptionalString(row.timing),
+    sortOrder: asNumber(row.sort_order),
+    status: row.status as DeliveryMilestone["status"],
     createdAt: asString(row.created_at),
     updatedAt: asString(row.updated_at)
   };

@@ -8,6 +8,8 @@ import { actionErrorMessage } from "@/lib/client/asyncAction";
 import { ownerFence } from "@/lib/client/ownerFence";
 import { LivingBrief } from "@/components/project/LivingBrief";
 import { useSession } from "@/components/shell/SessionShell";
+import { WorkspaceDelivery } from "@/components/workspace/WorkspaceDelivery";
+import { currentClientProposal, currentDeliveryReview } from "@/lib/domain/proposal";
 import type { ClientProjectView, Project } from "@/lib/types";
 
 export function WorkspaceHome() {
@@ -92,7 +94,7 @@ export function WorkspaceDetail({ id }: { id: string }) {
   const [reply, setReply] = useState("");
   const [replyPending, setReplyPending] = useState(false);
   const [replyError, setReplyError] = useState("");
-  const [mode, setMode] = useState<"status" | "snapshot" | "draft">("status");
+  const [mode, setMode] = useState<"status" | "proposal" | "review" | "snapshot" | "draft">("status");
 
   const load = useCallback(async () => {
     const gen = generation;
@@ -160,6 +162,9 @@ export function WorkspaceDetail({ id }: { id: string }) {
 
   const submitted = Boolean(view.submission);
   const reviewing = Boolean(view.reviewStartedAt);
+  const liveProposal = currentClientProposal(view.proposals);
+  const confirmed = view.proposals.some((item) => item.status === "approved");
+  const liveDelivery = currentDeliveryReview(view.deliveryVersions);
 
   return (
     <section className="container section workspace-detail">
@@ -170,6 +175,12 @@ export function WorkspaceDetail({ id }: { id: string }) {
       <div className="row">
         <button className="chip" type="button" aria-pressed={mode === "status"} onClick={() => setMode("status")}>
           Status
+        </button>
+        <button className="chip" type="button" aria-pressed={mode === "proposal"} onClick={() => setMode("proposal")}>
+          Proposal
+        </button>
+        <button className="chip" type="button" aria-pressed={mode === "review"} onClick={() => setMode("review")}>
+          Review room
         </button>
         <button className="chip" type="button" aria-pressed={mode === "snapshot"} onClick={() => setMode("snapshot")}>
           Submitted snapshot
@@ -190,8 +201,20 @@ export function WorkspaceDetail({ id }: { id: string }) {
             {submitted ? "Sent for Neil’s review" : "Not sent"}
           </div>
           <div className="timeline-step">
-            <span className={`dot ${reviewing ? "current" : ""}`} />
+            <span className={`dot ${reviewing ? "done" : ""}`} />
             {reviewing ? "Founder review" : "Not yet under review"}
+          </div>
+          <div className="timeline-step">
+            <span className={`dot ${liveProposal ? "current" : confirmed ? "done" : ""}`} />
+            {confirmed
+              ? "Scope confirmed"
+              : liveProposal
+                ? `Proposal v${liveProposal.version}`
+                : "Proposal not published"}
+          </div>
+          <div className="timeline-step">
+            <span className={`dot ${liveDelivery ? "current" : ""}`} />
+            {liveDelivery ? `${liveDelivery.kind} v${liveDelivery.version}` : "Delivery review later"}
           </div>
         </div>
         {view.submission ? (
@@ -262,6 +285,10 @@ export function WorkspaceDetail({ id }: { id: string }) {
           ))
         )}
       </div>
+
+      {mode === "proposal" || mode === "review" || (mode === "status" && (liveProposal || view.deliveryVersions.length)) ? (
+        <WorkspaceDelivery view={view} pending={replyPending} onReload={load} />
+      ) : null}
 
       {mode === "snapshot" && view.submission ? (
         <div style={{ marginTop: 16 }}>

@@ -8,6 +8,9 @@ describe("hosted postgres schema", () => {
     expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS users/);
     expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS projects/);
     expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS submissions/);
+    expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS proposals/);
+    expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS delivery_versions/);
+    expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS delivery_milestones/);
     expect(sql).toMatch(/reviewed_version/);
     expect(sql).toMatch(/payload_hash/);
     expect(sql.toLowerCase()).not.toContain("aethelios_production");
