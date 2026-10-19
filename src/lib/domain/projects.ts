@@ -1,0 +1,542 @@
+import "server-only";
+import { briefTitle, createEmptyBrief, normalizeBrief } from "@/lib/brief";
+import { CONSENT_TEXT } from "@/lib/copy";
+import { ConflictError, ForbiddenError, NotFoundError } from "@/lib/domain/errors";
+import { toClientView } from "@/lib/domain/next-step";
+import { createId, createReceiptId } from "@/lib/ids";
+import { submitFingerprint } from "@/lib/submitFingerprint";
+import type { PersistenceAdapter } from "@/lib/persistence/adapter";
+import type {
+  AuthContext,
+  Brief,
+  BriefFieldKey,
+  ChatMessage,
+  ClientProjectView,
+  ClientUpdateKind,
+  FounderNote,
+  FounderProjectView,
+  GuestDraft,
+  Project,
+  Suggestion,
+  User
+} from "@/lib/types";
+
+function now() {
+  return new Date().toISOString();
+}
+
+function assertOwner(project: Project, user: User) {
+  if (project.ownerId !== user.id) {
+    throw new ForbiddenError("This commission belongs to another account.");
+  }
+}
+
+function assertFounder(user: User) {
+  if (user.role !== "founder") {
+    throw new ForbiddenError("Founder authorization is required.");
+  }
+}
+
+function stripPrivate<T extends { privateNotes?: FounderNote[] }>(view: T) {
+  const copy = { ...view };
+  delete copy.privateNotes;
+  return copy;
+}
+
+export class ProjectService {
+  constructor(private readonly store: PersistenceAdapter) {}
+
+  async createProject(owner: User, brief?: Brief, guestDraftId?: string) {
+    const normalized = normalizeBrief(brief ?? createEmptyBrief());
+    const stamp = now();
+    const project: Project = {
+      id: createId("prj"),
+      ownerId: owner.id,
+      title: briefTitle(normalized),
+      status: "draft",
+      brief: normalized,
+      version: 1,
+      createdAt: stamp,
+      updatedAt: stamp,
+      adoptedFromGuestId: guestDraftId
+    };
+    return this.store.createProject(project);
+  }
+
+  async adoptGuestDraft(owner: User, draft: GuestDraft, confirmed: boolean) {
+    if (!confirmed) {
+      throw new ForbiddenError("Guest drafts are not adopted until you confirm the review.");
+    }
+    if (draft.kind !== "guest_draft") {
+      throw new ForbiddenError("Only labeled guest drafts can be adopted.");
+    }
+    const existing = await this.store.getProjectByOwnerAndGuestDraft(owner.id, draft.draftId);
+    if (existing) return existing;
+    const project = await this.createProject(owner, draft.brief, draft.draftId);
+    for (const message of draft.messages) {
+      await this.store.addMessage({
+        id: createId("msg"),
+        projectId: project.id,
+        authorKind: message.authorKind,
+        body: message.body,
+        liveAi: false,
+        createdAt: message.createdAt,
+        metadata: { importedFromGuest: true, originalId: message.id }
+      });
+    }
+    return project;
+  }
+
+  async listForOwner(user: User) {
+    return this.store.listProjectsByOwner(user.id);
+  }
+
+  async getOwnedProject(id: string, user: User) {
+    const project = await this.store.getProject(id);
+    if (!project) throw new NotFoundError("Project not found.");
+    assertOwner(project, user);
+    return project;
+  }
+
+  async clientView(id: string, user: User): Promise<ClientProjectView> {
+    const project = await this.getOwnedProject(id, user);
+    return this.buildClientView(project, {
+      user,
+      session: { id: "", userId: user.id, createdAt: "", expiresAt: "" },
+      adapter: "simulated"
+    });
+  }
+
+  async founderView(id: string, founder: User): Promise<FounderProjectView> {
+    assertFounder(founder);
+    const project = await this.store.getProject(id);
+    if (!project) throw new NotFoundError("Project not found.");
+    const owner = await this.store.getUserById(project.ownerId);
+    if (!owner) throw new NotFoundError("Owner not found.");
+    const base = await this.buildClientView(project, null);
+    return {
+      ...base,
+      privateNotes: await this.store.listFounderNotes(project.id),
+      owner: {
+        id: owner.id,
+        email: owner.email,
+        displayName: owner.displayName,
+        adapter: owner.adapter
+      }
+    };
+  }
+
+  async founderQueue(founder: User) {
+    assertFounder(founder);
+    const projects = await this.store.listSubmittedProjects();
+    const queue = [];
+    for (const project of projects) {
+      const owner = await this.store.getUserById(project.ownerId);
+      const reviews = await this.store.listReviewEvents(project.id);
+      queue.push({
+        id: project.id,
+        title: briefTitle(project.brief),
+        status: project.status,
+        updatedAt: project.updatedAt,
+        reviewStartedAt: reviews[0]?.createdAt ?? null,
+        owner: owner
+          ? { id: owner.id, email: owner.email, displayName: owner.displayName, adapter: owner.adapter }
+          : null
+      });
+    }
+    return queue;
+  }
+
+  async saveBrief(
+    projectId: string,
+    user: User,
+    brief: Brief,
+    expectedVersion: number,
+    localGeneration?: number
+  ) {
+    const project = await this.getOwnedProject(projectId, user);
+    if (project.version !== expectedVersion) {
+      throw new ConflictError(
+        "The saved brief is newer than this edit. Your latest typing was not overwritten.",
+        project.version,
+        project.brief
+      );
+    }
+    const stamp = now();
+    const next: Project = {
+      ...project,
+      brief: normalizeBrief(brief),
+      title: briefTitle(brief),
+      version: project.version + 1,
+      updatedAt: stamp
+    };
+    const saved = await this.store.updateProject(next);
+    return { project: saved, appliedLocalGeneration: localGeneration ?? null };
+  }
+
+  async submit(
+    projectId: string,
+    user: User,
+    consent: boolean,
+    idempotencyKey: string,
+    expectedVersion: number
+  ) {
+    if (!consent) {
+      throw new ForbiddenError("Submission requires explicit consent.");
+    }
+    if (!idempotencyKey.trim()) {
+      throw new ForbiddenError("An idempotency key is required so retries cannot duplicate this send.");
+    }
+    if (!Number.isInteger(expectedVersion) || expectedVersion < 1) {
+      throw new ForbiddenError("Consent must name the exact saved revision under review.");
+    }
+    const project = await this.getOwnedProject(projectId, user);
+    const ledgerId = `${user.id}:${idempotencyKey}`;
+    const prior = await this.store.getLedger(ledgerId);
+    if (prior?.ownerId && prior.ownerId !== user.id) {
+      throw new ForbiddenError("This retry belongs to another account.");
+    }
+    if (prior?.projectId && prior.projectId !== projectId) {
+      throw new ConflictError("This retry key is bound to a different commission.");
+    }
+
+    const existing =
+      (await this.store.getSubmissionByIdempotency(projectId, idempotencyKey)) ??
+      (await this.store.getSubmissionByIdempotencyKey(idempotencyKey));
+    if (existing) {
+      if (existing.ownerId !== user.id) {
+        throw new ForbiddenError("This retry belongs to another account.");
+      }
+      if (existing.projectId !== projectId) {
+        throw new ConflictError("This retry key is bound to a different commission.");
+      }
+      if (existing.reviewedVersion !== expectedVersion) {
+        throw new ConflictError("This retry key was issued for a different reviewed snapshot.");
+      }
+      if (existing.consentText !== CONSENT_TEXT) {
+        throw new ConflictError("This retry key was issued for a different consent record.");
+      }
+      const readBack = await this.store.getSubmission(existing.id);
+      if (!readBack?.receiptId) {
+        throw new ConflictError("A receipt could not be independently read back.");
+      }
+      return { submission: readBack, duplicate: true as const };
+    }
+
+    if (project.version !== expectedVersion) {
+      throw new ConflictError(
+        "This consent applies to a different saved revision. Save the brief, review it, and send that exact version.",
+        project.version,
+        project.brief
+      );
+    }
+    const payloadHash = submitFingerprint({
+      projectId,
+      ownerId: user.id,
+      expectedVersion,
+      brief: project.brief
+    });
+    if (prior?.payloadHash && prior.payloadHash !== payloadHash) {
+      throw new ConflictError("This retry key was issued for a different reviewed snapshot.");
+    }
+
+    return this.store.runInTransaction(async () => {
+      const insideExisting = await this.store.getSubmissionByIdempotency(projectId, idempotencyKey);
+      if (insideExisting) {
+        if (insideExisting.reviewedVersion !== expectedVersion || insideExisting.consentText !== CONSENT_TEXT) {
+          throw new ConflictError("This retry key was issued for a different reviewed snapshot.");
+        }
+        return { submission: insideExisting, duplicate: true as const };
+      }
+      const current = await this.getOwnedProject(projectId, user);
+      if (current.version !== expectedVersion) {
+        throw new ConflictError(
+          "This consent applies to a different saved revision. Save the brief, review it, and send that exact version.",
+          current.version
+        );
+      }
+      await this.store.putLedger({
+        id: ledgerId,
+        ownerId: user.id,
+        projectId,
+        operation: "submit",
+        payloadHash,
+        status: "in_flight",
+        createdAt: prior?.createdAt ?? now(),
+        updatedAt: now()
+      });
+      const stamp = now();
+      const snapshot = structuredClone(current.brief);
+      const created = await this.store.createSubmission({
+        id: createId("sub"),
+        projectId: current.id,
+        ownerId: user.id,
+        snapshot,
+        title: current.title,
+        consentText: CONSENT_TEXT,
+        consentedAt: stamp,
+        receiptId: createReceiptId(),
+        idempotencyKey,
+        createdAt: stamp,
+        reviewedVersion: expectedVersion,
+        payloadHash
+      });
+      await this.store.updateProject({
+        ...current,
+        status: current.status === "draft" ? "submitted" : current.status,
+        latestSubmissionId: created.id,
+        updatedAt: stamp
+      });
+      const readBack = await this.store.getSubmission(created.id);
+      if (!readBack?.receiptId) {
+        throw new ConflictError("Submission stored but the receipt could not be independently confirmed.");
+      }
+      await this.store.putLedger({
+        id: ledgerId,
+        ownerId: user.id,
+        projectId,
+        operation: "submit",
+        payloadHash,
+        status: "confirmed",
+        resultJson: JSON.stringify({ id: readBack.id, receiptId: readBack.receiptId }),
+        createdAt: prior?.createdAt ?? stamp,
+        updatedAt: stamp
+      });
+      return { submission: readBack, duplicate: false as const };
+    });
+  }
+
+  async markUncertain(ownerId: string, idempotencyKey: string, projectId: string, operation: string) {
+    const ledgerId = `${ownerId}:${idempotencyKey}`;
+    const prior = await this.store.getLedger(ledgerId);
+    await this.store.putLedger({
+      id: ledgerId,
+      ownerId,
+      projectId,
+      operation,
+      payloadHash: prior?.payloadHash ?? "",
+      status: "uncertain",
+      resultJson: prior?.resultJson,
+      createdAt: prior?.createdAt ?? now(),
+      updatedAt: now()
+    });
+  }
+
+  async addClientMessage(projectId: string, user: User, body: string) {
+    await this.getOwnedProject(projectId, user);
+    return this.store.addMessage({
+      id: createId("msg"),
+      projectId,
+      authorKind: "client",
+      body,
+      liveAi: false,
+      createdAt: now()
+    });
+  }
+
+  async addSystemMessage(projectId: string, body: string, liveAi = false, metadata?: ChatMessage["metadata"]) {
+    return this.store.addMessage({
+      id: createId("msg"),
+      projectId,
+      authorKind: liveAi ? "assistant" : "system",
+      body,
+      liveAi,
+      createdAt: now(),
+      metadata
+    });
+  }
+
+  async proposeSuggestion(
+    projectId: string,
+    fieldKey: BriefFieldKey,
+    proposedValue: string,
+    rationale?: string
+  ) {
+    const project = await this.store.getProject(projectId);
+    if (!project) throw new NotFoundError();
+    const suggestion = await this.store.addSuggestion({
+      id: createId("sug"),
+      projectId,
+      fieldKey,
+      proposedValue,
+      rationale,
+      status: "pending",
+      createdAt: now()
+    });
+    const brief = { ...project.brief };
+    brief[fieldKey] = {
+      ...brief[fieldKey],
+      provenance: brief[fieldKey].value ? brief[fieldKey].provenance : "ai_suggestion_pending",
+      pendingSuggestionId: suggestion.id,
+      unresolvedQuestion: brief[fieldKey].unresolvedQuestion
+    };
+    await this.store.updateProject({ ...project, brief, updatedAt: now() });
+    return suggestion;
+  }
+
+  async resolveSuggestion(
+    projectId: string,
+    suggestionId: string,
+    user: User,
+    action: "accept" | "reject" | "edit",
+    editedValue?: string
+  ) {
+    const project = await this.getOwnedProject(projectId, user);
+    const suggestion = await this.store.getSuggestion(suggestionId);
+    if (!suggestion || suggestion.projectId !== projectId) {
+      throw new NotFoundError("Suggestion not found.");
+    }
+    const stamp = now();
+    const nextStatus = action === "accept" ? "accepted" : action === "reject" ? "rejected" : "edited";
+    const updated: Suggestion = { ...suggestion, status: nextStatus, resolvedAt: stamp };
+    await this.store.updateSuggestion(updated);
+    const brief = { ...project.brief };
+    const field = { ...brief[suggestion.fieldKey] };
+    if (action === "accept") {
+      field.value = suggestion.proposedValue;
+      field.provenance = "ai_suggestion_accepted";
+      field.pendingSuggestionId = undefined;
+    } else if (action === "edit") {
+      field.value = editedValue ?? suggestion.proposedValue;
+      field.provenance = "ai_suggestion_edited";
+      field.pendingSuggestionId = undefined;
+    } else {
+      field.pendingSuggestionId = undefined;
+      if (field.provenance === "ai_suggestion_pending") {
+        field.provenance = field.value ? "client_statement" : "empty";
+      }
+    }
+    brief[suggestion.fieldKey] = field;
+    await this.store.updateProject({
+      ...project,
+      brief,
+      title: briefTitle(brief),
+      version: project.version + 1,
+      updatedAt: stamp
+    });
+    return updated;
+  }
+
+  async startReview(projectId: string, founder: User) {
+    assertFounder(founder);
+    const project = await this.store.getProject(projectId);
+    if (!project) throw new NotFoundError();
+    if (!project.latestSubmissionId) {
+      throw new ForbiddenError("Review can begin only after a submitted snapshot exists.");
+    }
+    const existing = await this.store.listReviewEvents(projectId);
+    if (existing.length) return existing[0]!;
+    const event = await this.store.addReviewEvent({
+      id: createId("rev"),
+      projectId,
+      founderId: founder.id,
+      kind: "review_started",
+      createdAt: now()
+    });
+    await this.store.updateProject({
+      ...project,
+      status: "founder_reviewing",
+      updatedAt: now()
+    });
+    return event;
+  }
+
+  async addPrivateNote(
+    projectId: string,
+    founder: User,
+    body: string,
+    kind: FounderNote["kind"] = "private_note"
+  ) {
+    assertFounder(founder);
+    const project = await this.store.getProject(projectId);
+    if (!project) throw new NotFoundError();
+    return this.store.addFounderNote({
+      id: createId("note"),
+      projectId,
+      founderId: founder.id,
+      body,
+      kind,
+      createdAt: now(),
+      updatedAt: now(),
+      version: 1
+    });
+  }
+
+  async publishUpdate(
+    projectId: string,
+    founder: User,
+    kind: ClientUpdateKind,
+    body: string,
+    requiresResponse?: boolean
+  ) {
+    assertFounder(founder);
+    const project = await this.store.getProject(projectId);
+    if (!project) throw new NotFoundError();
+    const update = await this.store.addClientUpdate({
+      id: createId("upd"),
+      projectId,
+      founderId: founder.id,
+      kind,
+      body,
+      requiresResponse: requiresResponse ?? kind === "clarification",
+      createdAt: now()
+    });
+    let status = project.status;
+    if (kind === "clarification") status = "clarification_requested";
+    if (kind === "decision") status = "decision_published";
+    await this.store.updateProject({ ...project, status, updatedAt: now() });
+    return update;
+  }
+
+  async respondToClarification(projectId: string, user: User, updateId: string, body: string) {
+    const project = await this.getOwnedProject(projectId, user);
+    const update = (await this.store.listClientUpdates(projectId)).find((item) => item.id === updateId);
+    if (!update || update.kind !== "clarification") {
+      throw new NotFoundError("Clarification not found.");
+    }
+    const response = await this.store.addClarificationResponse({
+      id: createId("clr"),
+      updateId,
+      projectId,
+      authorId: user.id,
+      body,
+      createdAt: now()
+    });
+    if (project.status === "clarification_requested") {
+      const reviews = await this.store.listReviewEvents(projectId);
+      await this.store.updateProject({
+        ...project,
+        status: reviews.length ? "founder_reviewing" : "submitted",
+        updatedAt: now()
+      });
+    }
+    return response;
+  }
+
+  private async buildClientView(project: Project, auth: AuthContext | null): Promise<ClientProjectView> {
+    const submission = project.latestSubmissionId
+      ? await this.store.getSubmission(project.latestSubmissionId)
+      : (await this.store.listSubmissions(project.id)).at(-1) ?? null;
+    const reviews = await this.store.listReviewEvents(project.id);
+    return toClientView(
+      {
+        project,
+        suggestions: await this.store.listSuggestions(project.id),
+        messages: await this.store.listMessages(project.id),
+        updates: await this.store.listClientUpdates(project.id),
+        clarificationResponses: await this.store.listClarificationResponses(project.id),
+        submission,
+        reviewStartedAt: reviews[0]?.createdAt ?? null
+      },
+      auth
+    );
+  }
+
+  assertNoPrivateLeak(payload: unknown) {
+    const text = JSON.stringify(payload);
+    if (text.includes("privateNotes") || text.includes("internal_proposal")) {
+      throw new ForbiddenError("Private founder material cannot be included in a client payload.");
+    }
+    return stripPrivate(payload as { privateNotes?: FounderNote[] });
+  }
+}
