@@ -1,8 +1,9 @@
-import type { BriefFieldKey, ProjectType } from "@/lib/types";
+import type { Brief, BriefFieldKey, ProjectType } from "@/lib/types";
 
 export const DISCOVERY_CATALOG_VERSION = 1;
 export const DISCOVERY_TEMPLATE_VERSION = 1;
-export const DISCOVERY_STORAGE_VERSION = 1;
+export const DISCOVERY_STORAGE_VERSION = 2;
+export const SUPPORTED_STORAGE_VERSIONS = [1, 2] as const;
 export const DISCOVERY_STORAGE_KEY = "aethelios.atelier.discovery.v1";
 
 export const DISCOVERY_PHASES = [
@@ -107,6 +108,7 @@ export type DiscoverySelection = {
   audience: string;
   desiredQualities: QualityId[];
   intent: IntentId | "";
+  intentNote: string;
   customerFeeling: FeelingId | "";
   selectedDirectionId: DirectionId;
   visualPreferences: {
@@ -115,6 +117,8 @@ export type DiscoverySelection = {
     headline: string;
   };
   serviceInterest: ServiceInterestId;
+  likesNote: string;
+  changeNote: string;
   visitorNotes: string;
   exclusions: string;
   createdAt: string;
@@ -131,16 +135,27 @@ export type BriefProposal = {
 };
 
 export type DiscoveryBriefMapping = {
-  version: 1;
+  version: 2;
   kind: "discovery_brief_mapping";
   sourceSelectionId: string;
   sourceRevision: number;
+  briefFingerprint: string;
   proposals: BriefProposal[];
   untouchedFields: BriefFieldKey[];
   summary: string;
   unknowns: string[];
   warnings: string[];
 };
+
+export type ApplyDecision = "append" | "replace" | "skip";
+
+export type ApplyResult =
+  | { ok: true; brief: Brief }
+  | {
+      ok: false;
+      code: "stale_mapping" | "missing_decision" | "invalid_project_type_append";
+      reason: string;
+    };
 
 export type ConceptService = {
   id: string;
@@ -186,7 +201,7 @@ export type AetheliosGuideView = {
 };
 
 export type StoredDiscoveryEnvelope = {
-  version: typeof DISCOVERY_STORAGE_VERSION;
+  version: number;
   kind: "discovery_session";
   savedAt: string;
   draft: DiscoveryDraft;

@@ -1,6 +1,7 @@
 import {
   DISCOVERY_STORAGE_KEY,
   DISCOVERY_STORAGE_VERSION,
+  SUPPORTED_STORAGE_VERSIONS,
   isDiscoveryPhase,
   type DiscoveryDraft,
   type DiscoveryPhase,
@@ -42,7 +43,9 @@ export function parseEnvelope(input: unknown): StoredDiscoveryEnvelope | null {
   if (!input || typeof input !== "object") return null;
   const raw = input as Partial<StoredDiscoveryEnvelope>;
   if (raw.kind !== "discovery_session") return null;
-  if (raw.version !== DISCOVERY_STORAGE_VERSION) return null;
+  if (typeof raw.version !== "number" || !(SUPPORTED_STORAGE_VERSIONS as readonly number[]).includes(raw.version)) {
+    return null;
+  }
   const draft = parseDraft(raw.draft);
   if (!draft) return null;
   const confirmed = raw.confirmed == null ? null : parseSelection(raw.confirmed);
@@ -109,10 +112,21 @@ export function clearDiscovery(storage: MemoryStorage | null, key = DISCOVERY_ST
   if (!storage) return { ok: false, state: "unavailable", reason: "No storage adapter." };
   try {
     storage.removeItem(key);
-    return { ok: true, state: "memory", envelope: null };
   } catch {
     return { ok: false, state: "unavailable", reason: "Storage could not be cleared." };
   }
+  try {
+    if (storage.getItem(key) != null) {
+      return {
+        ok: false,
+        state: "unavailable",
+        reason: "The saved sketch is still on this device after the clear attempt."
+      };
+    }
+  } catch {
+    return { ok: false, state: "unavailable", reason: "Storage could not confirm that the saved sketch was removed." };
+  }
+  return { ok: true, state: "memory", envelope: null };
 }
 
 export function browserStorage(): MemoryStorage | null {

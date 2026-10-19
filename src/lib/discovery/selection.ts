@@ -166,6 +166,7 @@ export function confirmSelection(
     audience: sanitized.audience,
     desiredQualities: sanitized.qualities,
     intent: sanitized.intent,
+    intentNote: sanitized.intentNote,
     customerFeeling: sanitized.customerFeeling,
     selectedDirectionId: sanitized.activeDirectionId,
     visualPreferences: {
@@ -174,6 +175,8 @@ export function confirmSelection(
       headline: sanitized.headline
     },
     serviceInterest: sanitized.serviceInterest,
+    likesNote: sanitized.likesNote,
+    changeNote: sanitized.changeNote,
     visitorNotes: visitorNotesFromDraft(sanitized),
     exclusions: sanitized.exclusions,
     createdAt: previous?.createdAt ?? timestamp,
@@ -188,10 +191,13 @@ export function selectionFingerprint(selection: Pick<
   | "audience"
   | "desiredQualities"
   | "intent"
+  | "intentNote"
   | "customerFeeling"
   | "selectedDirectionId"
   | "visualPreferences"
   | "serviceInterest"
+  | "likesNote"
+  | "changeNote"
   | "visitorNotes"
   | "exclusions"
 >): string {
@@ -201,10 +207,13 @@ export function selectionFingerprint(selection: Pick<
     audience: selection.audience,
     desiredQualities: selection.desiredQualities,
     intent: selection.intent,
+    intentNote: selection.intentNote,
     customerFeeling: selection.customerFeeling,
     selectedDirectionId: selection.selectedDirectionId,
     visualPreferences: selection.visualPreferences,
     serviceInterest: selection.serviceInterest,
+    likesNote: selection.likesNote,
+    changeNote: selection.changeNote,
     visitorNotes: selection.visitorNotes,
     exclusions: selection.exclusions
   });
@@ -217,6 +226,7 @@ export function draftFingerprint(draft: DiscoveryDraft): string {
     audience: draft.audience,
     desiredQualities: draft.qualities,
     intent: draft.intent,
+    intentNote: draft.intentNote,
     customerFeeling: draft.customerFeeling,
     selectedDirectionId: draft.activeDirectionId,
     visualPreferences: {
@@ -225,6 +235,8 @@ export function draftFingerprint(draft: DiscoveryDraft): string {
       headline: draft.headline
     },
     serviceInterest: draft.serviceInterest,
+    likesNote: draft.likesNote,
+    changeNote: draft.changeNote,
     visitorNotes: visitorNotesFromDraft(draft),
     exclusions: draft.exclusions
   });
@@ -266,6 +278,7 @@ export function parseSelection(input: unknown): DiscoverySelection | null {
     audience: sanitizeMultiline(raw.audience, LIMITS.audience),
     desiredQualities: uniqueQualities(qualities),
     intent: isIntentId(raw.intent) ? raw.intent : "",
+    intentNote: sanitizeMultiline(raw.intentNote, LIMITS.short),
     customerFeeling: isFeelingId(raw.customerFeeling) ? raw.customerFeeling : "",
     selectedDirectionId: raw.selectedDirectionId,
     visualPreferences: {
@@ -274,6 +287,8 @@ export function parseSelection(input: unknown): DiscoverySelection | null {
       headline: sanitizePlainText(prefs.headline, LIMITS.headline)
     },
     serviceInterest: raw.serviceInterest,
+    likesNote: sanitizeMultiline(raw.likesNote, LIMITS.note),
+    changeNote: sanitizeMultiline(raw.changeNote, LIMITS.note),
     visitorNotes: sanitizeMultiline(raw.visitorNotes, LIMITS.note * 2),
     exclusions: sanitizeMultiline(raw.exclusions, LIMITS.note),
     createdAt: typeof raw.createdAt === "string" ? raw.createdAt : "",
@@ -299,4 +314,40 @@ function uniqueDirections(ids: DirectionId[]): DirectionId[] {
 
 export function directionLabel(id: DirectionId): string {
   return `${DIRECTIONS[id].name} — ${DIRECTIONS[id].epithet}`;
+}
+
+export function draftFromSelection(selection: DiscoverySelection): DiscoveryDraft {
+  return createDraft({
+    businessName: selection.businessName,
+    businessType: selection.businessType,
+    intent: selection.intent,
+    intentNote: selection.intentNote,
+    audience: selection.audience,
+    customerFeeling: selection.customerFeeling,
+    qualities: selection.desiredQualities,
+    headline: selection.visualPreferences.headline,
+    paletteId: selection.visualPreferences.paletteId,
+    visualDirectionId: selection.visualPreferences.visualDirectionId,
+    activeDirectionId: selection.selectedDirectionId,
+    serviceInterest: selection.serviceInterest,
+    likesNote: selection.likesNote,
+    changeNote: selection.changeNote,
+    exclusions: selection.exclusions
+  });
+}
+
+export const CONCEPT_SECTIONS = ["opening", "image", "services", "action"] as const;
+
+export type ConceptSection = (typeof CONCEPT_SECTIONS)[number];
+
+export function previewInstanceId(scope: "solo" | "compare" | "recap", directionId: DirectionId, slot = 0): string {
+  return `preview-${scope}-${directionId}-${slot}`;
+}
+
+export function conceptSectionId(instanceId: string, section: string): string {
+  return `${instanceId}-${section}`;
+}
+
+export function allPreviewSectionIds(instanceIds: string[]): string[] {
+  return instanceIds.flatMap((instanceId) => CONCEPT_SECTIONS.map((section) => conceptSectionId(instanceId, section)));
 }

@@ -2,7 +2,14 @@ import { createEmptyBrief } from "@/lib/brief";
 import { BRIEF_FIELD_KEYS, type Brief, type BriefFieldKey } from "@/lib/types";
 import { BUSINESS_TYPE_COPY, DIRECTIONS, INTENT_COPY, PALETTES, QUALITY_COPY, VISUAL_DIRECTION_COPY } from "./catalog";
 import { displayName } from "./sanitize";
-import { serviceInterestToProjectType, type BriefProposal, type DiscoveryBriefMapping, type DiscoverySelection } from "./types";
+import {
+  serviceInterestToProjectType,
+  type ApplyDecision,
+  type ApplyResult,
+  type BriefProposal,
+  type DiscoveryBriefMapping,
+  type DiscoverySelection
+} from "./types";
 
 const NEVER_INFERRED: BriefFieldKey[] = [
   "timing",
@@ -11,6 +18,12 @@ const NEVER_INFERRED: BriefFieldKey[] = [
   "existingWebsite",
   "goals"
 ];
+
+const ENUM_FIELDS: BriefFieldKey[] = ["projectType"];
+
+export function fingerprintBrief(brief: Brief): string {
+  return JSON.stringify(BRIEF_FIELD_KEYS.map((key) => [key, brief[key]?.value ?? "", brief[key]?.provenance ?? "empty"]));
+}
 
 export function mapSelectionToBriefProposals(
   selection: DiscoverySelection,
@@ -21,7 +34,7 @@ export function mapSelectionToBriefProposals(
   const warnings: string[] = [];
 
   const vision = proposeVision(selection);
-  if (vision) proposals.push(toProposal("vision", vision, "Business name and stated intent.", existingBrief));
+  if (vision) proposals.push(toProposal("vision", vision, "Business name and the visitor’s stated intent.", existingBrief));
   else unknowns.push("vision");
 
   const audience = proposeAudience(selection);
@@ -54,7 +67,7 @@ export function mapSelectionToBriefProposals(
 
   const priorities = proposePriorities(selection);
   if (priorities) {
-    proposals.push(toProposal("priorities", priorities, "Explicit visitor notes about what they like.", existingBrief));
+    proposals.push(toProposal("priorities", priorities, "Explicit notes about what they like and want changed.", existingBrief));
   } else {
     unknowns.push("priorities");
   }
@@ -71,40 +84,61 @@ export function mapSelectionToBriefProposals(
     warnings.push(`${field} remains unknown; discovery does not infer price, deadline, booking provider, or technical scope.`);
   }
 
-  if (selection.catalogVersion !== 1 || selection.templateVersion !== 1) {
-    warnings.push("Catalog or template version is not the current discovery catalog; do not import blindly.");
-  }
-
   const proposedKeys = new Set(proposals.map((item) => item.field));
   const untouchedFields = BRIEF_FIELD_KEYS.filter((key) => !proposedKeys.has(key));
 
   return {
-    version: 1,
+    version: 2,
     kind: "discovery_brief_mapping",
     sourceSelectionId: selection.selectionId,
     sourceRevision: selection.localRevision,
+    briefFingerprint: fingerprintBrief(existingBrief),
     proposals,
     untouchedFields,
-    summary: buildReadableSummary(selection, proposals, unknowns),
+    summary: humanDirectionSummary(selection),
     unknowns,
     warnings
   };
 }
 
 export function applyProposals(
-  existingBrief: Brief,
+  currentBrief: Brief,
   mapping: DiscoveryBriefMapping,
-  decisions: Partial<Record<BriefFieldKey, "append" | "replace" | "skip">>
-): Brief {
-  const next: Brief = { ...existingBrief };
+  decisions: Partial<Record<BriefFieldKey, ApplyDecision>>
+): ApplyResult {
+  if (mapping.briefFingerprint !== fingerprintBrief(currentBrief)) {
+    return {
+      ok: false,
+      code: "stale_mapping",
+      reason: "The brief has changed since this mapping was prepared. Generate a fresh mapping before applying."
+    };
+  }
+
   for (const proposal of mapping.proposals) {
-    const decision = decisions[proposal.field] ?? (proposal.conflict ? "skip" : "replace");
-    if (decision === "skip") continue;
-    const current = existingBrief[proposal.field].value;
+    const decision = decisions[proposal.field];
+    if (!decision) {
+      return {
+        ok: false,
+        code: "missing_decision",
+        reason: `Choose append, replace, or skip for ${proposal.field} before anything is written.`
+      };
+    }
+    if (ENUM_FIELDS.includes(proposal.field) && decision === "append") {
+      return {
+        ok: false,
+        code: "invalid_project_type_append",
+        reason: "Project type can only be replaced with a supported choice, or skipped."
+      };
+    }
+  }
+
+  const next: Brief = { ...currentBrief };
+  for (const proposal of mapping.proposals) {
+    const decision = decisions[proposal.field];
+    if (decision !== "append" && decision !== "replace") continue;
+    const current = currentBrief[proposal.field].value;
     const value =
-      decision === "append" && current.trim()
-        ? `${current.trim()}\n\n${proposal.proposedValue}`
-        : proposal.proposedValue;
+      decision === "append" && current.trim() ? `${current.trim()}\n\n${proposal.proposedValue}` : proposal.proposedValue;
     next[proposal.field] = {
       key: proposal.field,
       value,
@@ -113,7 +147,55 @@ export function applyProposals(
       pendingSuggestionId: undefined
     };
   }
-  return next;
+  return { ok: true, brief: next };
+}
+
+export function undecidedFromSelection(selection: DiscoverySelection): string[] {
+  const undecided: string[] = [];
+  if (!selection.businessName.trim()) undecided.push("business name");
+  if (!selection.businessType) undecided.push("business type");
+  if (!selection.intent) undecided.push("aim");
+  if (!selection.audience.trim()) undecided.push("audience");
+  if (!selection.desiredQualities.length) undecided.push("qualities");
+  if (!selection.customerFeeling) undecided.push("customer feeling");
+  if (selection.serviceInterest === "unspecified") undecided.push("commission type");
+  if (!selection.exclusions.trim()) undecided.push("exclusions");
+  return undecided;
+}
+
+export function humanDirectionSummary(selection: DiscoverySelection): string {
+  const name = displayName(selection.businessName);
+  const direction = DIRECTIONS[selection.selectedDirectionId];
+  const palette = PALETTES[selection.visualPreferences.paletteId];
+  const visual = VISUAL_DIRECTION_COPY[selection.visualPreferences.visualDirectionId];
+  const intent = selection.intent ? INTENT_COPY[selection.intent].label : "Not specified";
+  const undecided = undecidedFromSelection(selection);
+
+  return [
+    "Aethelios Atelier — direction prepared on this device",
+    "",
+    `Business: ${name}`,
+    selection.businessType ? `Type: ${BUSINESS_TYPE_COPY[selection.businessType].label}` : "Type: not specified",
+    `Direction: ${direction.name} — ${direction.epithet}`,
+    `Palette: ${palette.label}`,
+    `Visual: ${visual.label}`,
+    selection.visualPreferences.headline ? `Headline: ${selection.visualPreferences.headline}` : "",
+    `Aim: ${intent}`,
+    selection.intentNote.trim() ? `Written intent:\n${selection.intentNote.trim()}` : "",
+    selection.desiredQualities.length
+      ? `Qualities: ${selection.desiredQualities.map((id) => QUALITY_COPY[id].label).join(", ")}`
+      : "Qualities: not specified",
+    selection.audience.trim() ? `Audience: ${selection.audience.trim()}` : "",
+    selection.likesNote.trim() ? `What they like:\n${selection.likesNote.trim()}` : "",
+    selection.changeNote.trim() ? `What to change:\n${selection.changeNote.trim()}` : "",
+    selection.exclusions.trim() ? `Exclusions:\n${selection.exclusions.trim()}` : "",
+    "",
+    undecided.length ? `Still undecided: ${undecided.join(", ")}.` : "No additional unknowns from this sketch.",
+    "Timing, budget, booking provider, and technical scope were not inferred from this direction.",
+    "This sketch stays on this device. It has not been added to an account or sent for founder review."
+  ]
+    .filter((line, index, all) => !(line === "" && all[index - 1] === ""))
+    .join("\n");
 }
 
 function toProposal(
@@ -137,19 +219,19 @@ function proposeVision(selection: DiscoverySelection): string {
   const name = selection.businessName.trim();
   const type = selection.businessType ? BUSINESS_TYPE_COPY[selection.businessType].label : "";
   const intent = selection.intent ? INTENT_COPY[selection.intent].label : "";
+  const note = selection.intentNote.trim();
   const parts = [
-    name ? `${name}` : "",
+    name ? `${name}.` : "",
     type ? `A ${type.toLowerCase()} business.` : "",
-    intent ? `They want to ${intent.toLowerCase()}.` : ""
+    intent ? `They want to ${intent.toLowerCase()}.` : "",
+    note ? note : ""
   ].filter(Boolean);
   return parts.join(" ").trim();
 }
 
 function proposeAudience(selection: DiscoverySelection): string {
   const written = selection.audience.trim();
-  const feeling = selection.customerFeeling
-    ? `Customers should feel ${selection.customerFeeling}.`
-    : "";
+  const feeling = selection.customerFeeling ? `Customers should feel ${selection.customerFeeling}.` : "";
   return [written, feeling].filter(Boolean).join(" ").trim();
 }
 
@@ -172,55 +254,24 @@ function proposeReferences(selection: DiscoverySelection): string {
 }
 
 function proposePriorities(selection: DiscoverySelection): string {
-  const notes = selection.visitorNotes.trim();
   const qualities = selection.desiredQualities.map((id) => QUALITY_COPY[id].label);
-  const parts = [
+  return [
     qualities.length ? `Desired qualities: ${qualities.join(", ")}.` : "",
-    notes
-  ].filter(Boolean);
-  return parts.join("\n\n").trim();
-}
-
-function buildReadableSummary(
-  selection: DiscoverySelection,
-  proposals: BriefProposal[],
-  unknowns: string[]
-): string {
-  const name = displayName(selection.businessName);
-  const direction = DIRECTIONS[selection.selectedDirectionId];
-  const palette = PALETTES[selection.visualPreferences.paletteId];
-  const visual = VISUAL_DIRECTION_COPY[selection.visualPreferences.visualDirectionId];
-  const lines = [
-    `Aethelios Atelier — discovery direction (prepared on this device)`,
-    `Selection ${selection.selectionId} · revision ${selection.localRevision}`,
-    `Catalog ${selection.catalogVersion} / template ${selection.templateVersion}`,
-    "",
-    `Business: ${name}`,
-    selection.businessType ? `Type: ${BUSINESS_TYPE_COPY[selection.businessType].label}` : "Type: not specified",
-    `Direction: ${direction.name} — ${direction.epithet}`,
-    `Palette: ${palette.label}`,
-    `Visual: ${visual.label}`,
-    selection.visualPreferences.headline ? `Headline: ${selection.visualPreferences.headline}` : "",
-    selection.desiredQualities.length
-      ? `Qualities: ${selection.desiredQualities.map((id) => QUALITY_COPY[id].label).join(", ")}`
-      : "Qualities: not specified",
-    selection.audience ? `Audience: ${selection.audience}` : "",
-    selection.visitorNotes ? `Notes:\n${selection.visitorNotes}` : "",
-    selection.exclusions ? `Exclusions:\n${selection.exclusions}` : "",
-    "",
-    "Proposed brief fields (not written to any project):",
-    ...proposals.map(
-      (item) =>
-        `- ${item.field}: ${item.conflict ? "conflicts with existing brief field — append/replace/skip required" : "empty on existing brief"}`
-    ),
-    "",
-    unknowns.length ? `Left unknown: ${unknowns.join(", ")}` : "No additional unknowns from discovery.",
-    "Timing, budget, booking provider, existing website, and technical scope are not inferred.",
-    "Status: direction prepared on this device. Not submitted, not added to an account, and not imported until the repaired brief controller asks for append/replace/skip and fresh consent."
-  ];
-  return lines.filter((line, index, all) => !(line === "" && all[index - 1] === "")).join("\n");
+    selection.likesNote.trim() ? `What they like:\n${selection.likesNote.trim()}` : "",
+    selection.changeNote.trim() ? `What they want changed:\n${selection.changeNote.trim()}` : ""
+  ]
+    .filter(Boolean)
+    .join("\n\n")
+    .trim();
 }
 
 export function existingBriefUntouchedProof(before: Brief, after: Brief): boolean {
   return JSON.stringify(before) === JSON.stringify(after);
+}
+
+export function decisionsFor(
+  mapping: DiscoveryBriefMapping,
+  decision: ApplyDecision
+): Partial<Record<BriefFieldKey, ApplyDecision>> {
+  return Object.fromEntries(mapping.proposals.map((item) => [item.field, decision]));
 }
