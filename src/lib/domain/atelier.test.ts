@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AureliusBoundary, aureliusStatus, unavailableNotice } from "@/lib/aurelius/boundary";
+import { INTELLIGENCE_DISPLAY_NAME, displayIntelligenceLabel } from "@/lib/copy";
 import { CONSENT_TEXT } from "@/lib/copy";
 import { createEmptyBrief } from "@/lib/brief";
 import { ConflictError, ForbiddenError } from "@/lib/domain/errors";
@@ -225,7 +226,15 @@ describe("commission lifecycle", () => {
     expect(store.listSubmissions(project.id)).toHaveLength(1);
   });
 
-  it("keeps Aurelius unavailable without disguising fixtures as live AI", () => {
+  it("maps stored Aurelius labels to Aethelios without rewriting persisted identifiers", () => {
+    expect(INTELLIGENCE_DISPLAY_NAME).toBe("Aethelios");
+    expect(displayIntelligenceLabel("Aurelius is unavailable.")).toBe("Aethelios is unavailable.");
+    expect(displayIntelligenceLabel("Aethelios suggestion — not approved")).toBe(
+      "Aethelios suggestion — not approved"
+    );
+  });
+
+  it("keeps Aethelios unavailable without disguising fixtures as live AI", () => {
     const { owner, service, store } = setup();
     const project = service.createProject(owner);
     const boundary = new AureliusBoundary(store, service);

@@ -65,11 +65,11 @@ export function WorkspaceHome() {
           <p className="notice">No saved commissions yet. Start a brief or adopt a guest draft.</p>
         ) : (
           projects.map((project) => (
-            <a className="surface-dimensional workspace-card" href={`/workspace/${project.id}`} key={project.id}>
+            <AppLink className="surface-dimensional workspace-card" href={`/workspace/${project.id}`} key={project.id}>
               <p className="tiny">{project.status.replaceAll("_", " ")}</p>
               <h2 style={{ fontSize: 28 }}>{briefTitle(project.brief)}</h2>
               <p className="muted">Updated {new Date(project.updatedAt).toLocaleString()}</p>
-            </a>
+            </AppLink>
           ))
         )}
         <div className="row">
@@ -215,17 +215,17 @@ export function WorkspaceDetail({ id }: { id: string }) {
               View confirmed receipt
             </button>
           ) : null}
-          <a className="btn btn-ghost" href={`/project/${view.project.id}`}>
+          <AppLink className="btn btn-ghost" href={`/project/${view.project.id}`}>
             Edit the current working draft
-          </a>
+          </AppLink>
           {view.submission ? (
-            <a className="btn btn-gold" href={`/project/${view.project.id}`}>
+            <AppLink className="btn btn-gold" href={`/project/${view.project.id}`}>
               Review a new revision
-            </a>
+            </AppLink>
           ) : (
-            <a className="btn btn-gold" href={`/project/${view.project.id}`}>
+            <AppLink className="btn btn-gold" href={`/project/${view.project.id}`}>
               Review and send
-            </a>
+            </AppLink>
           )}
         </div>
       </article>
@@ -276,9 +276,9 @@ export function WorkspaceDetail({ id }: { id: string }) {
       {mode === "draft" ? (
         <div style={{ marginTop: 16 }}>
           <LivingBrief brief={view.project.brief} suggestions={view.suggestions} />
-          <a className="btn btn-ghost" href={`/project/${view.project.id}`}>
+          <AppLink className="btn btn-ghost" href={`/project/${view.project.id}`}>
             Edit this commission
-          </a>
+          </AppLink>
         </div>
       ) : null}
 

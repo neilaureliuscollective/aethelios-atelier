@@ -5,6 +5,7 @@ import { AppLink } from "@/components/ui/AppLink";
 import { useSession } from "@/components/shell/SessionShell";
 import { api } from "@/lib/client/api";
 import { actionErrorMessage } from "@/lib/client/asyncAction";
+import { ownerFence } from "@/lib/client/ownerFence";
 import { clearOwnerScopedData } from "@/lib/client/ownerScope";
 import type { User } from "@/lib/types";
 
@@ -50,7 +51,10 @@ export function AccountClient() {
   async function signOut() {
     if (pending) return;
     setPending(true);
-    if (user) clearOwnerScopedData(user.id);
+    if (user) {
+      ownerFence.markSignOut(user.id);
+      clearOwnerScopedData(user.id);
+    }
     try {
       await api("/api/session/sign-out", { method: "POST" });
       await refresh();

@@ -20,7 +20,7 @@ export default function HomePage() {
           </h1>
           <p className="lede">
             Aethelios Atelier is Neil Stutes’ studio for websites and digital infrastructure. Begin a
-            guided brief. Aurelius can help you organize it; Neil remains the person who reviews,
+            guided brief. Aethelios can help you organize it; Neil remains the person who reviews,
             scopes, and delivers. No subscription is required to start.
           </p>
           <div className="hero-actions">

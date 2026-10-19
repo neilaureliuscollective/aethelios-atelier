@@ -7,12 +7,14 @@ Distinguishes **domain tests**, **HTTP tests against sqlite_local**, **browser p
 ```
 pnpm typecheck          # pass
 pnpm lint               # pass
-pnpm test               # 27/27 pass
+pnpm test               # 55/55 pass
 pnpm build              # pass
 node scripts/api-flow.mjs
-# 25/25 pass against production `next start` + sqlite_local
+# 28/28 pass against production `next start` + sqlite_local
 node scripts/privacy-browser.mjs
-node scripts/measure-perf.mjs
+# 22/22 pass
+node scripts/browser-regressions.mjs
+# 64/64 pass (CDP Fetch holds, real sqlite, SPA navigation)
 node scripts/capture-screens.mjs
 ```
 
@@ -31,7 +33,7 @@ HTTP checks (real local persistence, not browser fixtures):
 - Second project loads by explicit id
 - Duplicate guest adoption is idempotent
 - Submitted is not treated as founder review
-- Aurelius unavailable replies are labeled not-live-AI
+- Aethelios unavailable replies are labeled not-live-AI
 - Founder start-review is the event that unlocks review progress
 - Private notes stay off the client payload
 - Second user is denied founder project access
@@ -42,6 +44,19 @@ Unit/domain regressions also cover coalesced save versioning, hosted simulator r
 ## Browser
 
 Exercised guest brief, explicit project routes, workspace isolation, founder review, offline shell, and account switching against the production build.
+
+Request-observed browser regressions (production `next start` + sqlite_local):
+
+- Old revision-2 chat response delivered after revision-3 save
+- Delayed accepted-suggestion response while newer typing exists
+- Delayed save acknowledgment after explicit sign-out
+- Delayed project-A load after project B is active
+- Account A → B → A with outstanding work
+- Stale submission completion after in-app navigation
+- Definite stale-version rejection followed by corrected, newly consented send
+- Lost response after committed submission with exact retry
+- Typing while recovery comparison is unresolved (no automatic overwrite)
+- Exact loopback / hosted-simulator policy is covered in unit tests, not by activating hosted auth
 
 ## Not claimed
 

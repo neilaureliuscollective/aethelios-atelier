@@ -2,7 +2,7 @@
 
 Founder-led digital infrastructure studio. This repository is a **standalone** application: a public entrance, an AI-guided (optional) brief, a living commission, and a private founder review workspace.
 
-Neil Stutes remains responsible for accepting work, scope, price, timing, and delivery. Aurelius is a guide. This is not autonomous website generation, not an Aethelios subscription, and not a replacement for human expertise.
+Neil Stutes remains responsible for accepting work, scope, price, timing, and delivery. Aethelios is the in-app intelligence; Aurelius is Neil’s separate personal assistant and is not this guide. This is not autonomous website generation, not an Aethelios subscription, and not a replacement for human expertise.
 
 ## Local candidate
 
@@ -30,6 +30,9 @@ pnpm typecheck
 pnpm lint
 pnpm test
 pnpm build
+node scripts/api-flow.mjs
+node scripts/privacy-browser.mjs
+node scripts/browser-regressions.mjs
 ```
 
 ## Configuration
@@ -38,7 +41,7 @@ See `.env.example`. Fail-closed rules:
 
 - Persistence requires `ATELIER_PERSISTENCE_ADAPTER=sqlite_local` or `memory`.
 - Auth requires `ATELIER_AUTH_ADAPTER=simulated` until a real provider exists.
-- Aurelius stays unavailable unless `ATELIER_OPENAI_ENABLED=true` **and** `OPENAI_API_KEY` are set. Live model calls are not made by default and were not used in this implementation.
+- Aethelios stays unavailable unless `ATELIER_OPENAI_ENABLED=true` **and** `OPENAI_API_KEY` are set. Live model calls are not made by default and were not used in this implementation. Internal identifiers may still use the older `aurelius` name; visitor-facing copy maps that to Aethelios.
 - Billing is not activated. Do not set Stripe keys.
 
 Data is stored in `.data/` (gitignored). This is not a hosted database.

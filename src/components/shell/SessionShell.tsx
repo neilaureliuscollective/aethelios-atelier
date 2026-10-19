@@ -1,6 +1,8 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import type { Route } from "next";
 import { SiteHeader } from "@/components/shell/SiteHeader";
 import { SiteFooter } from "@/components/shell/SiteFooter";
 import { SimulatedBanner } from "@/components/shell/SimulatedBanner";
@@ -33,15 +35,28 @@ export function SessionShell({
   auth: { adapter: string; labeled: boolean; ready: boolean };
   children: React.ReactNode;
 }) {
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [generation, setGeneration] = useState(0);
+
+  useEffect(() => {
+    const onNav = (event: Event) => {
+      const href = (event as CustomEvent<string>).detail;
+      if (typeof href === "string" && href.startsWith("/")) {
+        router.push(href as Route);
+      }
+    };
+    window.addEventListener("atelier:client-navigate", onNav);
+    return () => window.removeEventListener("atelier:client-navigate", onNav);
+  }, [router]);
 
   const applyUser = useCallback((next: User | null) => {
     const remembered =
       typeof window === "undefined" ? null : window.sessionStorage.getItem("atelier.lastOwner");
     const previousId = ownerFence.ownerId ?? remembered;
     if (previousId && next === null) {
+      ownerFence.markSignOut(previousId);
       clearOwnerScopedData(previousId);
       window.sessionStorage.removeItem("atelier.lastOwner");
     }

@@ -64,7 +64,7 @@ export const SERVICE_CATALOG: {
       status: "offered",
       title: "Not sure yet",
       summary:
-        "Begin with the idea. Aurelius can help organize it; Neil decides what can be accepted.",
+        "Begin with the idea. Aethelios can help organize it; Neil decides what can be accepted.",
       includes: ["A guided brief with no obligation to buy"],
       excludes: ["A commitment to a specific package before review"]
     }
@@ -77,11 +77,11 @@ export function offerById(id: string) {
 
 export const AURELIUS_FACTS = [
   "Aethelios Atelier is founder-led by Neil Stutes.",
-  "Aurelius is an AI guide. It does not accept work, set price, or bind timing.",
+  "Aethelios is the in-app intelligence for Aethelios Atelier. It does not accept work, set price, or bind timing. Aurelius is Neil’s separate personal assistant and is not this guide.",
   "Owners can begin a brief without buying a subscription.",
   "The first focused offer is a branded website / installable web app connected to an existing booking provider.",
   "Booking-connected means linking to the client’s current booking destination, not replacing it.",
-  "Pricing is not finalized. Any range Aurelius mentions must come from the approved catalog and is nonbinding.",
+  "Pricing is not finalized. Any range Aethelios mentions must come from the approved catalog and is nonbinding.",
   "Submitted is not the same as under founder review.",
   "Private founder notes and internal prices never belong in client-visible replies."
 ];

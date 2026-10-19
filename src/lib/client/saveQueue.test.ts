@@ -86,6 +86,28 @@ describe("coalesced save queue", () => {
     expect(calls).toEqual([]);
   });
 
+  it("does not dispatch while a review-required hold is active", async () => {
+    const calls: string[] = [];
+    const queue = new CoalescedSaveQueue<string>(
+      1,
+      async (payload) => {
+        calls.push(payload);
+        return { version: 2 };
+      },
+      0
+    );
+    queue.setReviewHold(true);
+    queue.enqueue("typed during comparison");
+    await queue.flush();
+    expect(calls).toEqual([]);
+    expect(queue.reviewHold).toBe(true);
+    queue.setReviewHold(false);
+    queue.resumeAfterReconcile(4);
+    await queue.flush();
+    expect(calls).toEqual(["typed during comparison"]);
+    expect(queue.acknowledgedVersion).toBe(2);
+  });
+
   it("ignores a delayed success after dispose instead of advancing the version", async () => {
     const first = deferred<{ version: number }>();
     const queue = new CoalescedSaveQueue<string>(1, async () => first.promise, 0);

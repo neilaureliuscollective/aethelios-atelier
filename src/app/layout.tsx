@@ -25,7 +25,7 @@ export const metadata: Metadata = {
     template: "%s · Aethelios Atelier"
   },
   description:
-    "Founder-led websites and digital infrastructure. Shape a commission with Aurelius; Neil Stutes reviews, scopes, and delivers.",
+    "Founder-led websites and digital infrastructure. Shape a commission with Aethelios; Neil Stutes reviews, scopes, and delivers.",
   applicationName: "Aethelios Atelier",
   manifest: "/manifest.webmanifest",
   icons: {

@@ -1,3 +1,4 @@
+import { INTELLIGENCE_DISPLAY_NAME } from "@/lib/copy";
 import {
   BRIEF_FIELD_KEYS,
   type Brief,
@@ -120,7 +121,7 @@ export function provenanceLabel(provenance: BriefField["provenance"]) {
     case "client_statement":
       return "Your statement";
     case "ai_suggestion_pending":
-      return "Aurelius suggestion — not approved";
+      return `${INTELLIGENCE_DISPLAY_NAME} suggestion — not approved`;
     case "ai_suggestion_accepted":
       return "Accepted suggestion";
     case "ai_suggestion_edited":

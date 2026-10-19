@@ -7,13 +7,14 @@ import {
   TOOL_DEFINITIONS
 } from "@/lib/aurelius/tools";
 import { SERVICE_CATALOG } from "@/lib/catalog";
+import { INTELLIGENCE_DISPLAY_NAME } from "@/lib/copy";
 import { loadConfig } from "@/lib/config";
 import { ProjectService } from "@/lib/domain/projects";
 import type { PersistenceAdapter } from "@/lib/persistence/adapter";
 import type { Brief, Project, User } from "@/lib/types";
 
 const UNAVAILABLE =
-  "Aurelius is unavailable. No authorized OpenAI configuration is active, so this is not a live AI reply. Continue with the structured brief — your work is saved. Live model calls stay off until separately enabled.";
+  `${INTELLIGENCE_DISPLAY_NAME} is unavailable. No authorized OpenAI configuration is active, so this is not a live AI reply. Continue with the structured brief — your work is saved. Live model calls stay off until separately enabled.`;
 
 export type AureliusStatus = {
   ready: boolean;
@@ -76,7 +77,7 @@ export class AureliusBoundary {
     if (used >= config.openAiDailyLimit) {
       const notice = this.projects.addSystemMessage(
         input.project.id,
-        "Aurelius has reached the configured daily limit for this commission. Your brief is unchanged. Continue manually or try again later.",
+        `${INTELLIGENCE_DISPLAY_NAME} has reached the configured daily limit for this commission. Your brief is unchanged. Continue manually or try again later.`,
         false,
         { liveAi: false, reason: "usage_limit" }
       );
@@ -113,7 +114,7 @@ export class AureliusBoundary {
           ok: true,
           suggestionId: suggestion.id,
           status: "pending",
-          labeled: "Aurelius suggestion — not approved"
+          labeled: `${INTELLIGENCE_DISPLAY_NAME} suggestion — not approved`
         });
       }
       if (name === "add_unresolved_question") {
@@ -202,7 +203,7 @@ export class AureliusBoundary {
     } catch (error) {
       const failed = this.projects.addSystemMessage(
         input.project.id,
-        "Aurelius could not complete that reply. Your brief and previous messages are unchanged. You can retry the same question or continue the structured brief.",
+        `${INTELLIGENCE_DISPLAY_NAME} could not complete that reply. Your brief and previous messages are unchanged. You can retry the same question or continue the structured brief.`,
         false,
         {
           liveAi: false,

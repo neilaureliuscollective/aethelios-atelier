@@ -1,4 +1,5 @@
 import { displayFieldValue, FIELD_LABELS, provenanceLabel } from "@/lib/brief";
+import { INTELLIGENCE_DISPLAY_NAME } from "@/lib/copy";
 import { BRIEF_FIELD_KEYS, type Brief, type Suggestion } from "@/lib/types";
 
 export function LivingBrief({
@@ -47,7 +48,7 @@ export function LivingBrief({
             {pending ? (
               <div className="notice" style={{ marginTop: 8 }}>
                 <p>
-                  <strong>Aurelius suggestion — not approved.</strong> {pending.proposedValue}
+                  <strong>{INTELLIGENCE_DISPLAY_NAME} suggestion — not approved.</strong> {pending.proposedValue}
                 </p>
                 {pending.rationale ? <p className="muted">Context: {pending.rationale}</p> : null}
                 {onResolve ? (

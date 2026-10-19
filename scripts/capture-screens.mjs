@@ -113,11 +113,68 @@ if (projectId) {
     );
   }, session.user.id, projectId, view.project.brief);
   await page.goto(`${BASE}/project/${projectId}`, { waitUntil: "networkidle0" });
-  await shot(page, 1440, "recovered_draft_compare");
-  await shot(page, 390, "recovered_draft_compare");
+  for (const width of [390, 884, 1440]) {
+    await shot(page, width, "recovered_draft_compare");
+  }
+  await page.evaluate(() => {
+    const area = document.querySelector("textarea");
+    if (!area) return;
+    const proto = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value");
+    proto?.set?.call(area, "Typed while comparison is still unresolved.");
+    area.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await new Promise((r) => setTimeout(r, 300));
+  for (const width of [390, 884, 1440]) {
+    await shot(page, width, "comparison_typing");
+  }
   await page.goto(`${BASE}/workspace/${projectId}`, { waitUntil: "networkidle0" });
-  await shot(page, 390, "confirmed_receipt");
-  await shot(page, 1440, "confirmed_receipt");
+  for (const width of [390, 884, 1440]) {
+    await shot(page, width, "confirmed_receipt");
+  }
+
+  const rejectProject = await page.evaluate(async () => {
+    const res = await fetch("/api/projects", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({})
+    });
+    return res.json();
+  });
+  const rejectId = rejectProject.project?.id;
+  if (rejectId) {
+    await page.goto(`${BASE}/project/${rejectId}`, { waitUntil: "networkidle0" });
+    await page.waitForSelector("textarea");
+    await page.evaluate(() => {
+      const area = document.querySelector("textarea");
+      const proto = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value");
+      proto?.set?.call(area, "Reviewed wording that will be rejected as stale.");
+      area.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await new Promise((r) => setTimeout(r, 900));
+    await page.evaluate(() => {
+      [...document.querySelectorAll(".step-nav button")].find((el) => (el.textContent ?? "").includes("Review"))?.click();
+    });
+    await page.waitForSelector("input[type=checkbox]", { timeout: 8000 });
+    await page.click("input[type=checkbox]");
+    await page.evaluate(async (id) => {
+      const current = await (await fetch(`/api/projects/${id}`)).json();
+      const brief = current.project.brief;
+      brief.constraints.value = "Server advanced this revision before send.";
+      brief.constraints.provenance = "client_statement";
+      await fetch(`/api/projects/${id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ brief, expectedVersion: current.project.version })
+      });
+    }, rejectId);
+    await page.evaluate(() => {
+      [...document.querySelectorAll("button")].find((el) => /Send to Neil|Send this newly reviewed/.test(el.textContent ?? ""))?.click();
+    });
+    await new Promise((r) => setTimeout(r, 1200));
+    for (const width of [390, 884, 1440]) {
+      await shot(page, width, "stale_submit_rejected");
+    }
+  }
 }
 
 await page.goto(`${BASE}/account`, { waitUntil: "networkidle0" });

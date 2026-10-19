@@ -15,7 +15,7 @@ export default function ApproachPage() {
       </p>
       <ol className="approach-steps">
         {[
-          ["Shape a living brief", "Suggestions from Aurelius stay pending until you accept them. Manual completion is enough."],
+          ["Shape a living brief", "Suggestions from Aethelios stay pending until you accept them. Manual completion is enough."],
           ["Consent to a saved snapshot", "You send an immutable copy of the exact revision you reviewed. That creates a durable receipt."],
           ["Submitted is not under review", "Review begins only when Neil opens the commission. There is no implied acceptance or delivery date."],
           ["Clarification and private work", "He may ask a question, keep private notes, and publish a labeled client-visible update."],

@@ -1,5 +1,6 @@
 import { briefsEqual } from "@/lib/client/briefDiff";
 import { identitiesMatch, type OperationIdentity } from "@/lib/client/operationIdentity";
+import { ownerFence } from "@/lib/client/ownerFence";
 import { readOwnerJson, writeOwnerJson } from "@/lib/client/ownerScope";
 import type { SaveStatus } from "@/lib/client/saveQueue";
 import type { Brief } from "@/lib/types";
@@ -26,8 +27,14 @@ export type DraftSessionState = {
   lastError: string | null;
 };
 
+export type RemoteApplyResult = "applied" | "ignored" | "stale" | "needs_review" | "kept_local";
+
 function nowIso() {
   return new Date().toISOString();
+}
+
+function storageAllowed(identity: OperationIdentity) {
+  return ownerFence.allowsStorageWrite(identity);
 }
 
 export class DraftSession {
@@ -68,8 +75,12 @@ export class DraftSession {
     return !briefsEqual(this.localBrief, this.acknowledgedBrief) || this.status !== "saved";
   }
 
+  get reviewRequired() {
+    return this.recoveryOpen || this.conflictOpen;
+  }
+
   get canConsent() {
-    return !this.isUnconfirmed && this.status === "saved" && !this.recoveryOpen && !this.conflictOpen;
+    return !this.isUnconfirmed && this.status === "saved" && !this.reviewRequired;
   }
 
   subscribe(listener: () => void) {
@@ -101,17 +112,30 @@ export class DraftSession {
   applyLocalEdit(next: Brief) {
     if (this.disposed) return { ok: false as const, reason: "disposed" as const };
     this.localBrief = next;
-    this.status = this.status === "saving" ? "saving" : "unsaved";
     this.invalidateConsent();
+    if (!this.reviewRequired && this.status !== "saving") {
+      this.status = "unsaved";
+    }
     const stored = this.persist();
     this.emit();
     return stored;
   }
 
-  /** An earlier acknowledgment must never replace newer local edits. */
+  /** An earlier acknowledgment must never replace newer local edits or rewind the accepted revision. */
   acknowledge(payload: Brief, version: number, captured: OperationIdentity) {
     if (this.disposed) return "ignored" as const;
     if (!identitiesMatch(captured, this.identity)) return "ignored" as const;
+    if (!storageAllowed(captured)) return "ignored" as const;
+    const classified = this.classifyRemote(payload, version);
+    if (classified === "stale") return "stale" as const;
+    if (classified === "inconsistent") {
+      this.openReview(
+        payload,
+        version,
+        "The saved copy for this revision does not match what this device already acknowledged. Your current text is still here. Review both before replacing either."
+      );
+      return "needs_review" as const;
+    }
     this.acknowledgedBrief = payload;
     this.acknowledgedVersion = version;
     this.lastError = null;
@@ -121,7 +145,7 @@ export class DraftSession {
       this.conflictOpen = false;
       this.serverBrief = null;
       this.conflictServerVersion = null;
-    } else {
+    } else if (!this.reviewRequired) {
       this.status = "unsaved";
     }
     this.persist();
@@ -132,6 +156,7 @@ export class DraftSession {
   markSaving(captured?: OperationIdentity) {
     if (this.disposed) return;
     if (captured && !identitiesMatch(captured, this.identity)) return;
+    if (this.reviewRequired) return;
     this.status = "saving";
     this.emit();
   }
@@ -146,26 +171,23 @@ export class DraftSession {
 
   enterConflict(serverBrief: Brief, serverVersion: number, captured: OperationIdentity) {
     if (this.disposed || !identitiesMatch(captured, this.identity)) return;
-    this.status = "conflict";
-    this.conflictOpen = true;
-    this.recoveryOpen = true;
-    this.serverBrief = serverBrief;
-    this.conflictServerVersion = serverVersion;
-    this.lastError =
-      "A newer saved copy exists. Your current text is still here. Review both before replacing either.";
-    this.persist();
-    this.emit();
+    this.openReview(
+      serverBrief,
+      serverVersion,
+      "A newer saved copy exists. Your current text is still here. Review both before replacing either."
+    );
   }
 
   keepLocalAfterCompare() {
     if (this.disposed) return this.conflictServerVersion ?? this.acknowledgedVersion;
+    const serverVersion = this.conflictServerVersion ?? this.acknowledgedVersion;
     this.recoveryOpen = false;
     this.conflictOpen = false;
     this.status = "unsaved";
     this.invalidateConsent();
     this.persist();
     this.emit();
-    return this.conflictServerVersion ?? this.acknowledgedVersion;
+    return serverVersion;
   }
 
   takeServerCopy() {
@@ -189,18 +211,23 @@ export class DraftSession {
   applyAcceptedBrief(next: Brief, version: number, captured: OperationIdentity) {
     if (this.disposed) return "ignored" as const;
     if (!identitiesMatch(captured, this.identity)) return "ignored" as const;
+    if (!storageAllowed(captured)) return "ignored" as const;
+    const classified = this.classifyRemote(next, version);
+    if (classified === "stale") return "stale" as const;
+    if (classified === "inconsistent") {
+      this.openReview(
+        next,
+        version,
+        "The saved copy for this revision does not match what this device already acknowledged. Your current text is still here. Review both before replacing either."
+      );
+      return "needs_review" as const;
+    }
     if (!briefsEqual(this.localBrief, this.acknowledgedBrief)) {
-      this.serverBrief = next;
-      this.acknowledgedBrief = next;
-      this.acknowledgedVersion = version;
-      this.conflictServerVersion = version;
-      this.status = "unsaved";
-      this.recoveryOpen = true;
-      this.lastError =
-        "A suggestion was stored while you were still editing. Your current text is still here. Review both before replacing either.";
-      this.invalidateConsent();
-      this.persist();
-      this.emit();
+      this.openReview(
+        next,
+        version,
+        "A suggestion was stored while you were still editing. Your current text is still here. Review both before replacing either."
+      );
       return "needs_review" as const;
     }
     this.localBrief = next;
@@ -216,6 +243,17 @@ export class DraftSession {
   syncRemoteProject(serverBrief: Brief, serverVersion: number, captured: OperationIdentity) {
     if (this.disposed) return "ignored" as const;
     if (!identitiesMatch(captured, this.identity)) return "ignored" as const;
+    if (!storageAllowed(captured)) return "ignored" as const;
+    const classified = this.classifyRemote(serverBrief, serverVersion);
+    if (classified === "stale") return "stale" as const;
+    if (classified === "inconsistent") {
+      this.openReview(
+        serverBrief,
+        serverVersion,
+        "The saved copy for this revision does not match what this device already acknowledged. Your current text is still here. Review both before replacing either."
+      );
+      return "needs_review" as const;
+    }
     if (
       briefsEqual(this.localBrief, this.acknowledgedBrief) &&
       briefsEqual(this.localBrief, serverBrief) &&
@@ -261,6 +299,7 @@ export class DraftSession {
   }
 
   persistFor(identity: OperationIdentity) {
+    if (!storageAllowed(identity)) return { ok: false as const, reason: "signed-out" as const };
     return writeOwnerJson(
       identity.ownerId,
       "draft",
@@ -275,6 +314,26 @@ export class DraftSession {
     );
   }
 
+  private classifyRemote(serverBrief: Brief, serverVersion: number) {
+    if (serverVersion < this.acknowledgedVersion) return "stale" as const;
+    if (serverVersion === this.acknowledgedVersion && !briefsEqual(serverBrief, this.acknowledgedBrief)) {
+      return "inconsistent" as const;
+    }
+    return "usable" as const;
+  }
+
+  private openReview(serverBrief: Brief, serverVersion: number, message: string) {
+    this.recoveryOpen = true;
+    this.conflictOpen = true;
+    this.status = "conflict";
+    this.serverBrief = serverBrief;
+    this.conflictServerVersion = serverVersion;
+    this.lastError = message;
+    this.invalidateConsent();
+    this.persist();
+    this.emit();
+  }
+
   private emit() {
     for (const listener of this.listeners) listener();
   }
@@ -285,10 +344,24 @@ export function acknowledgeStoredRecovery(
   payload: Brief,
   version: number
 ) {
+  if (!storageAllowed(identity)) {
+    return { ok: false as const, reason: "signed-out" as const };
+  }
   const existing = loadDraftRecovery(identity.ownerId, identity.projectId);
+  if (existing && version < existing.acknowledgedVersion) {
+    return { ok: true as const, ignored: "stale" as const };
+  }
+  if (
+    existing &&
+    version === existing.acknowledgedVersion &&
+    existing.acknowledgedBrief &&
+    !briefsEqual(existing.acknowledgedBrief, payload)
+  ) {
+    return { ok: true as const, ignored: "inconsistent" as const };
+  }
   const local =
     existing?.localBrief && !briefsEqual(existing.localBrief, payload) ? existing.localBrief : payload;
-  writeOwnerJson(
+  return writeOwnerJson(
     identity.ownerId,
     "draft",
     {

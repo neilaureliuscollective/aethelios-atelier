@@ -12,4 +12,14 @@ describe("account fence", () => {
     fence.switchTo(null);
     expect(fence.isCurrent(second, "owner-b")).toBe(false);
   });
+
+  it("treats explicit sign-out as a storage invalidation boundary", () => {
+    const fence = new OwnerFence();
+    fence.switchTo("owner-a");
+    const captured = fence.capture();
+    expect(captured.ownerId).toBe("owner-a");
+    fence.markSignOut("owner-a");
+    expect(fence.allowsStorageWrite({ ownerId: "owner-a", signOutEpoch: captured.signOutEpoch })).toBe(false);
+    expect(fence.ownerId).toBeNull();
+  });
 });

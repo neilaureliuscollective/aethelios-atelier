@@ -9,7 +9,7 @@ import {
   readGuestDraft,
   writeGuestDraft
 } from "@/lib/guest/draft";
-import { CONSENT_TEXT } from "@/lib/copy";
+import { CONSENT_TEXT, INTELLIGENCE_DISPLAY_NAME, displayIntelligenceLabel } from "@/lib/copy";
 import { AppLink } from "@/components/ui/AppLink";
 import { DraftCompare } from "@/components/project/DraftCompare";
 import { LivingBrief } from "@/components/project/LivingBrief";
@@ -22,19 +22,21 @@ import {
   loadDraftRecovery,
   type DraftSessionState
 } from "@/lib/client/draftSession";
-import { identitiesMatch, type OperationIdentity } from "@/lib/client/operationIdentity";
+import { identitiesMatch, identityFor } from "@/lib/client/operationIdentity";
 import { ownerFence } from "@/lib/client/ownerFence";
 import { CoalescedSaveQueue, type SaveFailure, type SaveStatus } from "@/lib/client/saveQueue";
 import {
   archiveSubmitCommand,
   buildSubmitCommand,
+  classifySubmitFailure,
   loadConfirmedSubmit,
   loadSubmitCommand,
   persistSubmitCommand,
+  rejectSubmitCommand,
   type PendingSubmitCommand
 } from "@/lib/client/submitCommand";
 import { useSession } from "@/components/shell/SessionShell";
-import type { Brief, BriefFieldKey, ChatMessage, Project, Suggestion, User } from "@/lib/types";
+import type { Brief, BriefFieldKey, ChatMessage, ClientProjectView, Project, Suggestion, User } from "@/lib/types";
 
 const STEPS = [
   { n: 1, label: "Vision" },
@@ -109,13 +111,15 @@ export function GuidedBrief({
   const [loadError, setLoadError] = useState("");
   const [submitPending, setSubmitPending] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [aureliusNote, setAureliusNote] = useState("Checking assistant availability…");
+  const [assistantNote, setAssistantNote] = useState("Checking assistant availability…");
   const [pendingCommand, setPendingCommand] = useState<PendingSubmitCommand | null>(null);
   const [confirmedCommand, setConfirmedCommand] = useState<PendingSubmitCommand | null>(null);
   const queueRef = useRef<CoalescedSaveQueue<Brief> | null>(null);
   const sessionRef = useRef<DraftSession | null>(null);
   const creatingRef = useRef(false);
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
+  const loadSeqRef = useRef(0);
+  const submitSeqRef = useRef(0);
 
   const brief = draftSnap?.brief ?? guestBrief;
   const consent = draftSnap ? draftSnap.consent : guestConsent;
@@ -133,17 +137,16 @@ export function GuidedBrief({
     const queue = new CoalescedSaveQueue<Brief>(
       session.acknowledgedVersion,
       async (payload, expectedVersion) => {
-        const captured: OperationIdentity = {
-          ownerId: owner.id,
-          projectId: nextProject.id,
-          generation: ownerFence.generation
-        };
+        const captured = identityFor(owner.id, nextProject.id, ownerFence);
         sessionRef.current?.markSaving(captured);
         try {
           const result = await api<{ project: Project }>(`/api/projects/${nextProject.id}`, {
             method: "PATCH",
             body: JSON.stringify({ brief: payload, expectedVersion })
           });
+          if (!ownerFence.allowsStorageWrite(captured)) {
+            return { version: result.project.version };
+          }
           acknowledgeStoredRecovery(captured, payload, result.project.version);
           const current = sessionRef.current;
           if (current && !current.disposed) {
@@ -157,10 +160,16 @@ export function GuidedBrief({
         } catch (error) {
           const failure = saveFailure(error);
           const current = sessionRef.current;
-          if (current && !current.disposed && identitiesMatch(captured, current.identity)) {
+          if (
+            current &&
+            !current.disposed &&
+            identitiesMatch(captured, current.identity) &&
+            ownerFence.allowsStorageWrite(captured)
+          ) {
             if (failure.kind === "conflict") {
               const serverBrief = (failure.serverBrief as Brief | undefined) ?? current.acknowledgedBrief;
               current.enterConflict(serverBrief, failure.currentVersion ?? current.acknowledgedVersion, captured);
+              queueRef.current?.setReviewHold(true);
             } else {
               current.markUncertain(failure.message, captured);
             }
@@ -176,6 +185,7 @@ export function GuidedBrief({
       setSaveMessage(queue.lastError);
     });
     queueRef.current = queue;
+    queue.setReviewHold(session.reviewRequired);
     return () => {
       unsub();
       queue.dispose();
@@ -186,23 +196,30 @@ export function GuidedBrief({
     if (loading) return;
     let unsubQueue: (() => void) | undefined;
     let unsubSession: (() => void) | undefined;
+    const loadToken = ++loadSeqRef.current;
     const gen = generation;
     const ownerId = user?.id ?? null;
+    const capturedProjectId = projectId ?? null;
+
+    const loadIsActive = () =>
+      loadSeqRef.current === loadToken &&
+      ownerFence.isCurrent(gen, ownerId) &&
+      (projectId ?? null) === capturedProjectId;
 
     void (async () => {
       setLoadError("");
       const config = await api<{ aurelius: { ready: boolean; unavailableReason?: string } }>("/api/config");
-      if (!ownerFence.isCurrent(gen, ownerId)) return;
-      setAureliusNote(
+      if (!loadIsActive()) return;
+      setAssistantNote(
         config.aurelius.ready
-          ? "Aurelius is configured for live replies."
-          : "Aurelius is unavailable because live model access is not authorized. Continue with the structured brief. This is not a live AI reply."
+          ? `${INTELLIGENCE_DISPLAY_NAME} is configured for live replies.`
+          : `${INTELLIGENCE_DISPLAY_NAME} is unavailable because live model access is not authorized. Continue with the structured brief. This is not a live AI reply.`
       );
 
       if (projectId && user) {
         try {
           const view = await api<ProjectResponse>(`/api/projects/${projectId}`);
-          if (!ownerFence.isCurrent(gen, ownerId)) return;
+          if (!loadIsActive()) return;
           setProject(view.project);
           setSuggestions(view.suggestions);
           setMessages(view.messages);
@@ -214,19 +231,17 @@ export function GuidedBrief({
           if (pending) {
             setStatus("An earlier send is still unconfirmed. Retry that exact request — it will not create a second snapshot.");
           }
-          const identity: OperationIdentity = {
-            ownerId: user.id,
-            projectId: view.project.id,
-            generation: gen
-          };
+          const identity = identityFor(user.id, view.project.id, ownerFence);
+          if (!loadIsActive()) return;
           const session = new DraftSession(identity, view.project.brief, view.project.version, recovery);
           unsubSession = bindSession(session);
           unsubQueue = attachQueue(view.project, user, session);
           if (session.recoveryOpen) {
+            queueRef.current?.setReviewHold(true);
             setSaveMessage("This device still has unconfirmed text. It is not saved until the server acknowledges this exact wording.");
           }
         } catch (error) {
-          if (!ownerFence.isCurrent(gen, ownerId)) return;
+          if (!loadIsActive()) return;
           setLoadError(actionErrorMessage(error, "This commission could not be opened."));
         }
         return;
@@ -246,11 +261,11 @@ export function GuidedBrief({
             body: JSON.stringify({})
           });
           window.sessionStorage.removeItem(lockKey);
-          if (!ownerFence.isCurrent(gen, ownerId)) return;
+          if (!loadIsActive()) return;
           router.replace(`/project/${created.project.id}`);
         } catch (error) {
           window.sessionStorage.removeItem(lockKey);
-          if (!ownerFence.isCurrent(gen, ownerId)) return;
+          if (!loadIsActive()) return;
           setLoadError(actionErrorMessage(error, "A new commission could not be created."));
           creatingRef.current = false;
           setCreating(false);
@@ -258,6 +273,7 @@ export function GuidedBrief({
         return;
       }
 
+      if (!loadIsActive()) return;
       const guest = readGuestDraft() ?? createGuestDraft();
       writeGuestDraft(guest);
       setGuestId(guest.draftId);
@@ -273,6 +289,11 @@ export function GuidedBrief({
     })();
 
     return () => {
+      if (loadSeqRef.current === loadToken) {
+        loadSeqRef.current += 1;
+      }
+      submitSeqRef.current += 1;
+      setSubmitPending(false);
       unsubQueue?.();
       unsubSession?.();
       queueRef.current?.dispose();
@@ -316,6 +337,11 @@ export function GuidedBrief({
           "Browser storage is unavailable. Unconfirmed typing is only on this screen until a save succeeds."
         )
       );
+      if (session.reviewRequired) {
+        queueRef.current?.setReviewHold(true);
+        queueRef.current?.enqueue(next);
+        return;
+      }
       queueRef.current?.enqueue(next);
       return;
     }
@@ -334,6 +360,7 @@ export function GuidedBrief({
     const queue = queueRef.current;
     if (!session || !queue) return;
     const serverVersion = session.keepLocalAfterCompare();
+    queue.setReviewHold(false);
     queue.enqueue(session.localBrief);
     queue.resumeAfterReconcile(serverVersion);
     setStatus("This device copy is kept. It stays unsaved until the server acknowledges this exact wording.");
@@ -368,7 +395,7 @@ export function GuidedBrief({
         id: crypto.randomUUID(),
         projectId: local.projectId,
         authorKind: "system",
-        body: "Aurelius is not live on a guest draft. Continue the structured brief, then sign in if you want a saved conversation. This is not a live AI reply.",
+        body: `${INTELLIGENCE_DISPLAY_NAME} is not live on a guest draft. Continue the structured brief, then sign in if you want a saved conversation. This is not a live AI reply.`,
         liveAi: false,
         createdAt: new Date().toISOString()
       };
@@ -384,15 +411,30 @@ export function GuidedBrief({
         method: "POST",
         body: JSON.stringify({ body: text })
       });
-      if (!captured || !sessionRef.current || !identitiesMatch(captured, sessionRef.current.identity)) {
+      if (
+        !captured ||
+        !sessionRef.current ||
+        !identitiesMatch(captured, sessionRef.current.identity) ||
+        !ownerFence.allowsStorageWrite(captured)
+      ) {
         return;
       }
       setMessages(result.view.messages);
       setSuggestions(result.view.suggestions);
-      sessionRef.current.syncRemoteProject(result.view.project.brief, result.view.project.version, captured);
+      const applied = sessionRef.current.syncRemoteProject(
+        result.view.project.brief,
+        result.view.project.version,
+        captured
+      );
+      if (applied === "needs_review") {
+        queueRef.current?.setReviewHold(true);
+        setStatus("A delayed response does not match the copy already saved here. Your current text is still here. Review both before replacing either.");
+      }
       setChatInput("");
     } catch (error) {
-      setChatError(actionErrorMessage(error, "The message was not delivered. Your text is still here."));
+      if (captured && identitiesMatch(captured, sessionRef.current?.identity ?? null)) {
+        setChatError(actionErrorMessage(error, "The message was not delivered. Your text is still here."));
+      }
     } finally {
       setChatPending(false);
     }
@@ -406,7 +448,12 @@ export function GuidedBrief({
       method: "POST",
       body: JSON.stringify({ action })
     });
-    if (!captured || !sessionRef.current || !identitiesMatch(captured, sessionRef.current.identity)) {
+    if (
+      !captured ||
+      !sessionRef.current ||
+      !identitiesMatch(captured, sessionRef.current.identity) ||
+      !ownerFence.allowsStorageWrite(captured)
+    ) {
       return;
     }
     setSuggestions(result.view.suggestions);
@@ -419,12 +466,15 @@ export function GuidedBrief({
       queueRef.current?.adoptAcknowledged(result.view.project.version);
       setProject(result.view.project);
     } else if (applied === "needs_review") {
+      queueRef.current?.setReviewHold(true);
       setStatus("The suggestion was stored, but your newer typing is still here. Review both copies before replacing either.");
     }
   }
 
   async function sendCommand(command: PendingSubmitCommand) {
     if (!project || !user) return;
+    const captured = identityFor(user.id, project.id, ownerFence);
+    if (!ownerFence.allowsStorageWrite(captured)) return;
     const stored = persistSubmitCommand(command);
     if (!stored.ok) {
       setStorageNote(
@@ -432,10 +482,22 @@ export function GuidedBrief({
       );
     }
     if (submitPending) return;
+    const submitToken = ++submitSeqRef.current;
     setSubmitPending(true);
+    const stillThisOperation = () => {
+      const current = sessionRef.current;
+      if (!current || current.disposed) return false;
+      return (
+        submitSeqRef.current === submitToken &&
+        identitiesMatch(captured, current.identity) &&
+        ownerFence.allowsStorageWrite(captured) &&
+        ownerFence.isCurrent(captured.generation, captured.ownerId)
+      );
+    };
+
     try {
       const result = await api<{ receipt: { receiptId: string; submissionId: string; version: number } }>(
-        `/api/projects/${project.id}/submit`,
+        `/api/projects/${command.projectId}/submit`,
         {
           method: "POST",
           body: JSON.stringify({
@@ -446,27 +508,79 @@ export function GuidedBrief({
           })
         }
       );
+      if (!ownerFence.allowsStorageWrite(captured)) return;
+      const view = await api<ClientProjectView>(`/api/projects/${command.projectId}`);
+      const verified = view.submission?.receiptId === result.receipt.receiptId;
+      if (!verified) {
+        if (stillThisOperation()) {
+          setPendingCommand(command);
+          setStatus("Submission is uncertain. Retry the same command — it will not create a second snapshot.");
+        }
+        return;
+      }
       archiveSubmitCommand(command, {
         receiptId: result.receipt.receiptId,
         submissionId: result.receipt.submissionId
       });
+      if (!stillThisOperation()) return;
       setPendingCommand(null);
-      setConfirmedCommand(loadConfirmedSubmit(user.id, project.id));
+      setConfirmedCommand(loadConfirmedSubmit(captured.ownerId, captured.projectId));
       setReceipt(result.receipt.receiptId);
+      sessionRef.current?.invalidateConsent();
       if (guestId) {
         const guest = readGuestDraft();
-        if (guest) markGuestRetained(guest, project.id);
+        if (guest) markGuestRetained(guest, command.projectId);
       }
-      window.location.href = `/workspace/${project.id}`;
+      window.location.href = `/workspace/${command.projectId}`;
     } catch (error) {
-      setPendingCommand(command);
-      setStatus(
+      const outcome = classifySubmitFailure(
         error instanceof ApiError
-          ? error.message
-          : "Submission is uncertain. Retry the same command — it will not create a second snapshot."
+          ? { status: error.status, code: error.code, message: error.message }
+          : { message: error instanceof Error ? error.message : "network" }
       );
+      if (!ownerFence.allowsStorageWrite(captured)) return;
+      if (outcome === "rejected") {
+        rejectSubmitCommand(
+          command,
+          error instanceof ApiError ? error.message : "The server rejected this send."
+        );
+        if (!stillThisOperation()) return;
+        setPendingCommand(null);
+        sessionRef.current?.invalidateConsent();
+        try {
+          const view = await api<ClientProjectView>(`/api/projects/${command.projectId}`);
+          if (stillThisOperation() && sessionRef.current) {
+            const applied = sessionRef.current.syncRemoteProject(
+              view.project.brief,
+              view.project.version,
+              captured
+            );
+            if (applied === "needs_review") {
+              queueRef.current?.setReviewHold(true);
+            } else {
+              queueRef.current?.adoptAcknowledged(view.project.version);
+              setProject(view.project);
+            }
+          }
+        } catch {
+          /* correction can still proceed from the visible draft */
+        }
+        setStatus(
+          `${error instanceof ApiError ? error.message : "This send was rejected."} Correct the brief, review the saved revision, and consent again. The previous key will not be reused.`
+        );
+      } else {
+        if (!stillThisOperation()) return;
+        setPendingCommand(command);
+        setStatus(
+          error instanceof ApiError
+            ? error.message
+            : "Submission is uncertain. Retry the same command — it will not create a second snapshot."
+        );
+      }
     } finally {
-      setSubmitPending(false);
+      if (submitSeqRef.current === submitToken) {
+        setSubmitPending(false);
+      }
     }
   }
 
@@ -615,7 +729,7 @@ export function GuidedBrief({
               <h1 className="brief-heading">{FIELD_HINTS[visibleFields[0] ?? "vision"]}</h1>
               <p className="muted">
                 Start with the idea. You can refine details as you go. Answers stay as you move between steps.
-                Aurelius being unavailable does not block this brief.
+                {INTELLIGENCE_DISPLAY_NAME} being unavailable does not block this brief.
               </p>
               {visibleFields.map((key, index) => (
                 <div key={key} style={{ marginTop: 18 }}>
@@ -662,21 +776,21 @@ export function GuidedBrief({
               </div>
               <div className="conversation" style={{ marginTop: 28 }}>
                 <p className="tiny">Conversation</p>
-                <p className="notice">{aureliusNote}</p>
+                <p className="notice">{assistantNote}</p>
                 {messages.map((message) => (
                   <div key={message.id} className={`bubble bubble-${message.authorKind}`}>
                     <p className="tiny">
                       {message.authorKind === "client"
                         ? "You"
                         : message.liveAi
-                          ? "Aurelius"
+                          ? INTELLIGENCE_DISPLAY_NAME
                           : "System — not live AI"}
                     </p>
-                    <p>{message.body}</p>
+                    <p>{displayIntelligenceLabel(message.body)}</p>
                   </div>
                 ))}
                 <label>
-                  <span className="lbl">Ask Aurelius, or continue the form</span>
+                  <span className="lbl">Ask {INTELLIGENCE_DISPLAY_NAME}, or continue the form</span>
                   <textarea value={chatInput} onChange={(event) => setChatInput(event.target.value)} rows={3} />
                 </label>
                 {chatError ? <p className="notice notice-warn">{chatError}</p> : null}

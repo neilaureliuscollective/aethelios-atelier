@@ -3,7 +3,7 @@ export function SiteFooter() {
     <footer className="site-footer">
       <div className="container footer-inner">
         <p>Aethelios Atelier · Founder-led digital infrastructure</p>
-        <p>Neil Stutes reviews every commission. Aurelius is a guide, not a substitute.</p>
+        <p>Neil Stutes reviews every commission. Aethelios is a guide, not a substitute.</p>
       </div>
     </footer>
   );

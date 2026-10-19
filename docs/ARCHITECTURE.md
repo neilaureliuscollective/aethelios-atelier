@@ -12,7 +12,7 @@ Next.js 15 (App Router) + React 19 + TypeScript is the maintainable typed stack 
 | --- | --- | --- |
 | Persistence | `sqlite_local` in `.data/atelier.sqlite` | Dedicated Atelier database — never the Aethelios production DB |
 | Auth | Simulated identities | Real identity provider |
-| Aurelius | Disabled unless explicitly enabled | Same boundary, with spend approval |
+| In-app intelligence (Aethelios; internal `aurelius` identifiers) | Disabled unless explicitly enabled | Same boundary, with spend approval |
 | Billing | Isolated module, not activated | Future Stripe work in `src/lib/billing/boundary.ts` only |
 
 Unconfigured adapters fail closed and report the missing connection instead of success.
