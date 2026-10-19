@@ -25,18 +25,18 @@ Sign-in does **not** adopt a guest draft or submit a brief. Adoption is an expli
 
 ## Fresh Vercel project
 
-Import this GitHub repository as a **new** Vercel project (Node 22, pnpm, Next.js). Attach a dedicated Neon / Vercel Postgres database. Do not reuse the Aethelios production database or copy local simulated-auth flags.
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/neilaureliuscollective/aethelios-atelier&project-name=aethelios-atelier&repository-name=aethelios-atelier&framework=nextjs)
 
-Step-by-step: [docs/VERCEL.md](docs/VERCEL.md).
+Import **this** GitHub repository into a new Vercel project on the Stutes Legacy team. Production branch is `main`. Vercel should auto-detect:
 
-Hosted defaults:
+- Framework: Next.js
+- Root Directory: repository root
+- Node.js: 22.x
+- Package manager: pnpm
 
-- `ATELIER_PERSISTENCE_ADAPTER=postgres`
-- `DATABASE_URL` or `POSTGRES_URL` from the dedicated database
-- `ATELIER_AUTH_ADAPTER=unconfigured` — simulated identities are refused on Vercel
-- OpenAI and billing stay off until separately authorized
+Do not create a blank Vercel project. An empty `main` (README only) deploys as `404 NOT_FOUND` because Next.js is never detected. Public pages do not need env vars on the first deploy.
 
-Public marketing pages deploy. Workspace sign-in waits for a real identity provider.
+Full steps: [docs/VERCEL.md](docs/VERCEL.md).
 
 ## Checks
 

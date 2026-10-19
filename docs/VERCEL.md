@@ -1,48 +1,57 @@
 # Fresh Vercel project
 
-Import this repository as a **new** Vercel project. Do not attach Atelier to an existing Aethelios, Reserve, or other production project, and do not reuse those databases.
+Vercel **New Project** deploys the GitHub **production branch**, which is `main`. If `main` only has a README, Vercel cannot detect Next.js, does not fill Framework / Install / Build, and the `.vercel.app` URL returns `404 NOT_FOUND`. That is the failure from the empty first imports.
 
-Public pages deploy without authentication. Sign-in, workspace, and founder review stay unavailable until a real identity provider is connected. Simulated identities are refused on Vercel even if local flags are copied into the dashboard.
+This repository’s `main` branch is a Next.js 15 app at the repo root (`package.json` + `next` + `src/app` + `pnpm-lock.yaml`). Import **this** GitHub repo. Do not create a blank Vercel project, and do not attach Atelier to an existing Aethelios or Reserve project.
 
-## Create the project
+## Import (Stutes Legacy team)
 
-1. Push this branch (or `main` after merge) to GitHub.
-2. In Vercel: **Add New… → Project → Import** `neilaureliuscollective/aethelios-atelier`.
-3. Confirm:
-   - Framework Preset: Next.js
-   - Root Directory: `./`
-   - Node.js Version: **22.x**
-   - Install Command: `pnpm install --frozen-lockfile` (from `vercel.json`)
-   - Build Command: `pnpm build`
-4. Do not enable a custom output directory.
+1. [Vercel → Add New → Project](https://vercel.com/new)
+2. Import `neilaureliuscollective/aethelios-atelier` (GitHub must be connected to the Stutes Legacy team).
+3. Confirm the wizard collected these sections (auto-detected from `main`):
+   - Framework Preset: **Next.js**
+   - Root Directory: `./` (leave empty)
+   - Node.js Version: **22.x** (`package.json` `engines.node`)
+   - Install Command: pnpm (from `pnpm-lock.yaml`)
+   - Build Command: `next build`
+   - Output Directory: leave default
+4. Environment variables are **optional for the first public-page deploy**. You can add Postgres later.
+5. Deploy.
 
-## Dedicated database
+[Deploy with Vercel](https://vercel.com/new/clone?repository-url=https://github.com/neilaureliuscollective/aethelios-atelier&project-name=aethelios-atelier&repository-name=aethelios-atelier&framework=nextjs)
+
+After deploy, `/` and `/approach` should render. `GET /api/health` should return `ok: true` with `platform: "vercel"`. Sign-in stays unavailable until a real identity provider is connected.
+
+## If you still see 404 NOT_FOUND
+
+- The connected Git branch is not `main`, or `main` was imported before this Next.js app landed on it. Redeploy the latest `main`.
+- Root Directory was set to a subfolder. Reset it to empty.
+- Framework Preset is Other / no Next.js version detected. Set it to Next.js and redeploy with cache cleared.
+- You created a blank Vercel project instead of importing this GitHub repository. Delete that empty project and import the repo.
+
+## Dedicated database (after the public site is up)
 
 Vercel has no durable local disk. `sqlite_local` and `memory` are refused when `VERCEL=1`.
 
-1. In the new project open **Storage** and create **Neon** or **Vercel Postgres**, or create a separate Neon project.
+1. In the new project open **Storage** and create **Neon** or **Vercel Postgres**.
 2. Copy the pooled connection string into `POSTGRES_URL` or `DATABASE_URL`.
-3. This must be an Atelier-only database. Never apply `src/lib/persistence/schema.postgres.sql` to the Aethelios production database.
-4. Schema is applied additively on first successful connection (`CREATE TABLE IF NOT EXISTS`). No separate migrate step is required for a fresh database.
+3. Set `ATELIER_PERSISTENCE_ADAPTER=postgres`.
+4. This must be an Atelier-only database. Never apply `src/lib/persistence/schema.postgres.sql` to the Aethelios production database.
+5. Schema is applied additively on first successful connection.
 
 ## Environment variables
 
-Set these for Production and Preview:
+Public pages run without these. Set them when you want hosted persistence:
 
-| Name | Production value |
+| Name | Value |
 | --- | --- |
 | `ATELIER_PERSISTENCE_ADAPTER` | `postgres` |
 | `DATABASE_URL` or `POSTGRES_URL` | Pooled connection string from the dedicated database |
-| `ATELIER_SESSION_SECRET` | 32+ random bytes, hex. Generate locally; do not commit it. |
+| `ATELIER_SESSION_SECRET` | 32+ random bytes, hex |
 | `ATELIER_AUTH_ADAPTER` | `unconfigured` |
 | `ATELIER_OPENAI_ENABLED` | `false` until spend is authorized |
 | `ATELIER_BILLING_ENABLED` | `false` |
 | `ATELIER_PUBLIC_ORIGIN` | Canonical `https://` origin once the domain is assigned |
-
-Optional later:
-
-- `OPENAI_API_KEY` and `ATELIER_OPENAI_ENABLED=true` only after explicit authorization
-- `ATELIER_FOUNDER_EMAILS` after real auth exists
 
 Do **not** set on Vercel:
 
@@ -50,17 +59,6 @@ Do **not** set on Vercel:
 - `ATELIER_ISOLATED_LOCAL`
 - `ATELIER_PERSISTENCE_ADAPTER=sqlite_local`
 - Stripe keys
-
-`VERCEL=1` is set by the platform. The app uses it to refuse simulated auth and ephemeral persistence.
-
-## First deploy checklist
-
-1. Deploy Preview from this branch.
-2. `GET /api/health` should report `ok: true`, `platform: "vercel"`, persistence adapter `postgres`, and `auth.ready: false`.
-3. `/` and `/approach` render.
-4. Sign-in remains unavailable. That is expected.
-5. Assign the production domain after Preview looks correct. TLS is handled by Vercel.
-6. Keep OpenAI and billing off until separately approved.
 
 ## Local still uses sqlite
 
