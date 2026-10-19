@@ -2,8 +2,14 @@ import type {
   ChatMessage,
   ClarificationResponse,
   ClientUpdate,
+  ContentRequest,
+  DeliveryFeedback,
+  DeliveryMilestone,
+  DeliveryVersion,
   FounderNote,
   Project,
+  Proposal,
+  ProposalDecision,
   RequestLedgerEntry,
   ReviewEvent,
   Session,
@@ -69,6 +75,31 @@ export type PersistenceAdapter = {
 
   putLedger(entry: RequestLedgerEntry): MaybePromise<RequestLedgerEntry>;
   getLedger(id: string): MaybePromise<RequestLedgerEntry | null>;
+
+  addProposal(proposal: Proposal): MaybePromise<Proposal>;
+  getProposal(id: string): MaybePromise<Proposal | null>;
+  listProposals(projectId: string): MaybePromise<Proposal[]>;
+  updateProposal(proposal: Proposal): MaybePromise<Proposal>;
+
+  addProposalDecision(decision: ProposalDecision): MaybePromise<ProposalDecision>;
+  listProposalDecisions(projectId: string): MaybePromise<ProposalDecision[]>;
+
+  addDeliveryVersion(version: DeliveryVersion): MaybePromise<DeliveryVersion>;
+  getDeliveryVersion(id: string): MaybePromise<DeliveryVersion | null>;
+  listDeliveryVersions(projectId: string): MaybePromise<DeliveryVersion[]>;
+  updateDeliveryVersion(version: DeliveryVersion): MaybePromise<DeliveryVersion>;
+
+  addDeliveryFeedback(feedback: DeliveryFeedback): MaybePromise<DeliveryFeedback>;
+  listDeliveryFeedback(projectId: string): MaybePromise<DeliveryFeedback[]>;
+
+  addContentRequest(request: ContentRequest): MaybePromise<ContentRequest>;
+  getContentRequest(id: string): MaybePromise<ContentRequest | null>;
+  listContentRequests(projectId: string): MaybePromise<ContentRequest[]>;
+  updateContentRequest(request: ContentRequest): MaybePromise<ContentRequest>;
+
+  addDeliveryMilestone(milestone: DeliveryMilestone): MaybePromise<DeliveryMilestone>;
+  listDeliveryMilestones(projectId: string): MaybePromise<DeliveryMilestone[]>;
+  updateDeliveryMilestone(milestone: DeliveryMilestone): MaybePromise<DeliveryMilestone>;
 
   countAssistantMessagesSince(projectId: string, isoSince: string): MaybePromise<number>;
 };

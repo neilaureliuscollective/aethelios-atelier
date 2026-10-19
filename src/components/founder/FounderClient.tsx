@@ -4,27 +4,19 @@ import { useCallback, useEffect, useState } from "react";
 import { briefTitle } from "@/lib/brief";
 import { api } from "@/lib/client/api";
 import { actionErrorMessage } from "@/lib/client/asyncAction";
+import { FounderDelivery } from "@/components/founder/FounderDelivery";
 import { LivingBrief } from "@/components/project/LivingBrief";
 import { useSession } from "@/components/shell/SessionShell";
-import type { FounderProjectView } from "@/lib/types";
-
-type QueueItem = {
-  id: string;
-  title: string;
-  status: string;
-  updatedAt: string;
-  reviewStartedAt: string | null;
-  owner: { email: string; displayName: string } | null;
-};
+import type { FounderQueueItem, FounderProjectView } from "@/lib/types";
 
 export function FounderHome() {
-  const [queue, setQueue] = useState<QueueItem[] | null>(null);
+  const [queue, setQueue] = useState<FounderQueueItem[] | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
     void (async () => {
       try {
-        const data = await api<{ queue: QueueItem[] }>("/api/founder/queue");
+        const data = await api<{ queue: FounderQueueItem[] }>("/api/founder/queue");
         setQueue(data.queue);
       } catch (err) {
         setError(actionErrorMessage(err, "Founder access denied."));
@@ -47,7 +39,8 @@ export function FounderHome() {
       <h1>Review queue</h1>
       <p className="lede">
         Only submitted commissions appear here. Starting review is a deliberate action. Private notes
-        never appear on client surfaces.
+        never appear on client surfaces. Attention includes proposals waiting, missing content, revisions,
+        and the next milestone.
       </p>
       <div className="stack" style={{ marginTop: 20 }}>
         {queue?.length ? (
@@ -57,7 +50,11 @@ export function FounderHome() {
               <h2 style={{ fontSize: 28 }}>{item.title}</h2>
               <p className="muted">
                 {item.owner?.email} · {item.reviewStartedAt ? "Review started" : "Submitted, not yet reviewing"}
+                {item.nextMilestone ? ` · Next: ${item.nextMilestone}` : ""}
               </p>
+              {item.attention.length ? (
+                <p className="tiny">{item.attention.map((entry) => entry.label).join(" · ")}</p>
+              ) : null}
             </a>
           ))
         ) : (
@@ -245,6 +242,7 @@ export function FounderDetail({ id }: { id: string }) {
           </button>
         </article>
       </div>
+      <FounderDelivery view={view} pending={pending} onRun={run} />
     </section>
   );
 }

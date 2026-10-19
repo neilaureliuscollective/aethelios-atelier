@@ -7,8 +7,14 @@ import type {
   ChatMessage,
   ClarificationResponse,
   ClientUpdate,
+  ContentRequest,
+  DeliveryFeedback,
+  DeliveryMilestone,
+  DeliveryVersion,
   FounderNote,
   Project,
+  Proposal,
+  ProposalDecision,
   RequestLedgerEntry,
   ReviewEvent,
   Session,
@@ -18,6 +24,14 @@ import type {
 } from "@/lib/types";
 import { normalizeBrief } from "@/lib/brief";
 import type { PersistenceAdapter } from "@/lib/persistence/adapter";
+import {
+  mapContentRequest,
+  mapDeliveryFeedback,
+  mapDeliveryMilestone,
+  mapDeliveryVersion,
+  mapProposal,
+  mapProposalDecision
+} from "@/lib/persistence/map";
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
@@ -125,6 +139,84 @@ CREATE TABLE IF NOT EXISTS request_ledger (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS proposals (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  founder_id TEXT NOT NULL,
+  version INTEGER NOT NULL,
+  status TEXT NOT NULL,
+  scope_json TEXT NOT NULL,
+  change_summary TEXT,
+  based_on_submission_id TEXT,
+  supersedes_proposal_id TEXT,
+  payload_hash TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  published_at TEXT,
+  UNIQUE(project_id, version)
+);
+CREATE TABLE IF NOT EXISTS proposal_decisions (
+  id TEXT PRIMARY KEY,
+  proposal_id TEXT NOT NULL,
+  project_id TEXT NOT NULL,
+  author_id TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  body TEXT NOT NULL,
+  agreement_text TEXT,
+  agreed_version INTEGER NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS delivery_versions (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  founder_id TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  version INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  preview_url TEXT,
+  notes TEXT,
+  status TEXT NOT NULL,
+  payload_hash TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  published_at TEXT,
+  UNIQUE(project_id, kind, version)
+);
+CREATE TABLE IF NOT EXISTS delivery_feedback (
+  id TEXT PRIMARY KEY,
+  delivery_version_id TEXT NOT NULL,
+  project_id TEXT NOT NULL,
+  author_id TEXT NOT NULL,
+  author_kind TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  body TEXT NOT NULL,
+  expected_version INTEGER NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS content_requests (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  founder_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  detail TEXT NOT NULL,
+  status TEXT NOT NULL,
+  response TEXT,
+  created_at TEXT NOT NULL,
+  resolved_at TEXT
+);
+CREATE TABLE IF NOT EXISTS delivery_milestones (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  proposal_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL,
+  timing TEXT,
+  sort_order INTEGER NOT NULL,
+  status TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
 `;
 
 function parseJson<T>(value: string): T {
@@ -181,6 +273,12 @@ export class SqlitePersistence implements PersistenceAdapter {
   resetForTests() {
     this.db.exec(`
       DELETE FROM request_ledger;
+      DELETE FROM delivery_feedback;
+      DELETE FROM delivery_versions;
+      DELETE FROM proposal_decisions;
+      DELETE FROM proposals;
+      DELETE FROM content_requests;
+      DELETE FROM delivery_milestones;
       DELETE FROM clarification_responses;
       DELETE FROM client_updates;
       DELETE FROM founder_notes;
@@ -582,6 +680,253 @@ export class SqlitePersistence implements PersistenceAdapter {
       )
       .get(projectId, isoSince) as { c: number };
     return Number(row.c);
+  }
+
+  addProposal(proposal: Proposal) {
+    this.db
+      .prepare(
+        `INSERT INTO proposals(id,project_id,founder_id,version,status,scope_json,change_summary,based_on_submission_id,supersedes_proposal_id,payload_hash,created_at,updated_at,published_at)
+         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`
+      )
+      .run(
+        proposal.id,
+        proposal.projectId,
+        proposal.founderId,
+        proposal.version,
+        proposal.status,
+        JSON.stringify(proposal.scope),
+        proposal.changeSummary,
+        proposal.basedOnSubmissionId ?? null,
+        proposal.supersedesProposalId ?? null,
+        proposal.payloadHash,
+        proposal.createdAt,
+        proposal.updatedAt,
+        proposal.publishedAt ?? null
+      );
+    return proposal;
+  }
+
+  getProposal(id: string) {
+    const row = this.db.prepare("SELECT * FROM proposals WHERE id = ?").get(id) as
+      | Record<string, unknown>
+      | undefined;
+    return row ? mapProposal(row) : null;
+  }
+
+  listProposals(projectId: string) {
+    const rows = this.db
+      .prepare("SELECT * FROM proposals WHERE project_id = ? ORDER BY version ASC")
+      .all(projectId) as Record<string, unknown>[];
+    return rows.map((row) => mapProposal(row));
+  }
+
+  updateProposal(proposal: Proposal) {
+    this.db
+      .prepare(
+        `UPDATE proposals SET status=?, scope_json=?, change_summary=?, based_on_submission_id=?, supersedes_proposal_id=?, payload_hash=?, updated_at=?, published_at=?
+         WHERE id=?`
+      )
+      .run(
+        proposal.status,
+        JSON.stringify(proposal.scope),
+        proposal.changeSummary,
+        proposal.basedOnSubmissionId ?? null,
+        proposal.supersedesProposalId ?? null,
+        proposal.payloadHash,
+        proposal.updatedAt,
+        proposal.publishedAt ?? null,
+        proposal.id
+      );
+    return proposal;
+  }
+
+  addProposalDecision(decision: ProposalDecision) {
+    this.db
+      .prepare(
+        `INSERT INTO proposal_decisions(id,proposal_id,project_id,author_id,kind,body,agreement_text,agreed_version,created_at)
+         VALUES(?,?,?,?,?,?,?,?,?)`
+      )
+      .run(
+        decision.id,
+        decision.proposalId,
+        decision.projectId,
+        decision.authorId,
+        decision.kind,
+        decision.body,
+        decision.agreementText ?? null,
+        decision.agreedVersion,
+        decision.createdAt
+      );
+    return decision;
+  }
+
+  listProposalDecisions(projectId: string) {
+    const rows = this.db
+      .prepare("SELECT * FROM proposal_decisions WHERE project_id = ? ORDER BY created_at ASC")
+      .all(projectId) as Record<string, unknown>[];
+    return rows.map((row) => mapProposalDecision(row));
+  }
+
+  addDeliveryVersion(version: DeliveryVersion) {
+    this.db
+      .prepare(
+        `INSERT INTO delivery_versions(id,project_id,founder_id,kind,version,title,summary,preview_url,notes,status,payload_hash,created_at,updated_at,published_at)
+         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+      )
+      .run(
+        version.id,
+        version.projectId,
+        version.founderId,
+        version.kind,
+        version.version,
+        version.title,
+        version.summary,
+        version.previewUrl ?? null,
+        version.notes,
+        version.status,
+        version.payloadHash,
+        version.createdAt,
+        version.updatedAt,
+        version.publishedAt ?? null
+      );
+    return version;
+  }
+
+  getDeliveryVersion(id: string) {
+    const row = this.db.prepare("SELECT * FROM delivery_versions WHERE id = ?").get(id) as
+      | Record<string, unknown>
+      | undefined;
+    return row ? mapDeliveryVersion(row) : null;
+  }
+
+  listDeliveryVersions(projectId: string) {
+    const rows = this.db
+      .prepare("SELECT * FROM delivery_versions WHERE project_id = ? ORDER BY kind ASC, version ASC")
+      .all(projectId) as Record<string, unknown>[];
+    return rows.map((row) => mapDeliveryVersion(row));
+  }
+
+  updateDeliveryVersion(version: DeliveryVersion) {
+    this.db
+      .prepare(
+        `UPDATE delivery_versions SET title=?, summary=?, preview_url=?, notes=?, status=?, payload_hash=?, updated_at=?, published_at=?
+         WHERE id=?`
+      )
+      .run(
+        version.title,
+        version.summary,
+        version.previewUrl ?? null,
+        version.notes,
+        version.status,
+        version.payloadHash,
+        version.updatedAt,
+        version.publishedAt ?? null,
+        version.id
+      );
+    return version;
+  }
+
+  addDeliveryFeedback(feedback: DeliveryFeedback) {
+    this.db
+      .prepare(
+        `INSERT INTO delivery_feedback(id,delivery_version_id,project_id,author_id,author_kind,kind,body,expected_version,created_at)
+         VALUES(?,?,?,?,?,?,?,?,?)`
+      )
+      .run(
+        feedback.id,
+        feedback.deliveryVersionId,
+        feedback.projectId,
+        feedback.authorId,
+        feedback.authorKind,
+        feedback.kind,
+        feedback.body,
+        feedback.expectedVersion,
+        feedback.createdAt
+      );
+    return feedback;
+  }
+
+  listDeliveryFeedback(projectId: string) {
+    const rows = this.db
+      .prepare("SELECT * FROM delivery_feedback WHERE project_id = ? ORDER BY created_at ASC")
+      .all(projectId) as Record<string, unknown>[];
+    return rows.map((row) => mapDeliveryFeedback(row));
+  }
+
+  addContentRequest(request: ContentRequest) {
+    this.db
+      .prepare(
+        `INSERT INTO content_requests(id,project_id,founder_id,title,detail,status,response,created_at,resolved_at)
+         VALUES(?,?,?,?,?,?,?,?,?)`
+      )
+      .run(
+        request.id,
+        request.projectId,
+        request.founderId,
+        request.title,
+        request.detail,
+        request.status,
+        request.response ?? null,
+        request.createdAt,
+        request.resolvedAt ?? null
+      );
+    return request;
+  }
+
+  getContentRequest(id: string) {
+    const row = this.db.prepare("SELECT * FROM content_requests WHERE id = ?").get(id) as
+      | Record<string, unknown>
+      | undefined;
+    return row ? mapContentRequest(row) : null;
+  }
+
+  listContentRequests(projectId: string) {
+    const rows = this.db
+      .prepare("SELECT * FROM content_requests WHERE project_id = ? ORDER BY created_at ASC")
+      .all(projectId) as Record<string, unknown>[];
+    return rows.map((row) => mapContentRequest(row));
+  }
+
+  updateContentRequest(request: ContentRequest) {
+    this.db
+      .prepare("UPDATE content_requests SET status=?, response=?, resolved_at=? WHERE id=?")
+      .run(request.status, request.response ?? null, request.resolvedAt ?? null, request.id);
+    return request;
+  }
+
+  addDeliveryMilestone(milestone: DeliveryMilestone) {
+    this.db
+      .prepare(
+        `INSERT INTO delivery_milestones(id,project_id,proposal_id,title,description,timing,sort_order,status,created_at,updated_at)
+         VALUES(?,?,?,?,?,?,?,?,?,?)`
+      )
+      .run(
+        milestone.id,
+        milestone.projectId,
+        milestone.proposalId,
+        milestone.title,
+        milestone.description,
+        milestone.timing ?? null,
+        milestone.sortOrder,
+        milestone.status,
+        milestone.createdAt,
+        milestone.updatedAt
+      );
+    return milestone;
+  }
+
+  listDeliveryMilestones(projectId: string) {
+    const rows = this.db
+      .prepare("SELECT * FROM delivery_milestones WHERE project_id = ? ORDER BY sort_order ASC")
+      .all(projectId) as Record<string, unknown>[];
+    return rows.map((row) => mapDeliveryMilestone(row));
+  }
+
+  updateDeliveryMilestone(milestone: DeliveryMilestone) {
+    this.db
+      .prepare("UPDATE delivery_milestones SET status=?, updated_at=? WHERE id=?")
+      .run(milestone.status, milestone.updatedAt, milestone.id);
+    return milestone;
   }
 
   private mapUser(row: Record<string, string>): User {

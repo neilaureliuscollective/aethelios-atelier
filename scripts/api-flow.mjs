@@ -273,6 +273,164 @@ check(
   snapshotAfter.json.submission?.snapshot?.bookingProvider?.value === "Square Appointments"
 );
 
+const seededProposal = await req(`/api/founder/projects/${id}/proposals`, {
+  method: "POST",
+  cookie: founder,
+  body: { seedFromBrief: true, changeSummary: "First scoped offer from the submitted brief" }
+});
+check("founder can save an unpublished proposal draft", seededProposal.status === 200 && seededProposal.json.proposal?.status === "draft");
+const draftId = seededProposal.json.proposal?.id;
+const clientBeforePublish = await req(`/api/projects/${id}`, { cookie: owner });
+check(
+  "unpublished proposal draft is hidden from the client",
+  Array.isArray(clientBeforePublish.json.proposals) && clientBeforePublish.json.proposals.length === 0
+);
+
+const publishUnpriced = await req(`/api/founder/projects/${id}/proposals/${draftId}/publish`, {
+  method: "POST",
+  cookie: founder
+});
+check("unpriced proposal cannot be published", publishUnpriced.status >= 400);
+
+const scoped = {
+  ...seededProposal.json.proposal.scope,
+  price: {
+    amount: "9200",
+    currency: "USD",
+    terms: "Founder-set. Not a collected payment.",
+    paymentStatus: "not_collected"
+  }
+};
+const pricedProposal = await req(`/api/founder/projects/${id}/proposals`, {
+  method: "POST",
+  cookie: founder,
+  body: { changeSummary: "First scoped offer from the submitted brief", scope: scoped }
+});
+check("founder can set a price on the same unpublished version", pricedProposal.status === 200 && pricedProposal.json.proposal?.id === draftId);
+
+const publishedProposal = await req(`/api/founder/projects/${id}/proposals/${draftId}/publish`, {
+  method: "POST",
+  cookie: founder
+});
+check(
+  "published proposal is client-visible as v1",
+  publishedProposal.status === 200 && publishedProposal.json.proposal?.status === "published" && publishedProposal.json.proposal?.version === 1
+);
+
+const waitingProposal = await req(`/api/projects/${id}`, { cookie: owner });
+check(
+  "client is asked to review the exact published version",
+  waitingProposal.json.nextStep?.code === "review_proposal" && waitingProposal.json.proposals?.[0]?.version === 1
+);
+
+const staleDecision = await req(`/api/projects/${id}/proposals/${draftId}/decide`, {
+  method: "POST",
+  cookie: owner,
+  body: { action: "approve", expectedVersion: 99, consent: true, agreementTextAcknowledged: true }
+});
+check("stale proposal version cannot be approved", staleDecision.status === 409);
+
+const changeRequest = await req(`/api/projects/${id}/proposals/${draftId}/decide`, {
+  method: "POST",
+  cookie: owner,
+  body: { action: "request_changes", expectedVersion: 1, body: "Please add a treatments page." }
+});
+check("client can request changes on the named version", changeRequest.status === 200 && changeRequest.json.proposal?.status === "changes_requested");
+
+const v2scope = {
+  ...scoped,
+  includedPages: [...(scoped.includedPages ?? []), "Treatments"]
+};
+const v2draft = await req(`/api/founder/projects/${id}/proposals`, {
+  method: "POST",
+  cookie: founder,
+  body: { changeSummary: "Added treatments page", scope: v2scope }
+});
+check("later edits create a new unpublished version", v2draft.status === 200 && v2draft.json.proposal?.version === 2);
+const v2id = v2draft.json.proposal?.id;
+const publishedV2 = await req(`/api/founder/projects/${id}/proposals/${v2id}/publish`, { method: "POST", cookie: founder });
+check("new version publishes without rewriting v1", publishedV2.status === 200 && publishedV2.json.proposal?.version === 2);
+
+const approveV2 = await req(`/api/projects/${id}/proposals/${v2id}/decide`, {
+  method: "POST",
+  cookie: owner,
+  body: { action: "approve", expectedVersion: 2, consent: true, agreementTextAcknowledged: true }
+});
+check("client can agree to the exact later version", approveV2.status === 200 && approveV2.json.proposal?.status === "approved");
+
+const confirmed = await req(`/api/projects/${id}`, { cookie: owner });
+const v1 = confirmed.json.proposals?.find((item) => item.version === 1);
+const v2 = confirmed.json.proposals?.find((item) => item.version === 2);
+check(
+  "approved v2 is confirmed and v1 stays historically distinct",
+  confirmed.json.nextStep?.code === "read_confirmed_scope" &&
+    v2?.status === "approved" &&
+    v2?.scope?.includedPages?.includes("Treatments") &&
+    v1 &&
+    !v1.scope?.includedPages?.includes("Treatments")
+);
+
+const otherProposal = await req(`/api/projects/${id}/proposals/${v2id}/decide`, {
+  method: "POST",
+  cookie: other,
+  body: { action: "approve", expectedVersion: 2, consent: true, agreementTextAcknowledged: true }
+});
+check("second user cannot agree to another owner's proposal", otherProposal.status === 403);
+
+const handoff = await req(`/api/founder/projects/${id}/handoff`, { cookie: founder });
+check(
+  "founder handoff contains agreed scope and no payment collection",
+  handoff.status === 200 &&
+    String(handoff.json.handoff?.markdown).includes("Treatments") &&
+    String(handoff.json.handoff?.markdown).includes("not_collected")
+);
+const clientHandoff = await req(`/api/founder/projects/${id}/handoff`, { cookie: owner });
+check("owner is denied the founder handoff", clientHandoff.status === 403);
+
+const designDraft = await req(`/api/founder/projects/${id}/delivery-versions`, {
+  method: "POST",
+  cookie: founder,
+  body: { kind: "design", title: "First composition", summary: "Quiet home and booking path." }
+});
+const designId = designDraft.json.version?.id;
+const publishDesign = await req(`/api/founder/projects/${id}/delivery-versions/${designId}/publish`, {
+  method: "POST",
+  cookie: founder
+});
+check("design version can be published to the review room", publishDesign.status === 200 && publishDesign.json.version?.status === "awaiting_review");
+
+const reviewRoom = await req(`/api/projects/${id}`, { cookie: owner });
+check("client is asked to review the published design version", reviewRoom.json.nextStep?.code === "review_delivery_version");
+
+const approveDesign = await req(`/api/projects/${id}/delivery-versions/${designId}/feedback`, {
+  method: "POST",
+  cookie: owner,
+  body: { kind: "approve", expectedVersion: 1, consent: true, agreementTextAcknowledged: true }
+});
+check("client can approve the exact design version", approveDesign.status === 200);
+
+const contentReq = await req(`/api/founder/projects/${id}/content-requests`, {
+  method: "POST",
+  cookie: founder,
+  body: { title: "Logo files", detail: "Please send the vector mark." }
+});
+check("founder can request missing client content", contentReq.status === 200);
+const waitingContent = await req(`/api/projects/${id}`, { cookie: owner });
+check("client is asked for the missing materials", waitingContent.json.nextStep?.code === "provide_client_content");
+const sendContent = await req(`/api/projects/${id}/content-requests/${contentReq.json.request?.id}`, {
+  method: "POST",
+  cookie: owner,
+  body: { body: "Logo pack is in the shared folder." }
+});
+check("client can attach the requested materials", sendContent.status === 200 && sendContent.json.request?.status === "provided");
+
+const queue = await req("/api/founder/queue", { cookie: founder });
+const queued = queue.json.queue?.find((item) => item.id === id);
+check(
+  "founder queue includes delivery attention",
+  queue.status === 200 && queued?.confirmedProposalVersion === 2 && Array.isArray(queued?.attention)
+);
+
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.filter((r) => r.ok).length}/${results.length} checks passed`);
 if (failed.length) process.exit(1);
