@@ -1,4 +1,5 @@
 import type {
+  AuthAccountRecord,
   ChatMessage,
   ClarificationResponse,
   ClientUpdate,
@@ -9,7 +10,8 @@ import type {
   Session,
   Submission,
   Suggestion,
-  User
+  User,
+  VerificationTokenRecord
 } from "@/lib/types";
 import type { PersistenceAdapter } from "@/lib/persistence/adapter";
 
@@ -24,6 +26,8 @@ export class MemoryPersistence implements PersistenceAdapter {
   private users = new Map<string, User>();
   private usersByEmail = new Map<string, string>();
   private sessions = new Map<string, Session>();
+  private authAccounts = new Map<string, AuthAccountRecord>();
+  private verificationTokens = new Map<string, VerificationTokenRecord>();
   private projects = new Map<string, Project>();
   private submissions = new Map<string, Submission>();
   private messages = new Map<string, ChatMessage[]>();
@@ -48,6 +52,8 @@ export class MemoryPersistence implements PersistenceAdapter {
     this.users.clear();
     this.usersByEmail.clear();
     this.sessions.clear();
+    this.authAccounts.clear();
+    this.verificationTokens.clear();
     this.projects.clear();
     this.submissions.clear();
     this.messages.clear();
@@ -60,6 +66,10 @@ export class MemoryPersistence implements PersistenceAdapter {
   }
 
   upsertUser(user: User) {
+    const existing = this.users.get(user.id);
+    if (existing && existing.email.toLowerCase() !== user.email.toLowerCase()) {
+      this.usersByEmail.delete(existing.email.toLowerCase());
+    }
     this.users.set(user.id, clone(user));
     this.usersByEmail.set(user.email.toLowerCase(), user.id);
     return clone(user);
@@ -91,6 +101,39 @@ export class MemoryPersistence implements PersistenceAdapter {
 
   deleteSession(id: string) {
     this.sessions.delete(id);
+  }
+
+  updateSession(session: Session) {
+    if (!this.sessions.has(session.id)) return null;
+    this.sessions.set(session.id, clone(session));
+    return clone(session);
+  }
+
+  createAuthAccount(account: AuthAccountRecord) {
+    this.authAccounts.set(`${account.provider}:${account.providerAccountId}`, clone(account));
+    return clone(account);
+  }
+
+  getAuthAccount(provider: string, providerAccountId: string) {
+    const account = this.authAccounts.get(`${provider}:${providerAccountId}`);
+    return account ? clone(account) : null;
+  }
+
+  deleteAuthAccount(provider: string, providerAccountId: string) {
+    this.authAccounts.delete(`${provider}:${providerAccountId}`);
+  }
+
+  createVerificationToken(token: VerificationTokenRecord) {
+    this.verificationTokens.set(`${token.identifier.toLowerCase()}:${token.token}`, clone(token));
+    return clone(token);
+  }
+
+  useVerificationToken(identifier: string, token: string) {
+    const key = `${identifier.toLowerCase()}:${token}`;
+    const found = this.verificationTokens.get(key);
+    if (!found) return null;
+    this.verificationTokens.delete(key);
+    return clone(found);
   }
 
   createProject(project: Project) {

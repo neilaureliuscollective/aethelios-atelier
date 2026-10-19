@@ -111,6 +111,9 @@ describe("pending submit command", () => {
     expect(loadSubmitCommand("usr_1", "prj_1")).toBeNull();
     expect(JSON.parse(store["atelier.account.usr_1.submit.prj_1"] ?? "{}").status).toBe("rejected");
     expect(JSON.parse(store["atelier.account.usr_1.submit.prj_1"] ?? "{}").idempotencyKey).toBe("stale-key");
+    expect(classifySubmitFailure({ status: 401, code: "unauthenticated", message: "Sign in is required for this action." })).toBe(
+      "rejected"
+    );
     expect(classifySubmitFailure({ status: 409, code: "conflict", message: "This consent applies to a different saved revision." })).toBe(
       "rejected"
     );

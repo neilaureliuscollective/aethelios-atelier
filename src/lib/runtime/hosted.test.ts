@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  authjsAuthAllowed,
+  emailCaptureAllowed,
   hostedEphemeralPersistenceReason,
   parseOriginHostname,
   readDatabaseUrl,
@@ -154,6 +156,54 @@ describe("isolated-local simulator gate", () => {
         ATELIER_PUBLIC_ORIGIN: "https://atelier.example.com"
       }).allowed
     ).toBe(false);
+  });
+
+  it("refuses Auth.js email capture on hosted platforms and without a secret or provider", () => {
+    expect(
+      emailCaptureAllowed({
+        ATELIER_AUTH_EMAIL_CAPTURE: "true",
+        VERCEL: "1"
+      }).allowed
+    ).toBe(false);
+    expect(
+      authjsAuthAllowed({
+        ATELIER_AUTH_ADAPTER: "authjs",
+        VERCEL: "1"
+      }).allowed
+    ).toBe(false);
+    expect(
+      authjsAuthAllowed({
+        ATELIER_AUTH_ADAPTER: "authjs",
+        AUTH_SECRET: "short",
+        AUTH_GOOGLE_ID: "id",
+        AUTH_GOOGLE_SECRET: "secret"
+      }).reason
+    ).toMatch(/32\+/);
+    expect(
+      authjsAuthAllowed({
+        ATELIER_AUTH_ADAPTER: "authjs",
+        AUTH_SECRET: "x".repeat(32),
+        VERCEL: "1"
+      }).allowed
+    ).toBe(false);
+    const google = authjsAuthAllowed({
+      ATELIER_AUTH_ADAPTER: "authjs",
+      AUTH_SECRET: "x".repeat(32),
+      AUTH_GOOGLE_ID: "google-id",
+      AUTH_GOOGLE_SECRET: "google-secret",
+      VERCEL: "1"
+    });
+    expect(google.allowed).toBe(true);
+    expect(google.providers.map((provider) => provider.id)).toEqual(["google"]);
+    const capture = authjsAuthAllowed({
+      ATELIER_AUTH_ADAPTER: "authjs",
+      AUTH_SECRET: "x".repeat(32),
+      ATELIER_AUTH_EMAIL_CAPTURE: "true",
+      ATELIER_ISOLATED_LOCAL: "true",
+      ATELIER_PUBLIC_ORIGIN: "http://127.0.0.1:3000"
+    });
+    expect(capture.allowed).toBe(true);
+    expect(capture.providers.some((provider) => provider.capture)).toBe(true);
   });
 
   it("refuses sqlite and memory on Vercel and prefers dedicated postgres URLs", () => {

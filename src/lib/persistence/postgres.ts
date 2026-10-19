@@ -2,6 +2,7 @@ import "server-only";
 import { AsyncLocalStorage } from "node:async_hooks";
 import postgres, { type Sql, type TransactionSql } from "postgres";
 import type {
+  AuthAccountRecord,
   ChatMessage,
   ClarificationResponse,
   ClientUpdate,
@@ -12,10 +13,12 @@ import type {
   Session,
   Submission,
   Suggestion,
-  User
+  User,
+  VerificationTokenRecord
 } from "@/lib/types";
 import type { PersistenceAdapter } from "@/lib/persistence/adapter";
 import {
+  mapAuthAccount,
   mapLedger,
   mapMessage,
   mapNote,
@@ -39,7 +42,8 @@ const SCHEMA_STATEMENTS = [
     display_name TEXT NOT NULL,
     role TEXT NOT NULL,
     adapter TEXT NOT NULL,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    email_verified_at TEXT
   )`,
   `CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
@@ -141,7 +145,29 @@ const SCHEMA_STATEMENTS = [
   `CREATE INDEX IF NOT EXISTS projects_owner_id_idx ON projects (owner_id)`,
   `CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions (user_id)`,
   `ALTER TABLE submissions ADD COLUMN IF NOT EXISTS reviewed_version INTEGER NOT NULL DEFAULT 0`,
-  `ALTER TABLE submissions ADD COLUMN IF NOT EXISTS payload_hash TEXT NOT NULL DEFAULT ''`
+  `ALTER TABLE submissions ADD COLUMN IF NOT EXISTS payload_hash TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TEXT`,
+  `CREATE TABLE IF NOT EXISTS auth_accounts (
+    provider TEXT NOT NULL,
+    provider_account_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    type TEXT NOT NULL,
+    refresh_token TEXT,
+    access_token TEXT,
+    expires_at INTEGER,
+    token_type TEXT,
+    scope TEXT,
+    id_token TEXT,
+    session_state TEXT,
+    PRIMARY KEY (provider, provider_account_id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS auth_verification_tokens (
+    identifier TEXT NOT NULL,
+    token TEXT NOT NULL,
+    expires TEXT NOT NULL,
+    PRIMARY KEY (identifier, token)
+  )`,
+  `CREATE INDEX IF NOT EXISTS auth_accounts_user_id_idx ON auth_accounts (user_id)`
 ];
 
 function sslFor(url: string): boolean | "require" {
@@ -215,18 +241,22 @@ export class PostgresPersistence implements PersistenceAdapter {
       DELETE FROM submissions;
       DELETE FROM projects;
       DELETE FROM sessions;
+      DELETE FROM auth_accounts;
+      DELETE FROM auth_verification_tokens;
       DELETE FROM users;
     `);
   }
 
   async upsertUser(user: User) {
     await this.client()`
-      INSERT INTO users(id,email,display_name,role,adapter,created_at)
-      VALUES (${user.id}, ${user.email}, ${user.displayName}, ${user.role}, ${user.adapter}, ${user.createdAt})
+      INSERT INTO users(id,email,display_name,role,adapter,created_at,email_verified_at)
+      VALUES (${user.id}, ${user.email}, ${user.displayName}, ${user.role}, ${user.adapter}, ${user.createdAt}, ${user.emailVerifiedAt ?? null})
       ON CONFLICT (id) DO UPDATE SET
         email = excluded.email,
         display_name = excluded.display_name,
-        role = excluded.role
+        role = excluded.role,
+        adapter = excluded.adapter,
+        email_verified_at = excluded.email_verified_at
     `;
     return user;
   }
@@ -261,6 +291,82 @@ export class PostgresPersistence implements PersistenceAdapter {
 
   async deleteSession(id: string) {
     await this.client()`DELETE FROM sessions WHERE id = ${id}`;
+  }
+
+  async updateSession(session: Session) {
+    const rows = await this.client()`
+      UPDATE sessions
+      SET user_id = ${session.userId}, created_at = ${session.createdAt}, expires_at = ${session.expiresAt}
+      WHERE id = ${session.id}
+      RETURNING *
+    `;
+    return rows[0] ? mapSession(rows[0] as Row) : null;
+  }
+
+  async createAuthAccount(account: AuthAccountRecord) {
+    await this.client()`
+      INSERT INTO auth_accounts(
+        provider, provider_account_id, user_id, type, refresh_token, access_token,
+        expires_at, token_type, scope, id_token, session_state
+      )
+      VALUES (
+        ${account.provider}, ${account.providerAccountId}, ${account.userId}, ${account.type},
+        ${account.refresh_token ?? null}, ${account.access_token ?? null}, ${account.expires_at ?? null},
+        ${account.token_type ?? null}, ${account.scope ?? null}, ${account.id_token ?? null},
+        ${account.session_state ?? null}
+      )
+      ON CONFLICT (provider, provider_account_id) DO UPDATE SET
+        user_id = excluded.user_id,
+        type = excluded.type,
+        refresh_token = excluded.refresh_token,
+        access_token = excluded.access_token,
+        expires_at = excluded.expires_at,
+        token_type = excluded.token_type,
+        scope = excluded.scope,
+        id_token = excluded.id_token,
+        session_state = excluded.session_state
+    `;
+    return account;
+  }
+
+  async getAuthAccount(provider: string, providerAccountId: string) {
+    const rows = await this.client()`
+      SELECT * FROM auth_accounts
+      WHERE provider = ${provider} AND provider_account_id = ${providerAccountId}
+    `;
+    return rows[0] ? mapAuthAccount(rows[0] as Row) : null;
+  }
+
+  async deleteAuthAccount(provider: string, providerAccountId: string) {
+    await this.client()`
+      DELETE FROM auth_accounts
+      WHERE provider = ${provider} AND provider_account_id = ${providerAccountId}
+    `;
+  }
+
+  async createVerificationToken(token: VerificationTokenRecord) {
+    const identifier = token.identifier.toLowerCase();
+    await this.client()`
+      INSERT INTO auth_verification_tokens(identifier, token, expires)
+      VALUES (${identifier}, ${token.token}, ${token.expires})
+      ON CONFLICT (identifier, token) DO UPDATE SET expires = excluded.expires
+    `;
+    return { ...token, identifier };
+  }
+
+  async useVerificationToken(identifier: string, token: string) {
+    const rows = await this.client()`
+      DELETE FROM auth_verification_tokens
+      WHERE identifier = ${identifier.toLowerCase()} AND token = ${token}
+      RETURNING *
+    `;
+    const row = rows[0] as Row | undefined;
+    if (!row) return null;
+    return {
+      identifier: String(row.identifier),
+      token: String(row.token),
+      expires: String(row.expires)
+    };
   }
 
   async createProject(project: Project) {

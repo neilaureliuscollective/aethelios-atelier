@@ -1,4 +1,5 @@
 import type {
+  AuthAccountRecord,
   ChatMessage,
   ClarificationResponse,
   ClientUpdate,
@@ -9,7 +10,8 @@ import type {
   Session,
   Submission,
   Suggestion,
-  User
+  User,
+  VerificationTokenRecord
 } from "@/lib/types";
 
 export type PersistenceKind = "sqlite_local" | "memory" | "postgres";
@@ -31,7 +33,15 @@ export type PersistenceAdapter = {
 
   createSession(session: Session): MaybePromise<Session>;
   getSession(id: string): MaybePromise<Session | null>;
+  updateSession(session: Session): MaybePromise<Session | null>;
   deleteSession(id: string): MaybePromise<void>;
+
+  createAuthAccount(account: AuthAccountRecord): MaybePromise<AuthAccountRecord>;
+  getAuthAccount(provider: string, providerAccountId: string): MaybePromise<AuthAccountRecord | null>;
+  deleteAuthAccount(provider: string, providerAccountId: string): MaybePromise<void>;
+
+  createVerificationToken(token: VerificationTokenRecord): MaybePromise<VerificationTokenRecord>;
+  useVerificationToken(identifier: string, token: string): MaybePromise<VerificationTokenRecord | null>;
 
   createProject(project: Project): MaybePromise<Project>;
   getProject(id: string): MaybePromise<Project | null>;

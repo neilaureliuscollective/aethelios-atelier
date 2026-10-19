@@ -1,16 +1,18 @@
 # Verification (local candidate)
 
-Distinguishes **domain tests**, **HTTP tests against sqlite_local**, **browser privacy**, and **screenshots**. Simulated identities are labeled. No hosted auth/database was used. OpenAI was not called.
+Distinguishes **domain tests**, **HTTP tests against sqlite_local**, **Auth.js acceptance**, **browser privacy**, and **screenshots**. Simulated identities are labeled and remain local-only. Auth.js is tested with local magic-link capture, not hosted Google/Resend secrets. OpenAI was not called.
 
 ## Automated
 
 ```
 pnpm typecheck          # pass
 pnpm lint               # pass
-pnpm test               # 55/55 pass
+pnpm test               # pass
 pnpm build              # pass
 node scripts/api-flow.mjs
 # 28/28 pass against production `next start` + sqlite_local
+node scripts/auth-acceptance.mjs
+# two Auth.js clients + founder, including direct API isolation checks
 node scripts/privacy-browser.mjs
 # 22/22 pass
 node scripts/browser-regressions.mjs
@@ -39,7 +41,19 @@ HTTP checks (real local persistence, not browser fixtures):
 - Second user is denied founder project access
 - Clarification is client-visible; snapshot remains unchanged
 
-Unit/domain regressions also cover coalesced save versioning, hosted simulator refusal, and cache allowlisting.
+Unit/domain regressions also cover coalesced save versioning, hosted simulator refusal, Auth.js fail-closed activation, and cache allowlisting.
+
+Auth.js HTTP checks (`scripts/auth-acceptance.mjs`):
+
+- Magic-link sign-in for two clients and a founder
+- Anonymous API access is 401
+- Simulated identities are refused on the Auth.js adapter
+- Client B cannot read client A's project
+- Client A is denied the founder queue
+- Founder queue includes the owner's submission
+- Signed-out session cannot keep reading the project
+- Switching accounts does not reveal the previous account's data
+- Returning with a new session recovers the same saved project
 
 ## Browser
 
@@ -57,13 +71,13 @@ Request-observed browser regressions (production `next start` + sqlite_local):
 - Lost response after committed submission with exact retry
 - Typing while recovery comparison is unresolved (no automatic overwrite)
 - Exact loopback / hosted-simulator policy is covered in unit tests, not by activating hosted auth
+- Auth.js Google/Resend stay unready without real secrets; local capture is refused on hosted platforms
 
 ## Not claimed
 
 - Live OpenAI replies (disabled; `ATELIER_OPENAI_ENABLED` is false)
-- Hosted auth or database
+- Hosted Google/Resend credentials or a live hosted database in this environment
 - Stripe / payments
 - Notifications
-- Production Vercel authentication or a live hosted database in this environment
 - A live Vercel project created from this machine (the repository is prepared; import it as a new Vercel project per `docs/VERCEL.md`)
 - Software-keyboard testing on a physical phone (not available in this environment)

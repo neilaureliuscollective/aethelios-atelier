@@ -20,7 +20,7 @@ This repository’s `main` branch is a Next.js 15 app at the repo root (`package
 
 [Deploy with Vercel](https://vercel.com/new/clone?repository-url=https://github.com/neilaureliuscollective/aethelios-atelier&project-name=aethelios-atelier&repository-name=aethelios-atelier&framework=nextjs)
 
-After deploy, `/` and `/approach` should render. `GET /api/health` should return `ok: true` with `platform: "vercel"`. Sign-in stays unavailable until a real identity provider is connected.
+After deploy, `/` and `/approach` should render. `GET /api/health` should return `ok: true` with `platform: "vercel"`. Sign-in stays unavailable until Auth.js is activated with Google and/or Resend — see [AUTH.md](AUTH.md).
 
 ## If you still see 404 NOT_FOUND
 
@@ -47,8 +47,11 @@ Public pages run without these. Set them when you want hosted persistence:
 | --- | --- |
 | `ATELIER_PERSISTENCE_ADAPTER` | `postgres` |
 | `DATABASE_URL` or `POSTGRES_URL` | Pooled connection string from the dedicated database |
-| `ATELIER_SESSION_SECRET` | 32+ random bytes, hex |
-| `ATELIER_AUTH_ADAPTER` | `unconfigured` |
+| `ATELIER_SESSION_SECRET` | 32+ random bytes, hex (also accepted as `AUTH_SECRET`) |
+| `ATELIER_AUTH_ADAPTER` | `unconfigured` until Auth.js is activated; then `authjs` |
+| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Google OAuth client (optional if Resend is set) |
+| `AUTH_RESEND_KEY` / `AUTH_RESEND_FROM` | Resend magic links (optional if Google is set) |
+| `ATELIER_FOUNDER_EMAILS` | Verified email(s) that receive founder authorization |
 | `ATELIER_OPENAI_ENABLED` | `false` until spend is authorized |
 | `ATELIER_BILLING_ENABLED` | `false` |
 | `ATELIER_PUBLIC_ORIGIN` | Canonical `https://` origin once the domain is assigned |
@@ -57,8 +60,12 @@ Do **not** set on Vercel:
 
 - `ATELIER_ALLOW_SIMULATED_AUTH`
 - `ATELIER_ISOLATED_LOCAL`
+- `ATELIER_AUTH_EMAIL_CAPTURE`
 - `ATELIER_PERSISTENCE_ADAPTER=sqlite_local`
 - Stripe keys
+- Placeholder Google/Resend values
+
+Auth.js activation steps and callback URLs: [AUTH.md](AUTH.md).
 
 ## Local still uses sqlite
 

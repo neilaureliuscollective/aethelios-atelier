@@ -77,6 +77,14 @@ export function SessionShell({
     void refresh().finally(() => setLoading(false));
   }, [refresh]);
 
+  useEffect(() => {
+    const onExpired = () => {
+      void refresh();
+    };
+    window.addEventListener("atelier:session-expired", onExpired);
+    return () => window.removeEventListener("atelier:session-expired", onExpired);
+  }, [refresh]);
+
   const value = useMemo(
     () => ({ user, loading, refresh, generation }),
     [user, loading, refresh, generation]

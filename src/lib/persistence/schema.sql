@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS users (
   display_name TEXT NOT NULL,
   role TEXT NOT NULL,
   adapter TEXT NOT NULL,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  email_verified_at TEXT
 );
 CREATE TABLE IF NOT EXISTS sessions (
   id TEXT PRIMARY KEY,
@@ -105,4 +106,24 @@ CREATE TABLE IF NOT EXISTS request_ledger (
   result_json TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS auth_accounts (
+  provider TEXT NOT NULL,
+  provider_account_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  type TEXT NOT NULL,
+  refresh_token TEXT,
+  access_token TEXT,
+  expires_at INTEGER,
+  token_type TEXT,
+  scope TEXT,
+  id_token TEXT,
+  session_state TEXT,
+  PRIMARY KEY (provider, provider_account_id)
+);
+CREATE TABLE IF NOT EXISTS auth_verification_tokens (
+  identifier TEXT NOT NULL,
+  token TEXT NOT NULL,
+  expires TEXT NOT NULL,
+  PRIMARY KEY (identifier, token)
 );

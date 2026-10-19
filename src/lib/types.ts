@@ -57,13 +57,16 @@ export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 
 export type Role = "client" | "founder";
 
+export type AuthAdapterKind = "simulated" | "authjs";
+
 export type User = {
   id: string;
   email: string;
   displayName: string;
   role: Role;
-  adapter: "simulated";
+  adapter: AuthAdapterKind;
   createdAt: string;
+  emailVerifiedAt?: string;
 };
 
 export type Session = {
@@ -76,7 +79,27 @@ export type Session = {
 export type AuthContext = {
   user: User;
   session: Session;
-  adapter: "simulated";
+  adapter: AuthAdapterKind;
+};
+
+export type AuthAccountRecord = {
+  userId: string;
+  type: string;
+  provider: string;
+  providerAccountId: string;
+  refresh_token?: string | null;
+  access_token?: string | null;
+  expires_at?: number | null;
+  token_type?: string | null;
+  scope?: string | null;
+  id_token?: string | null;
+  session_state?: string | null;
+};
+
+export type VerificationTokenRecord = {
+  identifier: string;
+  token: string;
+  expires: string;
 };
 
 export type SuggestionStatus = "pending" | "accepted" | "rejected" | "edited";
