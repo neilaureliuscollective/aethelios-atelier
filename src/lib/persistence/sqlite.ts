@@ -146,6 +146,22 @@ export class SqlitePersistence implements PersistenceAdapter {
     return true;
   }
 
+  runInTransaction<T>(fn: () => T): T {
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      const result = fn();
+      this.db.exec("COMMIT");
+      return result;
+    } catch (error) {
+      try {
+        this.db.exec("ROLLBACK");
+      } catch {
+        /* already rolled back */
+      }
+      throw error;
+    }
+  }
+
   resetForTests() {
     this.db.exec(`
       DELETE FROM request_ledger;
@@ -256,6 +272,20 @@ export class SqlitePersistence implements PersistenceAdapter {
       .prepare("SELECT * FROM projects WHERE status != 'draft' ORDER BY updated_at DESC")
       .all() as Record<string, unknown>[];
     return rows.map((row) => this.mapProject(row));
+  }
+
+  getProjectByOwnerAndGuestDraft(ownerId: string, guestDraftId: string) {
+    const row = this.db
+      .prepare("SELECT * FROM projects WHERE owner_id = ? AND adopted_from_guest_id = ? LIMIT 1")
+      .get(ownerId, guestDraftId) as Record<string, unknown> | undefined;
+    return row ? this.mapProject(row) : null;
+  }
+
+  getSubmissionByIdempotencyKey(key: string) {
+    const row = this.db.prepare("SELECT * FROM submissions WHERE idempotency_key = ? LIMIT 1").get(key) as
+      | Record<string, unknown>
+      | undefined;
+    return row ? this.mapSubmission(row) : null;
   }
 
   updateProject(project: Project) {

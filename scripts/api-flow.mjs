@@ -4,6 +4,7 @@
  * Uses simulated identities. Distinguishes real local persistence from browser fixtures.
  */
 const BASE = process.env.ATELIER_BASE ?? "http://127.0.0.1:3000";
+const RUN = crypto.randomUUID();
 
 async function req(path, { method = "GET", body, cookie } = {}) {
   const res = await fetch(`${BASE}${path}`, {
@@ -79,26 +80,104 @@ const stale = await req(`/api/projects/${id}`, {
 });
 check("stale save conflict keeps newer typing contract", stale.status === 409);
 
+const missingVersion = await req(`/api/projects/${id}/submit`, {
+  method: "POST",
+  cookie: owner,
+  body: { consent: true, consentTextAcknowledged: true, idempotencyKey: `${RUN}-missing` }
+});
+check("submit without reviewed version is rejected", missingVersion.status >= 400);
+
+const staleSubmit = await req(`/api/projects/${id}/submit`, {
+  method: "POST",
+  cookie: owner,
+  body: {
+    consent: true,
+    consentTextAcknowledged: true,
+    idempotencyKey: `${RUN}-stale`,
+    expectedVersion: version
+  }
+});
+check("stale reviewed version cannot be submitted", staleSubmit.status === 409);
+
+const savedVersion = saved.json.project.version;
 const submit = await req(`/api/projects/${id}/submit`, {
   method: "POST",
   cookie: owner,
-  body: { consent: true, consentTextAcknowledged: true, idempotencyKey: "http-flow-key-1" }
+  body: {
+    consent: true,
+    consentTextAcknowledged: true,
+    idempotencyKey: `${RUN}-key-1`,
+    expectedVersion: savedVersion
+  }
 });
 check("submit with consent", submit.status === 200 && submit.json.receipt?.receiptId, submit.json.receipt?.receiptId);
 
 const retry = await req(`/api/projects/${id}/submit`, {
   method: "POST",
   cookie: owner,
-  body: { consent: true, consentTextAcknowledged: true, idempotencyKey: "http-flow-key-1" }
+  body: {
+    consent: true,
+    consentTextAcknowledged: true,
+    idempotencyKey: `${RUN}-key-1`,
+    expectedVersion: savedVersion
+  }
 });
 check("idempotent retry does not duplicate", retry.status === 200 && retry.json.duplicate === true);
 
-const noConsent = await req(`/api/projects/${id}/submit`, {
+const laterBrief = {
+  ...brief,
+  vision: { ...brief.vision, value: "Later draft must not rewrite the snapshot." }
+};
+const laterSave = await req(`/api/projects/${id}`, {
+  method: "PATCH",
+  cookie: owner,
+  body: { expectedVersion: savedVersion, brief: laterBrief }
+});
+check("later draft save after submit", laterSave.status === 200);
+
+const createdTwo = await req("/api/projects", { method: "POST", body: { brief }, cookie: owner });
+check("second project created", createdTwo.status === 201, createdTwo.json.project?.id);
+const idTwo = createdTwo.json.project.id;
+const sameKeyOtherProject = await req(`/api/projects/${idTwo}/submit`, {
   method: "POST",
   cookie: owner,
-  body: { consent: true, consentTextAcknowledged: true, idempotencyKey: "http-flow-key-2" }
+  body: {
+    consent: true,
+    consentTextAcknowledged: true,
+    idempotencyKey: `${RUN}-key-1`,
+    expectedVersion: createdTwo.json.project.version
+  }
 });
-check("second distinct submit still bound to owner", noConsent.status === 200);
+check("same key on a different project conflicts", sameKeyOtherProject.status === 409);
+
+const openedTwo = await req(`/api/projects/${idTwo}`, { cookie: owner });
+check("second project loads by explicit id", openedTwo.status === 200 && openedTwo.json.project?.id === idTwo);
+
+const guestDraft = {
+  version: 1,
+  kind: "guest_draft",
+  labeled: true,
+  limitations: ["Saved only on this device."],
+    draftId: `guest-adopt-${RUN}`,
+  title: "Guest draft",
+  brief,
+  messages: [],
+  updatedAt: new Date().toISOString()
+};
+const adoptOne = await req("/api/projects/adopt", {
+  method: "POST",
+  cookie: owner,
+  body: { confirmed: true, draft: guestDraft }
+});
+const adoptTwo = await req("/api/projects/adopt", {
+  method: "POST",
+  cookie: owner,
+  body: { confirmed: true, draft: guestDraft }
+});
+check(
+  "duplicate adoption is idempotent",
+  adoptOne.status === 200 && adoptTwo.status === 200 && adoptOne.json.project?.id === adoptTwo.json.project?.id
+);
 
 const beforeReview = await req(`/api/projects/${id}`, { cookie: owner });
 check(

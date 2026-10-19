@@ -1,5 +1,6 @@
 import { AppLink } from "@/components/ui/AppLink";
 import { CalendarIcon, GlobeIcon, NodesIcon } from "@/components/ui/Icons";
+import { HeroComposition } from "@/components/marketing/HeroComposition";
 import { SERVICE_CATALOG } from "@/lib/catalog";
 
 export default function HomePage() {
@@ -10,7 +11,7 @@ export default function HomePage() {
   return (
     <>
       <section className="container hero">
-        <div>
+        <div className="hero-copy">
           <p className="kicker">Founder-led digital infrastructure</p>
           <h1>
             Your vision.
@@ -18,9 +19,9 @@ export default function HomePage() {
             <span className="gold-em">Personally built.</span>
           </h1>
           <p className="lede">
-            Aethelios Atelier helps business owners turn a need into a clear commission that Neil
-            Stutes personally scopes and delivers. Begin a guided brief — no subscription required.
-            Aurelius can help you organize the work; Neil remains responsible for accepting it.
+            Aethelios Atelier is Neil Stutes’ studio for websites and digital infrastructure. Begin a
+            guided brief. Aurelius can help you organize it; Neil remains the person who reviews,
+            scopes, and delivers. No subscription is required to start.
           </p>
           <div className="hero-actions">
             <AppLink className="btn btn-gold" href="/project">
@@ -31,9 +32,7 @@ export default function HomePage() {
             </AppLink>
           </div>
         </div>
-        <div className="hero-mark">
-          <img src="/brand/logo.webp" alt="Aethelios Atelier emblem" width={720} height={720} />
-        </div>
+        <HeroComposition />
       </section>
 
       <section className="container section" aria-labelledby="services-heading">
@@ -46,19 +45,22 @@ export default function HomePage() {
             payments. Linking is not a replacement booking engine.
           </p>
         </div>
-        <div className="card-grid">
-          <article className="panel service-card">
+        <div className="offer-mosaic">
+          <article className="surface-dimensional offer-card offer-website">
             <GlobeIcon />
             <h3>{website?.title}</h3>
             <p className="muted">{website?.summary}</p>
           </article>
-          <article className="panel service-card">
+          <article className="surface-dimensional offer-card offer-booking">
             <CalendarIcon />
+            <p className="tiny">Primary path</p>
             <h3>{booking?.title}</h3>
             <p className="muted">{booking?.summary}</p>
+            <p className="notice">Your existing booking provider continues to handle the bookings.</p>
           </article>
-          <article className="panel service-card">
+          <article className="surface-dense offer-card offer-infra">
             <NodesIcon />
+            <p className="tiny">Exploratory</p>
             <h3>{infra?.title}</h3>
             <p className="muted">{infra?.summary}</p>
           </article>
@@ -81,7 +83,7 @@ export default function HomePage() {
             ["03", "Agreed scope", "A tailored scope, if the work is a fit. Estimates before this point are nonbinding."],
             ["04", "Build", "Design, develop, and refine with you. Unlimited custom work is not offered."]
           ].map(([num, title, copy]) => (
-            <article className="panel process-card" key={num}>
+            <article className="surface-glass process-card" key={num}>
               <div className="num">{num}</div>
               <h3>{title}</h3>
               <p className="muted">{copy}</p>
@@ -91,37 +93,29 @@ export default function HomePage() {
       </section>
 
       <section className="container section" aria-labelledby="founder-heading">
-        <div className="panel cta-band founder-band">
+        <div className="founder-band surface-dimensional">
           <div>
             <p className="kicker">Founder-led</p>
             <h2 id="founder-heading">Reviewed and built by Neil Stutes.</h2>
             <p className="lede">
               Atelier is not autonomous website generation, not an Aethelios subscription, and not a
-              replacement for human expertise. Aurelius clarifies; Neil accepts, prices, and delivers.
+              replacement for human expertise. I read every brief I accept, and I remain accountable
+              for scope, price, and delivery.
             </p>
             <AppLink className="btn btn-gold" href="/project">
               Begin your project
             </AppLink>
           </div>
-          <div className="hero-mark">
-            <img src="/brand/icon.webp" alt="" width={280} height={280} />
-          </div>
-        </div>
-      </section>
-
-      <section className="container section">
-        <div className="panel cta-band">
-          <div>
-            <p className="kicker">Let’s create together</p>
-            <h2>Tell us what you want to create.</h2>
-            <p className="muted">
-              Share the details you have. You can continue as a guest on this device and sign in
-              only when you are ready to send the brief.
-            </p>
-          </div>
-          <AppLink className="btn btn-gold" href="/project">
-            Begin your project
-          </AppLink>
+          <figure className="founder-emblem">
+            <img
+              src="/brand/logo.webp"
+              alt="Aethelios Atelier wordmark"
+              width={720}
+              height={720}
+              loading="lazy"
+              decoding="async"
+            />
+          </figure>
         </div>
       </section>
     </>

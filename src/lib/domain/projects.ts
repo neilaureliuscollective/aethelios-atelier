@@ -3,7 +3,8 @@ import { briefTitle, createEmptyBrief, normalizeBrief } from "@/lib/brief";
 import { CONSENT_TEXT } from "@/lib/copy";
 import { ConflictError, ForbiddenError, NotFoundError } from "@/lib/domain/errors";
 import { toClientView } from "@/lib/domain/next-step";
-import { createId, createReceiptId, sha256 } from "@/lib/ids";
+import { createId, createReceiptId } from "@/lib/ids";
+import { submitFingerprint } from "@/lib/submitFingerprint";
 import type { PersistenceAdapter } from "@/lib/persistence/adapter";
 import type {
   AuthContext,
@@ -69,6 +70,8 @@ export class ProjectService {
     if (draft.kind !== "guest_draft") {
       throw new ForbiddenError("Only labeled guest drafts can be adopted.");
     }
+    const existing = this.store.getProjectByOwnerAndGuestDraft(owner.id, draft.draftId);
+    if (existing) return existing;
     const project = this.createProject(owner, draft.brief, draft.draftId);
     for (const message of draft.messages) {
       this.store.addMessage({
@@ -163,69 +166,124 @@ export class ProjectService {
     return { project: saved, appliedLocalGeneration: localGeneration ?? null };
   }
 
-  submit(projectId: string, user: User, consent: boolean, idempotencyKey: string) {
+  submit(
+    projectId: string,
+    user: User,
+    consent: boolean,
+    idempotencyKey: string,
+    expectedVersion: number
+  ) {
     if (!consent) {
       throw new ForbiddenError("Submission requires explicit consent.");
     }
     if (!idempotencyKey.trim()) {
       throw new ForbiddenError("An idempotency key is required so retries cannot duplicate this send.");
     }
-    const existing = this.store.getSubmissionByIdempotency(projectId, idempotencyKey);
+    if (!Number.isInteger(expectedVersion) || expectedVersion < 1) {
+      throw new ForbiddenError("Consent must name the exact saved revision under review.");
+    }
+    const project = this.getOwnedProject(projectId, user);
+    const ledgerId = `${user.id}:${idempotencyKey}`;
+    const prior = this.store.getLedger(ledgerId);
+    if (prior?.ownerId && prior.ownerId !== user.id) {
+      throw new ForbiddenError("This retry belongs to another account.");
+    }
+    if (prior?.projectId && prior.projectId !== projectId) {
+      throw new ConflictError("This retry key is bound to a different commission.");
+    }
+
+    const existing =
+      this.store.getSubmissionByIdempotency(projectId, idempotencyKey) ??
+      this.store.getSubmissionByIdempotencyKey(idempotencyKey);
     if (existing) {
       if (existing.ownerId !== user.id) {
         throw new ForbiddenError("This retry belongs to another account.");
       }
-      return { submission: existing, duplicate: true as const };
+      if (existing.projectId !== projectId) {
+        throw new ConflictError("This retry key is bound to a different commission.");
+      }
+      const readBack = this.store.getSubmission(existing.id);
+      if (!readBack?.receiptId) {
+        throw new ConflictError("A receipt could not be independently read back.");
+      }
+      return { submission: readBack, duplicate: true as const };
     }
-    const project = this.getOwnedProject(projectId, user);
-    const payloadHash = sha256(JSON.stringify({ projectId, ownerId: user.id, brief: project.brief }));
-    const ledgerId = `${user.id}:${idempotencyKey}`;
-    const prior = this.store.getLedger(ledgerId);
-    if (prior?.status === "confirmed" && prior.resultJson) {
-      return { submission: JSON.parse(prior.resultJson), duplicate: true as const };
+
+    if (project.version !== expectedVersion) {
+      throw new ConflictError(
+        "This consent applies to a different saved revision. Save the brief, review it, and send that exact version.",
+        project.version
+      );
     }
-    this.store.putLedger({
-      id: ledgerId,
-      ownerId: user.id,
+    const payloadHash = submitFingerprint({
       projectId,
-      operation: "submit",
-      payloadHash,
-      status: "in_flight",
-      createdAt: prior?.createdAt ?? now(),
-      updatedAt: now()
-    });
-    const stamp = now();
-    const snapshot = structuredClone(project.brief);
-    const submission = this.store.createSubmission({
-      id: createId("sub"),
-      projectId: project.id,
       ownerId: user.id,
-      snapshot,
-      title: project.title,
-      consentText: CONSENT_TEXT,
-      consentedAt: stamp,
-      receiptId: createReceiptId(),
-      idempotencyKey,
-      createdAt: stamp
+      expectedVersion,
+      brief: project.brief
     });
-    this.store.updateProject({
-      ...project,
-      status: project.status === "draft" ? "submitted" : project.status,
-      latestSubmissionId: submission.id,
-      updatedAt: stamp
+    if (prior?.payloadHash && prior.payloadHash !== payloadHash) {
+      throw new ConflictError("This retry key was issued for a different reviewed snapshot.");
+    }
+
+    return this.store.runInTransaction(() => {
+      const insideExisting = this.store.getSubmissionByIdempotency(projectId, idempotencyKey);
+      if (insideExisting) {
+        return { submission: insideExisting, duplicate: true as const };
+      }
+      const current = this.getOwnedProject(projectId, user);
+      if (current.version !== expectedVersion) {
+        throw new ConflictError(
+          "This consent applies to a different saved revision. Save the brief, review it, and send that exact version.",
+          current.version
+        );
+      }
+      this.store.putLedger({
+        id: ledgerId,
+        ownerId: user.id,
+        projectId,
+        operation: "submit",
+        payloadHash,
+        status: "in_flight",
+        createdAt: prior?.createdAt ?? now(),
+        updatedAt: now()
+      });
+      const stamp = now();
+      const snapshot = structuredClone(current.brief);
+      const created = this.store.createSubmission({
+        id: createId("sub"),
+        projectId: current.id,
+        ownerId: user.id,
+        snapshot,
+        title: current.title,
+        consentText: CONSENT_TEXT,
+        consentedAt: stamp,
+        receiptId: createReceiptId(),
+        idempotencyKey,
+        createdAt: stamp
+      });
+      this.store.updateProject({
+        ...current,
+        status: current.status === "draft" ? "submitted" : current.status,
+        latestSubmissionId: created.id,
+        updatedAt: stamp
+      });
+      const readBack = this.store.getSubmission(created.id);
+      if (!readBack?.receiptId) {
+        throw new ConflictError("Submission stored but the receipt could not be independently confirmed.");
+      }
+      this.store.putLedger({
+        id: ledgerId,
+        ownerId: user.id,
+        projectId,
+        operation: "submit",
+        payloadHash,
+        status: "confirmed",
+        resultJson: JSON.stringify({ id: readBack.id, receiptId: readBack.receiptId }),
+        createdAt: prior?.createdAt ?? stamp,
+        updatedAt: stamp
+      });
+      return { submission: readBack, duplicate: false as const };
     });
-    this.store.putLedger({
-      id: ledgerId,
-      ownerId: user.id,
-      projectId,
-      operation: "submit",
-      payloadHash,
-      status: "confirmed",
-      resultJson: JSON.stringify(submission),
-      createdAt: prior?.createdAt ?? stamp,
-      updatedAt: stamp
-    });
-    return { submission, duplicate: false as const };
   }
 
   markUncertain(ownerId: string, idempotencyKey: string, projectId: string, operation: string) {

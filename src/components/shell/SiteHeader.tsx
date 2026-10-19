@@ -41,7 +41,7 @@ export function SiteHeader({ user }: { user: User | null }) {
             </AppLink>
           )}
           {!compact ? (
-            <AppLink className="btn btn-gold" href="/project">
+            <AppLink className="btn btn-gold" href={user ? "/project/new" : "/project"}>
               Begin your project
             </AppLink>
           ) : null}
@@ -56,7 +56,7 @@ export function SiteHeader({ user }: { user: User | null }) {
             {link.label}
           </AppLink>
         ))}
-        <AppLink href="/project" onClick={() => setOpen(false)}>
+        <AppLink href={user ? "/project/new" : "/project"} onClick={() => setOpen(false)}>
           Begin your project
         </AppLink>
         <AppLink href={user ? "/workspace" : "/account"} onClick={() => setOpen(false)}>

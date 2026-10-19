@@ -72,7 +72,13 @@ describe("commission lifecycle", () => {
       project.version
     );
 
-    const { submission } = service.submit(saved.project.id, owner, true, "idem-submit-1");
+    const { submission } = service.submit(
+      saved.project.id,
+      owner,
+      true,
+      "idem-submit-1",
+      saved.project.version
+    );
     expect(submission.receiptId.startsWith("rcpt_")).toBe(true);
     expect(submission.consentText).toBe(CONSENT_TEXT);
     expect(submission.snapshot.bookingProvider.value).toBe("Square Appointments");
@@ -112,7 +118,7 @@ describe("commission lifecycle", () => {
       },
       1
     );
-    service.submit(project.id, owner, true, "idem-2");
+    service.submit(project.id, owner, true, "idem-2", 2);
 
     expect(() => service.clientView(project.id, other)).toThrow(ForbiddenError);
     expect(() => service.saveBrief(project.id, other, project.brief, 2)).toThrow(ForbiddenError);
@@ -134,7 +140,7 @@ describe("commission lifecycle", () => {
   it("does not show founder review until an authorized review event", () => {
     const { owner, founder, service } = setup();
     const project = service.createProject(owner);
-    service.submit(project.id, owner, true, "idem-review");
+    service.submit(project.id, owner, true, "idem-review", 1);
     const before = service.clientView(project.id, owner);
     expect(before.reviewStartedAt).toBeNull();
     expect(before.nextStep.code).toBe("awaiting_founder_receipt");
@@ -149,8 +155,8 @@ describe("commission lifecycle", () => {
   it("publishes clarifications to the owner and keeps retries idempotent", () => {
     const { owner, founder, service } = setup();
     const project = service.createProject(owner);
-    const first = service.submit(project.id, owner, true, "same-key");
-    const second = service.submit(project.id, owner, true, "same-key");
+    const first = service.submit(project.id, owner, true, "same-key", 1);
+    const second = service.submit(project.id, owner, true, "same-key", 1);
     expect(second.duplicate).toBe(true);
     expect(second.submission.id).toBe(first.submission.id);
 
@@ -207,9 +213,9 @@ describe("commission lifecycle", () => {
     const ledger = store.getLedger(`${owner.id}:retry-1`);
     expect(ledger?.status).toBe("uncertain");
     expect(ledger?.ownerId).toBe(owner.id);
-    const result = service.submit(project.id, owner, true, "retry-1");
+    const result = service.submit(project.id, owner, true, "retry-1", 1);
     expect(result.duplicate).toBe(false);
-    const again = service.submit(project.id, owner, true, "retry-1");
+    const again = service.submit(project.id, owner, true, "retry-1", 1);
     expect(again.duplicate).toBe(true);
     expect(store.listSubmissions(project.id)).toHaveLength(1);
   });

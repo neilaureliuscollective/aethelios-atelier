@@ -2,6 +2,7 @@ import "server-only";
 import path from "node:path";
 import { z } from "zod";
 import { CONSENT_TEXT } from "@/lib/copy";
+import { simulatedAuthAllowed } from "@/lib/runtime/hosted";
 
 export { CONSENT_TEXT };
 
@@ -74,7 +75,8 @@ export function loadConfig(): AppConfig {
     .filter(Boolean);
 
   const persistenceReady = env.persistenceAdapter !== "unconfigured";
-  const authReady = env.authAdapter === "simulated";
+  const simulated = simulatedAuthAllowed(process.env);
+  const authReady = simulated.allowed;
   const openAiExplicitlyEnabled = env.openAiEnabled === "true";
   const hasKey = Boolean(env.openAiKey.trim());
 
@@ -98,10 +100,10 @@ export function loadConfig(): AppConfig {
     auth: authReady
       ? { adapter: "simulated", ready: true, labeled: true }
       : {
-          adapter: "unconfigured",
+          adapter: env.authAdapter === "simulated" ? "simulated" : "unconfigured",
           ready: false,
-          labeled: false,
-          missing: "ATELIER_AUTH_ADAPTER"
+          labeled: env.authAdapter === "simulated",
+          missing: simulated.reason ?? "ATELIER_AUTH_ADAPTER"
         },
     aurelius: {
       enabled: openAiExplicitlyEnabled,

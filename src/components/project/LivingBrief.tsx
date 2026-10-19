@@ -11,7 +11,7 @@ export function LivingBrief({
   onResolve?: (id: string, action: "accept" | "reject") => void;
 }) {
   return (
-    <aside className="panel living-brief" aria-label="Living brief">
+    <aside className="surface-glass living-brief" aria-label="Living brief">
       <p className="tiny">Your direction</p>
       <h2 style={{ fontSize: 28 }}>Living brief</h2>
       <p className="muted" style={{ fontSize: 14 }}>

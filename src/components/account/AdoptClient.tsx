@@ -1,24 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AppLink } from "@/components/ui/AppLink";
 import { FIELD_LABELS } from "@/lib/brief";
 import { api } from "@/lib/client/api";
+import { actionErrorMessage } from "@/lib/client/asyncAction";
 import { markGuestRetained, readGuestDraft } from "@/lib/guest/draft";
-import { BRIEF_FIELD_KEYS, type GuestDraft, type Project, type User } from "@/lib/types";
+import { useSession } from "@/components/shell/SessionShell";
+import { BRIEF_FIELD_KEYS, type GuestDraft, type Project } from "@/lib/types";
 
 export function AdoptClient() {
-  const [user, setUser] = useState<User | null>(null);
+  const { user, loading } = useSession();
   const [draft, setDraft] = useState<GuestDraft | null>(null);
   const [status, setStatus] = useState("");
+  const [error, setError] = useState("");
+  const [pending, setPending] = useState(false);
+  const inFlight = useRef(false);
 
   useEffect(() => {
-    void (async () => {
-      const session = await api<{ user: User | null }>("/api/session");
-      setUser(session.user);
-      setDraft(readGuestDraft());
-    })();
+    setDraft(readGuestDraft());
   }, []);
+
+  if (loading) {
+    return (
+      <section className="container section">
+        <h1>Checking this account…</h1>
+      </section>
+    );
+  }
 
   if (!user) {
     return (
@@ -36,22 +45,31 @@ export function AdoptClient() {
     return (
       <section className="container section">
         <h1>No guest draft on this device.</h1>
-        <a className="btn btn-gold" href="/project">
+        <AppLink className="btn btn-gold" href="/project">
           Begin a brief
-        </a>
+        </AppLink>
       </section>
     );
   }
 
   async function adopt() {
-    if (!draft) return;
-    const result = await api<{ project: Project }>("/api/projects/adopt", {
-      method: "POST",
-      body: JSON.stringify({ confirmed: true, draft })
-    });
-    markGuestRetained(draft, result.project.id);
-    setStatus(`Adopted into ${result.project.id}. The guest copy stays on this device until you dismiss it.`);
-    window.location.href = `/workspace/${result.project.id}`;
+    if (!draft || inFlight.current) return;
+    inFlight.current = true;
+    setPending(true);
+    setError("");
+    try {
+      const result = await api<{ project: Project }>("/api/projects/adopt", {
+        method: "POST",
+        body: JSON.stringify({ confirmed: true, draft })
+      });
+      markGuestRetained(draft, result.project.id);
+      setStatus(`Adopted into ${result.project.id}. The guest copy stays on this device until you dismiss it.`);
+      window.location.href = `/workspace/${result.project.id}`;
+    } catch (err) {
+      setError(actionErrorMessage(err, "Adoption did not confirm. The guest draft is still on this device."));
+      inFlight.current = false;
+      setPending(false);
+    }
   }
 
   return (
@@ -67,7 +85,7 @@ export function AdoptClient() {
           <li key={item}>{item}</li>
         ))}
       </ul>
-      <article className="panel" style={{ padding: 24, marginTop: 16 }}>
+      <article className="surface-dense" style={{ padding: 24, marginTop: 16 }}>
         {BRIEF_FIELD_KEYS.map((key) =>
           draft.brief[key].value ? (
             <p key={key}>
@@ -77,14 +95,15 @@ export function AdoptClient() {
         )}
       </article>
       <div className="row" style={{ marginTop: 18 }}>
-        <button className="btn btn-gold" type="button" onClick={() => void adopt()}>
-          Adopt into this account
+        <button className="btn btn-gold" type="button" disabled={pending} onClick={() => void adopt()}>
+          {pending ? "Adopting…" : "Adopt into this account"}
         </button>
         <AppLink className="btn btn-ghost" href="/workspace">
           Keep them separate
         </AppLink>
       </div>
       {status ? <p className="notice">{status}</p> : null}
+      {error ? <p className="notice notice-warn">{error}</p> : null}
     </section>
   );
 }

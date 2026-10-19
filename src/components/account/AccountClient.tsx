@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { AppLink } from "@/components/ui/AppLink";
+import { useSession } from "@/components/shell/SessionShell";
 import { api } from "@/lib/client/api";
+import { actionErrorMessage } from "@/lib/client/asyncAction";
+import { clearOwnerScopedData } from "@/lib/client/ownerScope";
 import type { User } from "@/lib/types";
 
 type Config = {
@@ -14,32 +17,48 @@ type Config = {
 };
 
 export function AccountClient() {
-  const [user, setUser] = useState<User | null>(null);
+  const { user, refresh } = useSession();
   const [config, setConfig] = useState<Config | null>(null);
   const [note, setNote] = useState("");
+  const [error, setError] = useState("");
+  const [pending, setPending] = useState(false);
 
   useEffect(() => {
-    void (async () => {
-      const session = await api<{ user: User | null }>("/api/session");
-      setUser(session.user);
-      setConfig(await api<Config>("/api/config"));
-    })();
+    void api<Config>("/api/config").then(setConfig);
   }, []);
 
   async function signIn(email: string) {
-    const result = await api<{ user: User; note: string }>("/api/session/sign-in", {
-      method: "POST",
-      body: JSON.stringify({ email })
-    });
-    setUser(result.user);
-    setNote(result.note);
-    const next = new URLSearchParams(window.location.search).get("next");
-    window.location.href = next?.startsWith("/") ? next : "/account";
+    if (pending) return;
+    setPending(true);
+    setError("");
+    try {
+      const result = await api<{ user: User; note: string }>("/api/session/sign-in", {
+        method: "POST",
+        body: JSON.stringify({ email })
+      });
+      setNote(result.note);
+      await refresh();
+      const next = new URLSearchParams(window.location.search).get("next");
+      window.location.href = next?.startsWith("/") ? next : "/account";
+    } catch (err) {
+      setError(actionErrorMessage(err, "Sign-in did not complete."));
+    } finally {
+      setPending(false);
+    }
   }
 
   async function signOut() {
-    await api("/api/session/sign-out", { method: "POST" });
-    window.location.href = "/account";
+    if (pending) return;
+    setPending(true);
+    if (user) clearOwnerScopedData(user.id);
+    try {
+      await api("/api/session/sign-out", { method: "POST" });
+      await refresh();
+      window.location.href = "/account";
+    } catch (err) {
+      setError(actionErrorMessage(err, "Sign-out did not confirm. Local recovery for this account was still cleared."));
+      setPending(false);
+    }
   }
 
   return (
@@ -47,17 +66,19 @@ export function AccountClient() {
       <p className="kicker">Account</p>
       <h1>Identity for this local candidate.</h1>
       <p className="lede">
-        This is a labeled simulated identity adapter. It is not production auth. Signing in does not
-        adopt a guest draft and does not submit a brief.
+        This is a labeled simulated identity adapter. It is not production authentication. Signing in
+        does not adopt a guest draft and does not submit a brief.
       </p>
       {!config?.auth.ready ? (
         <p className="notice notice-warn">
-          Auth is unconfigured. Set ATELIER_AUTH_ADAPTER=simulated to use local identities. No hosted
-          connection is available.
+          Auth is unconfigured. Simulated identities stay off unless the isolated-local simulator gate
+          is enabled. No hosted identity provider is connected.
         </p>
-      ) : null}
+      ) : (
+        <p className="notice">Simulated identities are for isolated local testing only.</p>
+      )}
       {user ? (
-        <article className="panel" style={{ padding: 24, marginTop: 20 }}>
+        <article className="surface-dense" style={{ padding: 24, marginTop: 20 }}>
           <p>
             Signed in as <strong>{user.displayName}</strong> ({user.email}) · {user.role} · {user.adapter}
           </p>
@@ -74,8 +95,8 @@ export function AccountClient() {
             <AppLink className="btn btn-ghost" href="/account/adopt">
               Review guest draft
             </AppLink>
-            <button className="btn btn-ghost" type="button" onClick={() => void signOut()}>
-              Sign out
+            <button className="btn btn-ghost" type="button" disabled={pending} onClick={() => void signOut()}>
+              {pending ? "Signing out…" : "Sign out"}
             </button>
           </div>
         </article>
@@ -86,6 +107,7 @@ export function AccountClient() {
               key={identity.email}
               className="btn btn-ghost"
               type="button"
+              disabled={pending}
               onClick={() => void signIn(identity.email)}
             >
               Use {identity.label} · {identity.email}
@@ -94,6 +116,7 @@ export function AccountClient() {
         </div>
       )}
       {note ? <p className="notice" style={{ marginTop: 16 }}>{note}</p> : null}
+      {error ? <p className="notice notice-warn" style={{ marginTop: 16 }}>{error}</p> : null}
     </section>
   );
 }

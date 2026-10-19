@@ -36,7 +36,8 @@ export async function requireSession(): Promise<AuthContext> {
   const config = loadConfig();
   if (!config.auth.ready) {
     throw new UnconfiguredError(
-      "Auth is not configured. Simulated identities are disabled until ATELIER_AUTH_ADAPTER=simulated."
+      config.auth.missing ??
+        "Auth is not configured. Simulated identities are disabled until the isolated-local simulator gate is enabled."
     );
   }
   const session = await readSession();

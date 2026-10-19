@@ -4,22 +4,43 @@ import { useCallback, useEffect, useState } from "react";
 import { AppLink } from "@/components/ui/AppLink";
 import { briefTitle } from "@/lib/brief";
 import { api } from "@/lib/client/api";
+import { actionErrorMessage } from "@/lib/client/asyncAction";
+import { ownerFence } from "@/lib/client/ownerFence";
 import { LivingBrief } from "@/components/project/LivingBrief";
-import type { ClientProjectView, Project, User } from "@/lib/types";
+import { useSession } from "@/components/shell/SessionShell";
+import type { ClientProjectView, Project } from "@/lib/types";
 
 export function WorkspaceHome() {
-  const [user, setUser] = useState<User | null>(null);
+  const { user, loading, generation } = useSession();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [error, setError] = useState("");
 
   useEffect(() => {
+    if (!user) {
+      setProjects([]);
+      return;
+    }
+    const gen = generation;
     void (async () => {
-      const session = await api<{ user: User | null }>("/api/session");
-      setUser(session.user);
-      if (!session.user) return;
-      const list = await api<{ projects: Project[] }>("/api/projects");
-      setProjects(list.projects);
+      try {
+        const list = await api<{ projects: Project[] }>("/api/projects");
+        if (!ownerFence.isCurrent(gen, user.id)) return;
+        setProjects(list.projects);
+      } catch (err) {
+        if (!ownerFence.isCurrent(gen, user.id)) return;
+        setError(actionErrorMessage(err, "Workspace could not be loaded."));
+      }
     })();
-  }, []);
+  }, [generation, user]);
+
+  if (loading) {
+    return (
+      <section className="container section">
+        <p className="kicker">Workspace</p>
+        <h1>Loading your commissions…</h1>
+      </section>
+    );
+  }
 
   if (!user) {
     return (
@@ -38,12 +59,13 @@ export function WorkspaceHome() {
       <p className="kicker">Your commissions</p>
       <h1>Workspace</h1>
       <p className="muted">Signed in as {user.email}. This list is owned by this account only.</p>
+      {error ? <p className="notice notice-warn">{error}</p> : null}
       <div className="stack" style={{ marginTop: 20 }}>
         {projects.length === 0 ? (
           <p className="notice">No saved commissions yet. Start a brief or adopt a guest draft.</p>
         ) : (
           projects.map((project) => (
-            <a className="panel" style={{ padding: 20, display: "block" }} href={`/workspace/${project.id}`} key={project.id}>
+            <a className="surface-dimensional workspace-card" href={`/workspace/${project.id}`} key={project.id}>
               <p className="tiny">{project.status.replaceAll("_", " ")}</p>
               <h2 style={{ fontSize: 28 }}>{briefTitle(project.brief)}</h2>
               <p className="muted">Updated {new Date(project.updatedAt).toLocaleString()}</p>
@@ -51,12 +73,12 @@ export function WorkspaceHome() {
           ))
         )}
         <div className="row">
-          <a className="btn btn-gold" href="/project">
-            Continue brief
-          </a>
-          <a className="btn btn-ghost" href="/account/adopt">
+          <AppLink className="btn btn-gold" href="/project/new">
+            New project
+          </AppLink>
+          <AppLink className="btn btn-ghost" href="/account/adopt">
             Review guest draft
-          </a>
+          </AppLink>
         </div>
       </div>
     </section>
@@ -64,21 +86,30 @@ export function WorkspaceHome() {
 }
 
 export function WorkspaceDetail({ id }: { id: string }) {
+  const { user, generation } = useSession();
   const [view, setView] = useState<ClientProjectView | null>(null);
   const [error, setError] = useState("");
   const [reply, setReply] = useState("");
+  const [replyPending, setReplyPending] = useState(false);
+  const [replyError, setReplyError] = useState("");
   const [mode, setMode] = useState<"status" | "snapshot" | "draft">("status");
 
   const load = useCallback(async () => {
+    const gen = generation;
     try {
       const data = await api<ClientProjectView & { ok: boolean }>(`/api/projects/${id}`);
+      if (!ownerFence.isCurrent(gen, user?.id ?? null)) return;
       setView(data);
+      setError("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load this commission.");
+      if (!ownerFence.isCurrent(gen, user?.id ?? null)) return;
+      setView(null);
+      setError(actionErrorMessage(err, "Unable to load this commission."));
     }
-  }, [id]);
+  }, [generation, id, user?.id]);
 
   useEffect(() => {
+    setView(null);
     void load();
   }, [load]);
 
@@ -87,10 +118,20 @@ export function WorkspaceDetail({ id }: { id: string }) {
       <section className="container section">
         <h1>Commission unavailable</h1>
         <p className="notice notice-warn">{error}</p>
+        <AppLink className="btn btn-gold" href="/workspace">
+          Back to workspace
+        </AppLink>
       </section>
     );
   }
-  if (!view) return <section className="container section">Loading…</section>;
+  if (!view) {
+    return (
+      <section className="container section">
+        <p className="kicker">Your commission</p>
+        <h1>Loading this project…</h1>
+      </section>
+    );
+  }
 
   const openClarification = view.updates.find(
     (update) =>
@@ -100,22 +141,31 @@ export function WorkspaceDetail({ id }: { id: string }) {
   );
 
   async function respond() {
-    if (!openClarification || !reply.trim()) return;
-    await api(`/api/projects/${id}/clarifications/${openClarification.id}`, {
-      method: "POST",
-      body: JSON.stringify({ body: reply })
-    });
-    setReply("");
-    await load();
+    if (!openClarification || !reply.trim() || replyPending) return;
+    setReplyPending(true);
+    setReplyError("");
+    try {
+      await api(`/api/projects/${id}/clarifications/${openClarification.id}`, {
+        method: "POST",
+        body: JSON.stringify({ body: reply })
+      });
+      setReply("");
+      await load();
+    } catch (err) {
+      setReplyError(actionErrorMessage(err, "The reply was not stored. Your text is still here."));
+    } finally {
+      setReplyPending(false);
+    }
   }
 
   const submitted = Boolean(view.submission);
   const reviewing = Boolean(view.reviewStartedAt);
 
   return (
-    <section className="container section">
+    <section className="container section workspace-detail">
       <p className="kicker">Your commission</p>
       <h1>{briefTitle(view.project.brief)}</h1>
+      <p className="tiny">Project {view.project.id}</p>
       <p className="lede">{view.nextStep.detail}</p>
       <div className="row">
         <button className="chip" type="button" aria-pressed={mode === "status"} onClick={() => setMode("status")}>
@@ -128,7 +178,7 @@ export function WorkspaceDetail({ id }: { id: string }) {
           Working draft
         </button>
       </div>
-      <article className="panel" style={{ padding: 24, marginTop: 16 }}>
+      <article className="surface-dimensional" style={{ padding: 24, marginTop: 16 }}>
         <h2>{view.nextStep.label}</h2>
         <div className="timeline" aria-label="Commission progress">
           <div className="timeline-step">
@@ -137,7 +187,7 @@ export function WorkspaceDetail({ id }: { id: string }) {
           </div>
           <div className="timeline-step">
             <span className={`dot ${submitted ? "done" : ""}`} />
-            Submitted
+            {submitted ? "Sent for Neil’s review" : "Not sent"}
           </div>
           <div className="timeline-step">
             <span className={`dot ${reviewing ? "current" : ""}`} />
@@ -149,13 +199,13 @@ export function WorkspaceDetail({ id }: { id: string }) {
             Receipt {view.submission.receiptId} · {new Date(view.submission.createdAt).toLocaleString()}
           </p>
         ) : (
-          <p className="muted">No snapshot has been sent.</p>
+          <p className="muted">No snapshot has been sent. Submission is a request for review, not acceptance or a delivery date.</p>
         )}
         <p className="notice">Edits to the working draft do not change a submitted snapshot.</p>
       </article>
 
       {openClarification ? (
-        <article className="panel" style={{ padding: 24, marginTop: 16 }}>
+        <article className="surface-dense" style={{ padding: 24, marginTop: 16 }}>
           <p className="tiny">Clarification requested</p>
           <h2>Neil asked a question</h2>
           <p>{openClarification.body}</p>
@@ -163,13 +213,14 @@ export function WorkspaceDetail({ id }: { id: string }) {
             <span className="lbl">Your response</span>
             <textarea value={reply} onChange={(event) => setReply(event.target.value)} />
           </label>
-          <button className="btn btn-gold" type="button" onClick={() => void respond()}>
-            Respond
+          {replyError ? <p className="notice notice-warn">{replyError}</p> : null}
+          <button className="btn btn-gold" type="button" disabled={replyPending} onClick={() => void respond()}>
+            {replyPending ? "Sending…" : "Respond"}
           </button>
         </article>
       ) : null}
 
-      <div className="panel" style={{ padding: 24, marginTop: 16 }}>
+      <div className="surface-glass" style={{ padding: 24, marginTop: 16 }}>
         <div className="row" style={{ justifyContent: "space-between" }}>
           <h2>Project updates</h2>
           <span className="tiny">Client-visible only</span>
@@ -191,11 +242,16 @@ export function WorkspaceDetail({ id }: { id: string }) {
           <LivingBrief brief={view.submission.snapshot} suggestions={[]} />
         </div>
       ) : null}
+      {mode === "snapshot" && !view.submission ? (
+        <p className="notice" style={{ marginTop: 16 }}>
+          There is no submitted snapshot yet.
+        </p>
+      ) : null}
       {mode === "draft" ? (
         <div style={{ marginTop: 16 }}>
           <LivingBrief brief={view.project.brief} suggestions={view.suggestions} />
-          <a className="btn btn-ghost" href="/project">
-            Edit working draft
+          <a className="btn btn-ghost" href={`/project/${view.project.id}`}>
+            Edit this commission
           </a>
         </div>
       ) : null}
@@ -204,7 +260,7 @@ export function WorkspaceDetail({ id }: { id: string }) {
         <AppLink href="/workspace" aria-current="page">
           Projects
         </AppLink>
-        <AppLink href="/project">Brief</AppLink>
+        <AppLink href={`/project/${view.project.id}`}>Brief</AppLink>
         <AppLink href="/account">Account</AppLink>
       </nav>
     </section>

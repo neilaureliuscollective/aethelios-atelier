@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AppLink } from "@/components/ui/AppLink";
 
 export const metadata: Metadata = { title: "About" };
 
@@ -12,19 +13,24 @@ export default function AboutPage() {
         commission that can actually be built — with clear provenance, no fabricated social proof,
         and no pretence of unlimited custom work.
       </p>
-      <div className="card-grid" style={{ marginTop: 28 }}>
-        <article className="panel value-card">
+      <div className="about-grid">
+        <article className="surface-dimensional value-card">
           <h3>Strategic foundation</h3>
           <p className="muted">Clarity, structure, and systems for what is next — written before build begins.</p>
         </article>
-        <article className="panel value-card">
+        <article className="surface-glass value-card">
           <h3>Bespoke infrastructure</h3>
           <p className="muted">Tailored digital platforms when they are a fit, never as a disguised template mill.</p>
         </article>
-        <article className="panel value-card">
+        <article className="surface-dense value-card">
           <h3>Founder-led partnership</h3>
           <p className="muted">Deep collaboration from strategy to delivery, with Neil accountable for the work.</p>
         </article>
+      </div>
+      <div className="row" style={{ marginTop: 28 }}>
+        <AppLink className="btn btn-gold" href="/project">
+          Begin a brief
+        </AppLink>
       </div>
     </section>
   );

@@ -31,4 +31,14 @@ describe("fail-closed configuration", () => {
     expect(pub.aurelius.ready).toBe(false);
     expect(JSON.stringify(pub)).not.toContain("sk-test");
   });
+
+  it("refuses simulated auth when hosted environment flags are present", () => {
+    process.env.ATELIER_AUTH_ADAPTER = "simulated";
+    process.env.ATELIER_ALLOW_SIMULATED_AUTH = "true";
+    process.env.VERCEL = "1";
+    delete process.env.ATELIER_ISOLATED_LOCAL;
+    const config = loadConfig();
+    expect(config.auth.ready).toBe(false);
+    expect(config.auth.missing).toMatch(/hosted platform/i);
+  });
 });

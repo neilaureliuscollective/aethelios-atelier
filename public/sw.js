@@ -1,54 +1,90 @@
-/* Aethelios Atelier — public content only. Never cache API, workspace, or founder routes. */
-const CACHE = "atelier-public-v1";
-const PUBLIC = ["/", "/offline", "/services", "/approach", "/about", "/brand/logo.webp", "/brand/icon.webp"];
+/* Aethelios Atelier service worker.
+   Keep in sync with src/lib/pwa/cachePolicy.ts.
+   Cache only the generic offline shell and public brand assets.
+   Never cache personalized HTML, authenticated routes, APIs, or RSC payloads. */
+const CACHE = "atelier-static-v2";
+const PREFIX = "atelier-";
+const PRECACHE = ["/offline", "/manifest.webmanifest", "/brand/logo.webp", "/brand/icon.webp"];
+
+function personalized(pathname) {
+  return (
+    pathname.startsWith("/api/") ||
+    pathname.startsWith("/workspace") ||
+    pathname.startsWith("/founder") ||
+    pathname.startsWith("/project") ||
+    pathname.startsWith("/account")
+  );
+}
+
+function cacheable(request, response) {
+  if (request.method !== "GET") return false;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return false;
+  if (url.searchParams.has("_rsc") || url.search.includes("_next")) return false;
+  if (personalized(url.pathname)) return false;
+  const type = (response.headers.get("content-type") || "").toLowerCase();
+  if (type.includes("application/json") || type.includes("text/x-component")) return false;
+  if (type.includes("text/html") && url.pathname !== "/offline") return false;
+  if (url.pathname === "/offline" || url.pathname === "/manifest.webmanifest") return true;
+  return url.pathname.startsWith("/brand/");
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(PUBLIC)).then(() => self.skipWaiting())
+    caches
+      .open(CACHE)
+      .then((cache) => cache.addAll(PRECACHE))
+      .then(() => self.skipWaiting())
   );
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))
-    ).then(() => self.clients.claim())
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter((key) => key.startsWith(PREFIX) && key !== CACHE)
+            .map((key) => caches.delete(key))
+        )
+      )
+      .then(() => self.clients.claim())
   );
 });
 
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== "GET") {
-    if (!navigator.onLine) {
-      event.respondWith(
-        new Response(
-          JSON.stringify({
-            ok: false,
-            delivered: false,
-            message: "This device is offline. The request was not delivered."
-          }),
-          { status: 503, headers: { "Content-Type": "application/json" } }
-        )
-      );
-    }
+    event.respondWith(
+      fetch(event.request).catch(
+        () =>
+          new Response(
+            JSON.stringify({
+              ok: false,
+              delivered: false,
+              message: "This device is offline. The request was not delivered."
+            }),
+            { status: 503, headers: { "Content-Type": "application/json" } }
+          )
+      )
+    );
     return;
   }
-  const privatePath =
-    url.pathname.startsWith("/api/") ||
-    url.pathname.startsWith("/workspace") ||
-    url.pathname.startsWith("/founder") ||
-    url.pathname.startsWith("/project") ||
-    url.pathname.startsWith("/account");
-  if (privatePath) return;
+
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        if (response.ok && url.origin === self.location.origin) {
+        if (cacheable(event.request, response) && response.ok) {
           const copy = response.clone();
           caches.open(CACHE).then((cache) => cache.put(event.request, copy));
         }
         return response;
       })
-      .catch(() => caches.match(event.request).then((cached) => cached || caches.match("/offline")))
+      .catch(async () => {
+        const cached = await caches.match(event.request);
+        if (cached) return cached;
+        return caches.match("/offline");
+      })
   );
 });

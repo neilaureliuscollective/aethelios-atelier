@@ -17,6 +17,7 @@ export type PersistenceAdapter = {
   readonly labeled: true;
   ready(): boolean;
   resetForTests(): void;
+  runInTransaction<T>(fn: () => T): T;
 
   upsertUser(user: User): User;
   getUserById(id: string): User | null;
@@ -31,7 +32,9 @@ export type PersistenceAdapter = {
   getProject(id: string): Project | null;
   listProjectsByOwner(ownerId: string): Project[];
   listSubmittedProjects(): Project[];
+  getProjectByOwnerAndGuestDraft(ownerId: string, guestDraftId: string): Project | null;
   updateProject(project: Project): Project;
+  getSubmissionByIdempotencyKey(key: string): Submission | null;
 
   createSubmission(submission: Submission): Submission;
   getSubmission(id: string): Submission | null;

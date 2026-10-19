@@ -6,7 +6,15 @@ export default defineConfig({
     environment: "node",
     include: ["src/**/*.test.ts"],
     restoreMocks: true,
-    clearMocks: true
+    clearMocks: true,
+    server: {
+      deps: {
+        external: ["node:sqlite"]
+      }
+    }
+  },
+  ssr: {
+    external: ["node:sqlite"]
   },
   resolve: {
     alias: {

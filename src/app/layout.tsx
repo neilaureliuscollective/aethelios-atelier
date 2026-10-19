@@ -1,10 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, Figtree } from "next/font/google";
-import { SiteHeader } from "@/components/shell/SiteHeader";
-import { SiteFooter } from "@/components/shell/SiteFooter";
-import { SimulatedBanner } from "@/components/shell/SimulatedBanner";
 import { RegisterPwa } from "@/components/pwa/RegisterPwa";
-import { readSession } from "@/lib/auth/session";
+import { SessionShell } from "@/components/shell/SessionShell";
 import { publicRuntimeConfig } from "@/lib/config";
 import "./globals.css";
 
@@ -52,10 +49,7 @@ export const viewport: Viewport = {
   initialScale: 1
 };
 
-export const dynamic = "force-dynamic";
-
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const auth = await readSession();
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   const runtime = publicRuntimeConfig();
   return (
     <html lang="en">
@@ -65,10 +59,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           Skip to content
         </a>
         <div className="app-root">
-          <SimulatedBanner auth={runtime.auth} user={auth?.user ?? null} />
-          <SiteHeader user={auth?.user ?? null} />
-          <main id="main">{children}</main>
-          <SiteFooter />
+          <SessionShell
+            auth={{
+              adapter: runtime.auth.adapter,
+              labeled: runtime.auth.labeled,
+              ready: runtime.auth.ready
+            }}
+          >
+            {children}
+          </SessionShell>
         </div>
         <RegisterPwa />
       </body>

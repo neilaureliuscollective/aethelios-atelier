@@ -38,6 +38,10 @@ export class MemoryPersistence implements PersistenceAdapter {
     return true;
   }
 
+  runInTransaction<T>(fn: () => T): T {
+    return fn();
+  }
+
   resetForTests() {
     this.users.clear();
     this.usersByEmail.clear();
@@ -106,6 +110,18 @@ export class MemoryPersistence implements PersistenceAdapter {
       .filter((project) => project.status !== "draft")
       .map(clone)
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  }
+
+  getProjectByOwnerAndGuestDraft(ownerId: string, guestDraftId: string) {
+    const project = [...this.projects.values()].find(
+      (item) => item.ownerId === ownerId && item.adoptedFromGuestId === guestDraftId
+    );
+    return project ? clone(project) : null;
+  }
+
+  getSubmissionByIdempotencyKey(key: string) {
+    const submission = [...this.submissions.values()].find((item) => item.idempotencyKey === key);
+    return submission ? clone(submission) : null;
   }
 
   updateProject(project: Project) {

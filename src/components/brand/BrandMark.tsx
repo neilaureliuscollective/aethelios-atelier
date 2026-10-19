@@ -2,19 +2,29 @@ import { AppLink } from "@/components/ui/AppLink";
 
 type Props = {
   size?: number;
+  variant?: "icon" | "wordmark";
   withWordmark?: boolean;
-  href?: string;
+  href?: string | null;
+  priority?: boolean;
 };
 
-export function BrandMark({ size = 46, withWordmark = true, href = "/" }: Props) {
+export function BrandMark({
+  size = 40,
+  variant = "icon",
+  withWordmark = true,
+  href = "/",
+  priority = false
+}: Props) {
+  const src = variant === "wordmark" ? "/brand/logo.webp" : "/brand/icon.webp";
   const inner = (
     <>
       <img
-        src="/brand/logo.webp"
-        alt=""
+        src={src}
+        alt={withWordmark ? "" : "Aethelios Atelier"}
         width={size}
         height={size}
-        decoding="async"
+        decoding={priority ? "sync" : "async"}
+        fetchPriority={priority ? "high" : "low"}
       />
       {withWordmark ? (
         <span className="brand-copy">
