@@ -7,7 +7,7 @@ export function Entrance({ onExplore }: { onExplore: () => void }) {
     <section className={styles.hero} aria-labelledby="discover-hero">
       <div>
         <p className={styles.kicker}>Aethelios Atelier · discovery studio</p>
-        <h1 id="discover-hero">
+        <h1 id="discover-hero" className={styles.heading} data-discovery-heading tabIndex={-1}>
           See what your business
           <br />
           <span className={styles.gold}>could become.</span>

@@ -29,7 +29,7 @@ export function Intake({
       <p className={styles.kicker}>About the business · {step + 1} of 4</p>
       {step === 0 ? (
         <>
-          <h2>What is the name of the business?</h2>
+          <h2 className={styles.heading} data-discovery-heading tabIndex={-1}>What is the name of the business?</h2>
           <p className={styles.lede}>You can leave this open. The preview will say “Your business” until you name it.</p>
           <label className={styles.field}>
             <span>Business name</span>
@@ -46,7 +46,7 @@ export function Intake({
       ) : null}
       {step === 1 ? (
         <>
-          <h2>What kind of business is this?</h2>
+          <h2 className={styles.heading} data-discovery-heading tabIndex={-1}>What kind of business is this?</h2>
           <p className={styles.lede}>Start with an appointment-based practice if that is closest. Unknown is allowed.</p>
           <div className={styles.options} role="radiogroup" aria-label="Type of business">
             {BUSINESS_TYPES.map((id) => (
@@ -69,7 +69,7 @@ export function Intake({
       ) : null}
       {step === 2 ? (
         <>
-          <h2>What should this make possible?</h2>
+          <h2 className={styles.heading} data-discovery-heading tabIndex={-1}>What should this make possible?</h2>
           <p className={styles.lede}>Choose the closest aim. You can add a sentence if you already know more.</p>
           <div className={styles.options} role="radiogroup" aria-label="What they want to achieve">
             {INTENT_IDS.map((id) => (
@@ -101,7 +101,7 @@ export function Intake({
       ) : null}
       {step === 3 ? (
         <>
-          <h2>How should customers feel?</h2>
+          <h2 className={styles.heading} data-discovery-heading tabIndex={-1}>How should customers feel?</h2>
           <p className={styles.lede}>This shapes atmosphere. It is not a growth promise.</p>
           <div className={styles.options} role="radiogroup" aria-label="How customers should feel">
             {FEELING_IDS.map((id) => (

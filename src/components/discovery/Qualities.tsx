@@ -25,7 +25,7 @@ export function Qualities({
   return (
     <section>
       <p className={styles.kicker}>Direction qualities</p>
-      <h2>What should it feel like?</h2>
+      <h2 className={styles.heading} data-discovery-heading tabIndex={-1}>What should it feel like?</h2>
       <p className={styles.lede}>
         These are recognizable qualities, not design jargon. Select any that fit. Examples show the
         difference; they are not finished websites.
