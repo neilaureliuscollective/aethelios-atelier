@@ -1,0 +1,1605 @@
+diff --git a/.gitignore b/.gitignore
+index eb4b8f8..c699708 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -8,6 +8,7 @@ out
+ .data-atelier-visual
+ .data-adopt-verify
+ .data-visual
++.data-delivery
+ .vercel
+ .env
+ .env.local
+diff --git a/docs/launch/ARTWORK_DELIVERY.md b/docs/launch/ARTWORK_DELIVERY.md
+new file mode 100644
+index 0000000..daa964d
+--- /dev/null
++++ b/docs/launch/ARTWORK_DELIVERY.md
+@@ -0,0 +1,40 @@
++# Artwork delivery, recovery, and ownership
++
++Application commit for this pass is recorded in `LAUNCH_READINESS.md`. This is local evidence, not hosted launch acceptance. Simulated identities are not Auth.js verification.
++
++## Preserved from earlier PR #18 passes
++
++Owner-bound guest claims, immutable Discovery revisions, BrandKit / `renderComposition`, visual snapshot adoption, retryable workspace verification, CAS saves, official-asset guards, Atelier emerald-glass chrome, and inquiry-led pricing. Homepage / services / intake positioning was not rewritten.
++
++## Selection-level ownership
++
++`guest_work_owners` is insert-once (`guest_work_id` primary key). The first `INSERT … ON CONFLICT DO NOTHING` assigns the owner even when no revision row exists yet. Revision payloads stay immutable. Same owner + same revision + same payload is idempotent. Foreign ownership and conflicting payloads fail explicitly.
++
++Two independent PostgreSQL connections racing different revisions of an unclaimed selection: one owner wins. The loser cannot read, claim, or adopt any revision of that selection. Unrelated selections still progress.
++
++## Saved export vs download
++
++Studio now reports rendering, saving, saved, downloading, and download-failed separately. A successful save keeps the export ID, composition revision, and asset URL. Download Again retries that file. The UI does not claim the device stored a copy merely because a download was triggered.
++
++After refresh or a new browser session, the latest `composition_export` for the open draft is recovered from the server asset list. localStorage is not the source of truth.
++
++The previous solid-ivory PNG remains a low-level persistence/binding check (`owner_canvas_bound`). It is not finished-artwork acceptance.
++
++What is verified: the client-rendered PNG is bound to a composition revision, stored, authorized, and re-delivered. What is not verified: the server independently re-rasterized every pixel. That would be a separate rendering-infrastructure project.
++
++## Upload recovery
++
++A failed logo upload keeps the existing logo, composition, and direction. The file input is cleared so the same file can be retried. Same-origin workspace images load without CORS tainting. Foreign hosts require CORS; a tainted canvas surfaces a meaningful export error.
++
++## Two real UI exports
++
++Production `next start` on port 3030, sqlite `.data-delivery`, simulated auth.
++
++| Identity | Draft | Revision | SHA-256 | Bytes | Samples |
++| --- | --- | --- | --- | --- | --- |
++| Lumen House / ivory / Glass evening | `studio_aa3352ae-c55d-466a-9b93-a28df91f4dce` | `crev_3eecac66-29f9-4757-baab-9a8033983a98` | `e47ae6ab71393b5dda4e9ba53c764c3ac9e51a6ff2de2f4bc40b79691649308c` | 709926 | 11734 |
++| Hearth Room / linen / Linen gathering | `studio_702cb606-bc32-4faf-a4a6-a3c5411e67a3` | `crev_72e47e26-be7d-4bbd-8c6b-6643545094d6` | `bcbd8852b908d9637da28d0c4806cd415b4b9c109637f94752e48477d9922ede` | 1270052 | 22687 |
++
++Both files are 1600×1200 direction boards with visible photography, typography, and palette swatches — not solid PNGs. Output hash equals the downloaded SHA-256. Sign-out / sign-in / Download saved export returned the same Lumen bytes. Revision two draft `studio_a2db9c93-d387-4556-938d-a19cd276792b` did not replace the first draft or its export. Second account received **403** on the first account’s export URL.
++
++Artifacts: `/opt/cursor/artifacts/exports/lumen-export.png`, `hearth-export.png`, `artwork-delivery.json`.
+diff --git a/docs/launch/HOSTED_ACTIVATION.md b/docs/launch/HOSTED_ACTIVATION.md
+index d6413ed..67584ef 100644
+--- a/docs/launch/HOSTED_ACTIVATION.md
++++ b/docs/launch/HOSTED_ACTIVATION.md
+@@ -2,7 +2,7 @@
+ 
+ This is the next stage after local code-complete verification. Nothing here was activated by this agent.
+ 
+-Local visual-brand continuity on this branch is complete: two distinct identities become editable Studio drafts, revision 2 is explicitly adoptable without overwriting revision 1, and preview/export share `renderComposition`. That does **not** satisfy any row below.
++Local artwork delivery on this branch is complete: selection ownership is atomic, saved export is distinct from download, and two real UI exports were re-downloaded. That does **not** satisfy any row below. The server binds owner-rendered bytes to a revision; it does not independently re-rasterize every pixel.
+ 
+ | Integration | Status | What “verified” requires |
+ | --- | --- | --- |
+diff --git a/docs/launch/LAUNCH_READINESS.md b/docs/launch/LAUNCH_READINESS.md
+index eb858c6..26dda85 100644
+--- a/docs/launch/LAUNCH_READINESS.md
++++ b/docs/launch/LAUNCH_READINESS.md
+@@ -14,7 +14,14 @@ See `docs/launch/SOURCE_RECONCILIATION.md`.
+ 
+ The actual immersive patch was present, hash-verified (283,258 bytes, SHA-256 `6ad51b91012226ae59a5e4d71fd30d6551ee9b753963d634b000b2eec352db35`), three-way applied, and reconciled file by file. `REHEARSAL.md` was not used as a substitute source.
+ 
+-## What this pass added
++## What the artwork-delivery pass added
++
++- Insert-once `guest_work_owners` so two accounts cannot split revisions of one unclaimed selection
++- Studio export stages: render → save → saved → download / download-failed, with Download again
++- Logo upload failures keep the existing artwork
++- Real UI exports for Lumen and Hearth (1600×1200, distinct SHA-256, byte-identical reopen)
++
++## What the visual-continuity pass added
+ 
+ - Direction → Refine → Collection, BrandKit, shared preview/export rendering, and saved-versus-working comparison from the approved immersive patch
+ - Immutable owner-bound Discovery revisions: identical retry, same-revision conflict, newer revision claimable without overwriting the first snapshot
+@@ -65,8 +72,8 @@ Owner-canvas-bound export SHA-256: `ab6b8492d0d565cba5fdaf31a9b92993e0f6fb74b0a8
+ 
+ ## Configured launch acceptance
+ 
+-See `docs/launch/HOSTED_ACTIVATION.md`. Hosted sign-in, callback origin, durable Postgres, artifact storage, two real accounts, one approved provider request, and GitHub Actions billing remain blocked or not run.
++See `docs/launch/ARTWORK_DELIVERY.md` for this pass and `docs/launch/HOSTED_ACTIVATION.md` for remaining gates.
+ 
+-GitHub Actions `check` on `342ab8f` (run `39473099250`) failed in 3s because the job was not started: account payments failed or the spending limit must be increased. The same 3s billing failure already existed on earlier heads of this PR. Vercel preview completed; that is not launch acceptance.
++GitHub Actions `check` remains **blocked** by account billing / spending limit. A never-started Actions job is not a passing test suite. Vercel preview is not launch acceptance.
+ 
+ Do not merge to `main` or deploy from this agent without a separate approval.
+diff --git a/docs/launch/SOURCE_RECONCILIATION.md b/docs/launch/SOURCE_RECONCILIATION.md
+index 239bc27..655fb58 100644
+--- a/docs/launch/SOURCE_RECONCILIATION.md
++++ b/docs/launch/SOURCE_RECONCILIATION.md
+@@ -51,7 +51,11 @@ Owner-bound guest claims, transactional adoption, exact-draft navigation, idempo
+ - `createFromConfirmedSnapshot` builds BrandKit + designSpec artwork (`direction_board`) instead of default square layers.
+ - Confirmation opens that exact draft. Preview/export continue to share `renderComposition`.
+ 
+-## Recovery patch
++## Artwork-delivery recovery patch
++
++`docs/launch/atelier-artwork-delivery.patch` is the recoverable diff of this pass against `b7e47e0`.
++
++## Visual-continuity recovery patch
+ 
+ `docs/launch/atelier-visual-continuity.patch` is the recoverable diff of `a5f109a` against `a8aabc6` (382,993 bytes, SHA-256 `6357848f90527635509786b49620ec628af992b2a7aaf74c0757f7ead0af9e00`).
+ 
+diff --git a/scripts/artwork-delivery-capture.mjs b/scripts/artwork-delivery-capture.mjs
+new file mode 100644
+index 0000000..f38cefb
+--- /dev/null
++++ b/scripts/artwork-delivery-capture.mjs
+@@ -0,0 +1,386 @@
++#!/usr/bin/env node
++/** Real UI export/download proof for two identities. Not hosted Auth.js verification. */
++import { createHash } from "node:crypto";
++import fs from "node:fs";
++import path from "node:path";
++import { PNG } from "pngjs";
++import puppeteer from "puppeteer-core";
++
++const BASE = process.env.ATELIER_BASE ?? "http://127.0.0.1:3000";
++const OUT = process.env.ATELIER_SCREENSHOT_DIR ?? "/opt/cursor/artifacts/screenshots";
++const FILES = process.env.ATELIER_EXPORT_DIR ?? "/opt/cursor/artifacts/exports";
++fs.mkdirSync(OUT, { recursive: true });
++fs.mkdirSync(FILES, { recursive: true });
++
++function writeMarkPng(file, [r, g, b]) {
++  const png = new PNG({ width: 64, height: 32 });
++  for (let y = 0; y < 32; y += 1) {
++    for (let x = 0; x < 64; x += 1) {
++      const i = (y * 64 + x) * 4;
++      const mark = x > 12 && x < 52 && y > 8 && y < 24;
++      png.data[i] = mark ? r : 255;
++      png.data[i + 1] = mark ? g : 255;
++      png.data[i + 2] = mark ? b : 255;
++      png.data[i + 3] = mark ? 255 : 0;
++    }
++  }
++  fs.writeFileSync(file, PNG.sync.write(png));
++}
++
++function makeSelection({ selectionId, localRevision, selectedDirectionId, paletteId, visualDirectionId, businessName, headline, audience }) {
++  return {
++    selectionId,
++    localRevision,
++    catalogVersion: 1,
++    templateVersion: 1,
++    businessName,
++    businessType: "independent",
++    audience,
++    desiredQualities: ["refined"],
++    intent: "clearer_presence",
++    intentNote: "",
++    customerFeeling: "calm",
++    selectedDirectionId,
++    visualPreferences: { paletteId, visualDirectionId, headline },
++    serviceInterest: "website",
++    likesNote: "",
++    changeNote: "",
++    visitorNotes: "",
++    exclusions: "",
++    createdAt: new Date().toISOString(),
++    updatedAt: new Date().toISOString()
++  };
++}
++
++const lumen = makeSelection({
++  selectionId: `dsel_lumen_${crypto.randomUUID().slice(0, 8)}`,
++  localRevision: 1,
++  selectedDirectionId: "lumen",
++  paletteId: "ivory_hall",
++  visualDirectionId: "glass",
++  businessName: "Lumen House",
++  headline: "Glass evening",
++  audience: "Quiet light."
++});
++const hearth = makeSelection({
++  selectionId: `dsel_hearth_${crypto.randomUUID().slice(0, 8)}`,
++  localRevision: 1,
++  selectedDirectionId: "hearth",
++  paletteId: "hearth_linen",
++  visualDirectionId: "material",
++  businessName: "Hearth Room",
++  headline: "Linen gathering",
++  audience: "Warm rooms."
++});
++
++const lumenLogo = path.join(FILES, "lumen-logo.png");
++const hearthLogo = path.join(FILES, "hearth-logo.png");
++writeMarkPng(lumenLogo, [20, 40, 30]);
++writeMarkPng(hearthLogo, [212, 180, 110]);
++
++const browser = await puppeteer.launch({
++  executablePath: "/usr/bin/google-chrome-stable",
++  headless: true,
++  args: ["--no-sandbox", "--disable-gpu", "--hide-scrollbars"]
++});
++
++async function shot(page, width, name, height = width <= 390 ? 844 : 1100) {
++  await page.setViewport({ width, height, deviceScaleFactor: 1, isMobile: width <= 390 });
++  await new Promise((resolve) => setTimeout(resolve, 200));
++  const file = path.join(OUT, `delivery_${name}_${width}w.png`);
++  await page.screenshot({ path: file, fullPage: true });
++  return file;
++}
++
++async function signIn(page, email) {
++  const result = await page.evaluate(async (emailArg) => {
++    const res = await fetch("/api/session/sign-in", {
++      method: "POST",
++      headers: { "content-type": "application/json" },
++      body: JSON.stringify({ email: emailArg })
++    });
++    return { status: res.status, ok: res.ok };
++  }, email);
++  if (!result.ok) throw new Error(`sign-in ${email} ${result.status}`);
++  await page.reload({ waitUntil: "networkidle0" });
++}
++
++async function seedHandoff(page, next) {
++  await page.evaluate((value) => {
++    window.sessionStorage.setItem(
++      "aethelios.atelier.discovery.handoff.v1",
++      JSON.stringify({ kind: "discovery_handoff", selection: value })
++    );
++    window.sessionStorage.setItem(
++      "aethelios.atelier.guestIntent.v1",
++      JSON.stringify({
++        version: 1,
++        kind: "guest_intent",
++        guestWorkId: value.selectionId,
++        destination: "/companion/confirm",
++        selectionId: value.selectionId,
++        localRevision: value.localRevision,
++        updatedAt: new Date().toISOString()
++      })
++    );
++  }, next);
++}
++
++async function waitStudio(page, headline) {
++  await page.waitForFunction(
++    (text) => /Brand Studio/i.test(document.body.innerText) && document.body.innerText.includes(text),
++    { timeout: 20000 },
++    headline
++  );
++  await page.waitForFunction(() => {
++    const el = document.querySelector("[data-studio-preview], canvas");
++    return el instanceof HTMLCanvasElement && (el.dataset.renderState === "ready" || el.width > 0);
++  }, { timeout: 10000 }).catch(() => {});
++}
++
++async function confirmAndOpen(page, next) {
++  await seedHandoff(page, next);
++  await page.goto(`${BASE}/companion/confirm`, { waitUntil: "networkidle0" });
++  await page.waitForFunction((headline) => document.body.innerText.includes(headline), { timeout: 15000 }, next.visualPreferences.headline);
++  await page.evaluate(() => {
++    const button = [...document.querySelectorAll("button")].find((node) =>
++      /Confirm and continue|Adopt the newer revision/i.test(node.textContent || "")
++    );
++    button?.click();
++  });
++  const needsReplace = await page
++    .waitForFunction(() => /Adopt the newer revision|Brand Studio/i.test(document.body.innerText), { timeout: 15000 })
++    .then(() => page.evaluate(() => /Adopt the newer revision/i.test(document.body.innerText)));
++  if (needsReplace) {
++    await page.evaluate(() => {
++      [...document.querySelectorAll("button")]
++        .find((node) => /Adopt the newer revision/i.test(node.textContent || ""))
++        ?.click();
++    });
++  }
++  await waitStudio(page, next.visualPreferences.headline);
++  return page.evaluate(() => new URL(window.location.href).searchParams.get("draftId"));
++}
++
++async function prepareDownload(page, dir) {
++  fs.mkdirSync(dir, { recursive: true });
++  const client = await page.createCDPSession();
++  await client.send("Page.setDownloadBehavior", { behavior: "allow", downloadPath: dir });
++  return client;
++}
++
++async function waitForDownload(dir, timeoutMs = 15000) {
++  const started = Date.now();
++  while (Date.now() - started < timeoutMs) {
++    const files = fs.readdirSync(dir).filter((name) => name.endsWith(".png") && !name.endsWith(".crdownload"));
++    if (files.length) {
++      const file = path.join(dir, files.sort((a, b) => fs.statSync(path.join(dir, b)).mtimeMs - fs.statSync(path.join(dir, a)).mtimeMs)[0]);
++      const bytes = fs.readFileSync(file);
++      if (bytes.length > 8 && bytes[0] === 0x89 && bytes[1] === 0x50) return { file, bytes };
++    }
++    await new Promise((resolve) => setTimeout(resolve, 150));
++  }
++  throw new Error(`No PNG download appeared in ${dir}`);
++}
++
++function inspectPng(bytes, expected) {
++  const decoded = PNG.sync.read(bytes);
++  const samples = new Set();
++  for (let i = 0; i < decoded.data.length; i += 64) {
++    samples.add(`${decoded.data[i]},${decoded.data[i + 1]},${decoded.data[i + 2]}`);
++  }
++  const hash = createHash("sha256").update(bytes).digest("hex");
++  if (decoded.width !== expected.width || decoded.height !== expected.height) {
++    throw new Error(`unexpected dimensions ${decoded.width}x${decoded.height}`);
++  }
++  if (samples.size < 4) {
++    throw new Error(`export looks flat (${samples.size} colors) — not finished artwork`);
++  }
++  const hasCanvas = [...samples].some((value) => {
++    const [r, g, b] = value.split(",").map(Number);
++    return Math.abs(r - expected.canvas[0]) < 18 && Math.abs(g - expected.canvas[1]) < 18 && Math.abs(b - expected.canvas[2]) < 18;
++  });
++  if (!hasCanvas) throw new Error(`expected canvas color ${expected.canvas.join(",")} missing`);
++  return { width: decoded.width, height: decoded.height, uniqueSamples: samples.size, hash, bytes: bytes.length };
++}
++
++async function editAndExport(page, { headline, logoPath, prefix, canvas }) {
++  await page.evaluate(() => {
++    [...document.querySelectorAll("button")].find((node) => /Aa · Text|Content/i.test(node.textContent || ""))?.click();
++  });
++  await page.evaluate((nextHeadline) => {
++    const field = document.querySelector("#headline");
++    if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) {
++      field.focus();
++      field.value = nextHeadline;
++      field.dispatchEvent(new Event("input", { bubbles: true }));
++    }
++  }, headline);
++  await page.evaluate(() => {
++    [...document.querySelectorAll("button")].find((node) => /◇ · Logo|Brand/i.test(node.textContent || ""))?.click();
++  });
++  const failedUpload = path.join(FILES, `${prefix}-not-an-image.txt`);
++  fs.writeFileSync(failedUpload, "not an image");
++  const logoInput = await page.$("#logo");
++  await logoInput.uploadFile(failedUpload);
++  await page.waitForFunction(() => /Logo upload failed|failed/i.test(document.body.innerText), { timeout: 8000 }).catch(() => {});
++  await shot(page, 1440, `${prefix}_upload_error`);
++  await logoInput.uploadFile(logoPath);
++  await page.waitForFunction(() => /Original logo stored/i.test(document.body.innerText), { timeout: 12000 });
++  await page.evaluate(() => {
++    [...document.querySelectorAll("button")].find((node) => /Save layers/i.test(node.textContent || ""))?.click();
++  });
++  await page.waitForFunction(() => /Saved|Original logo stored/i.test(document.body.innerText), { timeout: 8000 }).catch(() => {});
++  const preview = await page.evaluate(() => {
++    const canvasEl = document.querySelector("[data-studio-preview], canvas");
++    return canvasEl instanceof HTMLCanvasElement ? { width: canvasEl.width, height: canvasEl.height, dataUrl: canvasEl.toDataURL("image/png") } : null;
++  });
++  const downloadDir = path.join(FILES, `${prefix}-download`);
++  fs.rmSync(downloadDir, { recursive: true, force: true });
++  await prepareDownload(page, downloadDir);
++  await page.evaluate(() => {
++    [...document.querySelectorAll("button")].find((node) => node.textContent?.trim() === "Export")?.click();
++  });
++  const downloaded = await waitForDownload(downloadDir);
++  const inspected = inspectPng(downloaded.bytes, canvas);
++  fs.writeFileSync(path.join(FILES, `${prefix}-export.png`), downloaded.bytes);
++  await page.waitForFunction(() => /Export saved|Download failed|Download again/i.test(document.body.innerText), { timeout: 10000 });
++  await shot(page, 1440, `${prefix}_exported`);
++  await shot(page, 390, `${prefix}_exported`);
++  const meta = await page.evaluate(async () => {
++    const workspace = await fetch("/api/companion/workspace").then((res) => res.json());
++    const studio = await fetch(`/api/companion/studio?businessId=${workspace.business.id}`).then((res) => res.json());
++    const draft = studio.draft ?? (studio.drafts || []).find((item) => item.id === (window.__atelierDraftId || item.id));
++    const exportAsset = (studio.assets || []).find((item) => item.prompt === "composition_export" && (!draft || item.draftId === draft.id));
++    return {
++      draftId: draft?.id,
++      revisionId: exportAsset?.compositionRevisionId ?? null,
++      assetId: exportAsset?.id ?? null,
++      outputHash: exportAsset?.outputHash ?? null,
++      assetUrl: exportAsset?.id
++        ? `/api/companion/assets/${exportAsset.id}?businessId=${encodeURIComponent(workspace.business.id)}`
++        : null
++    };
++  });
++  return {
++    preview,
++    downloaded,
++    inspected,
++    meta: { ...meta, draftId: new URL(page.url()).searchParams.get("draftId") || meta.draftId }
++  };
++}
++
++async function reopenAndRedownload(page, meta, prefix, canvas) {
++  if (!meta.draftId) throw new Error(`${prefix} missing draft id for reopen`);
++  await page.goto(`${BASE}/companion/studio?draftId=${encodeURIComponent(meta.draftId)}`, { waitUntil: "networkidle0" });
++  await waitStudio(page, "");
++  await page.waitForFunction(() => /Download saved export|Download again|Composition exports/i.test(document.body.innerText), {
++    timeout: 12000
++  });
++  const downloadDir = path.join(FILES, `${prefix}-reopen`);
++  fs.rmSync(downloadDir, { recursive: true, force: true });
++  await prepareDownload(page, downloadDir);
++  const clicked = await page.evaluate(() => {
++    const button = [...document.querySelectorAll("button")].find((node) =>
++      /Download saved export|Download again|Download exported revision/i.test(node.textContent || "")
++    );
++    button?.click();
++    return Boolean(button);
++  });
++  if (!clicked && meta.assetUrl) {
++    const bytes = Buffer.from(await page.evaluate(async (url) => {
++      const res = await fetch(url, { credentials: "same-origin" });
++      return Array.from(new Uint8Array(await res.arrayBuffer()));
++    }, meta.assetUrl));
++    return inspectPng(bytes, canvas);
++  }
++  const downloaded = await waitForDownload(downloadDir);
++  return inspectPng(downloaded.bytes, canvas);
++}
++
++const ownerPage = await browser.newPage();
++await ownerPage.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]);
++await ownerPage.goto(`${BASE}/account`, { waitUntil: "networkidle0" });
++await signIn(ownerPage, "owner.local@atelier.invalid");
++const lumenDraft = await confirmAndOpen(ownerPage, lumen);
++await shot(ownerPage, 1440, "lumen_studio");
++const lumenExport = await editAndExport(ownerPage, {
++  headline: "Glass reserved",
++  logoPath: lumenLogo,
++  prefix: "lumen",
++  canvas: { width: 1600, height: 1200, canvas: [244, 240, 230] }
++});
++
++await ownerPage.evaluate(async () => {
++  await fetch("/api/session/sign-out", { method: "POST" });
++});
++const reopen = await browser.newPage();
++await reopen.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]);
++await reopen.goto(`${BASE}/account`, { waitUntil: "networkidle0" });
++await signIn(reopen, "owner.local@atelier.invalid");
++const lumenAgain = await reopenAndRedownload(reopen, { ...lumenExport.meta, draftId: lumenDraft }, "lumen", {
++  width: 1600,
++  height: 1200,
++  canvas: [244, 240, 230]
++});
++if (lumenAgain.hash !== lumenExport.inspected.hash) {
++  throw new Error("reopened Lumen export was not byte-identical");
++}
++await shot(reopen, 1440, "lumen_reopened");
++
++const otherPage = await browser.newPage();
++await otherPage.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]);
++await otherPage.goto(`${BASE}/account`, { waitUntil: "networkidle0" });
++await signIn(otherPage, "owner-two.local@atelier.invalid");
++const hearthDraft = await confirmAndOpen(otherPage, hearth);
++await shot(otherPage, 1440, "hearth_studio");
++const hearthExport = await editAndExport(otherPage, {
++  headline: "Linen reserved",
++  logoPath: hearthLogo,
++  prefix: "hearth",
++  canvas: { width: 1600, height: 1200, canvas: [26, 22, 18] }
++});
++const isolation = await otherPage.evaluate(async (url) => {
++  const file = await fetch(url, { credentials: "same-origin" });
++  return { exportStatus: file.status, bodyPreview: (await file.text()).slice(0, 80) };
++}, lumenExport.meta.assetUrl);
++if (isolation.exportStatus === 200) throw new Error("second account read the first account export bytes");
++
++const revise = await browser.newPage();
++await revise.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]);
++await revise.goto(`${BASE}/account`, { waitUntil: "networkidle0" });
++await signIn(revise, "owner.local@atelier.invalid");
++const revised = {
++  ...lumen,
++  localRevision: 2,
++  selectedDirectionId: "signal",
++  visualPreferences: { paletteId: "signal_ink", visualDirectionId: "mark", headline: "A clear mark" }
++};
++const revisionTwoDraft = await confirmAndOpen(revise, revised);
++await shot(revise, 1440, "revision_two_studio");
++await revise.goto(`${BASE}/companion/studio?draftId=${encodeURIComponent(lumenDraft)}`, { waitUntil: "networkidle0" });
++await revise.waitForFunction(() => /Glass evening/i.test(document.body.innerText), { timeout: 12000 });
++await shot(revise, 1440, "revision_one_preserved");
++const firstExportAgain = await reopenAndRedownload(revise, { ...lumenExport.meta, draftId: lumenDraft }, "lumen-kept", {
++  width: 1600,
++  height: 1200,
++  canvas: [244, 240, 230]
++});
++if (firstExportAgain.hash !== lumenExport.inspected.hash) {
++  throw new Error("revision two adoption changed the first export bytes");
++}
++
++const summary = {
++  lumenDraft,
++  hearthDraft,
++  revisionTwoDraft,
++  lumen: { ...lumenExport.inspected, ...lumenExport.meta },
++  hearth: { ...hearthExport.inspected, ...hearthExport.meta },
++  isolation,
++  reopenHash: lumenAgain.hash
++};
++fs.writeFileSync(path.join(FILES, "artwork-delivery.json"), JSON.stringify(summary, null, 2));
++console.log(JSON.stringify(summary, null, 2));
++if (lumenDraft === hearthDraft) throw new Error("both identities opened the same draft");
++if (revisionTwoDraft === lumenDraft) throw new Error("revision two overwrote the first draft");
++await browser.close();
+diff --git a/src/components/cofounder/StudioClient.tsx b/src/components/cofounder/StudioClient.tsx
+index 9de6a65..5c0dc02 100644
+--- a/src/components/cofounder/StudioClient.tsx
++++ b/src/components/cofounder/StudioClient.tsx
+@@ -18,6 +18,7 @@ import {
+   previewScale,
+   scaleCompositionPx,
+   studioLayouts,
++  STUDIO_LAYOUTS,
+   type BrandPalette,
+   type CompositionSpec
+ } from "@/lib/cofounder/composition";
+@@ -27,9 +28,47 @@ import styles from "./companion.module.css";
+ import stage from "./studioStage.module.css";
+ import { CompositionStudy } from "./CompositionStudy";
+ import { isStudioBackgroundAsset, studioAssetKind } from "@/lib/cofounder/studioAssets";
++import {
++  exportDownloadFailedMessage,
++  exportSaveFailedMessage,
++  exportSavedStatus,
++  fetchSavedExportBytes,
++  triggerBrowserDownload,
++  type ExportDeliveryStage,
++  type SavedExportRef
++} from "@/lib/cofounder/exportDelivery";
+ 
+ const LAYOUTS = studioLayouts();
+ 
++function recoverSavedExport(
++  list: StudioAsset[],
++  draft: StudioDraft | null,
++  biz?: string
++): SavedExportRef | null {
++  if (!draft || !biz) return null;
++  const item = list
++    .filter(
++      (asset) =>
++        asset.draftId === draft.id &&
++        studioAssetKind(asset) === "composition_export" &&
++        asset.status === "ready" &&
++        asset.blobId &&
++        asset.compositionRevisionId
++    )
++    .sort((left, right) => right.revision - left.revision)[0];
++  if (!item?.compositionRevisionId) return null;
++  const size = STUDIO_LAYOUTS[draft.layout] ?? STUDIO_LAYOUTS.direction_board;
++  return {
++    assetId: item.id,
++    assetUrl: assetUrl(biz, item.id),
++    revisionId: item.compositionRevisionId,
++    draftId: draft.id,
++    width: size.width,
++    height: size.height,
++    outputHash: item.outputHash
++  };
++}
++
+ export function StudioClient() {
+   const { user, generation } = useSession();
+   const search = useSearchParams();
+@@ -61,6 +100,9 @@ export function StudioClient() {
+   const [logoDocumentId, setLogoDocumentId] = useState<string | undefined>();
+   const [generating, setGenerating] = useState(false);
+   const [exporting, setExporting] = useState(false);
++  const [exportStage, setExportStage] = useState<ExportDeliveryStage>("idle");
++  const [savedExport, setSavedExport] = useState<SavedExportRef | null>(null);
++  const [uploadingLogo, setUploadingLogo] = useState(false);
+   const [saving, setSaving] = useState(false);
+   const [dirty, setDirty] = useState(false);
+   const generateKeyRef = useRef<string | null>(null);
+@@ -110,6 +152,13 @@ export function StudioClient() {
+     setDrafts(data.drafts);
+     setWorkItems(work.items);
+     setAssets(data.assets ?? today.today.pendingAssets);
++    const nextDraft =
++      (search.get("draftId") && data.drafts.find((item) => item.id === search.get("draftId"))) ||
++      current ||
++      data.drafts[0] ||
++      null;
++    const recovered = recoverSavedExport(data.assets ?? today.today.pendingAssets, nextDraft, workspace.business.id);
++    if (recovered) setSavedExport(recovered);
+     if (!restoreDraft) {
+       setPhase("ready");
+       return;
+@@ -133,6 +182,12 @@ export function StudioClient() {
+       if (!current || current.id !== resolved.draft.id || current.updatedAt !== resolved.draft.updatedAt) {
+         hydrate(resolved.draft);
+       }
++      const resolvedExport = recoverSavedExport(
++        data.assets ?? today.today.pendingAssets,
++        resolved.draft,
++        workspace.business.id
++      );
++      if (resolvedExport) setSavedExport(resolvedExport);
+       setError("");
+       setRecovery("");
+       setPhase("ready");
+@@ -382,18 +437,62 @@ export function StudioClient() {
+     }
+   }
+ 
++  async function downloadExistingExport(ref: SavedExportRef) {
++    setExporting(true);
++    setExportStage("downloading");
++    setError("");
++    setRecovery("");
++    setStatus("The export is saved. Downloading the existing file…");
++    try {
++      const blob = await fetchSavedExportBytes(ref);
++      triggerBrowserDownload(blob, `${ref.draftId}.png`);
++      setExportStage("saved");
++      setStatus(exportSavedStatus(ref));
++    } catch (err) {
++      setExportStage("download_failed");
++      setError(exportSaveFailedMessage(err, exportDownloadFailedMessage()));
++      setRecovery("The composition was not changed. Download again to retry the existing file.");
++    } finally {
++      setExporting(false);
++    }
++  }
++
+   async function exportDraft() {
+     if (!selected || !composition || exporting) return;
+     setExporting(true);
+     setError("");
+     setRecovery("");
+-    setStatus("Saving the exact revision, then exporting…");
++    setExportStage("rendering");
++    setStatus("Rendering this composition…");
++    let persisted: SavedExportRef | null = null;
+     try {
+       const saved = dirty ? await saveLayers() : selected;
+       if (!saved) return;
+-      const composedPngBase64 = await composePng(composition);
++      let composedPngBase64: string;
++      try {
++        composedPngBase64 = await composePng(composition);
++      } catch (err) {
++        setExportStage("idle");
++        setError(
++          exportSaveFailedMessage(
++            err,
++            "Rendering failed. The draft is still editable and was not marked exported."
++          )
++        );
++        setRecovery("Fix the artwork or replace the failed source image, then export again. Unsaved edits were kept.");
++        setStatus("");
++        return;
++      }
++      setExportStage("saving");
++      setStatus("Saving the exact revision…");
+       const result = await api<{
+-        exported: { labeled: string; dimensions: { width: number; height: number }; assetUrl?: string | null };
++        exported: {
++          labeled: string;
++          dimensions: { width: number; height: number };
++          assetUrl?: string | null;
++          asset?: { id: string; outputHash?: string };
++          revision?: { id: string };
++        };
+       }>("/api/companion/studio/export", {
+         method: "POST",
+         body: JSON.stringify({
+@@ -406,25 +505,45 @@ export function StudioClient() {
+           expectedUpdatedAt: saved.updatedAt
+         })
+       });
+-      setStatus(`Exported ${result.exported.dimensions.width}×${result.exported.dimensions.height}. The saved revision and file match.`);
+-      if (result.exported.assetUrl) {
+-        const file = await fetch(result.exported.assetUrl);
+-        if (file.ok) {
+-          const blob = await file.blob();
+-          const objectUrl = URL.createObjectURL(blob);
+-          const link = document.createElement("a");
+-          link.href = objectUrl;
+-          link.download = `${saved.id}.png`;
+-          link.rel = "noopener";
+-          link.click();
+-          URL.revokeObjectURL(objectUrl);
+-        }
++      if (!result.exported.assetUrl || !result.exported.asset?.id || !result.exported.revision?.id) {
++        throw new Error("The export was saved without a complete download reference. Reload Work and use Download exported revision.");
+       }
+-      await refresh();
++      persisted = {
++        assetId: result.exported.asset.id,
++        assetUrl: result.exported.assetUrl,
++        revisionId: result.exported.revision.id,
++        draftId: saved.id,
++        width: result.exported.dimensions.width,
++        height: result.exported.dimensions.height,
++        outputHash: result.exported.asset.outputHash
++      };
++      setSavedExport(persisted);
++      setExportStage("saved");
++      setStatus(`Export saved ${persisted.width}×${persisted.height}. Preparing download…`);
+     } catch (err) {
+-      setError(actionErrorMessage(err, "Export failed. The draft is still editable and was not marked exported."));
++      setExportStage("idle");
++      setError(
++        exportSaveFailedMessage(err, "Export failed. The draft is still editable and was not marked exported.")
++      );
+       setRecovery("Keep editing, then retry export. A mismatched or 1×1 image will not mark Work as exported.");
+       setStatus("");
++      return;
++    } finally {
++      if (!persisted) setExporting(false);
++    }
++    if (!persisted) return;
++    try {
++      setExportStage("downloading");
++      const blob = await fetchSavedExportBytes(persisted);
++      triggerBrowserDownload(blob, `${persisted.draftId}.png`);
++      setExportStage("saved");
++      setStatus(exportSavedStatus(persisted));
++      await refresh();
++    } catch (err) {
++      setExportStage("download_failed");
++      setError(exportSaveFailedMessage(err, exportDownloadFailedMessage()));
++      setRecovery("The export is saved. Download again to retry the existing file. A duplicate export was not created.");
++      await refresh();
+     } finally {
+       setExporting(false);
+     }
+@@ -475,29 +594,47 @@ export function StudioClient() {
+   }
+ 
+   async function uploadLogo(file: File) {
+-    const bytesBase64 = await file.arrayBuffer().then((buffer) => {
+-      const bytes = new Uint8Array(buffer);
+-      let binary = "";
+-      bytes.forEach((value) => {
+-        binary += String.fromCharCode(value);
++    if (uploadingLogo || saving || exporting) return;
++    const previousLogo = { logoDocumentId, logoAssetId };
++    setUploadingLogo(true);
++    setError("");
++    setRecovery("");
++    setStatus("Uploading the original logo…");
++    try {
++      const bytesBase64 = await file.arrayBuffer().then((buffer) => {
++        const bytes = new Uint8Array(buffer);
++        let binary = "";
++        bytes.forEach((value) => {
++          binary += String.fromCharCode(value);
++        });
++        return btoa(binary);
+       });
+-      return btoa(binary);
+-    });
+-    const result = await api<{ document: { id: string } }>("/api/companion/documents", {
+-      method: "POST",
+-      body: JSON.stringify({
+-        businessId,
+-        title: file.name,
+-        mime: file.type || "image/png",
+-        bytesBase64,
+-        kind: "logo"
+-      })
+-    });
+-    setLogoDocumentId(result.document.id);
+-    setLogoAssetId(undefined);
+-    setDirty(true);
+-    setStatus("Original logo stored. Preview and export use the same placement.");
+-    if (selected) await saveLayers(result.document.id);
++      const result = await api<{ document: { id: string } }>("/api/companion/documents", {
++        method: "POST",
++        body: JSON.stringify({
++          businessId,
++          title: file.name,
++          mime: file.type || "image/png",
++          bytesBase64,
++          kind: "logo"
++        })
++      });
++      setLogoDocumentId(result.document.id);
++      setLogoAssetId(undefined);
++      setDirty(true);
++      setStatus("Original logo stored. Preview and export use the same placement.");
++      if (selected) await saveLayers(result.document.id);
++    } catch (err) {
++      setLogoDocumentId(previousLogo.logoDocumentId);
++      setLogoAssetId(previousLogo.logoAssetId);
++      setError(
++        actionErrorMessage(err, "Logo upload failed. The existing logo, composition, and chosen direction were kept.")
++      );
++      setRecovery("Retry the same file. The current artwork was not replaced.");
++      setStatus("");
++    } finally {
++      setUploadingLogo(false);
++    }
+   }
+ 
+   async function importWork(item: WorkItem) {
+@@ -523,9 +660,13 @@ export function StudioClient() {
+         : dirty
+           ? "Unsaved"
+           : exporting
+-            ? "Exporting"
+-            : !dirty && status.toLowerCase().startsWith("exported")
+-              ? "Exported"
++            ? exportStage === "downloading"
++              ? "Downloading"
++              : "Exporting"
++            : exportStage === "download_failed"
++              ? "Download failed"
++              : savedExport && !dirty
++              ? "Export saved"
+               : selected
+                 ? "Saved"
+                 : "";
+@@ -629,7 +770,7 @@ export function StudioClient() {
+           </div></div>
+           <div className={stage.toolDock} aria-label="Select an element">{["Content", "Image", "Brand", "Layout"].map((name) => <button key={name} type="button" aria-pressed={panel === name && mode === "refine"} onClick={() => focusPanel(name)}>{name === "Content" ? "Aa · Text" : name === "Image" ? "◈ · Image" : name === "Brand" ? "◇ · Logo" : "▣ · Format"}</button>)}</div>
+           <div className={stage.collection} data-expanded={mode === "collection"} aria-label="Coordinated artifact previews">{collection.map((item) => <button key={item.format} type="button" className={stage.study} aria-pressed={layout === item.format} disabled={kept.includes("Layout") || saving || exporting} onClick={() => { markDirty(setLayout)(item.format); setMode("refine"); }}><span className={stage.studyCanvas}><CompositionStudy spec={item.spec} label={`${item.label} live collection preview`} /></span><span>{item.label}<small>{layout === item.format ? "On stage" : "Open & edit"}</small></span></button>)}</div>
+-          <div className={stage.stageActions}><button className="btn btn-gold" type="button" onClick={() => void saveLayers()} disabled={!selected || saving}>{saving ? "Saving…" : dirty ? "Save layers" : "Saved"}</button><button className="btn btn-emerald-glass" type="button" onClick={() => void exportDraft()} disabled={!selected || exporting}>{exporting ? "Exporting…" : "Export"}</button><button className={stage.compare} type="button" disabled={!current || !dirty} onClick={() => { hydrate(current); setStatus("Restored the last saved composition."); }}>Reset edits</button></div>
++          <div className={stage.stageActions}><button className="btn btn-gold" type="button" onClick={() => void saveLayers()} disabled={!selected || saving}>{saving ? "Saving…" : dirty ? "Save layers" : "Saved"}</button><button className="btn btn-emerald-glass" type="button" onClick={() => void exportDraft()} disabled={!selected || exporting}>{exporting ? exportStage === "downloading" ? "Downloading…" : exportStage === "saving" ? "Saving export…" : "Exporting…" : "Export"}</button>{savedExport ? <button className="btn btn-ghost" type="button" onClick={() => void downloadExistingExport(savedExport)} disabled={exporting}>{exportStage === "download_failed" ? "Download again" : "Download saved export"}</button> : null}<button className={stage.compare} type="button" disabled={!current || !dirty} onClick={() => { hydrate(current); setStatus("Restored the last saved composition."); }}>Reset edits</button></div>
+           <p className={styles.meta} role="status">{status}</p>
+           {error ? <p className="notice notice-warn">{error}</p> : null}
+           {recovery ? <p className={styles.meta}>{recovery}</p> : null}
+@@ -772,9 +913,13 @@ export function StudioClient() {
+               className={styles.file}
+               type="file"
+               accept="image/*"
++              disabled={uploadingLogo || saving || exporting}
+               onChange={(event) => {
+                 const file = event.target.files?.[0];
+-                if (file) void uploadLogo(file);
++                if (file) {
++                  void uploadLogo(file);
++                  event.currentTarget.value = "";
++                }
+               }}
+             />
+             <label className={styles.label} htmlFor="logo-x">
+@@ -831,6 +976,15 @@ export function StudioClient() {
+ async function composePng(spec: CompositionSpec) {
+   // Match preview rasterization without inheriting CSS text styles from a mounted canvas.
+   const target = await renderComposition(spec, document.createElement("canvas"));
+-  const data = target.toDataURL("image/png");
+-  return data.replace(/^data:image\/png;base64,/, "");
++  try {
++    const data = target.toDataURL("image/png");
++    return data.replace(/^data:image\/png;base64,/, "");
++  } catch (error) {
++    if (error instanceof DOMException && error.name === "SecurityError") {
++      throw new Error(
++        "This composition includes an image this browser cannot export safely. Use a workspace-owned source image, then retry. The draft was not marked exported."
++      );
++    }
++    throw error;
++  }
+ }
+diff --git a/src/lib/cofounder/exportDelivery.test.ts b/src/lib/cofounder/exportDelivery.test.ts
+new file mode 100644
+index 0000000..dc4a72d
+--- /dev/null
++++ b/src/lib/cofounder/exportDelivery.test.ts
+@@ -0,0 +1,49 @@
++import { describe, expect, it } from "vitest";
++import {
++  exportDownloadFailedMessage,
++  exportSaveFailedMessage,
++  exportSavedStatus,
++  fetchSavedExportBytes,
++  type SavedExportRef
++} from "@/lib/cofounder/exportDelivery";
++
++const ref: SavedExportRef = {
++  assetId: "asset_1",
++  assetUrl: "/api/companion/assets/asset_1?businessId=biz",
++  revisionId: "crev_1",
++  draftId: "studio_1",
++  width: 1600,
++  height: 1200,
++  outputHash: "abc"
++};
++
++describe("export delivery stages", () => {
++  it("keeps a successful save distinct from a failed download", async () => {
++    await expect(
++      fetchSavedExportBytes(ref, async () => new Response(null, { status: 503 }))
++    ).rejects.toThrow(exportDownloadFailedMessage());
++    await expect(
++      fetchSavedExportBytes(ref, async () => {
++        throw new TypeError("network");
++      })
++    ).rejects.toThrow(exportDownloadFailedMessage());
++    expect(exportSavedStatus(ref)).toContain("Export saved 1600×1200");
++    expect(exportSavedStatus(ref)).toContain("does not confirm that the device kept a copy");
++  });
++
++  it("does not claim the draft is unmarked when save already succeeded", () => {
++    expect(exportDownloadFailedMessage()).not.toMatch(/not marked exported/i);
++    expect(exportSaveFailedMessage(new Error("The composed image was rejected."), "fallback")).toBe(
++      "The composed image was rejected."
++    );
++  });
++
++  it("rejects a missing or empty download without inventing bytes", async () => {
++    await expect(
++      fetchSavedExportBytes({ ...ref, assetUrl: "" }, async () => new Response(new Uint8Array([1, 2, 3])))
++    ).rejects.toThrow(/no download URL/);
++    await expect(fetchSavedExportBytes(ref, async () => new Response(new Uint8Array()))).rejects.toThrow(
++      exportDownloadFailedMessage()
++    );
++  });
++});
+diff --git a/src/lib/cofounder/exportDelivery.ts b/src/lib/cofounder/exportDelivery.ts
+new file mode 100644
+index 0000000..5872829
+--- /dev/null
++++ b/src/lib/cofounder/exportDelivery.ts
+@@ -0,0 +1,62 @@
++export type ExportDeliveryStage =
++  | "idle"
++  | "rendering"
++  | "saving"
++  | "saved"
++  | "downloading"
++  | "download_failed";
++
++export type SavedExportRef = {
++  assetId: string;
++  assetUrl: string;
++  revisionId: string;
++  draftId: string;
++  width: number;
++  height: number;
++  outputHash?: string;
++};
++
++export function exportSaveFailedMessage(error: unknown, fallback: string) {
++  return error instanceof Error && error.message.trim() ? error.message : fallback;
++}
++
++export function exportDownloadFailedMessage() {
++  return "The export is saved. Download failed. Use Download again — a new export was not created.";
++}
++
++export function exportSavedStatus(ref: SavedExportRef) {
++  return `Export saved ${ref.width}×${ref.height}. Your browser was asked to download the file. The file is stored with this account; this message does not confirm that the device kept a copy.`;
++}
++
++export async function fetchSavedExportBytes(
++  ref: SavedExportRef,
++  fetchImpl: typeof fetch = fetch
++): Promise<Blob> {
++  if (!ref.assetUrl) {
++    throw new Error("The saved export has no download URL. The artifact remains on the server if saving succeeded.");
++  }
++  let response: Response;
++  try {
++    response = await fetchImpl(ref.assetUrl, { credentials: "same-origin" });
++  } catch {
++    throw new Error(exportDownloadFailedMessage());
++  }
++  if (!response.ok) {
++    throw new Error(exportDownloadFailedMessage());
++  }
++  const blob = await response.blob();
++  if (!blob.size) {
++    throw new Error(exportDownloadFailedMessage());
++  }
++  return blob;
++}
++
++export function triggerBrowserDownload(blob: Blob, filename: string) {
++  const objectUrl = URL.createObjectURL(blob);
++  const link = document.createElement("a");
++  link.href = objectUrl;
++  link.download = filename;
++  link.rel = "noopener";
++  link.click();
++  URL.revokeObjectURL(objectUrl);
++}
+diff --git a/src/lib/cofounder/postgres.integration.test.ts b/src/lib/cofounder/postgres.integration.test.ts
+index eef3174..1ddd990 100644
+--- a/src/lib/cofounder/postgres.integration.test.ts
++++ b/src/lib/cofounder/postgres.integration.test.ts
+@@ -537,6 +537,77 @@ describe.skipIf(!isolated)("PostgreSQL companion integration", () => {
+     expect(await storeA.companion.listStudioDrafts(ctx.business.id)).toHaveLength(2);
+   }, 60_000);
+ 
++  it("lets only one account own all revisions when two connections claim different revisions first", async () => {
++    const { storeA, storeB, owner } = await openStores();
++    const other = (await storeA.getUserByEmail("owner-two.local@atelier.invalid")) as User;
++    const guestsA = new GuestWorkService(storeA);
++    const guestsB = new GuestWorkService(storeB);
++    const results = await Promise.allSettled([
++      guestsA.claim(owner, {
++        guestWorkId: "dsel_pg_split",
++        kind: "discovery",
++        payload: { selectionId: "dsel_pg_split", localRevision: 1, selectedDirectionId: "lumen", paletteId: "ivory_hall" }
++      }),
++      guestsB.claim(other, {
++        guestWorkId: "dsel_pg_split",
++        kind: "discovery",
++        payload: { selectionId: "dsel_pg_split", localRevision: 2, selectedDirectionId: "signal", paletteId: "signal_ink" }
++      })
++    ]);
++    const won = results.filter((item) => item.status === "fulfilled");
++    const lost = results.filter((item) => item.status === "rejected");
++    expect(won).toHaveLength(1);
++    expect(lost).toHaveLength(1);
++    expect(lost[0]?.status === "rejected" && lost[0].reason).toBeInstanceOf(ForbiddenError);
++    const winner = won[0]?.status === "fulfilled" ? won[0].value : null;
++    expect(winner).toBeTruthy();
++    const ownerRow = await storeA.companion.getGuestWorkOwner("dsel_pg_split");
++    expect(ownerRow?.ownerId).toBe(winner?.ownerId);
++    const winnerService = winner?.ownerId === owner.id ? guestsA : guestsB;
++    const loserService = winner?.ownerId === owner.id ? guestsB : guestsA;
++    const loser = winner?.ownerId === owner.id ? other : owner;
++    await expect(loserService.readForUser(loser, "dsel_pg_split")).rejects.toBeInstanceOf(ForbiddenError);
++    await expect(loserService.readForUser(loser, "dsel_pg_split", 1)).rejects.toBeInstanceOf(ForbiddenError);
++    await expect(loserService.readForUser(loser, "dsel_pg_split", 2)).rejects.toBeInstanceOf(ForbiddenError);
++    await expect(
++      loserService.claim(loser, {
++        guestWorkId: "dsel_pg_split",
++        kind: "discovery",
++        payload: { selectionId: "dsel_pg_split", localRevision: 3, selectedDirectionId: "hearth" }
++      })
++    ).rejects.toBeInstanceOf(ForbiddenError);
++    const later = await winnerService.claim(winner!.ownerId === owner.id ? owner : other, {
++      guestWorkId: "dsel_pg_split",
++      kind: "discovery",
++      payload: {
++        selectionId: "dsel_pg_split",
++        localRevision: winner!.sourceRevision === 1 ? 2 : 3,
++        selectedDirectionId: "hearth",
++        paletteId: "hearth_linen"
++      }
++    });
++    expect(later.ownerId).toBe(winner!.ownerId);
++    expect((await storeA.companion.getGuestWorkClaim("dsel_pg_split", winner!.sourceRevision))?.payloadJson).toBe(
++      winner!.payloadJson
++    );
++    const independent = await guestsB.claim(other, {
++      guestWorkId: "dsel_pg_unrelated",
++      kind: "discovery",
++      payload: { selectionId: "dsel_pg_unrelated", localRevision: 1, selectedDirectionId: "hearth" }
++    });
++    expect(independent.ownerId).toBe(other.id);
++    const loserCtx = await new CompanionWorkspace(storeB).ensureForUser(loser);
++    await expect(
++      new BusinessAdoption(storeB).confirm(loserCtx.business.id, loser, {
++        businessName: "Stolen",
++        businessContext: "no",
++        sourceSelectionId: "dsel_pg_split",
++        sourceRevision: winner!.sourceRevision,
++        directionId: "lumen"
++      })
++    ).rejects.toBeInstanceOf(ForbiddenError);
++  }, 60_000);
++
+   it("initializes two connections against an empty schema without a type-name race", async () => {
+     const postgres = (await import("postgres")).default;
+     const admin = postgres(url, { max: 1, prepare: false, connection: { application_name: "atelier-init-admin" } });
+diff --git a/src/lib/cofounder/provision.test.ts b/src/lib/cofounder/provision.test.ts
+index c844576..810e2ab 100644
+--- a/src/lib/cofounder/provision.test.ts
++++ b/src/lib/cofounder/provision.test.ts
+@@ -209,6 +209,49 @@ describe("guest work claims", () => {
+     ).rejects.toBeInstanceOf(ForbiddenError);
+   });
+ 
++  it("assigns one owner when two accounts race different revisions of an unclaimed selection", async () => {
++    const { store, owner, other } = await setup();
++    const service = new GuestWorkService(store);
++    const results = await Promise.allSettled([
++      service.claim(owner, {
++        guestWorkId: "dsel_split",
++        kind: "discovery",
++        payload: { selectionId: "dsel_split", localRevision: 1, selectedDirectionId: "lumen" }
++      }),
++      service.claim(other, {
++        guestWorkId: "dsel_split",
++        kind: "discovery",
++        payload: { selectionId: "dsel_split", localRevision: 2, selectedDirectionId: "signal" }
++      })
++    ]);
++    const won = results.filter((item) => item.status === "fulfilled");
++    const lost = results.filter((item) => item.status === "rejected");
++    expect(won).toHaveLength(1);
++    expect(lost).toHaveLength(1);
++    expect(lost[0]?.status === "rejected" && lost[0].reason).toBeInstanceOf(ForbiddenError);
++    const winner = won[0]?.status === "fulfilled" ? won[0].value : null;
++    expect(winner).toBeTruthy();
++    const ownerRow = await store.companion.getGuestWorkOwner("dsel_split");
++    expect(ownerRow?.ownerId).toBe(winner?.ownerId);
++    const loser = winner?.ownerId === owner.id ? other : owner;
++    await expect(service.readForUser(loser, "dsel_split")).rejects.toBeInstanceOf(ForbiddenError);
++    await expect(service.readForUser(loser, "dsel_split", 1)).rejects.toBeInstanceOf(ForbiddenError);
++    await expect(service.readForUser(loser, "dsel_split", 2)).rejects.toBeInstanceOf(ForbiddenError);
++    await expect(
++      service.claim(loser, {
++        guestWorkId: "dsel_split",
++        kind: "discovery",
++        payload: { selectionId: "dsel_split", localRevision: 3, selectedDirectionId: "hearth" }
++      })
++    ).rejects.toBeInstanceOf(ForbiddenError);
++    const unrelated = await service.claim(loser, {
++      guestWorkId: "dsel_other",
++      kind: "discovery",
++      payload: { selectionId: "dsel_other", localRevision: 1, selectedDirectionId: "hearth" }
++    });
++    expect(unrelated.ownerId).toBe(loser.id);
++  });
++
+   it("adopts a guest brief once and refuses a second account", async () => {
+     const { store, owner, other } = await setup();
+     const projects = new ProjectService(store);
+diff --git a/src/lib/cofounder/renderComposition.test.ts b/src/lib/cofounder/renderComposition.test.ts
+index 660f00a..d0a08b9 100644
+--- a/src/lib/cofounder/renderComposition.test.ts
++++ b/src/lib/cofounder/renderComposition.test.ts
+@@ -1,6 +1,6 @@
+ import { afterEach, describe, expect, it, vi } from "vitest";
+ import { buildComposition, defaultLayers } from "./composition";
+-import { renderComposition } from "./renderComposition";
++import { compositionImageCrossOrigin, renderComposition } from "./renderComposition";
+ import { createDraft } from "@/lib/discovery";
+ import { trustedSpecFromDiscovery } from "@/lib/design-spec/fromDiscovery";
+ 
+@@ -57,6 +57,12 @@ describe("shared preview/export renderer", () => {
+     expect(texts.some(text => text.includes("Curated concept — no live AI"))).toBe(true);
+   });
+ 
++  it("does not request CORS for same-origin workspace assets and does for foreign hosts", () => {
++    expect(compositionImageCrossOrigin("/api/companion/assets/asset_1?businessId=biz")).toBeNull();
++    expect(compositionImageCrossOrigin("data:image/png;base64,aaa")).toBeNull();
++    expect(compositionImageCrossOrigin("https://foreign.example/logo.png")).toBe("anonymous");
++  });
++
+   it("refuses to silently export overflowing text", async () => {
+     const { canvas } = canvasFixture();
+     const spec = buildComposition({ layout: "square_announcement", businessId: "biz",
+diff --git a/src/lib/cofounder/renderComposition.ts b/src/lib/cofounder/renderComposition.ts
+index 86d9efd..bbbad3f 100644
+--- a/src/lib/cofounder/renderComposition.ts
++++ b/src/lib/cofounder/renderComposition.ts
+@@ -96,11 +96,37 @@ function drawText(ctx: CanvasRenderingContext2D, box: CompositionBox, spec: Comp
+     box.y * spec.height / 100 + index * box.fontSize * box.lineHeight));
+ }
+ 
++export function compositionImageCrossOrigin(src: string): "anonymous" | null {
++  if (!src || src.startsWith("data:") || src.startsWith("blob:") || src.startsWith("/")) return null;
++  try {
++    const url = new URL(src, typeof location === "undefined" ? "http://localhost" : location.href);
++    if (typeof location !== "undefined" && url.origin === location.origin) return null;
++    return "anonymous";
++  } catch {
++    return null;
++  }
++}
++
+ export function loadCompositionImage(src: string) {
+   return new Promise<HTMLImageElement>((resolve, reject) => {
+     const img = new Image();
+-    img.onload = () => resolve(img);
+-    img.onerror = () => reject(new Error("A retained background or logo failed to load. Export was not marked complete."));
++    const crossOrigin = compositionImageCrossOrigin(src);
++    if (crossOrigin) img.crossOrigin = crossOrigin;
++    img.onload = () => {
++      if (img.naturalWidth < 1 || img.naturalHeight < 1) {
++        reject(new Error("A retained background or logo failed to load. Export was not marked complete."));
++        return;
++      }
++      resolve(img);
++    };
++    img.onerror = () =>
++      reject(
++        new Error(
++          crossOrigin
++            ? "A source image could not be loaded for export. Cross-origin images need CORS permission from their host. The draft was not marked exported."
++            : "A retained background or logo failed to load. Export was not marked complete."
++        )
++      );
+     img.src = src;
+   });
+ }
+diff --git a/src/lib/cofounder/types.ts b/src/lib/cofounder/types.ts
+index 0faa869..91a9de9 100644
+--- a/src/lib/cofounder/types.ts
++++ b/src/lib/cofounder/types.ts
+@@ -107,6 +107,12 @@ export type GuestWorkClaim = {
+   createdAt: string;
+ };
+ 
++export type GuestWorkOwner = {
++  guestWorkId: string;
++  ownerId: string;
++  createdAt: string;
++};
++
+ export type BusinessConfirmation = {
+   businessId: string;
+   ownerId: string;
+diff --git a/src/lib/guest/claim.ts b/src/lib/guest/claim.ts
+index 8c02086..44e1216 100644
+--- a/src/lib/guest/claim.ts
++++ b/src/lib/guest/claim.ts
+@@ -61,6 +61,14 @@ export class GuestWorkService {
+     };
+ 
+     return this.store.runInTransaction(async () => {
++      const owner = await this.store.companion.claimGuestWorkOwner({
++        guestWorkId,
++        ownerId: user.id,
++        createdAt: next.createdAt
++      });
++      if (owner.ownerId !== user.id) {
++        throw new ForbiddenError("This guest work already belongs to another account.");
++      }
+       const siblings = await this.store.companion.listGuestWorkClaims(guestWorkId);
+       const foreign = siblings.find((item) => item.ownerId !== user.id);
+       if (foreign) {
+@@ -103,6 +111,10 @@ export class GuestWorkService {
+ 
+   async readForUser(user: User, guestWorkId: string, sourceRevision?: number | null) {
+     const id = sanitizeGuestWorkId(guestWorkId);
++    const owner = await this.store.companion.getGuestWorkOwner(id);
++    if (owner && owner.ownerId !== user.id && user.role !== "founder") {
++      throw new ForbiddenError("This guest work already belongs to another account.");
++    }
+     const claim =
+       sourceRevision == null
+         ? await this.store.companion.getGuestWorkClaim(id)
+diff --git a/src/lib/persistence/companionMaps.ts b/src/lib/persistence/companionMaps.ts
+index dbab195..bec2fa3 100644
+--- a/src/lib/persistence/companionMaps.ts
++++ b/src/lib/persistence/companionMaps.ts
+@@ -7,6 +7,7 @@ import type {
+   BusinessMember,
+   BusinessProfile,
+   GuestWorkClaim,
++  GuestWorkOwner,
+   GuestWorkKind,
+   CompanionBlob,
+   CompanionConversation,
+@@ -43,6 +44,14 @@ export function mapGuestClaim(row: Row): GuestWorkClaim {
+   };
+ }
+ 
++export function mapGuestOwner(row: Row): GuestWorkOwner {
++  return {
++    guestWorkId: asString(row.guest_work_id),
++    ownerId: asString(row.owner_id),
++    createdAt: asString(row.created_at)
++  };
++}
++
+ export function mapConfirmation(row: Row): BusinessConfirmation {
+   return {
+     businessId: asString(row.business_id),
+diff --git a/src/lib/persistence/companionMemory.ts b/src/lib/persistence/companionMemory.ts
+index ddda981..36de28c 100644
+--- a/src/lib/persistence/companionMemory.ts
++++ b/src/lib/persistence/companionMemory.ts
+@@ -7,6 +7,7 @@ import type {
+   BusinessMember,
+   BusinessProfile,
+   GuestWorkClaim,
++  GuestWorkOwner,
+   CompanionBlob,
+   CompanionConversation,
+   CompanionMessage,
+@@ -30,6 +31,7 @@ export class MemoryCompanionStore implements CompanionStore {
+   private businesses = new Map<string, Business>();
+   private initialBusiness = new Map<string, string>();
+   private guestClaims = new Map<string, GuestWorkClaim>();
++  private guestOwners = new Map<string, GuestWorkOwner>();
+   private confirmations = new Map<string, BusinessConfirmation>();
+   private members = new Map<string, BusinessMember>();
+   private profiles = new Map<string, BusinessProfile>();
+@@ -51,6 +53,7 @@ export class MemoryCompanionStore implements CompanionStore {
+       businesses: new Map(this.businesses),
+       initialBusiness: new Map(this.initialBusiness),
+       guestClaims: new Map(this.guestClaims),
++      guestOwners: new Map(this.guestOwners),
+       confirmations: new Map(this.confirmations),
+       members: new Map(this.members),
+       profiles: new Map(this.profiles),
+@@ -64,6 +67,7 @@ export class MemoryCompanionStore implements CompanionStore {
+     this.businesses = new Map(snapshot.businesses);
+     this.initialBusiness = new Map(snapshot.initialBusiness);
+     this.guestClaims = new Map(snapshot.guestClaims);
++    this.guestOwners = new Map(snapshot.guestOwners);
+     this.confirmations = new Map(snapshot.confirmations);
+     this.members = new Map(snapshot.members);
+     this.profiles = new Map(snapshot.profiles);
+@@ -76,6 +80,7 @@ export class MemoryCompanionStore implements CompanionStore {
+     this.businesses.clear();
+     this.initialBusiness.clear();
+     this.guestClaims.clear();
++    this.guestOwners.clear();
+     this.confirmations.clear();
+     this.members.clear();
+     this.profiles.clear();
+@@ -158,6 +163,18 @@ export class MemoryCompanionStore implements CompanionStore {
+     return clone(claim);
+   }
+ 
++  getGuestWorkOwner(guestWorkId: string) {
++    const item = this.guestOwners.get(guestWorkId);
++    return item ? clone(item) : null;
++  }
++
++  claimGuestWorkOwner(owner: GuestWorkOwner) {
++    const existing = this.guestOwners.get(owner.guestWorkId);
++    if (existing) return clone(existing);
++    this.guestOwners.set(owner.guestWorkId, clone(owner));
++    return clone(owner);
++  }
++
+   getBusinessConfirmation(businessId: string) {
+     const item = this.confirmations.get(businessId);
+     return item ? clone(item) : null;
+diff --git a/src/lib/persistence/companionPostgres.ts b/src/lib/persistence/companionPostgres.ts
+index 935934e..29f01bf 100644
+--- a/src/lib/persistence/companionPostgres.ts
++++ b/src/lib/persistence/companionPostgres.ts
+@@ -8,6 +8,7 @@ import type {
+   BusinessMember,
+   BusinessProfile,
+   GuestWorkClaim,
++  GuestWorkOwner,
+   CompanionBlob,
+   CompanionConversation,
+   CompanionMessage,
+@@ -26,6 +27,7 @@ import {
+   mapBusiness,
+   mapConfirmation,
+   mapGuestClaim,
++  mapGuestOwner,
+   mapCompanionMessage,
+   mapConversation,
+   mapDocument,
+@@ -69,6 +71,7 @@ export class PostgresCompanionStore implements CompanionStore {
+     await this.client().unsafe("ALTER TABLE generation_jobs ADD COLUMN IF NOT EXISTS attempt INTEGER NOT NULL DEFAULT 1");
+     await this.client().unsafe("ALTER TABLE business_confirmations ADD COLUMN IF NOT EXISTS studio_draft_id TEXT");
+     await this.ensureGuestClaimRevisions();
++    await this.ensureGuestWorkOwners();
+   }
+ 
+   private async ensureGuestClaimRevisions() {
+@@ -101,6 +104,23 @@ export class PostgresCompanionStore implements CompanionStore {
+     `);
+   }
+ 
++  private async ensureGuestWorkOwners() {
++    await this.client().unsafe(`
++      CREATE TABLE IF NOT EXISTS guest_work_owners (
++        guest_work_id TEXT PRIMARY KEY,
++        owner_id TEXT NOT NULL,
++        created_at TEXT NOT NULL
++      )
++    `);
++    await this.client().unsafe(`
++      INSERT INTO guest_work_owners(guest_work_id, owner_id, created_at)
++      SELECT DISTINCT ON (guest_work_id) guest_work_id, owner_id, created_at
++      FROM guest_work_claims
++      ORDER BY guest_work_id, created_at ASC, source_revision ASC
++      ON CONFLICT (guest_work_id) DO NOTHING
++    `);
++  }
++
+   async lockUsageBudget(businessId: string, kind: UsageKind, periodKey: string) {
+     await this.client()`SELECT pg_advisory_xact_lock(hashtext(${`${businessId}:${kind}:${periodKey}`}))`;
+   }
+@@ -222,6 +242,24 @@ export class PostgresCompanionStore implements CompanionStore {
+     return stored;
+   }
+ 
++  async getGuestWorkOwner(guestWorkId: string) {
++    const rows = await this.client()`SELECT * FROM guest_work_owners WHERE guest_work_id = ${guestWorkId}`;
++    return rows[0] ? mapGuestOwner(rows[0] as Row) : null;
++  }
++
++  async claimGuestWorkOwner(owner: GuestWorkOwner) {
++    await this.client()`
++      INSERT INTO guest_work_owners(guest_work_id, owner_id, created_at)
++      VALUES (${owner.guestWorkId}, ${owner.ownerId}, ${owner.createdAt})
++      ON CONFLICT (guest_work_id) DO NOTHING
++    `;
++    const stored = await this.getGuestWorkOwner(owner.guestWorkId);
++    if (!stored) {
++      throw new Error("The guest work owner could not be stored.");
++    }
++    return stored;
++  }
++
+   async getBusinessConfirmation(businessId: string) {
+     const rows = await this.client()`SELECT * FROM business_confirmations WHERE business_id = ${businessId}`;
+     return rows[0] ? mapConfirmation(rows[0] as Row) : null;
+diff --git a/src/lib/persistence/companionSqlite.ownership.test.ts b/src/lib/persistence/companionSqlite.ownership.test.ts
+new file mode 100644
+index 0000000..630a800
+--- /dev/null
++++ b/src/lib/persistence/companionSqlite.ownership.test.ts
+@@ -0,0 +1,32 @@
++import { createRequire } from "node:module";
++const { DatabaseSync } = createRequire(import.meta.url)("node:sqlite") as typeof import("node:sqlite");
++import { describe, expect, it } from "vitest";
++import { SqliteCompanionStore } from "./companionSqlite";
++
++describe("sqlite guest work ownership", () => {
++  it("inserts selection ownership once and refuses a second owner", () => {
++    const db = new DatabaseSync(":memory:");
++    db.exec("CREATE TABLE projects(id TEXT PRIMARY KEY)");
++    const store = new SqliteCompanionStore(db);
++    const first = store.claimGuestWorkOwner({
++      guestWorkId: "dsel_sqlite",
++      ownerId: "user_a",
++      createdAt: "2026-10-20T00:00:00.000Z"
++    });
++    const second = store.claimGuestWorkOwner({
++      guestWorkId: "dsel_sqlite",
++      ownerId: "user_b",
++      createdAt: "2026-10-20T00:00:01.000Z"
++    });
++    expect(first.ownerId).toBe("user_a");
++    expect(second.ownerId).toBe("user_a");
++    expect(store.getGuestWorkOwner("dsel_sqlite")?.ownerId).toBe("user_a");
++    const other = store.claimGuestWorkOwner({
++      guestWorkId: "dsel_sqlite_other",
++      ownerId: "user_b",
++      createdAt: "2026-10-20T00:00:02.000Z"
++    });
++    expect(other.ownerId).toBe("user_b");
++    db.close();
++  });
++});
+diff --git a/src/lib/persistence/companionSqlite.ts b/src/lib/persistence/companionSqlite.ts
+index 6b917c2..f8bcb9b 100644
+--- a/src/lib/persistence/companionSqlite.ts
++++ b/src/lib/persistence/companionSqlite.ts
+@@ -8,6 +8,7 @@ import type {
+   BusinessMember,
+   BusinessProfile,
+   GuestWorkClaim,
++  GuestWorkOwner,
+   CompanionBlob,
+   CompanionConversation,
+   CompanionMessage,
+@@ -26,6 +27,7 @@ import {
+   mapBusiness,
+   mapConfirmation,
+   mapGuestClaim,
++  mapGuestOwner,
+   mapCompanionMessage,
+   mapConversation,
+   mapDocument,
+@@ -59,6 +61,7 @@ export class SqliteCompanionStore implements CompanionStore {
+     this.ensureJobAttemptColumn();
+     this.ensureConfirmationDraftColumn();
+     this.ensureGuestClaimRevisions();
++    this.ensureGuestWorkOwners();
+   }
+ 
+   private ensureProjectBusinessColumn() {
+@@ -144,6 +147,22 @@ export class SqliteCompanionStore implements CompanionStore {
+     `);
+   }
+ 
++  private ensureGuestWorkOwners() {
++    this.db.exec(`
++      CREATE TABLE IF NOT EXISTS guest_work_owners (
++        guest_work_id TEXT PRIMARY KEY,
++        owner_id TEXT NOT NULL,
++        created_at TEXT NOT NULL
++      );
++      INSERT OR IGNORE INTO guest_work_owners(guest_work_id, owner_id, created_at)
++        SELECT c.guest_work_id, c.owner_id, c.created_at
++        FROM guest_work_claims c
++        WHERE c.created_at = (
++          SELECT MIN(c2.created_at) FROM guest_work_claims c2 WHERE c2.guest_work_id = c.guest_work_id
++        );
++    `);
++  }
++
+   lockUsageBudget() {
+     /* BEGIN IMMEDIATE already serializes this sqlite connection. */
+   }
+@@ -276,6 +295,24 @@ export class SqliteCompanionStore implements CompanionStore {
+     return stored;
+   }
+ 
++  getGuestWorkOwner(guestWorkId: string) {
++    const row = this.db.prepare("SELECT * FROM guest_work_owners WHERE guest_work_id = ?").get(guestWorkId) as
++      | Row
++      | undefined;
++    return row ? mapGuestOwner(row) : null;
++  }
++
++  claimGuestWorkOwner(owner: GuestWorkOwner) {
++    this.db
++      .prepare("INSERT OR IGNORE INTO guest_work_owners(guest_work_id, owner_id, created_at) VALUES(?,?,?)")
++      .run(owner.guestWorkId, owner.ownerId, owner.createdAt);
++    const stored = this.getGuestWorkOwner(owner.guestWorkId);
++    if (!stored) {
++      throw new Error("The guest work owner could not be stored.");
++    }
++    return stored;
++  }
++
+   getBusinessConfirmation(businessId: string) {
+     const row = this.db.prepare("SELECT * FROM business_confirmations WHERE business_id = ?").get(businessId) as
+       | Row
+diff --git a/src/lib/persistence/companionStore.ts b/src/lib/persistence/companionStore.ts
+index e730402..26c9308 100644
+--- a/src/lib/persistence/companionStore.ts
++++ b/src/lib/persistence/companionStore.ts
+@@ -5,6 +5,7 @@ import type {
+   BusinessMember,
+   BusinessProfile,
+   GuestWorkClaim,
++  GuestWorkOwner,
+   CompanionBlob,
+   CompanionConversation,
+   CompanionMessage,
+@@ -36,6 +37,8 @@ export type CompanionStore = {
+   getGuestWorkClaim(guestWorkId: string, sourceRevision?: number | null): GuestWorkClaim | null | Promise<GuestWorkClaim | null>;
+   listGuestWorkClaims(guestWorkId: string): GuestWorkClaim[] | Promise<GuestWorkClaim[]>;
+   insertGuestWorkClaim(claim: GuestWorkClaim): GuestWorkClaim | Promise<GuestWorkClaim>;
++  getGuestWorkOwner(guestWorkId: string): GuestWorkOwner | null | Promise<GuestWorkOwner | null>;
++  claimGuestWorkOwner(owner: GuestWorkOwner): GuestWorkOwner | Promise<GuestWorkOwner>;
+   getBusinessConfirmation(businessId: string): BusinessConfirmation | null | Promise<BusinessConfirmation | null>;
+   upsertBusinessConfirmation(confirmation: BusinessConfirmation): BusinessConfirmation | Promise<BusinessConfirmation>;
+   getStudioDirectionAdoption(
+@@ -160,6 +163,11 @@ CREATE TABLE IF NOT EXISTS guest_work_claims (
+   created_at TEXT NOT NULL,
+   PRIMARY KEY (guest_work_id, source_revision)
+ );
++CREATE TABLE IF NOT EXISTS guest_work_owners (
++  guest_work_id TEXT PRIMARY KEY,
++  owner_id TEXT NOT NULL,
++  created_at TEXT NOT NULL
++);
+ CREATE TABLE IF NOT EXISTS business_confirmations (
+   business_id TEXT PRIMARY KEY,
+   owner_id TEXT NOT NULL,
+@@ -355,6 +363,7 @@ export const COMPANION_RESET_SQL = `
+   DELETE FROM business_profiles;
+   DELETE FROM business_confirmations;
+   DELETE FROM guest_work_claims;
++  DELETE FROM guest_work_owners;
+   DELETE FROM user_initial_business;
+   DELETE FROM business_members;
+   DELETE FROM businesses;
+diff --git a/src/lib/persistence/postgres.test.ts b/src/lib/persistence/postgres.test.ts
+index 1a1ab9e..31e8fba 100644
+--- a/src/lib/persistence/postgres.test.ts
++++ b/src/lib/persistence/postgres.test.ts
+@@ -14,6 +14,7 @@ describe("hosted postgres schema", () => {
+     expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS businesses/);
+     expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS user_initial_business/);
+     expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS guest_work_claims/);
++    expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS guest_work_owners/);
+     expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS business_confirmations/);
+     expect(sql).toMatch(/studio_draft_id/);
+     expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS studio_direction_adoptions/);
+diff --git a/src/lib/persistence/schema.postgres.sql b/src/lib/persistence/schema.postgres.sql
+index c48da67..5f1e2d7 100644
+--- a/src/lib/persistence/schema.postgres.sql
++++ b/src/lib/persistence/schema.postgres.sql
+@@ -221,6 +221,11 @@ CREATE TABLE IF NOT EXISTS guest_work_claims (
+   created_at TEXT NOT NULL,
+   PRIMARY KEY (guest_work_id, source_revision)
+ );
++CREATE TABLE IF NOT EXISTS guest_work_owners (
++  guest_work_id TEXT PRIMARY KEY,
++  owner_id TEXT NOT NULL,
++  created_at TEXT NOT NULL
++);
+ CREATE TABLE IF NOT EXISTS business_confirmations (
+   business_id TEXT PRIMARY KEY,
+   owner_id TEXT NOT NULL,
+diff --git a/src/lib/persistence/schema.sql b/src/lib/persistence/schema.sql
+index 417ac57..68dff80 100644
+--- a/src/lib/persistence/schema.sql
++++ b/src/lib/persistence/schema.sql
+@@ -213,6 +213,11 @@ CREATE TABLE IF NOT EXISTS guest_work_claims (
+   created_at TEXT NOT NULL,
+   PRIMARY KEY (guest_work_id, source_revision)
+ );
++CREATE TABLE IF NOT EXISTS guest_work_owners (
++  guest_work_id TEXT PRIMARY KEY,
++  owner_id TEXT NOT NULL,
++  created_at TEXT NOT NULL
++);
+ CREATE TABLE IF NOT EXISTS business_confirmations (
+   business_id TEXT PRIMARY KEY,
+   owner_id TEXT NOT NULL,
