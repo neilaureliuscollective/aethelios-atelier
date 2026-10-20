@@ -37,7 +37,10 @@ export function normalizeProfile(input: Partial<BusinessProfile> & { businessId:
       value: typeof incoming.value === "string" ? incoming.value.slice(0, 4000) : "",
       kind: incoming.kind === "preference" || incoming.kind === "suggestion" ? incoming.kind : "confirmed",
       source: incoming.source,
-      updatedAt: incoming.updatedAt
+      updatedAt: incoming.updatedAt,
+      sourceDocumentId: typeof incoming.sourceDocumentId === "string" ? incoming.sourceDocumentId : undefined,
+      sourcePage: typeof incoming.sourcePage === "number" ? incoming.sourcePage : undefined,
+      sourceExcerpt: typeof incoming.sourceExcerpt === "string" ? incoming.sourceExcerpt.slice(0, 400) : undefined
     };
   }
   base.approvedRates = (input.approvedRates ?? []).filter(isApprovedRate);
@@ -54,7 +57,9 @@ export function confirmedFacts(profile: BusinessProfile) {
       key: field.key,
       value: field.value,
       source: field.source ?? "owner",
-      updatedAt: field.updatedAt
+      updatedAt: field.updatedAt,
+      sourceDocumentId: field.sourceDocumentId,
+      sourcePage: field.sourcePage
     }));
 }
 

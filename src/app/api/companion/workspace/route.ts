@@ -66,13 +66,23 @@ export async function PATCH(request: Request) {
     if (body.fields) {
       for (const [key, value] of Object.entries(body.fields)) {
         if (key in fields && value && typeof value === "object") {
-          const incoming = value as { value?: string; kind?: "confirmed" | "preference" };
+          const incoming = value as {
+            value?: string;
+            kind?: "confirmed" | "preference";
+            source?: string;
+            sourceDocumentId?: string;
+            sourcePage?: number;
+            sourceExcerpt?: string;
+          };
           fields[key as keyof typeof fields] = {
             ...fields[key as keyof typeof fields],
             value: incoming.value ?? fields[key as keyof typeof fields].value,
             kind: incoming.kind ?? fields[key as keyof typeof fields].kind,
-            source: "owner",
-            updatedAt: new Date().toISOString()
+            source: incoming.source ?? "owner",
+            updatedAt: new Date().toISOString(),
+            sourceDocumentId: incoming.sourceDocumentId,
+            sourcePage: incoming.sourcePage,
+            sourceExcerpt: incoming.sourceExcerpt
           };
         }
       }

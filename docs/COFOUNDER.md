@@ -29,6 +29,12 @@ Serves port **3010** with `ATELIER_DIST_DIR=.next-cofounder` and `ATELIER_DATA_D
 - Voice: explicit browser start/stop WebRTC. Server posts the SDP offer to OpenAI (`/v1/realtime/calls`, then `/v1/live/sessions`). Disabled honestly when `ATELIER_OPENAI_ENABLED` + `OPENAI_API_KEY` are not both set.
 - Hosted file search, web search, and Code Interpreter are **not** enabled in V1 (authorization, cost, and account availability). Owner uploads stay in the Atelier database; text excerpts are read locally and can be deleted with the document.
 
+## Document intake
+
+Owners can upload a text-based PDF or existing text format on `/companion/business`, read it with page or part references, choose services / products / audience / brand voice / brand notes, review the proposed change beside the current field, and confirm once. Confirmed values are saved on the business profile with document provenance (`owner_confirmed_from_document`, document id, page, excerpt).
+
+This version does not crawl websites, add an integration marketplace, or open a new chatbot. OpenAI file inputs are not used here. `sourceDocumentIds` records which files contributed confirmed facts; it is **not** an “excluded from AI” control. Talk still does not fully enforce source selection.
+
 `OPENAI_API_KEY` remains server-only. No `NEXT_PUBLIC` secrets.
 
 ## Entitlements

@@ -22,7 +22,9 @@ export function clientSafeProfile(profile: BusinessProfile) {
       key: field.key,
       value: field.value,
       source: field.source ?? "owner_preference",
-      updatedAt: field.updatedAt
+      updatedAt: field.updatedAt,
+      sourceDocumentId: field.sourceDocumentId,
+      sourcePage: field.sourcePage
     })),
     approvedRates: profile.approvedRates.map((rate) => ({
       id: rate.id,
@@ -44,6 +46,7 @@ export function clientSafeDocuments(documents: BusinessDocument[]) {
     .map((doc) => ({
       id: doc.id,
       title: doc.title,
+      mime: doc.mime,
       status: doc.status,
       source: doc.source,
       createdAt: doc.createdAt

@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { assertDocumentQuota } from "@/lib/cofounder/documents";
+import {
+  assertDocumentQuota,
+  DOCUMENT_UPLOAD_MAX_BYTES,
+  inferDocumentMime
+} from "@/lib/cofounder/documents";
 import { requireCompanionWrite } from "@/lib/cofounder/http";
 import { CompanionStudio } from "@/lib/cofounder/studio";
 import { CompanionWorkspace } from "@/lib/cofounder/workspace";
@@ -20,16 +24,17 @@ export async function POST(request: Request) {
     const body = uploadSchema.parse(await readJson(request));
     const { auth, store, context } = await requireCompanionWrite(body.businessId);
     const bytes = Uint8Array.from(Buffer.from(body.bytesBase64, "base64"));
+    const mime = inferDocumentMime(body.mime, body.title);
     if (body.kind === "logo") {
       const document = await new CompanionStudio(store).uploadLogo(context.business.id, auth.user, {
         title: body.title,
-        mime: body.mime,
+        mime,
         bytes
       });
       return json({ ok: true, document });
     }
-    if (bytes.byteLength > 2_000_000) {
-      return json({ ok: false, error: "too_large", message: "Documents are limited to 2 MB." }, 400);
+    if (bytes.byteLength > DOCUMENT_UPLOAD_MAX_BYTES) {
+      return json({ ok: false, error: "too_large", message: "Documents are limited to 8 MB." }, 400);
     }
     assertDocumentQuota({
       planId: context.business.planId,
@@ -38,7 +43,7 @@ export async function POST(request: Request) {
     const blob = await store.companion.putBlob({
       id: `blob_${crypto.randomUUID()}`,
       businessId: context.business.id,
-      mime: body.mime,
+      mime,
       bytes,
       createdAt: new Date().toISOString()
     });
@@ -46,7 +51,7 @@ export async function POST(request: Request) {
       id: `doc_${crypto.randomUUID()}`,
       businessId: context.business.id,
       title: body.title,
-      mime: body.mime,
+      mime,
       status: "ready",
       blobId: blob.id,
       source: "owner_upload",
