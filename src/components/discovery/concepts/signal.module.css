@@ -102,9 +102,10 @@
 
 .poster img {
   width: 100%;
-  height: min(36cqb, 360px);
-  min-height: 200px;
+  height: min(42cqb, 420px);
+  min-height: 220px;
   object-fit: cover;
+  object-position: 50% 40%;
 }
 
 .overlay {

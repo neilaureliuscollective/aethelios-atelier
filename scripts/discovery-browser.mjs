@@ -63,8 +63,27 @@ page.on("request", (req) => {
 
 await waitReady(page);
 check("discover renders without account", await page.$eval("h1", (el) => el.textContent.includes("could become")));
+const entranceSample = await page.evaluate(() => {
+  const proof = document.querySelector("[data-entrance-sample='true']");
+  const crest = [...document.querySelectorAll("img[alt='Aethelios Atelier']")][0];
+  const crestBox = crest?.getBoundingClientRect();
+  return {
+    name: proof?.getAttribute("data-preview-name") ?? "",
+    direction: proof?.getAttribute("data-preview-direction") ?? "",
+    hasConcept: Boolean(proof?.querySelector("[data-direction]")),
+    crestWidth: crestBox ? Math.round(crestBox.width) : 999
+  };
+});
+check(
+  "entrance shows a real illustrative concept, not an oversized logo",
+  entranceSample.name === "Northridge" &&
+    entranceSample.direction === "hearth" &&
+    entranceSample.hasConcept &&
+    entranceSample.crestWidth <= 120,
+  JSON.stringify(entranceSample)
+);
 
-for (const width of [390, 884, 1440]) {
+for (const width of [390, 768, 884, 1440]) {
   await shot(page, width, "discover_entrance");
 }
 
@@ -88,6 +107,26 @@ check("stage heading focused after explore", /name of the business/i.test(focuse
 
 await page.click("input[type='text']");
 await page.keyboard.type("Meridian Sitting Room");
+check("return to entrance after answering", await continueBtn(page, "Enter"));
+await page.waitForSelector("text/Explore your direction");
+check("open sample after visitor answers", await continueBtn(page, "See a sample direction"));
+await page.waitForSelector("[data-preview-source='exploration']");
+const preservedSample = await page.evaluate(() => {
+  const preview = document.querySelector("[data-preview-source='exploration']");
+  return {
+    name: preview?.getAttribute("data-preview-name") ?? "",
+    body: document.body.innerText
+  };
+});
+check(
+  "opening a sample does not overwrite visitor answers",
+  preservedSample.name === "Meridian Sitting Room" &&
+    /Continuing with the answers already on this visit/i.test(preservedSample.body) &&
+    !/Northridge/.test(preservedSample.body),
+  JSON.stringify({ name: preservedSample.name, hasStatus: /Continuing with the answers/.test(preservedSample.body) })
+);
+check("return to business questions", await continueBtn(page, "Business"));
+await page.waitForSelector("input[type='text']");
 check("continue from name", await continueBtn(page, "Continue"));
 await page.waitForSelector("input[type='radio']");
 const focusedAfterType = await page.evaluate(() => document.activeElement?.textContent ?? "");
@@ -117,6 +156,7 @@ check("no diagnostic Aethelios available toggle", !personalized.includes("Aethel
 await page.setViewport({ width: 1440, height: 1100, deviceScaleFactor: 1 });
 await shot(page, 1440, "discover_personalized", 1100, false);
 await shot(page, 884, "discover_personalized", 1100, false);
+await shot(page, 768, "discover_personalized", 1100, false);
 await shot(page, 390, "discover_personalized", 844, false);
 await shot(page, 390, "discover_mobile_controls", 844, false);
 
@@ -271,7 +311,7 @@ async function conceptViewport(direction, width) {
   }, direction);
 }
 
-for (const width of [390, 884, 1440]) {
+for (const width of [390, 768, 884, 1440]) {
   for (const direction of ["lumen", "hearth", "signal"]) {
     const layout = await conceptViewport(direction, width);
     const stackedWhenNarrow = width === 390 && direction === "signal" ? layout.colCount === 1 : true;
@@ -314,6 +354,7 @@ await page.waitForFunction(() => document.body.innerText.includes("Choose with f
 await page.setViewport({ width: 1440, height: 1100, deviceScaleFactor: 1 });
 await shot(page, 1440, "discover_compare_desktop", 1100, false);
 await shot(page, 884, "discover_compare", 1100, false);
+await shot(page, 768, "discover_compare", 1100, false);
 await shot(page, 390, "discover_compare", 844, false);
 
 await page.setViewport({ width: 1440, height: 1100, deviceScaleFactor: 1 });
@@ -501,9 +542,11 @@ check("review includes written intent", hearthConfirm.text.includes("People shou
 check("review does not promise empty-brief preservation", !/would be overwritten by this mapping/i.test(hearthConfirm.text));
 await shot(page, 1440, "discover_recap");
 await shot(page, 884, "discover_recap");
+await shot(page, 768, "discover_recap");
 await shot(page, 390, "discover_recap");
 await shot(page, 1440, "discover_review");
 await shot(page, 884, "discover_review");
+await shot(page, 768, "discover_review");
 await shot(page, 390, "discover_review");
 
 await continueBtn(page, "Back to studio");
