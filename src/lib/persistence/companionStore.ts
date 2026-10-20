@@ -59,6 +59,8 @@ export type CompanionStore = {
   getStudioDraft(id: string): StudioDraft | null | Promise<StudioDraft | null>;
   listStudioDrafts(businessId: string): StudioDraft[] | Promise<StudioDraft[]>;
   updateStudioDraft(draft: StudioDraft): StudioDraft | Promise<StudioDraft>;
+  compareAndSwapStudioDraft(draft: StudioDraft, expectedUpdatedAt: string): StudioDraft | null | Promise<StudioDraft | null>;
+  lockUsageBudget(businessId: string, kind: UsageKind, periodKey: string): void | Promise<void>;
 
   addStudioAsset(asset: StudioAsset): StudioAsset | Promise<StudioAsset>;
   getStudioAsset(id: string): StudioAsset | null | Promise<StudioAsset | null>;

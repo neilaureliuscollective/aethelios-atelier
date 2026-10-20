@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import { PNG } from "pngjs";
 import { deflateSync } from "node:zlib";
 import { crc32 } from "node:zlib";
 
@@ -8,6 +10,7 @@ export type InspectedImage = {
   width: number;
   height: number;
   byteLength: number;
+  hash?: string;
 };
 
 export const EXPORT_PNG_MAX_BYTES = 8_000_000;
@@ -40,17 +43,37 @@ export function inspectPng(bytes: Uint8Array): InspectedImage {
   return { mime: "image/png", width, height, byteLength: bytes.byteLength };
 }
 
+export function hashPng(bytes: Uint8Array) {
+  return createHash("sha256").update(Buffer.from(bytes)).digest("hex");
+}
+
+export function decodePng(bytes: Uint8Array) {
+  try {
+    const png = PNG.sync.read(Buffer.from(bytes), { checkCRC: true });
+    if (!png.data?.byteLength) {
+      throw new Error("empty");
+    }
+    return { width: png.width, height: png.height, data: png.data };
+  } catch {
+    throw new Error("The composed image could not be decoded. The draft was not marked exported.");
+  }
+}
+
 export function assertExportMatchesRevision(
   bytes: Uint8Array,
   expected: { width: number; height: number }
 ): InspectedImage {
   const inspected = inspectPng(bytes);
-  if (inspected.width !== expected.width || inspected.height !== expected.height) {
+  const decoded = decodePng(bytes);
+  if (decoded.width !== expected.width || decoded.height !== expected.height) {
     throw new Error(
-      `Export dimensions ${inspected.width}×${inspected.height} do not match the saved composition ${expected.width}×${expected.height}. The draft was not marked exported.`
+      `Export dimensions ${decoded.width}×${decoded.height} do not match the saved composition ${expected.width}×${expected.height}. The draft was not marked exported.`
     );
   }
-  return inspected;
+  if (inspected.width !== decoded.width || inspected.height !== decoded.height) {
+    throw new Error("The PNG header and decoded pixels do not agree. The draft was not marked exported.");
+  }
+  return { ...inspected, hash: hashPng(bytes) };
 }
 
 export function encodeSolidPng(

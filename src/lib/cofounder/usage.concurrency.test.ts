@@ -25,6 +25,12 @@ describe("usage reservation helpers", () => {
     });
     expect(await usage.recoverExpiredHolds()).toBeGreaterThan(0);
     expect((await store.companion.getUsageEvent(expired.event.id))?.status).toBe("released");
+    const held = await usage.reserve(ctx.business.id, owner, "talk", 1, {}, "settle-me");
+    const settled = await usage.settle(held);
+    const replay = await usage.settle({ event: settled });
+    expect(replay.status).toBe("settled");
+    expect(replay.id).toBe(settled.id);
+    await expect(usage.release({ event: settled })).resolves.toMatchObject({ status: "settled" });
   });
 
   it("clears the process-local lock after the last waiter finishes", async () => {

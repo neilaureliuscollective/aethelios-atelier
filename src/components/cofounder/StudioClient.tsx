@@ -15,6 +15,8 @@ import {
   documentUrl,
   layersFromControls,
   paletteForProfile,
+  previewScale,
+  scaleCompositionPx,
   studioLayouts,
   wrapLines,
   type BrandPalette,
@@ -55,8 +57,9 @@ export function StudioClient() {
   const [dirty, setDirty] = useState(false);
   const generateKeyRef = useRef<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const previewImageRef = useRef<HTMLImageElement | null>(null);
-  const [previewNatural, setPreviewNatural] = useState<{ width: number; height: number } | null>(null);
+  const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const previewBoxRef = useRef<HTMLDivElement | null>(null);
+  const [previewWidth, setPreviewWidth] = useState(0);
 
   function hydrate(draft: StudioDraft | null) {
     setCurrent(draft);
@@ -72,7 +75,6 @@ export function StudioClient() {
     setCropY(image?.cropY ?? 50);
     setCropZoom(image?.cropZoom ?? 1);
     setDirty(false);
-    setPreviewNatural(null);
   }
 
   async function refresh(gen = generation) {
@@ -177,18 +179,21 @@ export function StudioClient() {
     });
   }, [businessId, layout, liveLayers, palette, profile, backgroundUrl, logoUrl]);
 
-  const previewCrop = useMemo(() => {
-    if (!composition || !previewNatural) return null;
-    return coverCropRect(
-      previewNatural.width,
-      previewNatural.height,
-      composition.width,
-      composition.height,
-      composition.crop.x,
-      composition.crop.y,
-      composition.crop.zoom
-    );
-  }, [composition, previewNatural]);
+  useEffect(() => {
+    const box = previewBoxRef.current;
+    if (!box || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver((entries) => {
+      setPreviewWidth(entries[0]?.contentRect.width ?? 0);
+    });
+    observer.observe(box);
+    setPreviewWidth(box.getBoundingClientRect().width);
+    return () => observer.disconnect();
+  }, [composition?.width, composition?.aspect]);
+
+  useEffect(() => {
+    if (!composition || !previewCanvasRef.current) return;
+    void renderComposition(composition, previewCanvasRef.current).catch(() => undefined);
+  }, [composition]);
 
   async function createDraft(input?: { workItemId?: string; headline: string; body: string }) {
     const nextHeadline = input?.headline ?? headline;
@@ -306,7 +311,7 @@ export function StudioClient() {
     try {
       const saved = dirty ? await saveLayers() : selected;
       if (!saved) return;
-      const composedPngBase64 = await composePng(composition, canvasRef.current);
+      const composedPngBase64 = await composePng(composition, canvasRef.current ?? previewCanvasRef.current);
       const result = await api<{
         exported: { labeled: string; dimensions: { width: number; height: number }; assetUrl?: string | null };
       }>("/api/companion/studio/export", {
@@ -321,13 +326,20 @@ export function StudioClient() {
           expectedUpdatedAt: saved.updatedAt
         })
       });
-      if (result.exported.assetUrl) {
-        const link = document.createElement("a");
-        link.href = result.exported.assetUrl;
-        link.download = `${saved.id}.png`;
-        link.click();
-      }
       setStatus(`Exported ${result.exported.dimensions.width}×${result.exported.dimensions.height}. The saved revision and file match.`);
+      if (result.exported.assetUrl) {
+        const file = await fetch(result.exported.assetUrl);
+        if (file.ok) {
+          const blob = await file.blob();
+          const objectUrl = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = objectUrl;
+          link.download = `${saved.id}.png`;
+          link.rel = "noopener";
+          link.click();
+          URL.revokeObjectURL(objectUrl);
+        }
+      }
       await refresh();
     } catch (err) {
       setError(actionErrorMessage(err, "Export failed. The draft is still editable and was not marked exported."));
@@ -391,88 +403,28 @@ export function StudioClient() {
       <div className={styles.grid}>
         <article className={`surface-dimensional ${styles.card}`}>
           <div
+            ref={previewBoxRef}
             className={styles.canvas}
             aria-label="Composition preview"
+            data-preview-width={previewWidth || undefined}
+            data-preview-scale={
+              composition && previewWidth ? String(previewScale(composition.width, previewWidth)) : undefined
+            }
+            data-headline-preview-px={
+              composition && previewWidth
+                ? String(scaleCompositionPx(composition.headline.fontSize, composition.width, previewWidth))
+                : undefined
+            }
             style={{
               aspectRatio: composition?.aspect,
               background: composition?.palette.canvas ?? "#2a2218"
             }}
           >
-            {backgroundUrl ? (
-              <img
-                ref={previewImageRef}
-                className={styles.canvasImage}
-                src={backgroundUrl}
-                alt=""
-                onLoad={(event) => {
-                  setPreviewNatural({
-                    width: event.currentTarget.naturalWidth,
-                    height: event.currentTarget.naturalHeight
-                  });
-                }}
-                style={
-                  previewCrop && composition
-                    ? {
-                        objectFit: "none",
-                        width: `${(previewCrop.width / composition.width) * 100}%`,
-                        height: `${(previewCrop.height / composition.height) * 100}%`,
-                        left: `${(previewCrop.x / composition.width) * 100}%`,
-                        top: `${(previewCrop.y / composition.height) * 100}%`,
-                        transform: "none"
-                      }
-                    : undefined
-                }
-              />
+            {composition ? (
+              <canvas ref={previewCanvasRef} className={styles.previewCanvas} data-studio-preview="canvas" />
             ) : (
               <p className={`${styles.emptyCanvas} tiny`}>No generated image. The logo and copy still compose.</p>
             )}
-            {composition ? (
-              <>
-                <div
-                  className={`${styles.layer} ${styles.layerHeadline}`}
-                  style={{
-                    left: `${composition.headline.x}%`,
-                    top: `${composition.headline.y}%`,
-                    width: `${composition.headline.width}%`,
-                    color: composition.headline.color,
-                    fontSize: `calc(${composition.headline.fontSize} * 1px * (100 / ${composition.width}))`,
-                    lineHeight: composition.headline.lineHeight,
-                    fontFamily: `"${composition.headline.fontFamily}", serif`,
-                    fontWeight: composition.headline.fontWeight
-                  }}
-                >
-                  {composition.headline.text}
-                </div>
-                <div
-                  className={`${styles.layer} ${styles.layerBody}`}
-                  style={{
-                    left: `${composition.body.x}%`,
-                    top: `${composition.body.y}%`,
-                    width: `${composition.body.width}%`,
-                    color: composition.body.color,
-                    fontSize: `calc(${composition.body.fontSize} * 1px * (100 / ${composition.width}))`,
-                    lineHeight: composition.body.lineHeight,
-                    fontFamily: `"${composition.body.fontFamily}", sans-serif`,
-                    fontWeight: composition.body.fontWeight
-                  }}
-                >
-                  {composition.body.text}
-                </div>
-                {composition.logo ? (
-                  <img
-                    className={styles.layerLogo}
-                    src={composition.logo.src}
-                    alt="Uploaded logo"
-                    style={{
-                      left: `${composition.logo.x}%`,
-                      top: `${composition.logo.y}%`,
-                      width: `${composition.logo.width}%`,
-                      height: `${composition.logo.height}%`
-                    }}
-                  />
-                ) : null}
-              </>
-            ) : null}
             {asset?.status === "pending" ? <p className="tiny" style={{ position: "absolute", bottom: 16, left: 16 }}>Pending generation</p> : null}
             {asset?.status === "failed" ? <p className="notice notice-warn">Generation failed — not a completed asset.</p> : null}
           </div>
@@ -620,11 +572,10 @@ export function StudioClient() {
   );
 }
 
-async function composePng(spec: CompositionSpec, canvas: HTMLCanvasElement | null) {
-  const target = canvas ?? document.createElement("canvas");
-  target.width = spec.width;
-  target.height = spec.height;
-  const ctx = target.getContext("2d");
+async function renderComposition(spec: CompositionSpec, canvas: HTMLCanvasElement) {
+  canvas.width = spec.width;
+  canvas.height = spec.height;
+  const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("This browser could not compose the export canvas.");
   if (document.fonts?.ready) await document.fonts.ready;
   ctx.fillStyle = spec.palette.canvas;
@@ -670,6 +621,11 @@ async function composePng(spec: CompositionSpec, canvas: HTMLCanvasElement | nul
     const drawH = logo.height * scale;
     ctx.drawImage(logo, (spec.logo.x / 100) * spec.width, (spec.logo.y / 100) * spec.height, drawW, drawH);
   }
+  return canvas;
+}
+
+async function composePng(spec: CompositionSpec, canvas: HTMLCanvasElement | null) {
+  const target = await renderComposition(spec, canvas ?? document.createElement("canvas"));
   const data = target.toDataURL("image/png");
   return data.replace(/^data:image\/png;base64,/, "");
 }

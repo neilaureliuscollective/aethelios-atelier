@@ -2,18 +2,19 @@ import { CompanionWorkspace } from "@/lib/cofounder/workspace";
 import { CompanionWork } from "@/lib/cofounder/work";
 import { CompanionUsage } from "@/lib/cofounder/usage";
 import { buildComposition, defaultLayers, paletteForProfile, studioLayouts, STUDIO_LAYOUTS } from "@/lib/cofounder/composition";
-import { assertExportMatchesRevision } from "@/lib/cofounder/png";
+import { assertExportMatchesRevision, hashPng } from "@/lib/cofounder/png";
 import { selectedWorkText } from "@/lib/cofounder/studioOpen";
 import { aureliusStatus } from "@/lib/aurelius/boundary";
 import { loadConfig } from "@/lib/config";
 import { ConflictError, ForbiddenError, LimitError, NotFoundError } from "@/lib/domain/errors";
 import type { PersistenceAdapter } from "@/lib/persistence/adapter";
-import type {
-  CompositionRevision,
-  StudioAsset,
-  StudioDraft,
-  StudioLayer,
-  StudioLayoutId
+import {
+  COMPOSITION_RENDERER_VERSION,
+  type CompositionRevision,
+  type StudioAsset,
+  type StudioDraft,
+  type StudioLayer,
+  type StudioLayoutId
 } from "@/lib/cofounder/types";
 import type { AuthContext, User } from "@/lib/types";
 
@@ -21,6 +22,12 @@ export { studioLayouts, STUDIO_LAYOUTS };
 
 function now() {
   return new Date().toISOString();
+}
+
+function nextStamp(previous?: string) {
+  const stamp = now();
+  if (!previous || stamp > previous) return stamp;
+  return new Date(Date.parse(previous) + 1).toISOString();
 }
 
 function companionId(prefix: string) {
@@ -186,12 +193,19 @@ export class CompanionStudio {
       throw new ConflictError("This Studio draft changed since you last edited it. Reload the newer revision before saving.");
     }
     const { expectedUpdatedAt, ...next } = patch;
-    void expectedUpdatedAt;
-    return this.store.companion.updateStudioDraft({
+    const written = {
       ...draft,
       ...next,
-      updatedAt: now()
-    });
+      updatedAt: nextStamp(draft.updatedAt)
+    };
+    if (expectedUpdatedAt) {
+      const swapped = await this.store.companion.compareAndSwapStudioDraft(written, expectedUpdatedAt);
+      if (!swapped) {
+        throw new ConflictError("This Studio draft changed since you last edited it. Reload the newer revision before saving.");
+      }
+      return swapped;
+    }
+    return this.store.companion.updateStudioDraft(written);
   }
 
   async listDrafts(businessId: string, user: User) {
@@ -356,22 +370,31 @@ export class CompanionStudio {
     return this.store.runInTransaction(async () => {
       const context = await this.workspace.requireMutable(businessId, user);
       let draft = await this.requireDraft(businessId, draftId);
-      if (options?.expectedUpdatedAt && options.expectedUpdatedAt !== draft.updatedAt) {
-        throw new ConflictError("This Studio draft changed since you last edited it. Reload the newer revision before exporting.");
-      }
       const nextLayers = options?.layers ?? draft.layers;
       const nextLayout = options?.layout ?? format ?? draft.layout;
+      await this.assertAuthorizedLayers(businessId, nextLayers);
       if (options?.layers || options?.layout) {
-        draft = await this.store.companion.updateStudioDraft({
+        const written = {
           ...draft,
           layers: nextLayers,
           layout: nextLayout,
-          updatedAt: now()
-        });
+          updatedAt: nextStamp(draft.updatedAt)
+        };
+        if (options.expectedUpdatedAt) {
+          const swapped = await this.store.companion.compareAndSwapStudioDraft(written, options.expectedUpdatedAt);
+          if (!swapped) {
+            throw new ConflictError("This Studio draft changed since you last edited it. Reload the newer revision before exporting.");
+          }
+          draft = swapped;
+        } else {
+          draft = await this.store.companion.updateStudioDraft(written);
+        }
+      } else if (options?.expectedUpdatedAt && options.expectedUpdatedAt !== draft.updatedAt) {
+        throw new ConflictError("This Studio draft changed since you last edited it. Reload the newer revision before exporting.");
       }
       const asset = draft.selectedAssetId ? await this.store.companion.getStudioAsset(draft.selectedAssetId) : null;
-      if (asset && asset.status !== "ready") {
-        throw new ForbiddenError("The selected image is not a completed asset. Export the text and logo layers, or retry generation.");
+      if (asset && (asset.businessId !== businessId || asset.status !== "ready")) {
+        throw new ForbiddenError("The selected image is not a completed asset in this workspace. Export the text and logo layers, or retry generation.");
       }
       const composed = options?.composedPngBase64?.trim() ?? "";
       if (!composed) {
@@ -392,11 +415,13 @@ export class CompanionStudio {
         profile: context.profile,
         backgroundImageUrl: asset?.status === "ready" ? `/api/companion/assets/${asset.id}?businessId=${encodeURIComponent(businessId)}` : null
       });
+      let inspected;
       try {
-        assertExportMatchesRevision(bytes, { width: composition.width, height: composition.height });
+        inspected = assertExportMatchesRevision(bytes, { width: composition.width, height: composition.height });
       } catch (error) {
         throw new ForbiddenError(error instanceof Error ? error.message : "The composed image was rejected.");
       }
+      const outputHash = inspected.hash ?? hashPng(bytes);
       const revision: CompositionRevision = {
         id: companionId("crev"),
         businessId,
@@ -409,10 +434,16 @@ export class CompanionStudio {
         layers: nextLayers,
         palette,
         composition: composition as unknown as Record<string, unknown>,
+        rendererVersion: COMPOSITION_RENDERER_VERSION,
+        outputHash,
         createdAt: now(),
         createdBy: user.id
       };
       await this.store.companion.addCompositionRevision(revision);
+      const storedRevision = await this.store.companion.getCompositionRevision(revision.id);
+      if (!storedRevision || storedRevision.businessId !== businessId || storedRevision.draftId !== draft.id) {
+        throw new ForbiddenError("The composition revision could not be stored. The draft was not marked exported.");
+      }
       const workItem = await this.store.companion.getWorkItem(draft.workItemId);
       const blob = await this.store.companion.putBlob({
         id: companionId("blob"),
@@ -421,6 +452,10 @@ export class CompanionStudio {
         bytes,
         createdAt: now()
       });
+      const readBack = await this.store.companion.getBlob(blob.id);
+      if (!readBack || readBack.businessId !== businessId || hashPng(readBack.bytes) !== outputHash) {
+        throw new ForbiddenError("The exported file could not be read back. The draft was not marked exported.");
+      }
       const exportAsset: StudioAsset = {
         id: companionId("asset"),
         businessId,
@@ -428,15 +463,20 @@ export class CompanionStudio {
         draftId: draft.id,
         status: "ready",
         prompt: "composition_export",
-        model: "owner_composition",
+        model: COMPOSITION_RENDERER_VERSION,
         blobId: blob.id,
         revision: (await this.store.companion.listStudioAssets(businessId)).filter((item) => item.draftId === draft.id)
           .length + 1,
         compositionRevisionId: revision.id,
+        outputHash,
         createdAt: now(),
         updatedAt: now()
       };
       await this.store.companion.addStudioAsset(exportAsset);
+      const storedAsset = await this.store.companion.getStudioAsset(exportAsset.id);
+      if (!storedAsset?.compositionRevisionId || storedAsset.compositionRevisionId !== revision.id) {
+        throw new ForbiddenError("The exported asset lost its revision link. The draft was not marked exported.");
+      }
       if (workItem) {
         await this.store.companion.updateWorkItem({
           ...workItem,
@@ -452,8 +492,10 @@ export class CompanionStudio {
               assetId: exportAsset.id,
               sourceAssetId: asset?.id ?? null,
               blobId: blob.id,
-              labeled: "composition_export",
-              note: "Text and original logos stay as controlled layers. Generated pixels are not a customer portfolio result."
+              outputHash,
+              rendererVersion: COMPOSITION_RENDERER_VERSION,
+              labeled: "owner_canvas_bound",
+              note: "Decoded owner canvas bound to this revision. Not a server-rasterized proof of unrelated pixels."
             }
           },
           updatedAt: now()
@@ -462,14 +504,14 @@ export class CompanionStudio {
       return {
         draft,
         asset: exportAsset,
-        revision,
+        revision: storedRevision,
         format: nextLayout,
         dimensions: LAYOUTS[nextLayout],
         layers: nextLayers,
         composition,
         assetUrl: `/api/companion/assets/${exportAsset.id}?businessId=${encodeURIComponent(businessId)}`,
-        labeled: "composition_export" as const,
-        note: "Compose text and original logos as controlled layers. Generated pixels are not a customer portfolio result."
+        labeled: "owner_canvas_bound" as const,
+        note: "Decoded owner canvas bound to this revision. Not a server-rasterized proof of unrelated pixels."
       };
     });
   }
@@ -498,6 +540,23 @@ export class CompanionStudio {
     const blob = await this.store.companion.getBlob(asset.blobId);
     if (!blob || blob.businessId !== businessId) throw new NotFoundError("Asset bytes not found.");
     return { asset, blob };
+  }
+
+  private async assertAuthorizedLayers(businessId: string, layers: StudioLayer[]) {
+    for (const layer of layers) {
+      if (layer.documentId) {
+        const document = await this.store.companion.getDocument(layer.documentId);
+        if (!document || document.businessId !== businessId || document.status === "deleted") {
+          throw new ForbiddenError("A logo or document on this composition is not in this workspace. The draft was not marked exported.");
+        }
+      }
+      if (layer.assetId) {
+        const asset = await this.store.companion.getStudioAsset(layer.assetId);
+        if (!asset || asset.businessId !== businessId) {
+          throw new ForbiddenError("An image on this composition is not in this workspace. The draft was not marked exported.");
+        }
+      }
+    }
   }
 
   async uploadLogo(businessId: string, user: User, input: { title: string; mime: string; bytes: Uint8Array }) {

@@ -430,6 +430,8 @@ describe("Studio import, drafts, logo, and export evidence", () => {
       composedPngBase64: Buffer.from(encodeSolidPng(1080, 1350)).toString("base64")
     });
     expect(exported.asset?.blobId).toBeTruthy();
+    expect(exported.asset?.compositionRevisionId).toBe(exported.revision?.id);
+    expect(exported.revision?.outputHash).toBeTruthy();
     const after = await store.companion.getWorkItem(created.workItem.id);
     expect(after?.status).toBe("exported");
     const bytes = await studio.getAssetBytes(ctx.business.id, owner, exported.asset!.id);
@@ -494,6 +496,22 @@ describe("voice session lifecycle", () => {
     });
     expect(session.workspaceBound).toBe(true);
     expect(session.billedMinutes).toBe(0);
+    expect(session.usageEventId).toBeTruthy();
+    expect((await usage.snapshot(ctx.business.id, owner)).voiceMinutesUsed).toBe(0);
+    const ended = await bound.endSession({
+      businessId: ctx.business.id,
+      user: owner,
+      usageEventId: session.usageEventId,
+      startedAt: new Date().toISOString()
+    });
+    expect(ended.billedMinutes).toBe(0);
+    const again = await bound.endSession({
+      businessId: ctx.business.id,
+      user: owner,
+      usageEventId: session.usageEventId,
+      startedAt: new Date().toISOString()
+    });
+    expect(again.billedMinutes).toBe(0);
     expect((await usage.snapshot(ctx.business.id, owner)).voiceMinutesUsed).toBe(0);
   });
 

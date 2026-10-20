@@ -215,7 +215,7 @@ describe("companion workspace isolation", () => {
     const exported = await studio.exportDraft(ctx.business.id, owner, created.draft.id, "square_announcement", {
       composedPngBase64: Buffer.from(encodeSolidPng(1080, 1080)).toString("base64")
     });
-    expect(exported.labeled).toBe("composition_export");
+    expect(exported.labeled).toBe("owner_canvas_bound");
     expect(exported.asset?.blobId).toBeTruthy();
     await work.upsertTask(ctx.business.id, owner, {
       title: "Review the exported announcement before posting",

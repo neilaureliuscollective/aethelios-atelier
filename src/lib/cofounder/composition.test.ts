@@ -6,9 +6,12 @@ import {
   LIFESTYLE_PALETTE,
   layersFromControls,
   paletteForProfile,
+  previewFontCss,
+  previewScale,
+  scaleCompositionPx,
   wrapLines
 } from "@/lib/cofounder/composition";
-import { assertExportMatchesRevision, encodeSolidPng, inspectPng } from "@/lib/cofounder/png";
+import { assertExportMatchesRevision, decodePng, encodeSolidPng, inspectPng } from "@/lib/cofounder/png";
 import { lifestyleProfileFields } from "@/lib/cofounder/lifestyle";
 
 describe("canonical studio composition", () => {
@@ -74,11 +77,53 @@ describe("canonical studio composition", () => {
     expect(spec.headline.color).toBe(LIFESTYLE_PALETTE.ink);
   });
 
+  it("scales preview fonts from the full output width, not a 100px box", () => {
+    expect(previewScale(1080, 360)).toBe(1 / 3);
+    expect(scaleCompositionPx(72, 1080, 360)).toBe(24);
+    expect(scaleCompositionPx(72, 1080, 1080)).toBe(72);
+    expect(previewFontCss(72, 1080)).toBe("calc(72 * 100cqw / 1080)");
+    expect(scaleCompositionPx(72, 1080, 360)).not.toBe(72 * (100 / 1080));
+    for (const layout of ["square_announcement", "portrait_social", "story_portrait", "website_banner"] as const) {
+      const spec = buildComposition({
+        layout,
+        layers: defaultLayers({
+          headline: "A long Lifestyle headline that must wrap instead of shrinking",
+          body: "Confirmed facts only.",
+          layout
+        }),
+        businessId: "biz_1"
+      });
+      expect(scaleCompositionPx(spec.headline.fontSize, spec.width, 390)).toBeGreaterThan(12);
+      expect(scaleCompositionPx(spec.headline.fontSize, spec.width, 1440)).toBeGreaterThan(
+        scaleCompositionPx(spec.headline.fontSize, spec.width, 390)
+      );
+    }
+  });
+
   it("rejects a 1×1 PNG as a portrait export", () => {
     const tiny = encodeSolidPng(1, 1);
     expect(inspectPng(tiny).width).toBe(1);
     expect(() => assertExportMatchesRevision(tiny, { width: 1080, height: 1350 })).toThrow(/do not match/);
     const portrait = encodeSolidPng(1080, 1350);
-    expect(assertExportMatchesRevision(portrait, { width: 1080, height: 1350 }).height).toBe(1350);
+    const inspected = assertExportMatchesRevision(portrait, { width: 1080, height: 1350 });
+    expect(inspected.height).toBe(1350);
+    expect(inspected.hash).toMatch(/^[a-f0-9]{64}$/);
+    expect(decodePng(portrait).width).toBe(1080);
+    const headerOnly = inspectPng(portrait);
+    const truncated = portrait.slice(0, 40);
+    expect(() => decodePng(truncated)).toThrow(/could not be decoded/);
+    expect(headerOnly.width).toBe(1080);
+    const corruptBody = Uint8Array.from(portrait);
+    const corruptAt = Math.min(80, corruptBody.length - 1);
+    const current = corruptBody[corruptAt];
+    if (current == null) throw new Error("expected a PNG body byte to corrupt");
+    corruptBody[corruptAt] = current ^ 0xff;
+    expect(inspectPng(corruptBody).width).toBe(1080);
+    expect(() => decodePng(corruptBody)).toThrow(/could not be decoded/);
+    expect(() => assertExportMatchesRevision(corruptBody, { width: 1080, height: 1350 })).toThrow(
+      /could not be decoded/
+    );
+    const notPng = Uint8Array.from(Buffer.from("not-a-png-file-but-long-enough-to-pass-length"));
+    expect(() => inspectPng(notPng)).toThrow(/not a PNG/);
   });
 });

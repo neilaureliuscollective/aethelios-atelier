@@ -119,18 +119,117 @@ await page.waitForFunction(() => {
 const secondHeadline = await page.$eval("#headline", (node) => node.value);
 check("second work item does not inherit the first Studio draft", secondHeadline.includes("Evening gathering"));
 check("incorrect first-draft fallback is absent", !secondHeadline.includes("Porch season"));
-
-await page.goto(`${BASE}/companion/studio`, { waitUntil: "networkidle0" });
-await page.waitForSelector("#headline");
+await page.waitForFunction(() => document.querySelector("#studio-draft")?.value, { timeout: 15000 });
 const studio = await page.content();
 check("studio editor is present", studio.includes("Brand Studio") && studio.includes("Generate image"));
 check("studio has draft selector and layouts", studio.includes("Saved draft") && studio.includes("Portrait social"));
+await page.waitForFunction(() => {
+  const canvas = document.querySelector("[data-studio-preview='canvas']");
+  return canvas && canvas.width >= 1080;
+}, { timeout: 15000 }).catch(() => null);
+const metrics1440 = await page.evaluate(() => {
+  const box = document.querySelector("[data-preview-scale]");
+  const canvas = document.querySelector("[data-studio-preview='canvas']");
+  const errors = [...document.querySelectorAll(".notice-warn")].map((node) => node.textContent || "").join(" ");
+  return {
+    previewWidth: Number(box?.getAttribute("data-preview-width") || 0),
+    previewScale: Number(box?.getAttribute("data-preview-scale") || 0),
+    headlinePx: Number(box?.getAttribute("data-headline-preview-px") || 0),
+    canvasWidth: canvas?.width || 0,
+    canvasHeight: canvas?.height || 0,
+    errors
+  };
+});
+check("preview canvas uses full composition pixels at 1440", metrics1440.canvasWidth >= 1080, JSON.stringify(metrics1440));
+check(
+  "preview scale tracks displayed width at 1440",
+  metrics1440.previewScale > 0 &&
+    metrics1440.previewWidth > 0 &&
+    Math.abs(metrics1440.previewScale - metrics1440.previewWidth / metrics1440.canvasWidth) < 0.05
+);
+check("preview headline is large enough to read at 1440", metrics1440.headlinePx >= 12);
+check("studio has no error overlay at 1440", !/error|failed|500/i.test(metrics1440.errors));
+await page.click("#headline", { clickCount: 3 });
+await page.keyboard.press("Backspace");
+await page.type("#headline", "Evening gathering — saved", { delay: 15 });
+await page.waitForFunction(() =>
+  [...document.querySelectorAll("button")].some((node) => /Save layers/.test(node.textContent || ""))
+);
+const saveResponse = page.waitForResponse(
+  (response) => response.url().includes("/api/companion/studio") && response.request().method() === "PATCH",
+  { timeout: 20000 }
+);
+await page.evaluate(() => {
+  const button = [...document.querySelectorAll("button")].find((node) => /Save layers/.test(node.textContent || ""));
+  button?.click();
+});
+const savedHttp = await saveResponse;
+check("browser save writes the edited draft", savedHttp.ok(), String(savedHttp.status()));
+const exportResponse = page.waitForResponse(
+  (response) => response.url().includes("/api/companion/studio/export") && response.request().method() === "POST",
+  { timeout: 30000 }
+);
+await page.waitForFunction(() =>
+  [...document.querySelectorAll("button")].some((node) => (node.textContent || "").trim() === "Export" && !node.disabled)
+);
+await page.evaluate(() => {
+  const button = [...document.querySelectorAll("button")].find((node) => (node.textContent || "").trim() === "Export");
+  button?.click();
+});
+const exportedHttp = await exportResponse;
+const exportedJson = await exportedHttp.json().catch(() => ({}));
+check(
+  "browser export binds the revision and file",
+  exportedHttp.ok() &&
+    Boolean(exportedJson.exported?.assetUrl) &&
+    exportedJson.exported?.asset?.compositionRevisionId === exportedJson.exported?.revision?.id,
+  JSON.stringify({ status: exportedHttp.status(), revision: exportedJson.exported?.revision?.id })
+);
+await page.waitForFunction(() => document.body.innerText.includes("Exported"), { timeout: 8000 }).catch(() => null);
 await shot("companion-studio-1440.png");
+await shot("companion-studio-exported-1440.png");
+
+await page.evaluate(async () => {
+  await fetch("/api/session/sign-out", { method: "POST" });
+});
+await signIn("owner.local@atelier.invalid");
+await page.goto(`${BASE}/companion/work`, { waitUntil: "networkidle0" });
+const workAfterReturn = await page.content();
+check(
+  "work lists the exported artifact after sign-in",
+  workAfterReturn.includes("Download finished file") && workAfterReturn.includes("Evening gathering")
+);
+const downloadHref = await page.$$eval("a[href*='/api/companion/assets/']", (nodes) => {
+  const match = nodes.find((node) => node.closest(".surface-read")?.textContent?.includes("Evening gathering"));
+  return (match ?? nodes[0])?.getAttribute("href") || "";
+});
+const downloaded = await page.evaluate(async (href) => {
+  const response = await fetch(href);
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  return {
+    status: response.status,
+    type: response.headers.get("content-type") || "",
+    length: bytes.byteLength,
+    png: bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78 && bytes[3] === 71
+  };
+}, downloadHref);
+check("fresh session downloads the same exported PNG", downloaded.status === 200 && downloaded.png && downloaded.length > 1000, JSON.stringify(downloaded));
+await shot("companion-work-exported-1440.png");
+globalThis.__atelierExportedAsset = downloadHref;
 
 await page.setViewport({ width: 884, height: 1100 });
 await page.goto(`${BASE}/companion/talk`, { waitUntil: "networkidle0" });
 await shot("companion-talk-884.png");
-await page.goto(`${BASE}/companion/studio`, { waitUntil: "networkidle0" });
+await page.goto(`${BASE}${evening.href}`, { waitUntil: "networkidle0" });
+await page.waitForFunction(() => document.querySelector("[data-studio-preview='canvas']")?.width >= 1080, { timeout: 15000 }).catch(() => null);
+const metrics884 = await page.evaluate(() => {
+  const canvas = document.querySelector("[data-studio-preview='canvas']");
+  const headlinePx = Number(document.querySelector("[data-headline-preview-px]")?.getAttribute("data-headline-preview-px") || 0);
+  const headline = document.querySelector("#headline")?.value || "";
+  return { canvasWidth: canvas?.width || 0, headlinePx, headline };
+});
+check("preview canvas stays full-resolution at 884", metrics884.canvasWidth >= 1080);
+check("preview headline remains readable at 884", metrics884.headlinePx >= 12 && metrics884.headline.includes("Evening gathering"));
 await shot("companion-studio-884.png");
 check("tablet grid stacks or remains usable", (await page.content()).includes("Brand Studio"));
 
@@ -142,6 +241,14 @@ await page.goto(`${BASE}/companion/talk`, { waitUntil: "networkidle0" });
 await page.waitForSelector("#talk-input");
 await page.focus("#talk-input");
 await shot("companion-talk-390-keyboard.png");
+await page.goto(`${BASE}${evening.href}`, { waitUntil: "networkidle0" });
+await page.waitForFunction(() => document.querySelector("[data-studio-preview='canvas']")?.width >= 1080, { timeout: 15000 }).catch(() => null);
+const metrics390 = await page.evaluate(() => ({
+  headlinePx: Number(document.querySelector("[data-headline-preview-px]")?.getAttribute("data-headline-preview-px") || 0),
+  headline: document.querySelector("#headline")?.value || ""
+}));
+check("preview headline remains readable at 390", metrics390.headlinePx >= 12 && metrics390.headline.includes("Evening gathering"));
+await shot("companion-studio-390.png");
 await page.goto(`${BASE}/companion`, { waitUntil: "networkidle0" });
 check("today requires signed-in owner", (await page.content()).includes("owner.local@atelier.invalid") || (await page.content()).includes("Cedar"));
 await shot("companion-today-390.png");
@@ -155,6 +262,26 @@ await page.goto(`${BASE}/companion`, { waitUntil: "networkidle0" });
 const other = await page.content();
 check("second owner has their own companion", other.includes("owner-two.local@atelier.invalid"));
 check("second owner does not see first owner email", !other.includes("owner.local@atelier.invalid"));
+if (globalThis.__atelierExportedAsset) {
+  const denied = await page.evaluate(async (href) => {
+    const response = await fetch(href);
+    return response.status;
+  }, globalThis.__atelierExportedAsset);
+  check("second owner cannot download the exported file", denied === 401 || denied === 403 || denied === 404, String(denied));
+}
+const ownerBusinessId = new URL(globalThis.__atelierExportedAsset || "http://local/?businessId=", "http://local").searchParams.get("businessId");
+await signIn("neil.local@atelier.invalid");
+if (ownerBusinessId) {
+  const founderWrite = await page.evaluate(async (businessId) => {
+    const response = await fetch("/api/companion/workspace", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ businessId, fields: { services: { value: "Hijack", kind: "confirmed" } } })
+    });
+    return response.status;
+  }, ownerBusinessId);
+  check("founder cannot mutate a client workspace", founderWrite === 403, String(founderWrite));
+}
 
 await browser.close();
 const failed = results.filter((item) => !item.ok);

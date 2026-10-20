@@ -202,6 +202,7 @@ export type StudioAsset = {
   revision: number;
   parentId?: string;
   compositionRevisionId?: string;
+  outputHash?: string;
   error?: string;
   createdAt: string;
   updatedAt: string;
@@ -219,9 +220,13 @@ export type CompositionRevision = {
   layers: StudioLayer[];
   palette: { canvas: string; ink: string; muted: string; accent: string };
   composition: Record<string, unknown>;
+  rendererVersion?: string;
+  outputHash?: string;
   createdAt: string;
   createdBy: string;
 };
+
+export const COMPOSITION_RENDERER_VERSION = "atelier-owner-canvas-1";
 
 export type UsageEvent = {
   id: string;

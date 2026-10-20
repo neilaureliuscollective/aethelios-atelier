@@ -127,14 +127,6 @@ export class CompanionVoice {
     }
     await this.usage.release({ event });
     const elapsedMs = Math.max(0, Date.now() - new Date(input.startedAt).getTime());
-    const minutes = elapsedMs === 0 ? 0 : Math.max(1, Math.ceil(elapsedMs / 60_000));
-    if (minutes > 0 && process.env.ATELIER_VOICE_RECONCILE === "true") {
-      await this.usage.consume(input.businessId, input.user, "voice", minutes, {
-        stage: "session_end",
-        elapsedMs,
-        note: "Local elapsed time only. Not provider duration evidence."
-      });
-    }
     return { billedMinutes: 0, elapsedMs, limitation: VOICE_LIMITATION };
   }
 

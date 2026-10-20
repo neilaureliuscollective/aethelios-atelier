@@ -125,14 +125,78 @@ await shot("lifestyle-studio-first-1440.png");
 
 await page.goto(`${BASE}${house.href}`, { waitUntil: "networkidle0" });
 await page.waitForFunction(() => document.querySelector("#headline")?.value.includes("House announcement"));
+await page.waitForFunction(() => document.querySelector("#studio-draft")?.value, { timeout: 15000 });
 const secondHeadline = await page.$eval("#headline", (node) => node.value);
 check("second work item does not inherit the first draft", secondHeadline.includes("House announcement"));
 check("studio uses Lifestyle selected project", (await page.content()).includes("AETHELIOS LIFESTYLE"));
+await page.waitForFunction(() => document.querySelector("[data-studio-preview='canvas']")?.width >= 1080, { timeout: 15000 }).catch(() => null);
+const preview = await page.evaluate(() => {
+  const box = document.querySelector("[data-preview-scale]");
+  const canvas = document.querySelector("[data-studio-preview='canvas']");
+  return {
+    previewScale: Number(box?.getAttribute("data-preview-scale") || "0"),
+    headlinePx: Number(box?.getAttribute("data-headline-preview-px") || "0"),
+    canvasWidth: canvas?.width || 0,
+    errors: [...document.querySelectorAll(".notice-warn")].map((node) => node.textContent || "").join(" ")
+  };
+});
+check("preview fonts scale from the full composition width", preview.previewScale > 0 && preview.headlinePx >= 12);
+check("preview canvas uses full composition pixels", preview.canvasWidth >= 1080, JSON.stringify(preview));
+check("lifestyle studio has no error overlay", !/error|failed|500/i.test(preview.errors));
+await page.click("#headline", { clickCount: 3 });
+await page.keyboard.press("Backspace");
+await page.type("#headline", "House announcement — saved", { delay: 15 });
+await page.waitForFunction(() =>
+  [...document.querySelectorAll("button")].some((node) => /Save layers/.test(node.textContent || ""))
+);
+const saveResponse = page.waitForResponse(
+  (response) => response.url().includes("/api/companion/studio") && response.request().method() === "PATCH",
+  { timeout: 20000 }
+);
+await page.evaluate(() => {
+  const button = [...document.querySelectorAll("button")].find((node) => /Save layers/.test(node.textContent || ""));
+  button?.click();
+});
+await saveResponse;
+const exportResponse = page.waitForResponse(
+  (response) => response.url().includes("/api/companion/studio/export") && response.request().method() === "POST",
+  { timeout: 30000 }
+);
+await page.evaluate(() => {
+  const button = [...document.querySelectorAll("button")].find((node) => (node.textContent || "").trim() === "Export");
+  button?.click();
+});
+const exportedHttp = await exportResponse;
+const exportedJson = await exportedHttp.json().catch(() => ({}));
+check(
+  "lifestyle export binds the revision",
+  Boolean(exportedJson.exported?.assetUrl) &&
+    exportedJson.exported?.asset?.compositionRevisionId === exportedJson.exported?.revision?.id
+);
 await shot("lifestyle-studio-second-1440.png");
+await page.evaluate(async () => {
+  await fetch("/api/session/sign-out", { method: "POST" });
+});
+await signIn("neil.local@atelier.invalid");
+await page.goto(`${BASE}/companion/work`, { waitUntil: "networkidle0" });
+check("lifestyle work lists the exported file after return", (await page.content()).includes("Download finished file"));
+const lifestyleDownload = await page.$eval("a[href*='/api/companion/assets/']", (node) => node.getAttribute("href") || "");
+const lifestyleFile = await page.evaluate(async (href) => {
+  const response = await fetch(href);
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  return { status: response.status, png: bytes[0] === 137 && bytes[1] === 80, length: bytes.byteLength };
+}, lifestyleDownload);
+check("lifestyle fresh session downloads the exported PNG", lifestyleFile.status === 200 && lifestyleFile.png && lifestyleFile.length > 1000);
 
 await page.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]);
 await page.setViewport({ width: 884, height: 1100 });
-await page.goto(`${BASE}/companion/studio`, { waitUntil: "networkidle0" });
+await page.goto(`${BASE}${house.href}`, { waitUntil: "networkidle0" });
+await page.waitForFunction(() => document.querySelector("[data-studio-preview='canvas']")?.width >= 1080, { timeout: 15000 }).catch(() => null);
+const lifestyle884 = await page.evaluate(() => ({
+  headlinePx: Number(document.querySelector("[data-headline-preview-px]")?.getAttribute("data-headline-preview-px") || 0),
+  headline: document.querySelector("#headline")?.value || ""
+}));
+check("lifestyle preview headline remains readable at 884", lifestyle884.headlinePx >= 12 && lifestyle884.headline.includes("House announcement"));
 await shot("lifestyle-studio-884.png");
 await page.goto(`${BASE}/discover`, { waitUntil: "networkidle0" });
 await shot("discovery-884.png");
@@ -146,7 +210,13 @@ check("phone talk input focuses", focused);
 await shot("lifestyle-talk-390.png");
 await page.goto(`${BASE}/companion/business`, { waitUntil: "networkidle0" });
 await shot("lifestyle-business-390.png");
-await page.goto(`${BASE}/companion/studio`, { waitUntil: "networkidle0" });
+await page.goto(`${BASE}${house.href}`, { waitUntil: "networkidle0" });
+await page.waitForFunction(() => document.querySelector("[data-studio-preview='canvas']")?.width >= 1080, { timeout: 15000 }).catch(() => null);
+const lifestyle390 = await page.evaluate(() => ({
+  headlinePx: Number(document.querySelector("[data-headline-preview-px]")?.getAttribute("data-headline-preview-px") || 0),
+  headline: document.querySelector("#headline")?.value || ""
+}));
+check("lifestyle preview headline remains readable at 390", lifestyle390.headlinePx >= 12 && lifestyle390.headline.includes("House announcement"));
 await shot("lifestyle-studio-390.png");
 await page.goto(`${BASE}/`, { waitUntil: "networkidle0" });
 await shot("homepage-390.png");

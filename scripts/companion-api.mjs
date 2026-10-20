@@ -220,16 +220,28 @@ const exported = await req("/api/companion/studio/export", {
     format: "portrait_social",
     layout: "portrait_social",
     layers: imported.json.draft.layers,
+    expectedUpdatedAt: imported.json.draft.updatedAt,
     composedPngBase64: encodeSolidPng(1080, 1350).toString("base64")
   }
 });
 check("export succeeds only after composed bytes persist", exported.status === 200 && exported.json.exported?.assetUrl);
+check(
+  "exported asset keeps its composition revision link",
+  Boolean(exported.json.exported?.revision?.id) &&
+    exported.json.exported?.asset?.compositionRevisionId === exported.json.exported?.revision?.id
+);
 
-const finished = await req("/api/companion/work", { cookie: owner });
+const ownerAgain = await signIn("owner.local@atelier.invalid");
+const finished = await req("/api/companion/work", { cookie: ownerAgain });
+const exportedItem = finished.json.items?.find((item) => item.status === "exported");
 check(
   "work marks exported only after persist",
-  finished.json.items?.some((item) => item.status === "exported" && item.payload?.export?.assetId)
+  Boolean(exportedItem?.payload?.export?.assetId && exportedItem.payload.export.revisionId)
 );
+const download = await fetch(`${BASE}${exported.json.exported.assetUrl}`, { headers: { cookie: ownerAgain } });
+check("fresh session can download the same exported file", download.ok && download.headers.get("content-type")?.includes("png"));
+const otherDownload = await fetch(`${BASE}${exported.json.exported.assetUrl}`, { headers: { cookie: other } });
+check("second owner cannot download the exported file", otherDownload.status === 401 || otherDownload.status === 403 || otherDownload.status === 404);
 
 const today = await req("/api/companion/today", { cookie: owner });
 check("today from saved work", today.status === 200 && Array.isArray(today.json.today?.unfinishedDrafts));

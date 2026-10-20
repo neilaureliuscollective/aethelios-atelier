@@ -51,6 +51,13 @@ export class PostgresCompanionStore implements CompanionStore {
     await this.client().unsafe("ALTER TABLE usage_events ADD COLUMN IF NOT EXISTS status TEXT");
     await this.client().unsafe("ALTER TABLE usage_events ADD COLUMN IF NOT EXISTS expires_at TEXT");
     await this.client().unsafe("ALTER TABLE studio_assets ADD COLUMN IF NOT EXISTS composition_revision_id TEXT");
+    await this.client().unsafe("ALTER TABLE studio_assets ADD COLUMN IF NOT EXISTS output_hash TEXT");
+    await this.client().unsafe("ALTER TABLE studio_composition_revisions ADD COLUMN IF NOT EXISTS renderer_version TEXT");
+    await this.client().unsafe("ALTER TABLE studio_composition_revisions ADD COLUMN IF NOT EXISTS output_hash TEXT");
+  }
+
+  async lockUsageBudget(businessId: string, kind: UsageKind, periodKey: string) {
+    await this.client()`SELECT pg_advisory_xact_lock(hashtext(${`${businessId}:${kind}:${periodKey}`}))`;
   }
 
   async reset() {
@@ -308,13 +315,25 @@ export class PostgresCompanionStore implements CompanionStore {
     return draft;
   }
 
+  async compareAndSwapStudioDraft(draft: StudioDraft, expectedUpdatedAt: string) {
+    const rows = await this.client()`
+      UPDATE studio_drafts
+      SET layout = ${draft.layout}, layers_json = ${JSON.stringify(draft.layers)},
+          selected_asset_id = ${draft.selectedAssetId ?? null}, updated_at = ${draft.updatedAt}
+      WHERE id = ${draft.id} AND updated_at = ${expectedUpdatedAt}
+      RETURNING *
+    `;
+    return rows[0] ? mapStudioDraft(rows[0] as Row) : null;
+  }
+
   async addStudioAsset(asset: StudioAsset) {
     await this.client()`
-      INSERT INTO studio_assets(id,business_id,work_item_id,draft_id,status,prompt,model,blob_id,revision,parent_id,error,created_at,updated_at)
+      INSERT INTO studio_assets(id,business_id,work_item_id,draft_id,status,prompt,model,blob_id,revision,parent_id,error,created_at,updated_at,composition_revision_id,output_hash)
       VALUES (
         ${asset.id}, ${asset.businessId}, ${asset.workItemId ?? null}, ${asset.draftId ?? null}, ${asset.status},
         ${asset.prompt}, ${asset.model ?? null}, ${asset.blobId ?? null}, ${asset.revision}, ${asset.parentId ?? null},
-        ${asset.error ?? null}, ${asset.createdAt}, ${asset.updatedAt}
+        ${asset.error ?? null}, ${asset.createdAt}, ${asset.updatedAt}, ${asset.compositionRevisionId ?? null},
+        ${asset.outputHash ?? null}
       )
     `;
     return asset;
@@ -334,7 +353,8 @@ export class PostgresCompanionStore implements CompanionStore {
     await this.client()`
       UPDATE studio_assets
       SET status = ${asset.status}, blob_id = ${asset.blobId ?? null}, error = ${asset.error ?? null},
-          updated_at = ${asset.updatedAt}, revision = ${asset.revision}, model = ${asset.model ?? null}
+          updated_at = ${asset.updatedAt}, revision = ${asset.revision}, model = ${asset.model ?? null},
+          composition_revision_id = ${asset.compositionRevisionId ?? null}, output_hash = ${asset.outputHash ?? null}
       WHERE id = ${asset.id}
     `;
     return asset;
@@ -391,11 +411,12 @@ export class PostgresCompanionStore implements CompanionStore {
   async addCompositionRevision(revision: CompositionRevision) {
     await this.client()`
       INSERT INTO studio_composition_revisions(
-        id,business_id,draft_id,work_item_id,version,layout,width,height,layers_json,palette_json,composition_json,created_at,created_by
+        id,business_id,draft_id,work_item_id,version,layout,width,height,layers_json,palette_json,composition_json,created_at,created_by,renderer_version,output_hash
       ) VALUES (
         ${revision.id}, ${revision.businessId}, ${revision.draftId}, ${revision.workItemId ?? null}, ${revision.version},
         ${revision.layout}, ${revision.width}, ${revision.height}, ${JSON.stringify(revision.layers)},
-        ${JSON.stringify(revision.palette)}, ${JSON.stringify(revision.composition)}, ${revision.createdAt}, ${revision.createdBy}
+        ${JSON.stringify(revision.palette)}, ${JSON.stringify(revision.composition)}, ${revision.createdAt}, ${revision.createdBy},
+        ${revision.rendererVersion ?? null}, ${revision.outputHash ?? null}
       )
     `;
     return revision;

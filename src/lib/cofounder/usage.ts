@@ -93,10 +93,21 @@ export class CompanionUsage {
     const op = operationId || (typeof metadata?.operationId === "string" ? metadata.operationId : companionId("op"));
     return this.store.runInTransaction(async () => {
       await this.workspace.requireMembership(businessId, user);
+      await this.store.companion.lockUsageBudget(businessId, kind, periodStartIso());
       await this.store.companion.releaseExpiredHolds(new Date().toISOString());
       const existing = await this.store.companion.getUsageByOperation(businessId, op);
       if (existing) {
         return { event: existing, reused: true };
+      }
+      if (kind === "talk" || kind === "image" || kind === "voice") {
+        const pending = await this.store.companion.countPendingJobs(businessId, kind);
+        const limit = limitsForPlan(
+          (await this.workspace.requireMembership(businessId, user)).business.planId,
+          configuredLimitOverrides()
+        ).concurrentGenerations;
+        if (pending >= limit) {
+          throw new LimitError("A generation is already in progress for this workspace. Wait for it to finish or retry the same request.");
+        }
       }
       const snapshot = await this.snapshotInTx(businessId, user);
       const check = assertWithinBudget(snapshot, kind, units);

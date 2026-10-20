@@ -191,6 +191,21 @@ export function wrapLines(
   return lines;
 }
 
+/** Scale a canonical composition length onto the displayed preview width. */
+export function previewScale(outputWidth: number, previewWidth: number) {
+  if (outputWidth <= 0) return 0;
+  return previewWidth / outputWidth;
+}
+
+export function scaleCompositionPx(canonicalPx: number, outputWidth: number, previewWidth: number) {
+  return canonicalPx * previewScale(outputWidth, previewWidth);
+}
+
+/** CSS font-size that tracks the preview container, not a guessed 100px box. */
+export function previewFontCss(fontSize: number, compositionWidth: number) {
+  return `calc(${fontSize} * 100cqw / ${compositionWidth})`;
+}
+
 export function fontSizeFor(layout: StudioLayoutSpec, kind: "headline" | "body") {
   const scale = kind === "headline" ? headlineScale(layout) : bodyScale(layout);
   const min = kind === "headline" ? 36 : 20;

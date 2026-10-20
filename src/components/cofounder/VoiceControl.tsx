@@ -29,6 +29,8 @@ export function VoiceControl({ businessId }: { businessId?: string }) {
   const generationRef = useRef(0);
   const startingRef = useRef(false);
   const ownerRef = useRef(user?.id ?? null);
+  const usageEventIdRef = useRef<string | null>(null);
+  const startedAtRef = useRef<string | null>(null);
 
   useEffect(() => {
     void api<{ voice: VoiceInfo }>("/api/companion/voice")
@@ -53,11 +55,31 @@ export function VoiceControl({ businessId }: { businessId?: string }) {
       window.removeEventListener("atelier:client-navigate", onNav);
       cleanup();
     };
+    // cleanup reads refs and must run on owner change and unmount only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  function endServerSession() {
+    const usageEventId = usageEventIdRef.current;
+    const startedAt = startedAtRef.current;
+    usageEventIdRef.current = null;
+    startedAtRef.current = null;
+    if (!usageEventId || !businessId) return;
+    void api("/api/companion/voice", {
+      method: "PATCH",
+      body: JSON.stringify({
+        businessId,
+        usageEventId,
+        action: "end",
+        startedAt: startedAt ?? new Date().toISOString()
+      })
+    }).catch(() => undefined);
+  }
 
   function cleanup() {
     generationRef.current += 1;
     startingRef.current = false;
+    endServerSession();
     streamRef.current?.getTracks().forEach((track) => {
       track.stop();
       track.enabled = false;
@@ -155,14 +177,24 @@ export function VoiceControl({ businessId }: { businessId?: string }) {
         cleanup();
         return;
       }
-      const result = await api<{ sdp: string; workspaceBound?: boolean }>("/api/companion/voice", {
+      const result = await api<{
+        sdp: string;
+        workspaceBound?: boolean;
+        usageEventId?: string;
+      }>("/api/companion/voice", {
         method: "POST",
         body: JSON.stringify({ businessId, sdp: peer.localDescription?.sdp })
       });
       if (generationRef.current !== generation || ownerRef.current !== ownerId) {
+        if (result.usageEventId) {
+          usageEventIdRef.current = result.usageEventId;
+          startedAtRef.current = new Date().toISOString();
+        }
         cleanup();
         return;
       }
+      usageEventIdRef.current = result.usageEventId ?? null;
+      startedAtRef.current = new Date().toISOString();
       await peer.setRemoteDescription({ type: "answer", sdp: result.sdp });
       setWorkspaceBound(result.workspaceBound === true);
       setActive(true);

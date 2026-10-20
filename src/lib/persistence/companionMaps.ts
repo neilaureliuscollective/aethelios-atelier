@@ -161,6 +161,7 @@ export function mapStudioAsset(row: Row): StudioAsset {
     revision: asNumber(row.revision),
     parentId: asOptionalString(row.parent_id),
     compositionRevisionId: asOptionalString(row.composition_revision_id),
+    outputHash: asOptionalString(row.output_hash),
     error: asOptionalString(row.error),
     createdAt: asString(row.created_at),
     updatedAt: asString(row.updated_at)
@@ -196,6 +197,8 @@ export function mapCompositionRevision(row: Row): CompositionRevision {
     layers: parseJson(asString(row.layers_json, "[]"), []),
     palette: parseJson(asString(row.palette_json, "{}"), { canvas: "#2a2218", ink: "#f4efe4", muted: "#c9bba8", accent: "#b5834a" }),
     composition: parseJson(asString(row.composition_json, "{}"), {}),
+    rendererVersion: asOptionalString(row.renderer_version),
+    outputHash: asOptionalString(row.output_hash),
     createdAt: asString(row.created_at),
     createdBy: asString(row.created_by)
   };

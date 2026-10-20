@@ -220,6 +220,17 @@ export class MemoryCompanionStore implements CompanionStore {
     return clone(draft);
   }
 
+  compareAndSwapStudioDraft(draft: StudioDraft, expectedUpdatedAt: string) {
+    const current = this.drafts.get(draft.id);
+    if (!current || current.updatedAt !== expectedUpdatedAt) return null;
+    this.drafts.set(draft.id, clone(draft));
+    return clone(draft);
+  }
+
+  lockUsageBudget() {
+    /* Single-process memory adapter; reserve() still uses a database transaction when available. */
+  }
+
   addStudioAsset(asset: StudioAsset) {
     this.assets.set(asset.id, clone(asset));
     return clone(asset);

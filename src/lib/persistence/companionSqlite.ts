@@ -43,6 +43,7 @@ export class SqliteCompanionStore implements CompanionStore {
     this.ensureProjectBusinessColumn();
     this.ensureUsageColumns();
     this.ensureAssetRevisionColumn();
+    this.ensureOutputHashColumns();
   }
 
   private ensureProjectBusinessColumn() {
@@ -68,6 +69,21 @@ export class SqliteCompanionStore implements CompanionStore {
     if (!columns.some((column) => column.name === "composition_revision_id")) {
       this.db.exec("ALTER TABLE studio_assets ADD COLUMN composition_revision_id TEXT");
     }
+  }
+
+  private ensureOutputHashColumns() {
+    const assets = this.db.prepare("PRAGMA table_info(studio_assets)").all() as Array<{ name: string }>;
+    if (!assets.some((column) => column.name === "output_hash")) {
+      this.db.exec("ALTER TABLE studio_assets ADD COLUMN output_hash TEXT");
+    }
+    const revisions = this.db.prepare("PRAGMA table_info(studio_composition_revisions)").all() as Array<{ name: string }>;
+    const names = new Set(revisions.map((column) => column.name));
+    if (!names.has("renderer_version")) this.db.exec("ALTER TABLE studio_composition_revisions ADD COLUMN renderer_version TEXT");
+    if (!names.has("output_hash")) this.db.exec("ALTER TABLE studio_composition_revisions ADD COLUMN output_hash TEXT");
+  }
+
+  lockUsageBudget() {
+    /* BEGIN IMMEDIATE already serializes this sqlite connection. */
   }
 
   reset() {
@@ -400,11 +416,27 @@ export class SqliteCompanionStore implements CompanionStore {
     return draft;
   }
 
+  compareAndSwapStudioDraft(draft: StudioDraft, expectedUpdatedAt: string) {
+    const result = this.db
+      .prepare(
+        "UPDATE studio_drafts SET layout=?, layers_json=?, selected_asset_id=?, updated_at=? WHERE id=? AND updated_at=?"
+      )
+      .run(
+        draft.layout,
+        JSON.stringify(draft.layers),
+        draft.selectedAssetId ?? null,
+        draft.updatedAt,
+        draft.id,
+        expectedUpdatedAt
+      );
+    return result.changes === 1 ? draft : null;
+  }
+
   addStudioAsset(asset: StudioAsset) {
     this.db
       .prepare(
-        `INSERT INTO studio_assets(id,business_id,work_item_id,draft_id,status,prompt,model,blob_id,revision,parent_id,error,created_at,updated_at)
-         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`
+        `INSERT INTO studio_assets(id,business_id,work_item_id,draft_id,status,prompt,model,blob_id,revision,parent_id,error,created_at,updated_at,composition_revision_id,output_hash)
+         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
       )
       .run(
         asset.id,
@@ -419,7 +451,9 @@ export class SqliteCompanionStore implements CompanionStore {
         asset.parentId ?? null,
         asset.error ?? null,
         asset.createdAt,
-        asset.updatedAt
+        asset.updatedAt,
+        asset.compositionRevisionId ?? null,
+        asset.outputHash ?? null
       );
     return asset;
   }
@@ -437,8 +471,20 @@ export class SqliteCompanionStore implements CompanionStore {
 
   updateStudioAsset(asset: StudioAsset) {
     this.db
-      .prepare("UPDATE studio_assets SET status=?, blob_id=?, error=?, updated_at=?, revision=?, model=? WHERE id=?")
-      .run(asset.status, asset.blobId ?? null, asset.error ?? null, asset.updatedAt, asset.revision, asset.model ?? null, asset.id);
+      .prepare(
+        "UPDATE studio_assets SET status=?, blob_id=?, error=?, updated_at=?, revision=?, model=?, composition_revision_id=?, output_hash=? WHERE id=?"
+      )
+      .run(
+        asset.status,
+        asset.blobId ?? null,
+        asset.error ?? null,
+        asset.updatedAt,
+        asset.revision,
+        asset.model ?? null,
+        asset.compositionRevisionId ?? null,
+        asset.outputHash ?? null,
+        asset.id
+      );
     return asset;
   }
 
@@ -507,8 +553,8 @@ export class SqliteCompanionStore implements CompanionStore {
     this.db
       .prepare(
         `INSERT INTO studio_composition_revisions(
-           id,business_id,draft_id,work_item_id,version,layout,width,height,layers_json,palette_json,composition_json,created_at,created_by
-         ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`
+           id,business_id,draft_id,work_item_id,version,layout,width,height,layers_json,palette_json,composition_json,created_at,created_by,renderer_version,output_hash
+         ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
       )
       .run(
         revision.id,
@@ -523,7 +569,9 @@ export class SqliteCompanionStore implements CompanionStore {
         JSON.stringify(revision.palette),
         JSON.stringify(revision.composition),
         revision.createdAt,
-        revision.createdBy
+        revision.createdBy,
+        revision.rendererVersion ?? null,
+        revision.outputHash ?? null
       );
     return revision;
   }
