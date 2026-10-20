@@ -10,14 +10,14 @@ import {
   DeviceFrame
 } from "@/components/marketing/DeviceFrame";
 import { SERVICE_CATALOG } from "@/lib/catalog";
-import { SERVICE_CATEGORY_COPY } from "@/lib/serviceCategories";
+import { SERVICE_CATEGORY_COPY, serviceBriefHref } from "@/lib/serviceCategories";
 
 export const metadata: Metadata = { title: "Services" };
 
 const SECTIONS = [
   {
     id: "website",
-    href: "/discover?interest=website",
+    href: serviceBriefHref("website"),
     icon: GlobeIcon,
     reverse: false,
     visual: (
@@ -28,7 +28,7 @@ const SECTIONS = [
   },
   {
     id: "custom_apps_platforms",
-    href: "/project?interest=custom_apps_platforms&purpose=business",
+    href: serviceBriefHref("custom_apps_platforms"),
     icon: AppsIcon,
     reverse: true,
     visual: (
@@ -39,7 +39,7 @@ const SECTIONS = [
   },
   {
     id: "ecommerce_storefronts",
-    href: "/discover?interest=ecommerce_storefronts",
+    href: serviceBriefHref("ecommerce_storefronts"),
     icon: StoreIcon,
     reverse: false,
     visual: (
@@ -50,7 +50,7 @@ const SECTIONS = [
   },
   {
     id: "digital_infrastructure",
-    href: "/project?interest=digital_infrastructure&purpose=business",
+    href: serviceBriefHref("digital_infrastructure"),
     icon: NodesIcon,
     reverse: true,
     hash: "digital-infrastructure",

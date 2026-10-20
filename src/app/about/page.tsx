@@ -14,8 +14,8 @@ export default function AboutPage() {
       <h1>A studio with one accountable founder.</h1>
       <p className="lede">
         Aethelios Atelier is the practice of Neil Stutes. It exists to turn a founder’s need into a
-        commission that can actually be built — with clear provenance, no fabricated social proof,
-        and no pretence of unlimited custom work.
+        commission that can actually be built — with a clear record of the work, and no pretence of
+        unlimited custom work.
       </p>
       <div className="about-grid">
         <article className="surface-ivory value-card">

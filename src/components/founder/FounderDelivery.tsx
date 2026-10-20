@@ -309,13 +309,13 @@ export function FounderDelivery({
         </label>
         <div className="row">
           <button className="btn btn-ghost" type="button" disabled={pending !== null} onClick={() => void saveDraft(false)}>
-            {pending === "proposal-draft" ? "Saving…" : "Save unpublished draft"}
+            {pending === "proposal-draft" ? "Saving…" : "Save draft"}
           </button>
           <button className="btn btn-gold" type="button" disabled={pending !== null} onClick={() => void publish()}>
             {pending === "proposal-publish" ? "Publishing…" : "Publish this version"}
           </button>
         </div>
-        {draft ? <p className="tiny">Editing unpublished v{draft.version}</p> : null}
+        {draft ? <p className="tiny">Editing draft v{draft.version}</p> : null}
         {published[0] ? (
           <div style={{ marginTop: 20 }}>
             <p className="tiny">Latest client-visible version</p>

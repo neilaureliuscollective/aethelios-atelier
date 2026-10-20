@@ -10,6 +10,7 @@ out
 .data-visual
 .data-delivery
 .data-export-bind
+.data-copy-pass
 .vercel
 .env
 .env.local

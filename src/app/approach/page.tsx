@@ -19,7 +19,7 @@ export default function ApproachPage() {
           ["Discover a direction", "Try on curated, personalized directions for websites, apps, storefronts, and infrastructure. Nothing is sent from discovery.", "/discover"],
           ["Shape a living brief", "Suggestions from Aethelios stay pending until you accept them. Manual completion is enough.", "/project"],
           ["Consent to a saved snapshot", "You send an immutable copy of the exact revision you reviewed. That creates a durable receipt.", "/project"],
-          ["Submitted is not under review", "Review begins only when Neil opens the commission. There is no implied acceptance or delivery date.", "/about"],
+          ["A sent brief is a request", "Neil accepts work only after he opens the commission. There is no implied acceptance or delivery date.", "/about"],
           ["Scope after human review", "Timing and price are confirmed only after that review, never by the brief itself.", "/about"]
         ] as const).map(([title, copy, href], index) => (
           <Reveal as="li" className="surface-ivory approach-step" key={title} delay={(index % 3) as 0 | 1 | 2}>
@@ -35,7 +35,7 @@ export default function ApproachPage() {
         ))}
       </ol>
       <p className="muted" style={{ marginTop: 24 }}>
-        Notifications are not sent from this app yet. Return to your workspace to read founder
+        Notifications are not sent from this app yet. Return to Commissions to read founder
         responses. Offline edits are never treated as delivered submissions.
       </p>
       <div className="row" style={{ marginTop: 20 }}>

@@ -120,7 +120,7 @@ export function applyProposals(
       return {
         ok: false,
         code: "missing_decision",
-        reason: `Choose append, replace, or skip for ${proposal.field} before anything is written.`
+        reason: `Choose how to treat ${proposal.field} — add to existing notes, replace existing notes, or leave unchanged — before anything is written.`
       };
     }
     if (ENUM_FIELDS.includes(proposal.field) && decision === "append") {

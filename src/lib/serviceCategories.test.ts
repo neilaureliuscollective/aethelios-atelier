@@ -7,6 +7,7 @@ import {
   historicalProjectTypeNote,
   normalizeIncomingServiceInterest,
   optionPressed,
+  serviceBriefHref,
   serviceInterestToStoredProjectType
 } from "./serviceCategories";
 
@@ -53,5 +54,16 @@ describe("service category compatibility", () => {
     expect(asksBookingProvider("custom_apps_platforms", { bookingNeeded: false })).toBe(false);
     expect(asksBookingProvider("website")).toBe(false);
     expect(asksBookingProvider("ecommerce_storefronts")).toBe(false);
+  });
+
+  it("sends custom apps and infrastructure to the brief with interest and purpose", () => {
+    expect(serviceBriefHref("website")).toBe("/discover?interest=website");
+    expect(serviceBriefHref("ecommerce_storefronts")).toBe("/discover?interest=ecommerce_storefronts");
+    expect(serviceBriefHref("custom_apps_platforms")).toBe(
+      "/project?interest=custom_apps_platforms&purpose=business"
+    );
+    expect(serviceBriefHref("digital_infrastructure")).toBe(
+      "/project?interest=digital_infrastructure&purpose=business"
+    );
   });
 });

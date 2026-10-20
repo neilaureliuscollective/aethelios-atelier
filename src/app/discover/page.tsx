@@ -21,7 +21,7 @@ const signal = Syne({
 export const metadata: Metadata = {
   title: "Discover your direction",
   description:
-    "Explore curated website directions for your business. Neil Stutes personally reviews and delivers commissions. No account is required to begin."
+    "Explore curated directions for your business. Neil Stutes personally reviews and delivers commissions. No account is required to begin."
 };
 
 export default function DiscoverPage() {

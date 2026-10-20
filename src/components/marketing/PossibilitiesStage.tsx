@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState, type KeyboardEvent } from "react";
 import { AppLink } from "@/components/ui/AppLink";
 import {
   DemoApp,
@@ -9,16 +9,17 @@ import {
   DemoWebsite,
   DeviceFrame
 } from "@/components/marketing/DeviceFrame";
-import { SERVICE_CATEGORY_COPY, type VisibleProjectType } from "@/lib/serviceCategories";
+import { nextRovingIndex } from "@/lib/a11y/rovingTab";
+import { SERVICE_CATEGORY_COPY, serviceBriefHref, type VisibleProjectType } from "@/lib/serviceCategories";
 
-const OPTIONS: Array<{ id: Exclude<VisibleProjectType, "undecided">; href: string }> = [
-  { id: "website", href: "/discover?interest=website" },
-  { id: "custom_apps_platforms", href: "/discover?interest=custom_apps_platforms" },
-  { id: "ecommerce_storefronts", href: "/discover?interest=ecommerce_storefronts" },
-  { id: "digital_infrastructure", href: "/discover?interest=digital_infrastructure" }
+const OPTIONS: Array<Exclude<VisibleProjectType, "undecided">> = [
+  "website",
+  "custom_apps_platforms",
+  "ecommerce_storefronts",
+  "digital_infrastructure"
 ];
 
-function preview(id: (typeof OPTIONS)[number]["id"]) {
+function preview(id: (typeof OPTIONS)[number]) {
   switch (id) {
     case "website":
       return (
@@ -48,25 +49,39 @@ function preview(id: (typeof OPTIONS)[number]["id"]) {
 }
 
 export function PossibilitiesStage() {
-  const [active, setActive] = useState<(typeof OPTIONS)[number]["id"]>("website");
-  const current = OPTIONS.find((item) => item.id === active) ?? OPTIONS[0]!;
+  const [active, setActive] = useState<(typeof OPTIONS)[number]>("website");
+  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const copy = SERVICE_CATEGORY_COPY[active];
+
+  function onTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    const next = nextRovingIndex(index, event.key, OPTIONS.length);
+    if (next == null) return;
+    event.preventDefault();
+    const id = OPTIONS[next]!;
+    setActive(id);
+    tabRefs.current[next]?.focus();
+  }
 
   return (
     <div className="possibilities">
       <div className="possibilities-tabs" role="tablist" aria-label="Commission possibilities">
-        {OPTIONS.map((item) => (
+        {OPTIONS.map((id, index) => (
           <button
-            key={item.id}
+            key={id}
             type="button"
             role="tab"
-            aria-selected={active === item.id}
-            id={`possibility-${item.id}`}
+            aria-selected={active === id}
+            tabIndex={active === id ? 0 : -1}
+            id={`possibility-${id}`}
             aria-controls="possibility-panel"
             className="possibility-tab"
-            onClick={() => setActive(item.id)}
+            ref={(node) => {
+              tabRefs.current[index] = node;
+            }}
+            onClick={() => setActive(id)}
+            onKeyDown={(event) => onTabKeyDown(event, index)}
           >
-            {SERVICE_CATEGORY_COPY[item.id].title}
+            {SERVICE_CATEGORY_COPY[id].title}
           </button>
         ))}
       </div>
@@ -82,7 +97,7 @@ export function PossibilitiesStage() {
           <h3>{copy.title}</h3>
           <p className="muted">{copy.summary}</p>
           <p className="tiny">Illustrative concept — not a completed client project or result.</p>
-          <AppLink className="btn btn-emerald-glass" href={current.href}>
+          <AppLink className="btn btn-emerald-glass" href={serviceBriefHref(active)}>
             {copy.action}
           </AppLink>
         </div>

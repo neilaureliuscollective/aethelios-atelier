@@ -33,7 +33,8 @@ export default function HomePage() {
           </div>
           <p className="lede">
             Branding is a quality across this work, and it can also be scoped on its own. A rebrand is
-            not required to start. Pricing is not published here; Neil confirms every proposal.
+            not required to start. Plan prices are listed on{" "}
+            <AppLink href="/pricing">Pricing</AppLink>. Neil still confirms every proposal.
           </p>
         </div>
         <ServiceShowcase />
@@ -45,8 +46,9 @@ export default function HomePage() {
           <p className="kicker">Our approach</p>
           <h2 id="path-heading">A more considered way to build.</h2>
           <p className="lede">
-            Nothing is sent until you review the brief and consent. Submitted is not the same as under
-            founder review. Price and timing stay unconfirmed until Neil says so.
+            Nothing is sent until you review the brief and consent. Sending a brief is a request.
+            Neil accepts work only after he reviews it. Price and timing stay unconfirmed until he
+            says so.
           </p>
         </div>
         <div className="process process-editorial">
@@ -75,9 +77,9 @@ export default function HomePage() {
             <p className="kicker">Founder-led</p>
             <h2 id="founder-heading">Reviewed and built by Neil Stutes.</h2>
             <p className="lede lede-bright">
-              Atelier is not autonomous website generation, not an Aethelios subscription, and not a
-              substitute for human expertise. I read every brief I accept, and I remain accountable for
-              scope, price, and delivery.
+              Aethelios Atelier is founder-led studio work, separate from the main Aethelios product.
+              I read every brief I accept, and I remain accountable for scope, price, and delivery. You
+              can explore without a subscription.
             </p>
             <AppLink className="btn btn-gold" href="/project">
               Begin a brief

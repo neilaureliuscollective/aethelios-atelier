@@ -10,6 +10,19 @@ export const DELIVERY_APPROVAL_TEXT =
 /** Visitor-facing name of the in-app intelligence. Aurelius is Neil’s separate personal assistant. */
 export const INTELLIGENCE_DISPLAY_NAME = "Aethelios";
 
+/** Customer-facing labels for how imported or plan notes are applied. Internal ids stay append/replace/skip. */
+export const FIELD_DECISION_LABELS = {
+  append: "Add to existing notes",
+  replace: "Replace existing notes",
+  skip: "Leave unchanged"
+} as const;
+
+export type FieldDecision = keyof typeof FIELD_DECISION_LABELS;
+
+export function fieldDecisionLabel(decision: FieldDecision): string {
+  return FIELD_DECISION_LABELS[decision];
+}
+
 /**
  * Stored records and internal identifiers may still say Aurelius.
  * Map those strings for display without rewriting persisted provenance values.
