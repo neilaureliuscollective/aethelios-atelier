@@ -1,0 +1,303 @@
+import { emptyProfile, normalizeProfile } from "@/lib/cofounder/profile";
+import type {
+  Business,
+  BusinessDocument,
+  BusinessMember,
+  BusinessProfile,
+  CompanionBlob,
+  CompanionConversation,
+  CompanionMessage,
+  GenerationJob,
+  MemoryProposal,
+  StudioAsset,
+  StudioDraft,
+  UsageEvent,
+  UsageKind,
+  WorkItem
+} from "@/lib/cofounder/types";
+import type { CompanionStore } from "@/lib/persistence/companionStore";
+
+function clone<T>(value: T): T {
+  return structuredClone(value);
+}
+
+export class MemoryCompanionStore implements CompanionStore {
+  private businesses = new Map<string, Business>();
+  private members = new Map<string, BusinessMember>();
+  private profiles = new Map<string, BusinessProfile>();
+  private memory = new Map<string, MemoryProposal>();
+  private documents = new Map<string, BusinessDocument>();
+  private conversations = new Map<string, CompanionConversation>();
+  private messages = new Map<string, CompanionMessage[]>();
+  private work = new Map<string, WorkItem>();
+  private drafts = new Map<string, StudioDraft>();
+  private assets = new Map<string, StudioAsset>();
+  private usage: UsageEvent[] = [];
+  private jobs = new Map<string, GenerationJob>();
+  private blobs = new Map<string, CompanionBlob>();
+
+  reset() {
+    this.businesses.clear();
+    this.members.clear();
+    this.profiles.clear();
+    this.memory.clear();
+    this.documents.clear();
+    this.conversations.clear();
+    this.messages.clear();
+    this.work.clear();
+    this.drafts.clear();
+    this.assets.clear();
+    this.usage = [];
+    this.jobs.clear();
+    this.blobs.clear();
+  }
+
+  createBusiness(business: Business) {
+    this.businesses.set(business.id, clone(business));
+    return clone(business);
+  }
+
+  getBusiness(id: string) {
+    const item = this.businesses.get(id);
+    return item ? clone(item) : null;
+  }
+
+  listBusinessesForUser(userId: string) {
+    const ids = [...this.members.values()].filter((member) => member.userId === userId).map((m) => m.businessId);
+    return [...this.businesses.values()].filter((item) => ids.includes(item.id) || item.ownerId === userId).map(clone);
+  }
+
+  listAllBusinesses() {
+    return [...this.businesses.values()].map(clone);
+  }
+
+  updateBusiness(business: Business) {
+    this.businesses.set(business.id, clone(business));
+    return clone(business);
+  }
+
+  addMember(member: BusinessMember) {
+    this.members.set(`${member.businessId}:${member.userId}`, clone(member));
+    return clone(member);
+  }
+
+  getMember(businessId: string, userId: string) {
+    const item = this.members.get(`${businessId}:${userId}`);
+    return item ? clone(item) : null;
+  }
+
+  listMembers(businessId: string) {
+    return [...this.members.values()].filter((item) => item.businessId === businessId).map(clone);
+  }
+
+  upsertProfile(profile: BusinessProfile) {
+    const next = normalizeProfile(profile);
+    this.profiles.set(next.businessId, clone(next));
+    return clone(next);
+  }
+
+  getProfile(businessId: string) {
+    const item = this.profiles.get(businessId);
+    return item ? clone(item) : emptyProfile(businessId, new Date().toISOString());
+  }
+
+  addMemoryProposal(proposal: MemoryProposal) {
+    this.memory.set(proposal.id, clone(proposal));
+    return clone(proposal);
+  }
+
+  getMemoryProposal(id: string) {
+    const item = this.memory.get(id);
+    return item ? clone(item) : null;
+  }
+
+  listMemoryProposals(businessId: string) {
+    return [...this.memory.values()]
+      .filter((item) => item.businessId === businessId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .map(clone);
+  }
+
+  updateMemoryProposal(proposal: MemoryProposal) {
+    this.memory.set(proposal.id, clone(proposal));
+    return clone(proposal);
+  }
+
+  addDocument(document: BusinessDocument) {
+    this.documents.set(document.id, clone(document));
+    return clone(document);
+  }
+
+  getDocument(id: string) {
+    const item = this.documents.get(id);
+    return item ? clone(item) : null;
+  }
+
+  listDocuments(businessId: string) {
+    return [...this.documents.values()].filter((item) => item.businessId === businessId).map(clone);
+  }
+
+  updateDocument(document: BusinessDocument) {
+    this.documents.set(document.id, clone(document));
+    return clone(document);
+  }
+
+  createConversation(conversation: CompanionConversation) {
+    this.conversations.set(conversation.id, clone(conversation));
+    return clone(conversation);
+  }
+
+  getConversation(id: string) {
+    const item = this.conversations.get(id);
+    return item ? clone(item) : null;
+  }
+
+  listConversations(businessId: string) {
+    return [...this.conversations.values()]
+      .filter((item) => item.businessId === businessId)
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      .map(clone);
+  }
+
+  updateConversation(conversation: CompanionConversation) {
+    this.conversations.set(conversation.id, clone(conversation));
+    return clone(conversation);
+  }
+
+  addMessage(message: CompanionMessage) {
+    const list = this.messages.get(message.conversationId) ?? [];
+    list.push(clone(message));
+    this.messages.set(message.conversationId, list);
+    return clone(message);
+  }
+
+  listMessages(conversationId: string) {
+    return (this.messages.get(conversationId) ?? []).map(clone);
+  }
+
+  addWorkItem(item: WorkItem) {
+    this.work.set(item.id, clone(item));
+    return clone(item);
+  }
+
+  getWorkItem(id: string) {
+    const item = this.work.get(id);
+    return item ? clone(item) : null;
+  }
+
+  listWorkItems(businessId: string) {
+    return [...this.work.values()]
+      .filter((item) => item.businessId === businessId)
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      .map(clone);
+  }
+
+  updateWorkItem(item: WorkItem) {
+    this.work.set(item.id, clone(item));
+    return clone(item);
+  }
+
+  addStudioDraft(draft: StudioDraft) {
+    this.drafts.set(draft.id, clone(draft));
+    return clone(draft);
+  }
+
+  getStudioDraft(id: string) {
+    const item = this.drafts.get(id);
+    return item ? clone(item) : null;
+  }
+
+  listStudioDrafts(businessId: string) {
+    return [...this.drafts.values()].filter((item) => item.businessId === businessId).map(clone);
+  }
+
+  updateStudioDraft(draft: StudioDraft) {
+    this.drafts.set(draft.id, clone(draft));
+    return clone(draft);
+  }
+
+  addStudioAsset(asset: StudioAsset) {
+    this.assets.set(asset.id, clone(asset));
+    return clone(asset);
+  }
+
+  getStudioAsset(id: string) {
+    const item = this.assets.get(id);
+    return item ? clone(item) : null;
+  }
+
+  listStudioAssets(businessId: string) {
+    return [...this.assets.values()].filter((item) => item.businessId === businessId).map(clone);
+  }
+
+  updateStudioAsset(asset: StudioAsset) {
+    this.assets.set(asset.id, clone(asset));
+    return clone(asset);
+  }
+
+  addUsageEvent(event: UsageEvent) {
+    this.usage.push(clone(event));
+    return clone(event);
+  }
+
+  sumUsage(businessId: string, kind: UsageKind, sinceIso: string) {
+    return this.usage
+      .filter((event) => event.businessId === businessId && event.kind === kind && event.createdAt >= sinceIso)
+      .reduce((sum, event) => sum + event.units, 0);
+  }
+
+  countPendingJobs(businessId: string, kind: GenerationJob["kind"]) {
+    return [...this.jobs.values()].filter(
+      (job) => job.businessId === businessId && job.kind === kind && job.status === "pending"
+    ).length;
+  }
+
+  addJob(job: GenerationJob) {
+    this.jobs.set(job.id, clone(job));
+    return clone(job);
+  }
+
+  getJob(id: string) {
+    const item = this.jobs.get(id);
+    return item ? clone(item) : null;
+  }
+
+  getJobByIdempotency(businessId: string, key: string) {
+    const item = [...this.jobs.values()].find((job) => job.businessId === businessId && job.idempotencyKey === key);
+    return item ? clone(item) : null;
+  }
+
+  updateJob(job: GenerationJob) {
+    this.jobs.set(job.id, clone(job));
+    return clone(job);
+  }
+
+  invalidateJobsForSession(sessionId: string) {
+    let count = 0;
+    for (const job of this.jobs.values()) {
+      if (job.sessionId === sessionId && job.status === "pending") {
+        job.status = "invalidated";
+        job.updatedAt = new Date().toISOString();
+        count += 1;
+      }
+    }
+    return count;
+  }
+
+  putBlob(blob: CompanionBlob) {
+    this.blobs.set(blob.id, {
+      ...blob,
+      bytes: new Uint8Array(blob.bytes)
+    });
+    return { ...blob, bytes: new Uint8Array(blob.bytes) };
+  }
+
+  getBlob(id: string) {
+    const item = this.blobs.get(id);
+    return item ? { ...item, bytes: new Uint8Array(item.bytes) } : null;
+  }
+
+  deleteBlob(id: string) {
+    this.blobs.delete(id);
+  }
+}

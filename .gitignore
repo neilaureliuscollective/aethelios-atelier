@@ -1,7 +1,9 @@
 node_modules
 .next
+.next-cofounder
 out
 .data
+.data-cofounder
 .vercel
 .env
 .env.local

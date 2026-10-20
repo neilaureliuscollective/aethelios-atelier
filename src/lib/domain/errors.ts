@@ -42,3 +42,9 @@ export class UncertainError extends DomainError {
     super(message, "uncertain", 202);
   }
 }
+
+export class LimitError extends DomainError {
+  constructor(message: string) {
+    super(message, "limit", 429);
+  }
+}

@@ -1,3 +1,4 @@
+import type { CompanionStore } from "@/lib/persistence/companionStore";
 import type {
   ChatMessage,
   ClarificationResponse,
@@ -25,10 +26,12 @@ export type MaybePromise<T> = T | Promise<T>;
 export type PersistenceAdapter = {
   readonly kind: PersistenceKind;
   readonly labeled: true;
+  readonly companion: CompanionStore;
   ready(): boolean;
   ping(): MaybePromise<void>;
   resetForTests(): MaybePromise<void>;
   runInTransaction<T>(fn: () => MaybePromise<T>): Promise<T>;
+  listProjectsByBusiness(businessId: string): MaybePromise<Project[]>;
 
   upsertUser(user: User): MaybePromise<User>;
   getUserById(id: string): MaybePromise<User | null>;

@@ -41,6 +41,7 @@ import {
   mapUser,
   type Row
 } from "@/lib/persistence/map";
+import { PostgresCompanionStore } from "@/lib/persistence/companionPostgres";
 
 const txSql = new AsyncLocalStorage<Sql | TransactionSql>();
 
@@ -235,7 +236,8 @@ const SCHEMA_STATEMENTS = [
   `CREATE INDEX IF NOT EXISTS content_requests_project_id_idx ON content_requests (project_id)`,
   `CREATE INDEX IF NOT EXISTS delivery_milestones_project_id_idx ON delivery_milestones (project_id)`,
   `ALTER TABLE submissions ADD COLUMN IF NOT EXISTS reviewed_version INTEGER NOT NULL DEFAULT 0`,
-  `ALTER TABLE submissions ADD COLUMN IF NOT EXISTS payload_hash TEXT NOT NULL DEFAULT ''`
+  `ALTER TABLE submissions ADD COLUMN IF NOT EXISTS payload_hash TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE projects ADD COLUMN IF NOT EXISTS business_id TEXT`
 ];
 
 function sslFor(url: string): boolean | "require" {
@@ -261,11 +263,13 @@ function createClient(url: string) {
 export class PostgresPersistence implements PersistenceAdapter {
   readonly kind = "postgres" as const;
   readonly labeled = true as const;
+  readonly companion: PostgresCompanionStore;
   private readonly sql: Sql;
   private initialized = false;
 
   constructor(url: string) {
     this.sql = createClient(url);
+    this.companion = new PostgresCompanionStore(() => this.client());
   }
 
   private client(): Sql | TransactionSql {
@@ -281,6 +285,7 @@ export class PostgresPersistence implements PersistenceAdapter {
     for (const statement of SCHEMA_STATEMENTS) {
       await this.sql.unsafe(statement);
     }
+    await this.companion.initialize();
     this.initialized = true;
   }
 
@@ -317,6 +322,13 @@ export class PostgresPersistence implements PersistenceAdapter {
       DELETE FROM sessions;
       DELETE FROM users;
     `);
+    await this.companion.reset();
+  }
+
+  async listProjectsByBusiness(businessId: string) {
+    const rows =
+      await this.client()`SELECT * FROM projects WHERE business_id = ${businessId} ORDER BY updated_at DESC`;
+    return rows.map((row) => mapProject(row as Row));
   }
 
   async upsertUser(user: User) {
@@ -365,7 +377,7 @@ export class PostgresPersistence implements PersistenceAdapter {
 
   async createProject(project: Project) {
     await this.client()`
-      INSERT INTO projects(id,owner_id,title,status,brief_json,version,created_at,updated_at,adopted_from_guest_id,latest_submission_id)
+      INSERT INTO projects(id,owner_id,title,status,brief_json,version,created_at,updated_at,adopted_from_guest_id,latest_submission_id,business_id)
       VALUES (
         ${project.id},
         ${project.ownerId},
@@ -376,7 +388,8 @@ export class PostgresPersistence implements PersistenceAdapter {
         ${project.createdAt},
         ${project.updatedAt},
         ${project.adoptedFromGuestId ?? null},
-        ${project.latestSubmissionId ?? null}
+        ${project.latestSubmissionId ?? null},
+        ${project.businessId ?? null}
       )
     `;
     return project;
@@ -420,7 +433,8 @@ export class PostgresPersistence implements PersistenceAdapter {
         version = ${project.version},
         updated_at = ${project.updatedAt},
         adopted_from_guest_id = ${project.adoptedFromGuestId ?? null},
-        latest_submission_id = ${project.latestSubmissionId ?? null}
+        latest_submission_id = ${project.latestSubmissionId ?? null},
+        business_id = ${project.businessId ?? null}
       WHERE id = ${project.id}
     `;
     return project;
