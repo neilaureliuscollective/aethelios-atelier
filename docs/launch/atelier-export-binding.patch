@@ -1,0 +1,1781 @@
+diff --git a/.gitignore b/.gitignore
+index c699708..56f30f5 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -9,6 +9,7 @@ out
+ .data-adopt-verify
+ .data-visual
+ .data-delivery
++.data-export-bind
+ .vercel
+ .env
+ .env.local
+diff --git a/docs/launch/ARTWORK_DELIVERY.md b/docs/launch/ARTWORK_DELIVERY.md
+index fd70a4c..25c7fa1 100644
+--- a/docs/launch/ARTWORK_DELIVERY.md
++++ b/docs/launch/ARTWORK_DELIVERY.md
+@@ -1,6 +1,11 @@
+ # Artwork delivery, recovery, and ownership
+ 
+-Application commit: `5d48e88f391017291d62630a662b34298b36354d`. This is local evidence, not hosted launch acceptance. Simulated identities are not Auth.js verification.
++Artwork-delivery application commit: `5d48e88f391017291d62630a662b34298b36354d`.  
++Exact-draft export-binding pass continues that work. This is local evidence, not hosted launch acceptance. Simulated identities are not Auth.js verification.
++
++## Exact-draft export binding
++
++`savedExport` is rebound on every draft, workspace, and owner change. Selecting an unexported draft clears the previous draft’s download control and status. A request started for draft A cannot write status or bytes onto draft B. When the same draft is edited after export, the UI labels the stored file as an earlier revision instead of implying the current edits were exported. Download-again retries the existing artifact.
+ 
+ ## Preserved from earlier PR #18 passes
+ 
+@@ -24,17 +29,19 @@ What is verified: the client-rendered PNG is bound to a composition revision, st
+ 
+ ## Upload recovery
+ 
+-A failed logo upload keeps the existing logo, composition, and direction. The file input is cleared so the same file can be retried. Same-origin workspace images load without CORS tainting. Foreign hosts require CORS; a tainted canvas surfaces a meaningful export error.
++A failed logo upload keeps the existing logo, composition, and direction. Empty `file.type` is no longer sent as `image/png`. The file input is cleared so the same file can be retried. Same-origin workspace images load without CORS tainting. Foreign hosts require CORS; a tainted canvas surfaces a meaningful export error.
++
++## Strict local UI acceptance (this pass)
+ 
+-## Two real UI exports
++Production `next start` on port 3030, sqlite `.data-export-bind`, simulated auth. Preview/export raster tolerance is **2**. Real Export control, real browser downloads, no API fallback counted as UI-download evidence.
+ 
+-Production `next start` on port 3030, sqlite `.data-delivery`, simulated auth.
++| Identity | Layout | Draft | Revision | SHA-256 | Bytes | Samples | Preview Δ |
++| --- | --- | --- | --- | --- | --- | --- | --- |
++| Lumen House / ivory / Glass reserved | direction_board 1600×1200 | `studio_b68f14a4-876c-4e5f-97bf-c827d4128dca` | `crev_5b5514c1-baa3-441a-8cb1-ce50f3dc1367` | `2b96cf119c36319555fa80047179828c544bfa3faa27264600452626e8eef22c` | 664221 | 10904 | 0 |
++| Hearth Room / linen / Linen reserved | square_announcement 1080×1080 | `studio_c157fc1c-45df-44be-9929-b3ea64a865ec` | `crev_d5804854-5c3a-4bf9-8714-4e7e3b20431b` | `017c4ab36775849a991b820d73bfd83cf37801de4d36a9966297a5aa03730176` | 1304184 | 25818 | 0 |
+ 
+-| Identity | Draft | Revision | SHA-256 | Bytes | Samples |
+-| --- | --- | --- | --- | --- | --- |
+-| Lumen House / ivory / Glass evening | `studio_aa3352ae-c55d-466a-9b93-a28df91f4dce` | `crev_3eecac66-29f9-4757-baab-9a8033983a98` | `e47ae6ab71393b5dda4e9ba53c764c3ac9e51a6ff2de2f4bc40b79691649308c` | 709926 | 11734 |
+-| Hearth Room / linen / Linen gathering | `studio_702cb606-bc32-4faf-a4a6-a3c5411e67a3` | `crev_72e47e26-be7d-4bbd-8c6b-6643545094d6` | `bcbd8852b908d9637da28d0c4806cd415b4b9c109637f94752e48477d9922ede` | 1270052 | 22687 |
++A→B→A: unexported draft `studio_26fdf3a9-2124-4427-b654-5696ec98a700` never bound Lumen’s export. Failed download left one artifact; Download again returned the same SHA-256. Signed-out GET: **401** `{ok:false,error:"unauthenticated"}`. Second account: **403** `{ok:false,error:"forbidden"}`. Missing asset: **404** `{ok:false,error:"not_found"}`. Reopen UI download matched. Revision two draft `studio_1f78f004-252f-4307-a638-9086468523ad` did not replace the first export.
+ 
+-Both files are 1600×1200 direction boards with visible photography, typography, and palette swatches — not solid PNGs. Output hash equals the downloaded SHA-256. Sign-out / sign-in / Download saved export returned the same Lumen bytes. Revision two draft `studio_a2db9c93-d387-4556-938d-a19cd276792b` did not replace the first draft or its export. Second account received **403** on the first account’s export URL.
++Found during later same-draft edit: headline `Glass reserved later` overflowed the direction-board preview (`Preview unavailable`). The earlier export stayed labeled and downloadable. That is an authoring constraint, not a new visual build.
+ 
+-Artifacts: `/opt/cursor/artifacts/exports/lumen-export.png`, `hearth-export.png`, `artwork-delivery.json`.
++Artifacts: `/opt/cursor/artifacts/exports/export_bind_lumen_direction_board.png`, `export_bind_hearth_square_social.png`, `export_bind_artwork-delivery.json`.
+diff --git a/docs/launch/HOSTED_ACTIVATION.md b/docs/launch/HOSTED_ACTIVATION.md
+index 67584ef..26886e3 100644
+--- a/docs/launch/HOSTED_ACTIVATION.md
++++ b/docs/launch/HOSTED_ACTIVATION.md
+@@ -2,7 +2,7 @@
+ 
+ This is the next stage after local code-complete verification. Nothing here was activated by this agent.
+ 
+-Local artwork delivery on this branch is complete: selection ownership is atomic, saved export is distinct from download, and two real UI exports were re-downloaded. That does **not** satisfy any row below. The server binds owner-rendered bytes to a revision; it does not independently re-rasterize every pixel.
++The four-status rehearsal table (implemented / configured-not-verified / verified-hosted / missing-or-blocked) lives in `docs/launch/HOSTED_REHEARSAL.md`. Local exact-draft export binding and strict UI acceptance on this branch do **not** satisfy any row below. The server binds owner-rendered bytes to a revision; it does not independently re-rasterize every pixel.
+ 
+ | Integration | Status | What “verified” requires |
+ | --- | --- | --- |
+diff --git a/docs/launch/HOSTED_REHEARSAL.md b/docs/launch/HOSTED_REHEARSAL.md
+new file mode 100644
+index 0000000..9a26957
+--- /dev/null
++++ b/docs/launch/HOSTED_REHEARSAL.md
+@@ -0,0 +1,42 @@
++# Hosted rehearsal checklist
++
++Secret-free. This does not create credentials, alter hosted settings, migrate live data, start paid AI/voice, or deploy.
++
++Configuration presence is not proof that a connection works. Simulated identities (`owner.local@atelier.invalid`, `owner-two.local@atelier.invalid`) are not Auth.js verification.
++
++Statuses used below:
++
++- **Implemented in code** — the existing Auth.js, PostgreSQL, and private artifact-storage paths already do this.
++- **Configured, but not verified** — a local or example value exists; no real hosted journey has used it.
++- **Verified through a real hosted journey** — a production-like origin, real provider accounts, and durable hosted storage were exercised.
++- **Missing or blocked** — required hosted value or authorization is absent, or an external gate refused to run.
++
++Local `.env.local` on this machine: `ATELIER_AUTH_ADAPTER=simulated`, `ATELIER_PERSISTENCE_ADAPTER=sqlite_local`, `ATELIER_ISOLATED_LOCAL=true`, `ATELIER_ALLOW_SIMULATED_AUTH=true`, `ATELIER_OPENAI_ENABLED=false`, `ATELIER_BILLING_ENABLED=false`. Public origin hostname is loopback `127.0.0.1`. No Google, Resend, `AUTH_SECRET`, or hosted `DATABASE_URL` / `POSTGRES_URL` value is present. Session-secret and OpenAI-key slots exist empty. Founder-email and adapter flags are local-only.
++
++| Concern | Implemented in code | Configured, but not verified | Verified through a real hosted journey | Missing or blocked |
++| --- | --- | --- | --- | --- |
++| Callback origin / provider | Auth.js Google and Resend adapters, pathname-safe callback, `ATELIER_PUBLIC_ORIGIN` for `metadataBase` / Auth.js | Local origin is loopback HTTP. Example file documents hosted `https://` origin and `/api/auth/callback/google` | No | Hosted `ATELIER_PUBLIC_ORIGIN` matching the deployed callback URL. Google and/or Resend credentials. `ATELIER_AUTH_ADAPTER=authjs`. `AUTH_SECRET` 32+. |
++| Durable database | PostgreSQL adapter, additive schema, `guest_work_owners`, composition revisions, advisory-lock init | Local disposable Postgres used for isolated tests only | No | Dedicated Atelier `DATABASE_URL` / `POSTGRES_URL`. Do not reuse the Aethelios production database. |
++| Private artifact storage | Owner-bound blob reads via session membership; unguessable URL is not authorization | Local sqlite blobs in `.data` / `.data-delivery` | No | Hosted private blob store on the dedicated database / volume. Authenticated GET of the stored PNG. |
++| Authenticated private downloads | `GET /api/companion/assets/:id` requires session + workspace membership | Local simulated session downloads | No | Same download after a real provider sign-in on the hosted origin. |
++| Two-account isolation | Foreign workspace → `403 {ok:false,error:"forbidden"}`; missing asset on own workspace → `404 {ok:false,error:"not_found"}`; signed-out → `401 {ok:false,error:"unauthenticated"}` | Local simulated two-account proof | No | Two real provider accounts on the hosted origin. A 500 is not isolation evidence. |
++| Logout / return | Sign-out invalidates the session; reopen + sign-in recovers the same draft export | Local simulated sign-out / sign-in | No | Hosted provider logout and return to the same origin. |
++| Provider capabilities | Fail-closed OpenAI / voice; no second auth or storage platform | `ATELIER_OPENAI_ENABLED=false`; billing off | No | Spend approval before any paid AI or voice call. Not required to finish this local phase. |
++| GitHub Actions `check` | Workflow exists | — | No | Billing / spending limit. A never-started or two-second failed job is not a passing suite. |
++| Vercel preview | Hosting adapter exists | Preview deploys are not this row | No | A successful deployment is not functional acceptance. |
++
++## Precise remaining authorized hosted rehearsal
++
++An authorized operator — not this agent — must, on a dedicated Atelier environment:
++
++1. Set `ATELIER_AUTH_ADAPTER=authjs` with a 32+ `AUTH_SECRET`, `ATELIER_PUBLIC_ORIGIN` equal to the live callback origin, and at least one existing provider pair (Google and/or Resend). Do not invent a second IdP.
++2. Point `ATELIER_PERSISTENCE_ADAPTER=postgres` at a dedicated Atelier database. Additive schema only. Do not migrate or reuse Aethelios production data.
++3. Sign in with two real provider accounts. Confirm a direction, open the adopted draft, export, download through the visible UI, sign out, return, and re-download the same bytes.
++4. Prove the second account receives `403 forbidden` on the first account’s export URL, a signed-out request receives `401 unauthenticated`, and a missing asset receives `404 not_found`.
++5. Leave paid OpenAI / voice off unless a separate spend approval exists.
++
++Do not ask for a new architecture. The current Auth.js, PostgreSQL, and private artifact-storage implementation already supports this rehearsal.
++
++## Explicitly not this rehearsal
++
++Simulated identities, local SQLite or memory, disposable `atelier_*_test` databases, a production build, a READY Vercel deployment, and matching headlines on generic artwork.
+diff --git a/docs/launch/LAUNCH_READINESS.md b/docs/launch/LAUNCH_READINESS.md
+index 2845a97..aed241f 100644
+--- a/docs/launch/LAUNCH_READINESS.md
++++ b/docs/launch/LAUNCH_READINESS.md
+@@ -4,7 +4,7 @@ Branch: `cursor/atelier-premium-launch-readiness-da63`
+ Inspected incoming head: `a8aabc60d0b91c17bbe1d117443ea4e67a2584f6`  
+ Artwork-delivery application commit: `5d48e88f391017291d62630a662b34298b36354d`  
+ Prior visual-continuity application commit: `a5f109a9ba7270c4c47a9fcbf1a096276aa6a4ac`  
+-This pass continues that branch. It does not reset to `main`.
++This pass continues that branch. It does not reset to `main`. Exact-draft export recovery and strict local acceptance are the finishing phase; see `docs/launch/HOSTED_REHEARSAL.md` for the remaining authorized hosted rehearsal.
+ 
+ This is **code-complete evidence for a local candidate**, not configured launch acceptance.
+ 
+@@ -50,9 +50,9 @@ Owner-canvas-bound export SHA-256: `ab6b8492d0d565cba5fdaf31a9b92993e0f6fb74b0a8
+ 
+ | Layer | Result |
+ | --- | --- |
+-| Memory unit/integration (`pnpm test` without Postgres URL) | 280 passed, 19 Postgres tests skipped |
+-| SQLite local (running app, simulated auth) | `launch-journey-api.mjs` 16/16 and `visual-identity-journey.mjs` 21/21 against a fresh `.data-visual` directory |
+-| Isolated disposable PostgreSQL 16 (`atelier_visual_continuity_test` on 127.0.0.1) | `postgres.integration.test.ts` + `postgres.multiprocess.test.ts`: 18 passed, including concurrent empty-schema init, guest revisions, and claim/adopt/rollback |
++| Memory unit/integration (`pnpm test` without Postgres URL) | 298 passed, 20 Postgres tests skipped |
++| SQLite local (running app, simulated auth) | Strict `artwork-delivery-capture.mjs` on production `next start :3030` / `.data-export-bind`. Prior `launch-journey-api.mjs` 16/16 and `visual-identity-journey.mjs` 21/21 were not re-run in this finishing phase |
++| Isolated disposable PostgreSQL 16 (`atelier_export_recovery_test` on 127.0.0.1) | `postgres.integration.test.ts` + `postgres.multiprocess.test.ts`: 19 passed, including selection-owner race across two connections and concurrent empty-schema init |
+ | Simulated auth | `owner.local@atelier.invalid`, `owner-two.local@atelier.invalid` |
+ | Real Auth.js / Google / Resend | Not run — credentials not configured |
+ | Provider / live OpenAI | Fail-closed. Not run. |
+@@ -61,10 +61,10 @@ Owner-canvas-bound export SHA-256: `ab6b8492d0d565cba5fdaf31a9b92993e0f6fb74b0a8
+ 
+ - `pnpm typecheck` — pass
+ - `pnpm lint` — pass
+-- `pnpm test` — 280 passed, 19 skipped
+-- Isolated Postgres suite — 18 passed
++- `pnpm test` — 298 passed, 20 skipped
++- Isolated Postgres suite — 19 passed
+ - `pnpm build` — production build of this head
+-- Visual identity API and browser journeys (see artifacts)
++- Strict artwork-delivery browser acceptance (see `docs/launch/ARTWORK_DELIVERY.md`)
+ 
+ ## Recovery patch
+ 
+@@ -72,7 +72,7 @@ Owner-canvas-bound export SHA-256: `ab6b8492d0d565cba5fdaf31a9b92993e0f6fb74b0a8
+ 
+ ## Configured launch acceptance
+ 
+-See `docs/launch/ARTWORK_DELIVERY.md` for this pass and `docs/launch/HOSTED_ACTIVATION.md` for remaining gates.
++See `docs/launch/ARTWORK_DELIVERY.md` for this pass, `docs/launch/HOSTED_REHEARSAL.md` for the four-status hosted checklist, and `docs/launch/HOSTED_ACTIVATION.md` for remaining gates.
+ 
+ GitHub Actions `check` remains **blocked** by account billing / spending limit. A never-started Actions job is not a passing test suite. Vercel preview is not launch acceptance.
+ 
+diff --git a/scripts/artwork-delivery-capture.mjs b/scripts/artwork-delivery-capture.mjs
+index f38cefb..c06e405 100644
+--- a/scripts/artwork-delivery-capture.mjs
++++ b/scripts/artwork-delivery-capture.mjs
+@@ -1,5 +1,5 @@
+ #!/usr/bin/env node
+-/** Real UI export/download proof for two identities. Not hosted Auth.js verification. */
++/** Strict UI export/download proof. Simulated local identities — not hosted Auth.js verification. */
+ import { createHash } from "node:crypto";
+ import fs from "node:fs";
+ import path from "node:path";
+@@ -9,6 +9,8 @@ import puppeteer from "puppeteer-core";
+ const BASE = process.env.ATELIER_BASE ?? "http://127.0.0.1:3000";
+ const OUT = process.env.ATELIER_SCREENSHOT_DIR ?? "/opt/cursor/artifacts/screenshots";
+ const FILES = process.env.ATELIER_EXPORT_DIR ?? "/opt/cursor/artifacts/exports";
++/** Same documented preview/export raster tolerance as src/lib/cofounder/png.ts. */
++const RASTER_TOLERANCE = 2;
+ fs.mkdirSync(OUT, { recursive: true });
+ fs.mkdirSync(FILES, { recursive: true });
+ 
+@@ -126,16 +128,38 @@ async function seedHandoff(page, next) {
+   }, next);
+ }
+ 
+-async function waitStudio(page, headline) {
++async function waitArtworkReady(page, timeout = 30000) {
++  await page.evaluate(() => document.fonts.ready);
++  try {
++    await page.waitForFunction(() => {
++      const el = document.querySelector("[data-studio-preview='canvas']");
++      return el instanceof HTMLCanvasElement && el.dataset.renderState === "ready" && el.width > 8 && el.height > 8;
++    }, { timeout });
++  } catch (error) {
++    const diag = await page.evaluate(() => {
++      const el = document.querySelector("[data-studio-preview='canvas']");
++      return {
++        title: document.title,
++        canvas: el instanceof HTMLCanvasElement ? { width: el.width, height: el.height, state: el.dataset.renderState } : null,
++        images: [...document.images].map((img) => ({
++          src: img.currentSrc.slice(-96),
++          complete: img.complete,
++          naturalWidth: img.naturalWidth
++        })),
++        excerpt: document.body.innerText.replace(/\s+/g, " ").slice(0, 280)
++      };
++    });
++    throw new Error(`Artwork was not ready: ${error.message} ${JSON.stringify(diag)}`);
++  }
++}
++
++async function waitStudio(page, headline, { requireArtwork = true } = {}) {
+   await page.waitForFunction(
+-    (text) => /Brand Studio/i.test(document.body.innerText) && document.body.innerText.includes(text),
++    (text) => /Brand Studio/i.test(document.body.innerText) && (!text || document.body.innerText.includes(text)),
+     { timeout: 20000 },
+     headline
+   );
+-  await page.waitForFunction(() => {
+-    const el = document.querySelector("[data-studio-preview], canvas");
+-    return el instanceof HTMLCanvasElement && (el.dataset.renderState === "ready" || el.width > 0);
+-  }, { timeout: 10000 }).catch(() => {});
++  if (requireArtwork) await waitArtworkReady(page);
+ }
+ 
+ async function confirmAndOpen(page, next) {
+@@ -148,9 +172,10 @@ async function confirmAndOpen(page, next) {
+     );
+     button?.click();
+   });
+-  const needsReplace = await page
+-    .waitForFunction(() => /Adopt the newer revision|Brand Studio/i.test(document.body.innerText), { timeout: 15000 })
+-    .then(() => page.evaluate(() => /Adopt the newer revision/i.test(document.body.innerText)));
++  const needsReplace = await page.waitForFunction(
++    () => /Adopt the newer revision|Brand Studio/i.test(document.body.innerText),
++    { timeout: 15000 }
++  ).then(() => page.evaluate(() => /Adopt the newer revision/i.test(document.body.innerText)));
+   if (needsReplace) {
+     await page.evaluate(() => {
+       [...document.querySelectorAll("button")]
+@@ -162,6 +187,46 @@ async function confirmAndOpen(page, next) {
+   return page.evaluate(() => new URL(window.location.href).searchParams.get("draftId"));
+ }
+ 
++async function clickNamed(page, pattern) {
++  const clicked = await page.evaluate((source) => {
++    const match = new RegExp(source, "i");
++    const button = [...document.querySelectorAll("button")].find((node) => match.test(node.textContent || ""));
++    button?.click();
++    return Boolean(button);
++  }, pattern);
++  if (!clicked) throw new Error(`control not found: ${pattern}`);
++}
++
++async function fillControlled(page, selector, value) {
++  const exists = await page.$(selector);
++  if (!exists) throw new Error(`missing field ${selector}`);
++  await page.focus(selector);
++  const filled = await page.evaluate((sel, next) => {
++    const el = document.querySelector(sel);
++    if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) return false;
++    const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
++    const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
++    if (!setter) return false;
++    el.focus();
++    setter.call(el, next);
++    el.dispatchEvent(new InputEvent("input", { bubbles: true, data: next, inputType: "insertReplacementText" }));
++    el.dispatchEvent(new Event("change", { bubbles: true }));
++    return el.value === next;
++  }, selector, value);
++  if (!filled) throw new Error(`React-controlled fill failed for ${selector}`);
++  const actual = await page.$eval(selector, (el) => el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement ? el.value : "");
++  if (actual !== value) {
++    throw new Error(`field ${selector} is ${JSON.stringify(actual)}, expected ${JSON.stringify(value)}`);
++  }
++}
++
++async function assertHeadline(page, expected, when) {
++  const actual = await page.$eval("#headline", (el) => el instanceof HTMLInputElement ? el.value : "");
++  if (actual !== expected) {
++    throw new Error(`${when}: headline is ${JSON.stringify(actual)}, expected ${JSON.stringify(expected)}`);
++  }
++}
++
+ async function prepareDownload(page, dir) {
+   fs.mkdirSync(dir, { recursive: true });
+   const client = await page.createCDPSession();
+@@ -169,7 +234,7 @@ async function prepareDownload(page, dir) {
+   return client;
+ }
+ 
+-async function waitForDownload(dir, timeoutMs = 15000) {
++async function waitForDownload(dir, timeoutMs = 20000) {
+   const started = Date.now();
+   while (Date.now() - started < timeoutMs) {
+     const files = fs.readdirSync(dir).filter((name) => name.endsWith(".png") && !name.endsWith(".crdownload"));
+@@ -180,20 +245,38 @@ async function waitForDownload(dir, timeoutMs = 15000) {
+     }
+     await new Promise((resolve) => setTimeout(resolve, 150));
+   }
+-  throw new Error(`No PNG download appeared in ${dir}`);
++  throw new Error(`No PNG download appeared in ${dir} within ${timeoutMs}ms`);
+ }
+ 
+-function inspectPng(bytes, expected) {
+-  const decoded = PNG.sync.read(bytes);
++function decodePng(bytes) {
++  return PNG.sync.read(bytes, { checkCRC: true });
++}
++
++function hashBytes(bytes) {
++  return createHash("sha256").update(bytes).digest("hex");
++}
++
++function maxChannelDelta(left, right) {
++  if (left.length !== right.length) return Number.POSITIVE_INFINITY;
++  let max = 0;
++  for (let i = 0; i < left.length; i += 1) {
++    const delta = Math.abs((left[i] ?? 0) - (right[i] ?? 0));
++    if (delta > max) max = delta;
++  }
++  return max;
++}
++
++function inspectArtwork(bytes, expected) {
++  const decoded = decodePng(bytes);
+   const samples = new Set();
+   for (let i = 0; i < decoded.data.length; i += 64) {
+     samples.add(`${decoded.data[i]},${decoded.data[i + 1]},${decoded.data[i + 2]}`);
+   }
+-  const hash = createHash("sha256").update(bytes).digest("hex");
++  const hash = hashBytes(bytes);
+   if (decoded.width !== expected.width || decoded.height !== expected.height) {
+-    throw new Error(`unexpected dimensions ${decoded.width}x${decoded.height}`);
++    throw new Error(`unexpected dimensions ${decoded.width}x${decoded.height}, expected ${expected.width}x${expected.height}`);
+   }
+-  if (samples.size < 4) {
++  if (samples.size < 8) {
+     throw new Error(`export looks flat (${samples.size} colors) — not finished artwork`);
+   }
+   const hasCanvas = [...samples].some((value) => {
+@@ -201,101 +284,307 @@ function inspectPng(bytes, expected) {
+     return Math.abs(r - expected.canvas[0]) < 18 && Math.abs(g - expected.canvas[1]) < 18 && Math.abs(b - expected.canvas[2]) < 18;
+   });
+   if (!hasCanvas) throw new Error(`expected canvas color ${expected.canvas.join(",")} missing`);
++  const inkish = [...decoded.data].filter((_, index) => index % 4 !== 3).some((value, index) => {
++    if (index % 3 !== 0) return false;
++    const r = decoded.data[index];
++    const g = decoded.data[index + 1];
++    const b = decoded.data[index + 2];
++    return Math.abs(r - expected.canvas[0]) > 40 || Math.abs(g - expected.canvas[1]) > 40 || Math.abs(b - expected.canvas[2]) > 40;
++  });
++  if (!inkish) throw new Error("decoded artwork has no meaningful ink/image contrast against the canvas");
+   return { width: decoded.width, height: decoded.height, uniqueSamples: samples.size, hash, bytes: bytes.length };
+ }
+ 
+-async function editAndExport(page, { headline, logoPath, prefix, canvas }) {
+-  await page.evaluate(() => {
+-    [...document.querySelectorAll("button")].find((node) => /Aa · Text|Content/i.test(node.textContent || ""))?.click();
+-  });
+-  await page.evaluate((nextHeadline) => {
+-    const field = document.querySelector("#headline");
+-    if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) {
+-      field.focus();
+-      field.value = nextHeadline;
+-      field.dispatchEvent(new Event("input", { bubbles: true }));
++function comparePreviewAndDownload(previewBytes, downloadBytes, expected) {
++  const preview = decodePng(previewBytes);
++  const downloaded = decodePng(downloadBytes);
++  if (preview.width !== downloaded.width || preview.height !== downloaded.height) {
++    throw new Error(
++      `preview ${preview.width}×${preview.height} does not match download ${downloaded.width}×${downloaded.height}`
++    );
++  }
++  if (preview.width !== expected.width || preview.height !== expected.height) {
++    throw new Error(`comparison dimensions ${preview.width}×${preview.height} do not match ${expected.width}×${expected.height}`);
++  }
++  const delta = maxChannelDelta(preview.data, downloaded.data);
++  if (delta > RASTER_TOLERANCE) {
++    throw new Error(`preview/export raster delta ${delta} exceeds documented tolerance ${RASTER_TOLERANCE}`);
++  }
++  return { delta, width: preview.width, height: preview.height, tolerance: RASTER_TOLERANCE };
++}
++
++function assertIsolationContract(status, body, expected) {
++  if (status === 200) throw new Error("Cross-account or missing-artifact read returned HTTP 200.");
++  if (expected === "unauthenticated" && status === 401 && body?.ok === false && body?.error === "unauthenticated") return;
++  if (expected === "forbidden" && status === 403 && body?.ok === false && body?.error === "forbidden") return;
++  if (expected === "not_found" && status === 404 && body?.ok === false && body?.error === "not_found") return;
++  throw new Error(
++    `Isolation contract failed: expected ${expected}, got HTTP ${status} error=${String(body?.error)}. A server error is not isolation evidence.`
++  );
++}
++
++async function capturePreviewPng(page) {
++  await waitArtworkReady(page);
++  const dataUrl = await page.evaluate(() => {
++    const canvas = document.querySelector("[data-studio-preview='canvas']");
++    if (!(canvas instanceof HTMLCanvasElement) || canvas.dataset.renderState !== "ready") {
++      throw new Error("preview canvas is not ready");
+     }
+-  }, headline);
+-  await page.evaluate(() => {
+-    [...document.querySelectorAll("button")].find((node) => /◇ · Logo|Brand/i.test(node.textContent || ""))?.click();
++    return { dataUrl: canvas.toDataURL("image/png"), width: canvas.width, height: canvas.height };
++  });
++  const bytes = Buffer.from(dataUrl.dataUrl.replace(/^data:image\/png;base64,/, ""), "base64");
++  return { bytes, width: dataUrl.width, height: dataUrl.height };
++}
++
++async function exportBinding(page) {
++  return page.evaluate(() => {
++    const status = document.querySelector("[data-export-bound-draft]");
++    const download = document.querySelector("[data-download-saved-export]");
++    return {
++      boundDraft: status?.getAttribute("data-export-bound-draft") || "",
++      revision: status?.getAttribute("data-export-revision") || "",
++      prior: status?.getAttribute("data-export-prior-revision") || "false",
++      stage: status?.getAttribute("data-export-stage") || "",
++      selected: document.querySelector("#studio-draft")?.value || "",
++      downloadDraft: download?.getAttribute("data-download-saved-export") || "",
++      hasDownload: Boolean(download),
++      body: document.body.innerText
++    };
+   });
++}
++
++async function readStudioMeta(page, draftId) {
++  return page.evaluate(async (wanted) => {
++    const workspace = await fetch("/api/companion/workspace").then((res) => res.json());
++    const studio = await fetch(`/api/companion/studio?businessId=${workspace.business.id}`).then((res) => res.json());
++    const drafts = studio.drafts || [];
++    const draft = drafts.find((item) => item.id === wanted) || drafts[0];
++    const exports = (studio.assets || []).filter((item) => item.prompt === "composition_export" && item.draftId === draft?.id);
++    const exportAsset = exports.sort((left, right) => right.revision - left.revision)[0];
++    return {
++      businessId: workspace.business.id,
++      draftId: draft?.id ?? null,
++      headline: draft?.layers?.find((layer) => layer.kind === "headline")?.text ?? "",
++      layout: draft?.layout ?? null,
++      exportCount: exports.length,
++      revisionId: exportAsset?.compositionRevisionId ?? null,
++      assetId: exportAsset?.id ?? null,
++      outputHash: exportAsset?.outputHash ?? null,
++      assetUrl: exportAsset?.id
++        ? `/api/companion/assets/${exportAsset.id}?businessId=${encodeURIComponent(workspace.business.id)}`
++        : null
++    };
++  }, draftId);
++}
++
++async function chooseDraft(page, draftId) {
++  await clickNamed(page, "Aa · Text|Content");
++  await page.waitForSelector("#studio-draft", { timeout: 8000 });
++  await page.select("#studio-draft", draftId);
++  await page.waitForFunction((id) => document.querySelector("#studio-draft")?.value === id, { timeout: 8000 }, draftId);
++}
++
++async function chooseLayout(page, layoutId, label) {
++  await clickNamed(page, "▣ · Format|Layout");
++  await page.waitForSelector("#studio-layout", { timeout: 8000 });
++  await page.select("#studio-layout", layoutId);
++  const actual = await page.$eval("#studio-layout", (el) => el instanceof HTMLSelectElement ? el.value : "");
++  if (actual !== layoutId) throw new Error(`layout is ${actual}, expected ${layoutId} (${label})`);
++}
++
++async function editAndExport(page, { headline, logoPath, prefix, canvas, layoutId, layoutLabel }) {
++  await clickNamed(page, "Aa · Text|Content");
++  await fillControlled(page, "#headline", headline);
++  await assertHeadline(page, headline, "before save");
++  if (layoutId) {
++    await chooseLayout(page, layoutId, layoutLabel ?? layoutId);
++  }
++  await clickNamed(page, "◇ · Logo|Brand");
+   const failedUpload = path.join(FILES, `${prefix}-not-an-image.txt`);
+   fs.writeFileSync(failedUpload, "not an image");
+   const logoInput = await page.$("#logo");
++  if (!logoInput) throw new Error("logo input missing");
+   await logoInput.uploadFile(failedUpload);
+-  await page.waitForFunction(() => /Logo upload failed|failed/i.test(document.body.innerText), { timeout: 8000 }).catch(() => {});
++  await page.waitForFunction(
++    () => /Logo must be an image file|Logos must be an image file|Logo upload failed/i.test(document.body.innerText),
++    { timeout: 15000 }
++  );
+   await shot(page, 1440, `${prefix}_upload_error`);
+   await logoInput.uploadFile(logoPath);
+-  await page.waitForFunction(() => /Original logo stored/i.test(document.body.innerText), { timeout: 12000 });
+-  await page.evaluate(() => {
+-    [...document.querySelectorAll("button")].find((node) => /Save layers/i.test(node.textContent || ""))?.click();
+-  });
+-  await page.waitForFunction(() => /Saved|Original logo stored/i.test(document.body.innerText), { timeout: 8000 }).catch(() => {});
+-  const preview = await page.evaluate(() => {
+-    const canvasEl = document.querySelector("[data-studio-preview], canvas");
+-    return canvasEl instanceof HTMLCanvasElement ? { width: canvasEl.width, height: canvasEl.height, dataUrl: canvasEl.toDataURL("image/png") } : null;
+-  });
++  await page.waitForFunction(() => /Original logo stored/i.test(document.body.innerText), { timeout: 20000 });
++  await clickNamed(page, "Aa · Text|Content");
++  await assertHeadline(page, headline, "after logo upload");
++  const saveNeeded = await page.evaluate(() =>
++    [...document.querySelectorAll("button")].some((node) => /Save layers/i.test(node.textContent || ""))
++  );
++  if (saveNeeded) {
++    await clickNamed(page, "Save layers");
++    await page.waitForFunction(() => /Saved|Original logo stored/i.test(document.body.innerText), { timeout: 15000 });
++  }
++  await assertHeadline(page, headline, "after save");
++  await waitArtworkReady(page);
++  const preview = await capturePreviewPng(page);
++  if (preview.width !== canvas.width || preview.height !== canvas.height) {
++    throw new Error(`preview ${preview.width}×${preview.height} does not match expected ${canvas.width}×${canvas.height}`);
++  }
+   const downloadDir = path.join(FILES, `${prefix}-download`);
+   fs.rmSync(downloadDir, { recursive: true, force: true });
+   await prepareDownload(page, downloadDir);
+   await page.evaluate(() => {
+-    [...document.querySelectorAll("button")].find((node) => node.textContent?.trim() === "Export")?.click();
++    const button = [...document.querySelectorAll("button")].find((node) => node.textContent?.trim() === "Export");
++    if (!button) throw new Error("Export control missing");
++    button.click();
+   });
+   const downloaded = await waitForDownload(downloadDir);
+-  const inspected = inspectPng(downloaded.bytes, canvas);
++  const inspected = inspectArtwork(downloaded.bytes, canvas);
++  const comparison = comparePreviewAndDownload(preview.bytes, downloaded.bytes, canvas);
+   fs.writeFileSync(path.join(FILES, `${prefix}-export.png`), downloaded.bytes);
+-  await page.waitForFunction(() => /Export saved|Download failed|Download again/i.test(document.body.innerText), { timeout: 10000 });
++  fs.writeFileSync(path.join(FILES, `${prefix}-preview.png`), preview.bytes);
++  await page.waitForFunction(() => /Export saved|Download failed|Download again/i.test(document.body.innerText), {
++    timeout: 15000
++  });
+   await shot(page, 1440, `${prefix}_exported`);
+   await shot(page, 390, `${prefix}_exported`);
+-  const meta = await page.evaluate(async () => {
+-    const workspace = await fetch("/api/companion/workspace").then((res) => res.json());
+-    const studio = await fetch(`/api/companion/studio?businessId=${workspace.business.id}`).then((res) => res.json());
+-    const draft = studio.draft ?? (studio.drafts || []).find((item) => item.id === (window.__atelierDraftId || item.id));
+-    const exportAsset = (studio.assets || []).find((item) => item.prompt === "composition_export" && (!draft || item.draftId === draft.id));
+-    return {
+-      draftId: draft?.id,
+-      revisionId: exportAsset?.compositionRevisionId ?? null,
+-      assetId: exportAsset?.id ?? null,
+-      outputHash: exportAsset?.outputHash ?? null,
+-      assetUrl: exportAsset?.id
+-        ? `/api/companion/assets/${exportAsset.id}?businessId=${encodeURIComponent(workspace.business.id)}`
+-        : null
+-    };
+-  });
+-  return {
+-    preview,
+-    downloaded,
+-    inspected,
+-    meta: { ...meta, draftId: new URL(page.url()).searchParams.get("draftId") || meta.draftId }
+-  };
++  const draftId = new URL(page.url()).searchParams.get("draftId");
++  const meta = await readStudioMeta(page, draftId);
++  return { preview, downloaded, inspected, comparison, meta: { ...meta, draftId: draftId || meta.draftId } };
+ }
+ 
+ async function reopenAndRedownload(page, meta, prefix, canvas) {
+   if (!meta.draftId) throw new Error(`${prefix} missing draft id for reopen`);
+   await page.goto(`${BASE}/companion/studio?draftId=${encodeURIComponent(meta.draftId)}`, { waitUntil: "networkidle0" });
+-  await waitStudio(page, "");
+-  await page.waitForFunction(() => /Download saved export|Download again|Composition exports/i.test(document.body.innerText), {
+-    timeout: 12000
+-  });
++  await waitStudio(page, "", { requireArtwork: false });
++  await page.waitForFunction(() => Boolean(document.querySelector("[data-download-saved-export]")), { timeout: 15000 });
+   const downloadDir = path.join(FILES, `${prefix}-reopen`);
+   fs.rmSync(downloadDir, { recursive: true, force: true });
+   await prepareDownload(page, downloadDir);
+   const clicked = await page.evaluate(() => {
+-    const button = [...document.querySelectorAll("button")].find((node) =>
+-      /Download saved export|Download again|Download exported revision/i.test(node.textContent || "")
+-    );
++    const button = document.querySelector("[data-download-saved-export]");
+     button?.click();
+     return Boolean(button);
+   });
+-  if (!clicked && meta.assetUrl) {
+-    const bytes = Buffer.from(await page.evaluate(async (url) => {
+-      const res = await fetch(url, { credentials: "same-origin" });
+-      return Array.from(new Uint8Array(await res.arrayBuffer()));
+-    }, meta.assetUrl));
+-    return inspectPng(bytes, canvas);
++  if (!clicked) {
++    throw new Error(`${prefix} reopen did not find the visible Download saved export control; API fallback is not UI-download evidence`);
+   }
+   const downloaded = await waitForDownload(downloadDir);
+-  return inspectPng(downloaded.bytes, canvas);
++  return inspectArtwork(downloaded.bytes, canvas);
++}
++
++async function proveDraftSwitch(page, exportedDraftId, headlineA) {
++  await clickNamed(page, "Aa · Text|Content");
++  const before = await exportBinding(page);
++  if (before.boundDraft !== exportedDraftId || !before.hasDownload) {
++    throw new Error(`draft A is not bound to its export (${JSON.stringify(before)})`);
++  }
++  await clickNamed(page, "New draft");
++  await page.waitForFunction((keep) => {
++    const value = document.querySelector("#studio-draft")?.value;
++    return Boolean(value) && value !== keep;
++  }, { timeout: 15000 }, exportedDraftId);
++  const draftB = await page.$eval("#studio-draft", (el) => el instanceof HTMLSelectElement ? el.value : "");
++  await fillControlled(page, "#headline", "Unexported study");
++  await assertHeadline(page, "Unexported study", "fresh draft before save");
++  await clickNamed(page, "Save layers");
++  await page.waitForFunction(() => /Saved/i.test(document.body.innerText), { timeout: 15000 });
++  await assertHeadline(page, "Unexported study", "fresh draft after save");
++  const onB = await exportBinding(page);
++  if (onB.boundDraft || onB.hasDownload || onB.downloadDraft === exportedDraftId) {
++    throw new Error(`unexported draft B showed draft A export state: ${JSON.stringify(onB)}`);
++  }
++  if (/Export saved \d/i.test(onB.body) && onB.boundDraft === exportedDraftId) {
++    throw new Error("draft B displayed draft A export status");
++  }
++  await shot(page, 1440, "draft_b_unexported");
++  await chooseDraft(page, exportedDraftId);
++  await waitArtworkReady(page);
++  await assertHeadline(page, headlineA, "back to exported draft A");
++  const backA = await exportBinding(page);
++  if (backA.boundDraft !== exportedDraftId || !backA.hasDownload) {
++    throw new Error(`returning to A lost its export binding: ${JSON.stringify(backA)}`);
++  }
++  await shot(page, 1440, "draft_a_reselected");
++  await chooseDraft(page, draftB);
++  await waitArtworkReady(page);
++  await assertHeadline(page, "Unexported study", "B after A→B→A→B");
++  const againB = await exportBinding(page);
++  if (againB.boundDraft || againB.hasDownload) {
++    throw new Error(`B picked up A export after A→B→A: ${JSON.stringify(againB)}`);
++  }
++  await chooseDraft(page, exportedDraftId);
++  await waitArtworkReady(page);
++  return { draftB, onB, backA, againB };
++}
++
++async function proveFailedDownloadRetry(page, meta) {
++  await page.evaluate((url) => {
++    const original = window.fetch.bind(window);
++    let failed = false;
++    window.fetch = async (input, init) => {
++      const href = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
++      if (!failed && href.includes(url.split("?")[0] ?? url)) {
++        failed = true;
++        return new Response(JSON.stringify({ ok: false, error: "internal", message: "forced download fail" }), {
++          status: 503,
++          headers: { "content-type": "application/json" }
++        });
++      }
++      return original(input, init);
++    };
++  }, meta.assetUrl);
++  await page.setViewport({ width: 1440, height: 1100, deviceScaleFactor: 1, isMobile: false });
++  const downloadButton = await page.waitForSelector("[data-download-saved-export]", { timeout: 8000 });
++  if (!downloadButton) throw new Error("saved-export download control missing before forced failure");
++  await downloadButton.click();
++  await page.waitForFunction(() => document.querySelector("[data-export-stage]")?.getAttribute("data-export-stage") === "download_failed", {
++    timeout: 15000
++  });
++  const failed = await exportBinding(page);
++  if (failed.stage !== "download_failed" || !failed.hasDownload) {
++    throw new Error(`expected download_failed stage with retry control, got ${JSON.stringify(failed)}`);
++  }
++  await page.screenshot({ path: path.join(OUT, "delivery_download_failed_1440w.png"), fullPage: true });
++  await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: false });
++  await page.screenshot({ path: path.join(OUT, "delivery_download_failed_390w.png"), fullPage: true });
++  await page.setViewport({ width: 1440, height: 1100, deviceScaleFactor: 1, isMobile: false });
++  const afterFail = await readStudioMeta(page, meta.draftId);
++  if (afterFail.exportCount !== 1) {
++    throw new Error(`failed download created ${afterFail.exportCount} exports`);
++  }
++  const downloadDir = path.join(FILES, "lumen-retry");
++  fs.rmSync(downloadDir, { recursive: true, force: true });
++  await prepareDownload(page, downloadDir);
++  const retryButton = await page.waitForSelector("[data-download-saved-export]", { timeout: 8000 });
++  if (!retryButton) throw new Error("Download again / saved-export control missing after failed download");
++  await retryButton.click();
++  const retried = await waitForDownload(downloadDir);
++  const afterRetry = await readStudioMeta(page, meta.draftId);
++  if (afterRetry.exportCount !== 1 || afterRetry.assetId !== meta.assetId) {
++    throw new Error("retry created a duplicate export");
++  }
++  return { hash: hashBytes(retried.bytes), exportCount: afterRetry.exportCount, stage: (await exportBinding(page)).stage };
++}
++
++async function provePriorRevisionLabel(page, exportedDraftId) {
++  await chooseDraft(page, exportedDraftId);
++  await clickNamed(page, "Aa · Text|Content");
++  await fillControlled(page, "#headline", "Glass reserved later");
++  await assertHeadline(page, "Glass reserved later", "same-draft edit after export");
++  await clickNamed(page, "Save layers");
++  await page.waitForFunction(
++    () =>
++      document.querySelector("[data-export-prior-revision]")?.getAttribute("data-export-prior-revision") === "true" &&
++      /earlier revision|Earlier export/i.test(document.body.innerText),
++    { timeout: 15000 }
++  );
++  const binding = await exportBinding(page);
++  if (binding.prior !== "true" || binding.boundDraft !== exportedDraftId) {
++    throw new Error(`same-draft edit should keep the earlier export labeled as a prior revision: ${JSON.stringify(binding)}`);
++  }
++  if (!/earlier revision|Earlier export/i.test(binding.body)) {
++    throw new Error("UI did not label the saved export as an earlier revision after later edits");
++  }
++  await shot(page, 1440, "prior_revision");
++  return binding;
+ }
+ 
+ const ownerPage = await browser.newPage();
+@@ -308,12 +597,23 @@ const lumenExport = await editAndExport(ownerPage, {
+   headline: "Glass reserved",
+   logoPath: lumenLogo,
+   prefix: "lumen",
++  layoutId: "direction_board",
++  layoutLabel: "Direction board",
+   canvas: { width: 1600, height: 1200, canvas: [244, 240, 230] }
+ });
++const draftSwitch = await proveDraftSwitch(ownerPage, lumenExport.meta.draftId || lumenDraft, "Glass reserved");
++const failedDownload = await proveFailedDownloadRetry(ownerPage, lumenExport.meta);
++const priorRevision = await provePriorRevisionLabel(ownerPage, lumenExport.meta.draftId || lumenDraft);
+ 
+ await ownerPage.evaluate(async () => {
+   await fetch("/api/session/sign-out", { method: "POST" });
+ });
++const expired = await ownerPage.evaluate(async (url) => {
++  const res = await fetch(url, { credentials: "same-origin" });
++  return { status: res.status, body: await res.json().catch(async () => ({ text: await res.text() })) };
++}, lumenExport.meta.assetUrl);
++assertIsolationContract(expired.status, expired.body, "unauthenticated");
++
+ const reopen = await browser.newPage();
+ await reopen.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]);
+ await reopen.goto(`${BASE}/account`, { waitUntil: "networkidle0" });
+@@ -326,6 +626,10 @@ const lumenAgain = await reopenAndRedownload(reopen, { ...lumenExport.meta, draf
+ if (lumenAgain.hash !== lumenExport.inspected.hash) {
+   throw new Error("reopened Lumen export was not byte-identical");
+ }
++if (failedDownload.hash !== lumenExport.inspected.hash) {
++  throw new Error("retried download was not the original saved artifact");
++}
++await assertHeadline(reopen, "Glass reserved later", "after reopen/sign-in");
+ await shot(reopen, 1440, "lumen_reopened");
+ 
+ const otherPage = await browser.newPage();
+@@ -338,13 +642,23 @@ const hearthExport = await editAndExport(otherPage, {
+   headline: "Linen reserved",
+   logoPath: hearthLogo,
+   prefix: "hearth",
+-  canvas: { width: 1600, height: 1200, canvas: [26, 22, 18] }
++  layoutId: "square_announcement",
++  layoutLabel: "Square social",
++  canvas: { width: 1080, height: 1080, canvas: [26, 22, 18] }
+ });
+ const isolation = await otherPage.evaluate(async (url) => {
+   const file = await fetch(url, { credentials: "same-origin" });
+-  return { exportStatus: file.status, bodyPreview: (await file.text()).slice(0, 80) };
++  return { exportStatus: file.status, body: await file.json().catch(async () => ({ text: (await file.text()).slice(0, 80) })) };
+ }, lumenExport.meta.assetUrl);
+-if (isolation.exportStatus === 200) throw new Error("second account read the first account export bytes");
++assertIsolationContract(isolation.exportStatus, isolation.body, "forbidden");
++const missing = await otherPage.evaluate(async () => {
++  const workspace = await fetch("/api/companion/workspace").then((res) => res.json());
++  const file = await fetch(`/api/companion/assets/asset_missing_export?businessId=${encodeURIComponent(workspace.business.id)}`, {
++    credentials: "same-origin"
++  });
++  return { status: file.status, body: await file.json().catch(async () => ({ text: await file.text() })) };
++});
++assertIsolationContract(missing.status, missing.body, "not_found");
+ 
+ const revise = await browser.newPage();
+ await revise.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]);
+@@ -359,7 +673,7 @@ const revised = {
+ const revisionTwoDraft = await confirmAndOpen(revise, revised);
+ await shot(revise, 1440, "revision_two_studio");
+ await revise.goto(`${BASE}/companion/studio?draftId=${encodeURIComponent(lumenDraft)}`, { waitUntil: "networkidle0" });
+-await revise.waitForFunction(() => /Glass evening/i.test(document.body.innerText), { timeout: 12000 });
++await waitStudio(revise, "Glass reserved later", { requireArtwork: false });
+ await shot(revise, 1440, "revision_one_preserved");
+ const firstExportAgain = await reopenAndRedownload(revise, { ...lumenExport.meta, draftId: lumenDraft }, "lumen-kept", {
+   width: 1600,
+@@ -371,16 +685,32 @@ if (firstExportAgain.hash !== lumenExport.inspected.hash) {
+ }
+ 
+ const summary = {
++  identity: "simulated local — not hosted Auth.js",
++  rasterTolerance: RASTER_TOLERANCE,
+   lumenDraft,
+   hearthDraft,
++  unexportedDraft: draftSwitch.draftB,
+   revisionTwoDraft,
+-  lumen: { ...lumenExport.inspected, ...lumenExport.meta },
+-  hearth: { ...hearthExport.inspected, ...hearthExport.meta },
++  lumen: { ...lumenExport.inspected, ...lumenExport.meta, comparison: lumenExport.comparison },
++  hearth: { ...hearthExport.inspected, ...hearthExport.meta, comparison: hearthExport.comparison },
++  draftSwitch: {
++    bBoundDraft: draftSwitch.onB.boundDraft,
++    aRebound: draftSwitch.backA.boundDraft,
++    bAfterRoundTrip: draftSwitch.againB.boundDraft
++  },
++  failedDownload,
++  priorRevision: { prior: priorRevision.prior, boundDraft: priorRevision.boundDraft },
++  expired,
+   isolation,
++  missing,
+   reopenHash: lumenAgain.hash
+ };
+ fs.writeFileSync(path.join(FILES, "artwork-delivery.json"), JSON.stringify(summary, null, 2));
+ console.log(JSON.stringify(summary, null, 2));
+ if (lumenDraft === hearthDraft) throw new Error("both identities opened the same draft");
+ if (revisionTwoDraft === lumenDraft) throw new Error("revision two overwrote the first draft");
++if (draftSwitch.draftB === lumenDraft) throw new Error("fresh draft reused draft A");
++if (lumenExport.comparison.delta > RASTER_TOLERANCE || hearthExport.comparison.delta > RASTER_TOLERANCE) {
++  throw new Error("preview/export comparison exceeded tolerance");
++}
+ await browser.close();
+diff --git a/src/components/cofounder/StudioClient.tsx b/src/components/cofounder/StudioClient.tsx
+index 5c0dc02..f2dd2c2 100644
+--- a/src/components/cofounder/StudioClient.tsx
++++ b/src/components/cofounder/StudioClient.tsx
+@@ -18,7 +18,6 @@ import {
+   previewScale,
+   scaleCompositionPx,
+   studioLayouts,
+-  STUDIO_LAYOUTS,
+   type BrandPalette,
+   type CompositionSpec
+ } from "@/lib/cofounder/composition";
+@@ -29,46 +28,23 @@ import stage from "./studioStage.module.css";
+ import { CompositionStudy } from "./CompositionStudy";
+ import { isStudioBackgroundAsset, studioAssetKind } from "@/lib/cofounder/studioAssets";
+ import {
++  bindSavedExport,
++  exportBelongsToDraft,
+   exportDownloadFailedMessage,
+   exportSaveFailedMessage,
+-  exportSavedStatus,
++  exportStatusForDraft,
+   fetchSavedExportBytes,
++  isPriorRevisionExport,
++  isStaleExportRequest,
++  nextExportGeneration,
+   triggerBrowserDownload,
+   type ExportDeliveryStage,
++  type ExportRequestToken,
+   type SavedExportRef
+ } from "@/lib/cofounder/exportDelivery";
+ 
+ const LAYOUTS = studioLayouts();
+ 
+-function recoverSavedExport(
+-  list: StudioAsset[],
+-  draft: StudioDraft | null,
+-  biz?: string
+-): SavedExportRef | null {
+-  if (!draft || !biz) return null;
+-  const item = list
+-    .filter(
+-      (asset) =>
+-        asset.draftId === draft.id &&
+-        studioAssetKind(asset) === "composition_export" &&
+-        asset.status === "ready" &&
+-        asset.blobId &&
+-        asset.compositionRevisionId
+-    )
+-    .sort((left, right) => right.revision - left.revision)[0];
+-  if (!item?.compositionRevisionId) return null;
+-  const size = STUDIO_LAYOUTS[draft.layout] ?? STUDIO_LAYOUTS.direction_board;
+-  return {
+-    assetId: item.id,
+-    assetUrl: assetUrl(biz, item.id),
+-    revisionId: item.compositionRevisionId,
+-    draftId: draft.id,
+-    width: size.width,
+-    height: size.height,
+-    outputHash: item.outputHash
+-  };
+-}
+-
+ export function StudioClient() {
+   const { user, generation } = useSession();
+   const search = useSearchParams();
+@@ -109,6 +85,10 @@ export function StudioClient() {
+   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
+   const previewBoxRef = useRef<HTMLDivElement | null>(null);
+   const [previewWidth, setPreviewWidth] = useState(0);
++  const exportGenerationRef = useRef(0);
++  const draftIdRef = useRef<string | null>(null);
++  const businessIdRef = useRef<string | undefined>(undefined);
++  const ownerIdRef = useRef<string | null>(null);
+ 
+   function hydrate(draft: StudioDraft | null) {
+     setCurrent(draft);
+@@ -128,6 +108,46 @@ export function StudioClient() {
+     setCropY(image?.cropY ?? 50);
+     setCropZoom(image?.cropZoom ?? 1);
+     setDirty(false);
++    draftIdRef.current = draft?.id ?? null;
++  }
++
++  function currentExportToken(): ExportRequestToken {
++    return {
++      generation: exportGenerationRef.current,
++      ownerId: ownerIdRef.current,
++      businessId: businessIdRef.current ?? null,
++      draftId: draftIdRef.current
++    };
++  }
++
++  function applyBoundExport(next: SavedExportRef | null) {
++    setSavedExport(next);
++  }
++
++  function selectDraft(
++    draft: StudioDraft | null,
++    assetList: StudioAsset[] = assets,
++    biz = businessId,
++    owner = user?.id ?? null
++  ) {
++    const nextBinding = nextExportGeneration(
++      exportGenerationRef.current,
++      { draftId: draftIdRef.current, businessId: businessIdRef.current ?? null, ownerId: ownerIdRef.current },
++      { draftId: draft?.id ?? null, businessId: biz ?? null, ownerId: owner }
++    );
++    exportGenerationRef.current = nextBinding.generation;
++    ownerIdRef.current = owner;
++    businessIdRef.current = biz;
++    if (nextBinding.switched) {
++      setExportStage("idle");
++      setExporting(false);
++    }
++    hydrate(draft);
++    applyBoundExport(bindSavedExport(assetList, draft, biz));
++  }
++
++  function exportRequestStillCurrent(token: ExportRequestToken) {
++    return ownerFence.isCurrent(generation, user?.id ?? null) && !isStaleExportRequest(token, currentExportToken());
+   }
+ 
+   async function refresh(gen = generation, restoreDraft = true) {
+@@ -147,18 +167,31 @@ export function StudioClient() {
+       `/api/companion/today?businessId=${encodeURIComponent(workspace.business.id)}`
+     );
+     if (!ownerFence.isCurrent(gen, user?.id ?? null)) return;
++    const nextAssets = data.assets ?? today.today.pendingAssets;
++    const workspaceChanged =
++      businessIdRef.current != null && businessIdRef.current !== workspace.business.id;
++    const ownerChanged = ownerIdRef.current != null && ownerIdRef.current !== (user?.id ?? null);
++    if (workspaceChanged || ownerChanged) {
++      exportGenerationRef.current += 1;
++      setExportStage("idle");
++      setExporting(false);
++    }
++    businessIdRef.current = workspace.business.id;
++    ownerIdRef.current = user?.id ?? null;
+     setBusinessId(workspace.business.id);
+     setProfile(workspace.rawProfile ?? null);
+     setDrafts(data.drafts);
+     setWorkItems(work.items);
+-    setAssets(data.assets ?? today.today.pendingAssets);
+-    const nextDraft =
+-      (search.get("draftId") && data.drafts.find((item) => item.id === search.get("draftId"))) ||
+-      current ||
+-      data.drafts[0] ||
+-      null;
+-    const recovered = recoverSavedExport(data.assets ?? today.today.pendingAssets, nextDraft, workspace.business.id);
+-    if (recovered) setSavedExport(recovered);
++    setAssets(nextAssets);
++    const selectedId = draftIdRef.current;
++    const displayedDraft = restoreDraft
++      ? (search.get("draftId") && data.drafts.find((item) => item.id === search.get("draftId"))) ||
++        data.drafts.find((item) => item.id === selectedId) ||
++        current ||
++        data.drafts[0] ||
++        null
++      : data.drafts.find((item) => item.id === selectedId) || current;
++    applyBoundExport(bindSavedExport(nextAssets, displayedDraft, workspace.business.id));
+     if (!restoreDraft) {
+       setPhase("ready");
+       return;
+@@ -180,14 +213,15 @@ export function StudioClient() {
+     );
+     if (resolved.kind === "draft") {
+       if (!current || current.id !== resolved.draft.id || current.updatedAt !== resolved.draft.updatedAt) {
++        const switched = current?.id !== resolved.draft.id;
++        if (switched) {
++          exportGenerationRef.current += 1;
++          setExportStage("idle");
++          setExporting(false);
++        }
+         hydrate(resolved.draft);
+       }
+-      const resolvedExport = recoverSavedExport(
+-        data.assets ?? today.today.pendingAssets,
+-        resolved.draft,
+-        workspace.business.id
+-      );
+-      if (resolvedExport) setSavedExport(resolvedExport);
++      applyBoundExport(bindSavedExport(nextAssets, resolved.draft, workspace.business.id));
+       setError("");
+       setRecovery("");
+       setPhase("ready");
+@@ -209,7 +243,7 @@ export function StudioClient() {
+     if (resolved.kind === "error") {
+       setError(resolved.message);
+       setRecovery(resolved.recovery);
+-      hydrate(null);
++      selectDraft(null, nextAssets, workspace.business.id);
+       setPhase("error");
+       return;
+     }
+@@ -337,8 +371,8 @@ export function StudioClient() {
+           workItemId: input?.workItemId
+         })
+       });
+-      hydrate(created.draft);
+-      await refresh();
++      selectDraft(created.draft);
++      await refresh(generation, false);
+       setStatus(`Studio draft linked to ${input?.workItemId ? "the exact Work item" : "this composition"}.`);
+     } catch (err) {
+       setError(actionErrorMessage(err, "Studio draft could not be created."));
+@@ -376,7 +410,10 @@ export function StudioClient() {
+         })
+       });
+       hydrate(updated.draft);
+-      setStatus("Saved. Preview, export, and the stored revision now share this composition.");
++      setStatus(
++        exportStatusForDraft(savedExport, updated.draft, false, businessId) ||
++          "Saved. Preview, export, and the stored revision now share this composition."
++      );
+       return updated.draft;
+     } catch (err) {
+       setError(actionErrorMessage(err, "Layers could not be saved. The draft is still editable."));
+@@ -438,6 +475,10 @@ export function StudioClient() {
+   }
+ 
+   async function downloadExistingExport(ref: SavedExportRef) {
++    if (!exportBelongsToDraft(ref, { draftId: draftIdRef.current, businessId: businessIdRef.current })) {
++      return;
++    }
++    const token = currentExportToken();
+     setExporting(true);
+     setExportStage("downloading");
+     setError("");
+@@ -445,20 +486,23 @@ export function StudioClient() {
+     setStatus("The export is saved. Downloading the existing file…");
+     try {
+       const blob = await fetchSavedExportBytes(ref);
++      if (!exportRequestStillCurrent(token)) return;
+       triggerBrowserDownload(blob, `${ref.draftId}.png`);
+       setExportStage("saved");
+-      setStatus(exportSavedStatus(ref));
++      setStatus(exportStatusForDraft(ref, current, dirty, businessIdRef.current));
+     } catch (err) {
++      if (!exportRequestStillCurrent(token)) return;
+       setExportStage("download_failed");
+       setError(exportSaveFailedMessage(err, exportDownloadFailedMessage()));
+       setRecovery("The composition was not changed. Download again to retry the existing file.");
+     } finally {
+-      setExporting(false);
++      if (exportRequestStillCurrent(token)) setExporting(false);
+     }
+   }
+ 
+   async function exportDraft() {
+     if (!selected || !composition || exporting) return;
++    const token = currentExportToken();
+     setExporting(true);
+     setError("");
+     setRecovery("");
+@@ -468,10 +512,12 @@ export function StudioClient() {
+     try {
+       const saved = dirty ? await saveLayers() : selected;
+       if (!saved) return;
++      if (!exportRequestStillCurrent(token)) return;
+       let composedPngBase64: string;
+       try {
+         composedPngBase64 = await composePng(composition);
+       } catch (err) {
++        if (!exportRequestStillCurrent(token)) return;
+         setExportStage("idle");
+         setError(
+           exportSaveFailedMessage(
+@@ -483,6 +529,7 @@ export function StudioClient() {
+         setStatus("");
+         return;
+       }
++      if (!exportRequestStillCurrent(token)) return;
+       setExportStage("saving");
+       setStatus("Saving the exact revision…");
+       const result = await api<{
+@@ -505,6 +552,7 @@ export function StudioClient() {
+           expectedUpdatedAt: saved.updatedAt
+         })
+       });
++      if (!exportRequestStillCurrent(token)) return;
+       if (!result.exported.assetUrl || !result.exported.asset?.id || !result.exported.revision?.id) {
+         throw new Error("The export was saved without a complete download reference. Reload Work and use Download exported revision.");
+       }
+@@ -513,14 +561,18 @@ export function StudioClient() {
+         assetUrl: result.exported.assetUrl,
+         revisionId: result.exported.revision.id,
+         draftId: saved.id,
++        businessId: businessIdRef.current,
++        draftUpdatedAt: saved.updatedAt,
++        exportedAt: new Date().toISOString(),
+         width: result.exported.dimensions.width,
+         height: result.exported.dimensions.height,
+         outputHash: result.exported.asset.outputHash
+       };
+-      setSavedExport(persisted);
++      applyBoundExport(persisted);
+       setExportStage("saved");
+       setStatus(`Export saved ${persisted.width}×${persisted.height}. Preparing download…`);
+     } catch (err) {
++      if (!exportRequestStillCurrent(token)) return;
+       setExportStage("idle");
+       setError(
+         exportSaveFailedMessage(err, "Export failed. The draft is still editable and was not marked exported.")
+@@ -529,23 +581,26 @@ export function StudioClient() {
+       setStatus("");
+       return;
+     } finally {
+-      if (!persisted) setExporting(false);
++      if (!persisted && exportRequestStillCurrent(token)) setExporting(false);
+     }
+     if (!persisted) return;
+     try {
++      if (!exportRequestStillCurrent(token)) return;
+       setExportStage("downloading");
+       const blob = await fetchSavedExportBytes(persisted);
++      if (!exportRequestStillCurrent(token)) return;
+       triggerBrowserDownload(blob, `${persisted.draftId}.png`);
+       setExportStage("saved");
+-      setStatus(exportSavedStatus(persisted));
+-      await refresh();
++      setStatus(exportStatusForDraft(persisted, current, dirty, businessIdRef.current));
++      await refresh(generation, false);
+     } catch (err) {
++      if (!exportRequestStillCurrent(token)) return;
+       setExportStage("download_failed");
+       setError(exportSaveFailedMessage(err, exportDownloadFailedMessage()));
+       setRecovery("The export is saved. Download again to retry the existing file. A duplicate export was not created.");
+-      await refresh();
++      await refresh(generation, false);
+     } finally {
+-      setExporting(false);
++      if (exportRequestStillCurrent(token)) setExporting(false);
+     }
+   }
+ 
+@@ -596,10 +651,18 @@ export function StudioClient() {
+   async function uploadLogo(file: File) {
+     if (uploadingLogo || saving || exporting) return;
+     const previousLogo = { logoDocumentId, logoAssetId };
++    const mime = file.type || "application/octet-stream";
+     setUploadingLogo(true);
+     setError("");
+     setRecovery("");
+     setStatus("Uploading the original logo…");
++    if (!mime.startsWith("image/")) {
++      setError("Logo must be an image file.");
++      setRecovery("Retry the same file. The current artwork was not replaced.");
++      setStatus("");
++      setUploadingLogo(false);
++      return;
++    }
+     try {
+       const bytesBase64 = await file.arrayBuffer().then((buffer) => {
+         const bytes = new Uint8Array(buffer);
+@@ -614,7 +677,7 @@ export function StudioClient() {
+         body: JSON.stringify({
+           businessId,
+           title: file.name,
+-          mime: file.type || "image/png",
++          mime,
+           bytesBase64,
+           kind: "logo"
+         })
+@@ -663,9 +726,13 @@ export function StudioClient() {
+             ? exportStage === "downloading"
+               ? "Downloading"
+               : "Exporting"
+-            : exportStage === "download_failed"
++            : exportStage === "download_failed" &&
++                exportBelongsToDraft(savedExport, { draftId: selected?.id, businessId })
+               ? "Download failed"
+-              : savedExport && !dirty
++              : exportBelongsToDraft(savedExport, { draftId: selected?.id, businessId }) &&
++                  isPriorRevisionExport(savedExport, selected, dirty)
++              ? "Earlier export"
++              : exportBelongsToDraft(savedExport, { draftId: selected?.id, businessId }) && !dirty
+               ? "Export saved"
+               : selected
+                 ? "Saved"
+@@ -770,8 +837,20 @@ export function StudioClient() {
+           </div></div>
+           <div className={stage.toolDock} aria-label="Select an element">{["Content", "Image", "Brand", "Layout"].map((name) => <button key={name} type="button" aria-pressed={panel === name && mode === "refine"} onClick={() => focusPanel(name)}>{name === "Content" ? "Aa · Text" : name === "Image" ? "◈ · Image" : name === "Brand" ? "◇ · Logo" : "▣ · Format"}</button>)}</div>
+           <div className={stage.collection} data-expanded={mode === "collection"} aria-label="Coordinated artifact previews">{collection.map((item) => <button key={item.format} type="button" className={stage.study} aria-pressed={layout === item.format} disabled={kept.includes("Layout") || saving || exporting} onClick={() => { markDirty(setLayout)(item.format); setMode("refine"); }}><span className={stage.studyCanvas}><CompositionStudy spec={item.spec} label={`${item.label} live collection preview`} /></span><span>{item.label}<small>{layout === item.format ? "On stage" : "Open & edit"}</small></span></button>)}</div>
+-          <div className={stage.stageActions}><button className="btn btn-gold" type="button" onClick={() => void saveLayers()} disabled={!selected || saving}>{saving ? "Saving…" : dirty ? "Save layers" : "Saved"}</button><button className="btn btn-emerald-glass" type="button" onClick={() => void exportDraft()} disabled={!selected || exporting}>{exporting ? exportStage === "downloading" ? "Downloading…" : exportStage === "saving" ? "Saving export…" : "Exporting…" : "Export"}</button>{savedExport ? <button className="btn btn-ghost" type="button" onClick={() => void downloadExistingExport(savedExport)} disabled={exporting}>{exportStage === "download_failed" ? "Download again" : "Download saved export"}</button> : null}<button className={stage.compare} type="button" disabled={!current || !dirty} onClick={() => { hydrate(current); setStatus("Restored the last saved composition."); }}>Reset edits</button></div>
+-          <p className={styles.meta} role="status">{status}</p>
++          <div className={stage.stageActions}><button className="btn btn-gold" type="button" onClick={() => void saveLayers()} disabled={!selected || saving}>{saving ? "Saving…" : dirty ? "Save layers" : "Saved"}</button><button className="btn btn-emerald-glass" type="button" onClick={() => void exportDraft()} disabled={!selected || exporting}>{exporting ? exportStage === "downloading" ? "Downloading…" : exportStage === "saving" ? "Saving export…" : "Exporting…" : "Export"}</button>{exportBelongsToDraft(savedExport, { draftId: selected?.id, businessId }) ? <button className="btn btn-ghost" type="button" data-download-saved-export={savedExport.draftId} onClick={() => void downloadExistingExport(savedExport)} disabled={exporting}>{exportStage === "download_failed" ? "Download again" : "Download saved export"}</button> : null}<button className={stage.compare} type="button" disabled={!current || !dirty} onClick={() => { hydrate(current); setStatus("Restored the last saved composition."); }}>Reset edits</button></div>
++          <p
++            className={styles.meta}
++            role="status"
++            data-export-stage={exportStage}
++            data-export-bound-draft={exportBelongsToDraft(savedExport, { draftId: selected?.id, businessId }) ? savedExport.draftId : ""}
++            data-export-revision={exportBelongsToDraft(savedExport, { draftId: selected?.id, businessId }) ? savedExport.revisionId : ""}
++            data-export-prior-revision={
++              exportBelongsToDraft(savedExport, { draftId: selected?.id, businessId }) &&
++              isPriorRevisionExport(savedExport, selected, dirty)
++                ? "true"
++                : "false"
++            }
++          >{status}</p>
+           {error ? <p className="notice notice-warn">{error}</p> : null}
+           {recovery ? <p className={styles.meta}>{recovery}</p> : null}
+         </section>
+@@ -788,12 +867,23 @@ export function StudioClient() {
+             <select
+               id="studio-draft"
+               className={styles.select}
++              data-studio-draft-id={selected?.id ?? ""}
+               value={selected?.id ?? ""}
+               onChange={(event) => {
+                 const next = drafts.find((item) => item.id === event.target.value) ?? null;
+-                hydrate(next);
++                selectDraft(next);
+                 setError("");
+                 setRecovery("");
++                setStatus(
++                  next
++                    ? exportStatusForDraft(
++                        bindSavedExport(assets, next, businessId),
++                        next,
++                        false,
++                        businessId
++                      )
++                    : ""
++                );
+               }}
+             >
+               <option value="">No composition selected</option>
+diff --git a/src/lib/cofounder/exportDelivery.test.ts b/src/lib/cofounder/exportDelivery.test.ts
+index dc4a72d..0256416 100644
+--- a/src/lib/cofounder/exportDelivery.test.ts
++++ b/src/lib/cofounder/exportDelivery.test.ts
+@@ -1,34 +1,72 @@
+ import { describe, expect, it } from "vitest";
+ import {
++  assertIsolationContract,
++  bindSavedExport,
++  exportAccessDeniedMessage,
++  exportBelongsToDraft,
+   exportDownloadFailedMessage,
++  exportPriorRevisionStatus,
+   exportSaveFailedMessage,
+   exportSavedStatus,
++  exportStatusForDraft,
+   fetchSavedExportBytes,
++  isPriorRevisionExport,
++  isStaleExportRequest,
++  nextExportGeneration,
+   type SavedExportRef
+ } from "@/lib/cofounder/exportDelivery";
+ 
+-const ref: SavedExportRef = {
+-  assetId: "asset_1",
+-  assetUrl: "/api/companion/assets/asset_1?businessId=biz",
+-  revisionId: "crev_1",
+-  draftId: "studio_1",
++const refA: SavedExportRef = {
++  assetId: "asset_a",
++  assetUrl: "/api/companion/assets/asset_a?businessId=biz_1",
++  revisionId: "crev_a",
++  draftId: "studio_a",
++  businessId: "biz_1",
++  draftUpdatedAt: "2026-10-20T10:00:00.000Z",
++  exportedAt: "2026-10-20T10:00:00.000Z",
+   width: 1600,
+   height: 1200,
+-  outputHash: "abc"
++  outputHash: "aaa"
++};
++
++const draftA = {
++  id: "studio_a",
++  businessId: "biz_1",
++  layout: "direction_board" as const,
++  updatedAt: "2026-10-20T10:00:00.000Z"
++};
++
++const draftB = {
++  id: "studio_b",
++  businessId: "biz_1",
++  layout: "square_announcement" as const,
++  updatedAt: "2026-10-20T11:00:00.000Z"
++};
++
++const exportAssetA = {
++  id: "asset_a",
++  draftId: "studio_a",
++  status: "ready" as const,
++  blobId: "blob_a",
++  compositionRevisionId: "crev_a",
++  prompt: "composition_export",
++  revision: 1,
++  outputHash: "aaa",
++  createdAt: "2026-10-20T10:00:00.000Z"
+ };
+ 
+ describe("export delivery stages", () => {
+   it("keeps a successful save distinct from a failed download", async () => {
+     await expect(
+-      fetchSavedExportBytes(ref, async () => new Response(null, { status: 503 }))
++      fetchSavedExportBytes(refA, async () => new Response(null, { status: 503 }))
+     ).rejects.toThrow(exportDownloadFailedMessage());
+     await expect(
+-      fetchSavedExportBytes(ref, async () => {
++      fetchSavedExportBytes(refA, async () => {
+         throw new TypeError("network");
+       })
+     ).rejects.toThrow(exportDownloadFailedMessage());
+-    expect(exportSavedStatus(ref)).toContain("Export saved 1600×1200");
+-    expect(exportSavedStatus(ref)).toContain("does not confirm that the device kept a copy");
++    expect(exportSavedStatus(refA)).toContain("Export saved 1600×1200");
++    expect(exportSavedStatus(refA)).toContain("does not confirm that the device kept a copy");
+   });
+ 
+   it("does not claim the draft is unmarked when save already succeeded", () => {
+@@ -40,10 +78,108 @@ describe("export delivery stages", () => {
+ 
+   it("rejects a missing or empty download without inventing bytes", async () => {
+     await expect(
+-      fetchSavedExportBytes({ ...ref, assetUrl: "" }, async () => new Response(new Uint8Array([1, 2, 3])))
++      fetchSavedExportBytes({ ...refA, assetUrl: "" }, async () => new Response(new Uint8Array([1, 2, 3])))
+     ).rejects.toThrow(/no download URL/);
+-    await expect(fetchSavedExportBytes(ref, async () => new Response(new Uint8Array()))).rejects.toThrow(
++    await expect(fetchSavedExportBytes(refA, async () => new Response(new Uint8Array()))).rejects.toThrow(
+       exportDownloadFailedMessage()
+     );
+   });
++
++  it("distinguishes expired, forbidden, and missing artifact responses from a generic download failure", async () => {
++    await expect(fetchSavedExportBytes(refA, async () => new Response(null, { status: 401 }))).rejects.toThrow(
++      exportAccessDeniedMessage(401)
++    );
++    await expect(fetchSavedExportBytes(refA, async () => new Response(null, { status: 403 }))).rejects.toThrow(
++      exportAccessDeniedMessage(403)
++    );
++    await expect(fetchSavedExportBytes(refA, async () => new Response(null, { status: 404 }))).rejects.toThrow(
++      exportAccessDeniedMessage(404)
++    );
++    expect(exportAccessDeniedMessage(401)).toMatch(/Sign in is required/);
++    expect(exportAccessDeniedMessage(403)).toMatch(/another account/);
++    expect(exportAccessDeniedMessage(404)).toMatch(/could not be found/);
++  });
++});
++
++describe("exact-draft export binding", () => {
++  it("recovers an export only for the selected draft and clears an unexported draft", () => {
++    const assets = [exportAssetA];
++    expect(bindSavedExport(assets, draftA, "biz_1")?.assetId).toBe("asset_a");
++    expect(bindSavedExport(assets, draftB, "biz_1")).toBeNull();
++    expect(bindSavedExport(assets, draftA, "biz_other")).toEqual(bindSavedExport(assets, draftA, "biz_other"));
++    expect(bindSavedExport(assets, null, "biz_1")).toBeNull();
++    expect(exportBelongsToDraft(refA, { draftId: "studio_b", businessId: "biz_1" })).toBe(false);
++    expect(exportBelongsToDraft(refA, { draftId: "studio_a", businessId: "biz_2" })).toBe(false);
++    expect(exportStatusForDraft(refA, draftB, false, "biz_1")).toBe("");
++  });
++
++  it("returns A then clears B then restores A", () => {
++    const assets = [exportAssetA];
++    const first = bindSavedExport(assets, draftA, "biz_1");
++    const afterSwitch = bindSavedExport(assets, draftB, "biz_1");
++    const back = bindSavedExport(assets, draftA, "biz_1");
++    expect(first?.draftId).toBe("studio_a");
++    expect(afterSwitch).toBeNull();
++    expect(back?.assetId).toBe(first?.assetId);
++    expect(back?.revisionId).toBe("crev_a");
++  });
++
++  it("labels a same-draft export as an earlier revision after later edits", () => {
++    expect(isPriorRevisionExport(refA, draftA, true)).toBe(true);
++    expect(isPriorRevisionExport(refA, { ...draftA, updatedAt: "2026-10-20T12:00:00.000Z" }, false)).toBe(true);
++    expect(exportStatusForDraft(refA, { ...draftA, updatedAt: "2026-10-20T12:00:00.000Z" }, false, "biz_1")).toBe(
++      exportPriorRevisionStatus(refA)
++    );
++    expect(exportStatusForDraft(refA, draftA, false, "biz_1")).toBe(exportSavedStatus(refA));
++    expect(exportPriorRevisionStatus(refA)).toMatch(/earlier revision/);
++    expect(exportPriorRevisionStatus(refA)).not.toMatch(/Current edits have been exported/);
++  });
++
++  it("increments the export generation when the draft, workspace, or owner changes", () => {
++    expect(
++      nextExportGeneration(3, { draftId: "studio_a", businessId: "biz_1", ownerId: "owner_1" }, {
++        draftId: "studio_b",
++        businessId: "biz_1",
++        ownerId: "owner_1"
++      })
++    ).toEqual({ generation: 4, switched: true });
++    expect(
++      nextExportGeneration(3, { draftId: "studio_a", businessId: "biz_1", ownerId: "owner_1" }, {
++        draftId: "studio_a",
++        businessId: "biz_1",
++        ownerId: "owner_1"
++      })
++    ).toEqual({ generation: 3, switched: false });
++    expect(
++      nextExportGeneration(1, { draftId: "studio_a", businessId: "biz_1", ownerId: "owner_1" }, {
++        draftId: "studio_a",
++        businessId: "biz_2",
++        ownerId: "owner_1"
++      }).switched
++    ).toBe(true);
++  });
++
++  it("ignores an in-flight A request after the visible draft becomes B", () => {
++    const tokenA = { generation: 1, ownerId: "owner_1", businessId: "biz_1", draftId: "studio_a" };
++    const currentB = { generation: 2, ownerId: "owner_1", businessId: "biz_1", draftId: "studio_b" };
++    expect(isStaleExportRequest(tokenA, currentB)).toBe(true);
++    expect(isStaleExportRequest(tokenA, tokenA)).toBe(false);
++    expect(
++      isStaleExportRequest(tokenA, { ...tokenA, ownerId: "owner_2" })
++    ).toBe(true);
++  });
++});
++
++describe("isolation response contract", () => {
++  it("requires the exact unauthenticated, forbidden, and not-found bodies", () => {
++    expect(assertIsolationContract(401, { ok: false, error: "unauthenticated" }, "unauthenticated")).toEqual({
++      status: 401,
++      error: "unauthenticated"
++    });
++    expect(assertIsolationContract(403, { ok: false, error: "forbidden" }, "forbidden").error).toBe("forbidden");
++    expect(assertIsolationContract(404, { ok: false, error: "not_found" }, "not_found").error).toBe("not_found");
++    expect(() => assertIsolationContract(500, { ok: false, error: "internal" }, "forbidden")).toThrow(/not isolation/);
++    expect(() => assertIsolationContract(403, { ok: false, error: "internal" }, "forbidden")).toThrow(/Isolation contract/);
++    expect(() => assertIsolationContract(200, { ok: true }, "forbidden")).toThrow(/HTTP 200/);
++  });
+ });
+diff --git a/src/lib/cofounder/exportDelivery.ts b/src/lib/cofounder/exportDelivery.ts
+index 5872829..9ea33c8 100644
+--- a/src/lib/cofounder/exportDelivery.ts
++++ b/src/lib/cofounder/exportDelivery.ts
+@@ -1,3 +1,7 @@
++import { assetUrl, STUDIO_LAYOUTS } from "@/lib/cofounder/composition";
++import { studioAssetKind } from "@/lib/cofounder/studioAssets";
++import type { StudioAsset, StudioDraft } from "@/lib/cofounder/types";
++
+ export type ExportDeliveryStage =
+   | "idle"
+   | "rendering"
+@@ -11,11 +15,33 @@ export type SavedExportRef = {
+   assetUrl: string;
+   revisionId: string;
+   draftId: string;
++  businessId?: string;
++  draftUpdatedAt?: string;
++  exportedAt?: string;
+   width: number;
+   height: number;
+   outputHash?: string;
+ };
+ 
++export type ExportBindingContext = {
++  ownerId?: string | null;
++  businessId?: string | null;
++  draftId?: string | null;
++};
++
++export type ExportRequestToken = {
++  generation: number;
++  ownerId: string | null;
++  businessId: string | null;
++  draftId: string | null;
++};
++
++export type IsolationBody = {
++  ok?: boolean;
++  error?: string;
++  message?: string;
++};
++
+ export function exportSaveFailedMessage(error: unknown, fallback: string) {
+   return error instanceof Error && error.message.trim() ? error.message : fallback;
+ }
+@@ -24,10 +50,148 @@ export function exportDownloadFailedMessage() {
+   return "The export is saved. Download failed. Use Download again — a new export was not created.";
+ }
+ 
++export function exportAccessDeniedMessage(status: number) {
++  if (status === 401) {
++    return "Sign in is required to download this export. The saved file was not deleted.";
++  }
++  if (status === 403) {
++    return "This export belongs to another account or workspace. The saved file was not deleted.";
++  }
++  if (status === 404) {
++    return "The saved export could not be found. The draft was not replaced.";
++  }
++  return exportDownloadFailedMessage();
++}
++
+ export function exportSavedStatus(ref: SavedExportRef) {
+   return `Export saved ${ref.width}×${ref.height}. Your browser was asked to download the file. The file is stored with this account; this message does not confirm that the device kept a copy.`;
+ }
+ 
++export function exportPriorRevisionStatus(ref: SavedExportRef) {
++  return `Export saved for an earlier revision of this draft (${ref.width}×${ref.height}). Current edits have not been exported.`;
++}
++
++export function exportBelongsToDraft(
++  ref: SavedExportRef | null | undefined,
++  context: ExportBindingContext
++): ref is SavedExportRef {
++  if (!ref || !context.draftId) return false;
++  if (ref.draftId !== context.draftId) return false;
++  if (ref.businessId && context.businessId && ref.businessId !== context.businessId) return false;
++  return true;
++}
++
++export function isPriorRevisionExport(
++  ref: SavedExportRef | null | undefined,
++  draft: Pick<StudioDraft, "id" | "updatedAt"> | null | undefined,
++  dirty = false
++) {
++  if (!ref || !draft || ref.draftId !== draft.id) return false;
++  if (dirty) return true;
++  if (ref.draftUpdatedAt && draft.updatedAt && ref.draftUpdatedAt !== draft.updatedAt) return true;
++  if (ref.exportedAt && draft.updatedAt && Date.parse(draft.updatedAt) > Date.parse(ref.exportedAt)) return true;
++  return false;
++}
++
++export function exportStatusForDraft(
++  ref: SavedExportRef | null | undefined,
++  draft: Pick<StudioDraft, "id" | "updatedAt" | "businessId"> | null | undefined,
++  dirty = false,
++  businessId?: string | null
++) {
++  if (!exportBelongsToDraft(ref, { draftId: draft?.id, businessId: businessId ?? draft?.businessId })) {
++    return "";
++  }
++  if (isPriorRevisionExport(ref, draft, dirty)) {
++    return exportPriorRevisionStatus(ref);
++  }
++  return exportSavedStatus(ref);
++}
++
++export function nextExportGeneration(
++  generation: number,
++  from: ExportBindingContext,
++  to: ExportBindingContext
++) {
++  const switched = from.draftId !== to.draftId || from.businessId !== to.businessId || from.ownerId !== to.ownerId;
++  return { generation: switched ? generation + 1 : generation, switched };
++}
++
++export function isStaleExportRequest(token: ExportRequestToken, current: ExportRequestToken) {
++  return (
++    token.generation !== current.generation ||
++    token.draftId !== current.draftId ||
++    token.businessId !== current.businessId ||
++    token.ownerId !== current.ownerId
++  );
++}
++
++export function bindSavedExport(
++  list: Array<Pick<
++    StudioAsset,
++    | "id"
++    | "draftId"
++    | "status"
++    | "blobId"
++    | "compositionRevisionId"
++    | "prompt"
++    | "model"
++    | "revision"
++    | "outputHash"
++    | "createdAt"
++  >>,
++  draft: Pick<StudioDraft, "id" | "layout" | "updatedAt"> | null | undefined,
++  businessId?: string | null
++): SavedExportRef | null {
++  if (!draft || !businessId) return null;
++  const item = list
++    .filter(
++      (asset) =>
++        asset.draftId === draft.id &&
++        studioAssetKind(asset) === "composition_export" &&
++        asset.status === "ready" &&
++        asset.blobId &&
++        asset.compositionRevisionId
++    )
++    .sort((left, right) => right.revision - left.revision)[0];
++  if (!item?.compositionRevisionId) return null;
++  const size = STUDIO_LAYOUTS[draft.layout] ?? STUDIO_LAYOUTS.direction_board;
++  return {
++    assetId: item.id,
++    assetUrl: assetUrl(businessId, item.id),
++    revisionId: item.compositionRevisionId,
++    draftId: draft.id,
++    businessId,
++    exportedAt: item.createdAt,
++    width: size.width,
++    height: size.height,
++    outputHash: item.outputHash
++  };
++}
++
++export function assertIsolationContract(
++  status: number,
++  body: IsolationBody | null | undefined,
++  expected: "unauthenticated" | "forbidden" | "not_found"
++) {
++  const error = body?.error;
++  if (status === 200) {
++    throw new Error("Cross-account or missing-artifact read returned HTTP 200.");
++  }
++  if (expected === "unauthenticated" && status === 401 && error === "unauthenticated" && body?.ok === false) {
++    return { status, error };
++  }
++  if (expected === "forbidden" && status === 403 && error === "forbidden" && body?.ok === false) {
++    return { status, error };
++  }
++  if (expected === "not_found" && status === 404 && error === "not_found" && body?.ok === false) {
++    return { status, error };
++  }
++  throw new Error(
++    `Isolation contract failed: expected ${expected}, got HTTP ${status} error=${String(error)}. A server error is not isolation evidence.`
++  );
++}
++
+ export async function fetchSavedExportBytes(
+   ref: SavedExportRef,
+   fetchImpl: typeof fetch = fetch
+@@ -42,7 +206,7 @@ export async function fetchSavedExportBytes(
+     throw new Error(exportDownloadFailedMessage());
+   }
+   if (!response.ok) {
+-    throw new Error(exportDownloadFailedMessage());
++    throw new Error(exportAccessDeniedMessage(response.status));
+   }
+   const blob = await response.blob();
+   if (!blob.size) {
+diff --git a/src/lib/cofounder/studioExportRecovery.test.ts b/src/lib/cofounder/studioExportRecovery.test.ts
+new file mode 100644
+index 0000000..907e62e
+--- /dev/null
++++ b/src/lib/cofounder/studioExportRecovery.test.ts
+@@ -0,0 +1,122 @@
++import { describe, expect, it } from "vitest";
++import { seedSimulatedUsers } from "@/lib/auth/identities";
++import { CompanionStudio } from "@/lib/cofounder/studio";
++import { CompanionWorkspace } from "@/lib/cofounder/workspace";
++import { ConflictError, ForbiddenError, NotFoundError } from "@/lib/domain/errors";
++import { MemoryPersistence } from "@/lib/persistence/memory";
++import { encodeSolidPng } from "@/lib/cofounder/png";
++import { bindSavedExport } from "@/lib/cofounder/exportDelivery";
++import type { User } from "@/lib/types";
++
++function png(width: number, height: number) {
++  return Buffer.from(encodeSolidPng(width, height)).toString("base64");
++}
++
++async function ownerStudio() {
++  const store = new MemoryPersistence();
++  await seedSimulatedUsers(store, ["neil.local@atelier.invalid"]);
++  const owner = (await store.getUserByEmail("owner.local@atelier.invalid")) as User;
++  const other = (await store.getUserByEmail("owner-two.local@atelier.invalid")) as User;
++  const studio = new CompanionStudio(store);
++  const workspace = new CompanionWorkspace(store);
++  const ctx = await workspace.ensureForUser(owner);
++  const otherCtx = await workspace.ensureForUser(other);
++  return { store, studio, workspace, owner, other, ctx, otherCtx };
++}
++
++describe("export recovery without duplication", () => {
++  it("retries an existing artifact after a failed download without creating another export", async () => {
++    const { studio, owner, ctx } = await ownerStudio();
++    const created = await studio.createFromCopy(ctx.business.id, owner, {
++      headline: "Glass evening",
++      layout: "direction_board"
++    });
++    const exported = await studio.exportDraft(ctx.business.id, owner, created.draft.id, "direction_board", {
++      composedPngBase64: png(1600, 1200),
++      expectedUpdatedAt: created.draft.updatedAt
++    });
++    const before = (await studio.listDraftAssets(ctx.business.id, owner, created.draft.id)).filter(
++      (item) => item.prompt === "composition_export"
++    );
++    expect(before).toHaveLength(1);
++    const first = await studio.getAssetBytes(ctx.business.id, owner, exported.asset.id);
++    const retry = await studio.getAssetBytes(ctx.business.id, owner, exported.asset.id);
++    expect(Buffer.from(retry.blob.bytes)).toEqual(Buffer.from(first.blob.bytes));
++    const after = (await studio.listDraftAssets(ctx.business.id, owner, created.draft.id)).filter(
++      (item) => item.prompt === "composition_export"
++    );
++    expect(after).toHaveLength(1);
++    expect(after[0]?.id).toBe(exported.asset.id);
++    expect(bindSavedExport(after, created.draft, ctx.business.id)?.assetId).toBe(exported.asset.id);
++  });
++
++  it("keeps the saved export row when artifact bytes are missing", async () => {
++    const { store, studio, owner, ctx } = await ownerStudio();
++    const created = await studio.createFromCopy(ctx.business.id, owner, { headline: "Kept export" });
++    const exported = await studio.exportDraft(ctx.business.id, owner, created.draft.id, created.draft.layout, {
++      composedPngBase64: png(1080, 1080),
++      expectedUpdatedAt: created.draft.updatedAt
++    });
++    await store.companion.deleteBlob(exported.asset.blobId!);
++    await expect(studio.getAssetBytes(ctx.business.id, owner, exported.asset.id)).rejects.toBeInstanceOf(NotFoundError);
++    const asset = await store.companion.getStudioAsset(exported.asset.id);
++    expect(asset?.id).toBe(exported.asset.id);
++    expect(asset?.compositionRevisionId).toBe(exported.revision.id);
++    expect((await store.companion.getCompositionRevision(exported.revision.id))?.outputHash).toBe(exported.asset.outputHash);
++  });
++
++  it("rejects a stale revision export without adding a duplicate artifact", async () => {
++    const { store, studio, owner, ctx } = await ownerStudio();
++    const created = await studio.createFromCopy(ctx.business.id, owner, { headline: "First wording" });
++    const exported = await studio.exportDraft(ctx.business.id, owner, created.draft.id, created.draft.layout, {
++      composedPngBase64: png(1080, 1080),
++      expectedUpdatedAt: created.draft.updatedAt
++    });
++    const latest = await studio.updateDraft(ctx.business.id, owner, created.draft.id, {
++      layers: created.draft.layers.map((layer) =>
++        layer.kind === "headline" ? { ...layer, text: "Later wording" } : layer
++      ),
++      expectedUpdatedAt: exported.draft.updatedAt
++    });
++    await expect(
++      studio.exportDraft(ctx.business.id, owner, created.draft.id, created.draft.layout, {
++        composedPngBase64: png(1080, 1080),
++        expectedUpdatedAt: created.draft.updatedAt
++      })
++    ).rejects.toBeInstanceOf(ConflictError);
++    const exports = (await store.companion.listStudioAssets(ctx.business.id)).filter(
++      (item) => item.draftId === created.draft.id && item.prompt === "composition_export"
++    );
++    expect(exports).toHaveLength(1);
++    expect(latest.layers.find((layer) => layer.kind === "headline")?.text).toBe("Later wording");
++    expect((await studio.getAssetBytes(ctx.business.id, owner, exported.asset.id)).blob.bytes.byteLength).toBeGreaterThan(0);
++  });
++
++  it("rejects a non-image logo upload and leaves the composition unexported", async () => {
++    const { store, studio, owner, ctx } = await ownerStudio();
++    const created = await studio.createFromCopy(ctx.business.id, owner, { headline: "Logo stays" });
++    await expect(
++      studio.uploadLogo(ctx.business.id, owner, {
++        title: "notes.txt",
++        mime: "text/plain",
++        bytes: new TextEncoder().encode("not an image")
++      })
++    ).rejects.toBeInstanceOf(ForbiddenError);
++    expect((await studio.getDraft(ctx.business.id, owner, created.draft.id)).layers.some((layer) => layer.documentId)).toBe(
++      false
++    );
++    expect((await store.companion.getWorkItem(created.workItem.id))?.status).not.toBe("exported");
++  });
++
++  it("forbids a second account from reading the first account export bytes", async () => {
++    const { studio, owner, other, ctx, otherCtx } = await ownerStudio();
++    const created = await studio.createFromCopy(ctx.business.id, owner, { headline: "Private export" });
++    const exported = await studio.exportDraft(ctx.business.id, owner, created.draft.id, created.draft.layout, {
++      composedPngBase64: png(1080, 1080),
++      expectedUpdatedAt: created.draft.updatedAt
++    });
++    await expect(studio.getAssetBytes(ctx.business.id, other, exported.asset.id)).rejects.toBeInstanceOf(ForbiddenError);
++    await expect(studio.getAssetBytes(otherCtx.business.id, other, exported.asset.id)).rejects.toBeInstanceOf(NotFoundError);
++    expect((await studio.getAssetBytes(ctx.business.id, owner, exported.asset.id)).asset.id).toBe(exported.asset.id);
++  });
++});

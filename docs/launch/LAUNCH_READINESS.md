@@ -3,6 +3,7 @@
 Branch: `cursor/atelier-premium-launch-readiness-da63`  
 Inspected incoming head: `a8aabc60d0b91c17bbe1d117443ea4e67a2584f6`  
 Artwork-delivery application commit: `5d48e88f391017291d62630a662b34298b36354d`  
+Exact-draft export-binding application commit: `f78a421a9a902ed6b3d6e60f9138b64ab5a43cd9`  
 Prior visual-continuity application commit: `a5f109a9ba7270c4c47a9fcbf1a096276aa6a4ac`  
 This pass continues that branch. It does not reset to `main`. Exact-draft export recovery and strict local acceptance are the finishing phase; see `docs/launch/HOSTED_REHEARSAL.md` for the remaining authorized hosted rehearsal.
 
@@ -69,6 +70,8 @@ Owner-canvas-bound export SHA-256: `ab6b8492d0d565cba5fdaf31a9b92993e0f6fb74b0a8
 ## Recovery patch
 
 `docs/launch/atelier-visual-continuity.patch` — recoverable diff of `a5f109a` against `a8aabc6` (382,993 bytes, SHA-256 `6357848f90527635509786b49620ec628af992b2a7aaf74c0757f7ead0af9e00`).
+
+`docs/launch/atelier-export-binding.patch` — recoverable diff of `f78a421` against inspected head `a0138a9` (90,901 bytes, SHA-256 `a72edd01d5c915c6f66795079c9cc271b2ab28e5a3097bac9eabfa882e6a2aae`).
 
 ## Configured launch acceptance
 
