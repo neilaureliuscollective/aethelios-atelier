@@ -22,7 +22,7 @@ describe("full hero logo", () => {
     expect(hero.height).toBe(FULL_LOGO.height);
     expect(hero.colorType).toBe(6);
     expect(lockup.colorType).toBe(6);
-    expect(FULL_LOGO_ASPECT).toBeCloseTo(1212 / 1187, 5);
+    expect(FULL_LOGO_ASPECT).toBeCloseTo(995 / 1004, 5);
   });
 
   it("seats the full lockup as the cinematic hero mark", () => {
@@ -34,5 +34,6 @@ describe("full hero logo", () => {
     expect(header).toContain("FULL_LOGO.lockupSrc");
     expect(mark).toContain("FULL_LOGO.src");
     expect(mark).not.toContain("1192 / 1160");
+    expect(mark).not.toContain("FULL_LOGO_ASPECT");
   });
 });

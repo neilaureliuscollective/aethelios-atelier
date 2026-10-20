@@ -1,5 +1,5 @@
 import { AppLink } from "@/components/ui/AppLink";
-import { FULL_LOGO, FULL_LOGO_ASPECT } from "@/lib/brand/fullLogo";
+import { FULL_LOGO } from "@/lib/brand/fullLogo";
 
 type Props = {
   size?: number;
@@ -18,22 +18,20 @@ export function BrandMark({
   priority = false,
   lockupSrc
 }: Props) {
-  const usingLockup = Boolean(lockupSrc);
-  const src = lockupSrc ?? (variant === "wordmark" ? FULL_LOGO.src : "/brand/icon.webp");
-  const lockup = usingLockup || variant === "wordmark";
-  const lockupHeight = Math.max(48, size);
-  const lockupWidth = Math.round(lockupHeight * FULL_LOGO_ASPECT);
+  const usingCrest = Boolean(lockupSrc) || variant === "wordmark";
+  const src = lockupSrc ?? (usingCrest ? FULL_LOGO.src : "/brand/icon.webp");
+  const crestSize = Math.max(36, size);
   const inner = (
     <>
       <img
-        className={lockup ? "brand-lockup" : "brand-mark"}
+        className={usingCrest ? "brand-lockup" : "brand-mark"}
         src={src}
         alt={withWordmark ? "" : "Aethelios Atelier"}
-        width={lockup ? lockupWidth : size}
-        height={lockup ? lockupHeight : size}
+        width={crestSize}
+        height={crestSize}
         style={
-          lockup
-            ? { width: "auto", height: lockupHeight, maxWidth: "min(220px, 42vw)", background: "transparent" }
+          usingCrest
+            ? { width: crestSize, height: crestSize, maxWidth: crestSize, background: "transparent" }
             : undefined
         }
         decoding={priority ? "sync" : "async"}

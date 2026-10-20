@@ -61,7 +61,7 @@ describe("offline cache policy", () => {
     expect(
       shouldCacheResponse({
         method: "GET",
-        pathname: "/brand/install/v7/icon-512-maskable.png",
+        pathname: "/brand/install/v8/icon-512-maskable.png",
         contentType: "image/png",
         sameOrigin: true
       })

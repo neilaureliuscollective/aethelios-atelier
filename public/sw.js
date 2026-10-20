@@ -9,11 +9,11 @@ const PRECACHE = [
   "/manifest.webmanifest",
   "/brand/logo.webp",
   "/brand/icon.webp",
-  "/brand/install/v7/icon-192.png",
-  "/brand/install/v7/icon-512.png",
-  "/brand/install/v7/icon-192-maskable.png",
-  "/brand/install/v7/icon-512-maskable.png",
-  "/brand/install/v7/apple-touch-icon.png"
+  "/brand/install/v8/icon-192.png",
+  "/brand/install/v8/icon-512.png",
+  "/brand/install/v8/icon-192-maskable.png",
+  "/brand/install/v8/icon-512-maskable.png",
+  "/brand/install/v8/apple-touch-icon.png"
 ];
 
 function personalized(pathname) {

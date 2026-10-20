@@ -130,7 +130,7 @@ img { max-width: 100%; height: auto; display: block; }
   --atelier-emerald: color-mix(in srgb, var(--deep) 70%, var(--charcoal));
   --atelier-on-glass: var(--ivory);
   --atelier-on-glass-muted: color-mix(in srgb, var(--ivory) 78%, var(--sage));
-  --header-h: 112px;
+  --header-h: 80px;
   --radius: 18px;
   --radius-sm: 12px;
   color-scheme: light;
@@ -204,13 +204,19 @@ img { max-width: 100%; height: auto; display: block; }
 .app-root[data-surface="atelier"] .brand img,
 .app-root[data-surface="atelier"] .brand img.brand-lockup {
   display: block;
-  width: auto;
-  height: 104px;
-  max-width: min(280px, 46vw);
+  width: 52px;
+  height: 52px;
+  max-width: 52px;
   background: transparent;
   object-fit: contain;
-  object-position: left center;
-  filter: drop-shadow(0 10px 20px rgba(8, 12, 11, 0.4));
+  object-position: center;
+  filter: drop-shadow(0 8px 16px rgba(8, 12, 11, 0.45));
+}
+.app-root[data-surface="atelier"] .brand-copy strong {
+  color: var(--gold-pale);
+}
+.app-root[data-surface="atelier"] .brand-copy span {
+  color: var(--atelier-on-glass-muted);
 }
 .app-root[data-surface="atelier"] .workspace-nav a {
   min-height: 40px;
@@ -389,11 +395,12 @@ main, .site-header, .site-footer, .sim-banner { position: relative; z-index: 1; 
   gap: 12px;
   min-width: 0;
 }
-.brand img { width: 46px; height: 46px; object-fit: contain; }
+.brand img { width: 44px; height: 44px; object-fit: contain; }
 .brand img.brand-lockup {
-  width: auto;
-  height: 52px;
-  max-width: min(220px, 48vw);
+  width: 44px;
+  height: 44px;
+  max-width: 44px;
+  background: transparent;
 }
 .brand-copy { display: flex; flex-direction: column; line-height: 1.1; }
 .brand-copy strong {
@@ -1467,19 +1474,21 @@ a.chip {
   .mobile-nav.open { display: block; }
   .brand-copy { display: none; }
   .brand img.brand-lockup {
-    height: 44px;
-    max-width: min(168px, 42vw);
+    width: 40px;
+    height: 40px;
+    max-width: 40px;
   }
   .bottom-nav { display: flex; }
   main { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
   .app-root[data-surface="atelier"] main { padding-bottom: 36px; }
   .app-root[data-surface="atelier"] .brand img,
   .app-root[data-surface="atelier"] .brand img.brand-lockup {
-    height: 80px;
-    max-width: min(200px, 48vw);
+    width: 44px;
+    height: 44px;
+    max-width: 44px;
   }
   .app-root[data-surface="atelier"] {
-    --header-h: 92px;
+    --header-h: 72px;
   }
   .approach-step { grid-template-columns: 1fr; }
   .recovery-panel { position: relative; top: auto; bottom: auto; }
