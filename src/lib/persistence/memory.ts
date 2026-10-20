@@ -37,6 +37,7 @@ export class MemoryPersistence implements PersistenceAdapter {
   private authAccounts = new Map<string, AuthAccountRecord>();
   private verificationTokens = new Map<string, VerificationTokenRecord>();
   private txChain: Promise<unknown> = Promise.resolve();
+  private txDepth = 0;
   private projects = new Map<string, Project>();
   private submissions = new Map<string, Submission>();
   private messages = new Map<string, ChatMessage[]>();
@@ -60,6 +61,7 @@ export class MemoryPersistence implements PersistenceAdapter {
   async ping() {}
 
   async runInTransaction<T>(fn: () => T | Promise<T>): Promise<T> {
+    if (this.txDepth > 0) return await fn();
     let release!: (value?: unknown) => void;
     const next = new Promise((resolve) => {
       release = resolve;
@@ -67,9 +69,11 @@ export class MemoryPersistence implements PersistenceAdapter {
     const previous = this.txChain;
     this.txChain = next;
     await previous.catch(() => undefined);
+    this.txDepth += 1;
     try {
       return await fn();
     } finally {
+      this.txDepth -= 1;
       release();
     }
   }

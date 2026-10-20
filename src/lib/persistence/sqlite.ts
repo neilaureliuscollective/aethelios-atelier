@@ -254,6 +254,7 @@ export class SqlitePersistence implements PersistenceAdapter {
   readonly labeled = true as const;
   readonly companion: SqliteCompanionStore;
   private db: DatabaseSync;
+  private txDepth = 0;
 
   constructor(filePath: string) {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -292,7 +293,9 @@ export class SqlitePersistence implements PersistenceAdapter {
   async ping() {}
 
   async runInTransaction<T>(fn: () => T | Promise<T>): Promise<T> {
+    if (this.txDepth > 0) return await fn();
     this.db.exec("BEGIN IMMEDIATE");
+    this.txDepth += 1;
     try {
       const result = await fn();
       this.db.exec("COMMIT");
@@ -304,6 +307,8 @@ export class SqlitePersistence implements PersistenceAdapter {
         /* already rolled back */
       }
       throw error;
+    } finally {
+      this.txDepth = 0;
     }
   }
 

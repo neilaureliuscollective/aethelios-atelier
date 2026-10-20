@@ -193,4 +193,35 @@ describe.skipIf(!isolated)("PostgreSQL multiprocess companion integration", () =
     expect(stale.attempt).toBe(2);
     expect((await store.companion.getUsageEvent(retry.event.id))?.status).toBe("held");
   }, 60_000);
+
+  it("does not let a cancelled separate-process finalize select or complete", async () => {
+    const { barrier, store, owner, ctx, draftA } = await prepare();
+    const pending = runWorker({
+      ATELIER_LOCAL_POSTGRES_URL: url,
+      ATELIER_PG_BARRIER: barrier,
+      ATELIER_PG_TASK: "generate-slot",
+      ATELIER_PG_ROLE: "a",
+      ATELIER_PG_HOLD_FINALIZE: "1",
+      ATELIER_PG_OP: "mp-finalize-cancel",
+      ATELIER_PLAN_IMAGE_LIMIT: "20"
+    });
+    await waitForFile(path.join(barrier, "a-finalize-read"));
+    const cancelled = await runWorker({
+      ATELIER_LOCAL_POSTGRES_URL: url,
+      ATELIER_PG_BARRIER: barrier,
+      ATELIER_PG_TASK: "invalidate-session",
+      ATELIER_PG_ROLE: "b",
+      ATELIER_PG_SESSION: `sess_${owner.id}_a`
+    });
+    expect(cancelled.count).toBe(1);
+    writeFileSync(path.join(barrier, "continue-finalize"), "1");
+    const late = await pending;
+    expect(late.ok).toBe(true);
+    expect(late.applied).toBe(false);
+    expect(late.status).toBe("invalidated");
+    expect((await store.companion.getStudioDraft(draftA))?.selectedAssetId).toBeUndefined();
+    expect((await store.companion.getJobByIdempotency(ctx.business.id, "mp-finalize-cancel"))?.status).toBe(
+      "invalidated"
+    );
+  }, 60_000);
 });

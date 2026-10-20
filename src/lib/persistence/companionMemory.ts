@@ -366,11 +366,19 @@ export class MemoryCompanionStore implements CompanionStore {
     return clone(job);
   }
 
-  compareAndSwapJob(job: GenerationJob, expectedAttempt: number) {
+  compareAndSwapJob(job: GenerationJob, expectedAttempt: number, expectedStatus: GenerationJob["status"] = "pending") {
     const current = this.jobs.get(job.id);
-    if (!current || (current.attempt ?? 1) !== expectedAttempt) return null;
+    if (!current || (current.attempt ?? 1) !== expectedAttempt || current.status !== expectedStatus) return null;
     this.jobs.set(job.id, clone(job));
     return clone(job);
+  }
+
+  lockStudioGeneration(jobId: string, usageId: string, draftId: string) {
+    return {
+      job: this.getJob(jobId),
+      usage: this.getUsageEvent(usageId),
+      draft: this.getStudioDraft(draftId)
+    };
   }
 
   invalidateJobsForSession(sessionId: string) {

@@ -718,10 +718,10 @@ export class SqliteCompanionStore implements CompanionStore {
     return job;
   }
 
-  compareAndSwapJob(job: GenerationJob, expectedAttempt: number) {
+  compareAndSwapJob(job: GenerationJob, expectedAttempt: number, expectedStatus: GenerationJob["status"] = "pending") {
     const result = this.db
       .prepare(
-        "UPDATE generation_jobs SET status=?, session_id=?, updated_at=?, result_json=?, error=?, attempt=? WHERE id=? AND attempt=?"
+        "UPDATE generation_jobs SET status=?, session_id=?, updated_at=?, result_json=?, error=?, attempt=? WHERE id=? AND attempt=? AND status=?"
       )
       .run(
         job.status,
@@ -731,9 +731,18 @@ export class SqliteCompanionStore implements CompanionStore {
         job.error ?? null,
         job.attempt ?? expectedAttempt,
         job.id,
-        expectedAttempt
+        expectedAttempt,
+        expectedStatus
       );
     return result.changes === 1 ? job : null;
+  }
+
+  lockStudioGeneration(jobId: string, usageId: string, draftId: string) {
+    return {
+      job: this.getJob(jobId),
+      usage: this.getUsageEvent(usageId),
+      draft: this.getStudioDraft(draftId)
+    };
   }
 
   invalidateJobsForSession(sessionId: string) {

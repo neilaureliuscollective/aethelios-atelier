@@ -1,6 +1,6 @@
 import { CompanionWorkspace } from "@/lib/cofounder/workspace";
 import { CompanionWork } from "@/lib/cofounder/work";
-import { CompanionUsage, usageAttempt } from "@/lib/cofounder/usage";
+import { CompanionUsage, usageAttempt, type UsageReservation } from "@/lib/cofounder/usage";
 import { buildComposition, defaultLayers, paletteForProfile, studioLayouts, STUDIO_LAYOUTS } from "@/lib/cofounder/composition";
 import { assertExportMatchesRevision, hashPng } from "@/lib/cofounder/png";
 import { selectedWorkText } from "@/lib/cofounder/studioOpen";
@@ -11,6 +11,7 @@ import type { PersistenceAdapter } from "@/lib/persistence/adapter";
 import {
   COMPOSITION_RENDERER_VERSION,
   type CompositionRevision,
+  type GenerationJob,
   type StudioAsset,
   type StudioDraft,
   type StudioLayer,
@@ -141,6 +142,8 @@ export class FailingImageProvider implements ImageProvider {
 const LAYOUTS = STUDIO_LAYOUTS;
 
 export class CompanionStudio {
+  private finalizeBarrier?: () => Promise<void>;
+
   constructor(
     private readonly store: PersistenceAdapter,
     private readonly workspace = new CompanionWorkspace(store),
@@ -153,6 +156,11 @@ export class CompanionStudio {
 
   withImageProvider(provider: ImageProvider) {
     return new CompanionStudio(this.store, this.workspace, this.work, this.usage, provider);
+  }
+
+  withFinalizeBarrier(barrier?: () => Promise<void>) {
+    this.finalizeBarrier = barrier;
+    return this;
   }
 
   async createFromCopy(
@@ -286,7 +294,7 @@ export class CompanionStudio {
       sourceAssetId?: string;
       signal?: AbortSignal;
     }
-  ) {
+  ): Promise<{ asset: StudioAsset; applied: boolean; draft: StudioDraft; conflict?: boolean }> {
     await this.workspace.requireMutable(businessId, user);
     const draft = await this.requireDraft(businessId, input.draftId);
     const existing = await this.store.companion.getJobByIdempotency(businessId, input.idempotencyKey);
@@ -377,88 +385,178 @@ export class CompanionStudio {
       const generated = parent?.blobId
         ? await this.editFromAsset(parent, input.prompt, input.signal)
         : await this.images.generate({ prompt: input.prompt, signal: input.signal });
-      const latest = await this.store.companion.getJob(job.id);
-      const latestUsage = await this.store.companion.getUsageEvent(reservation.event.id);
-      if (!latest || latest.status === "invalidated") {
-        asset.status = "invalidated";
-        asset.error = "Generation was invalidated after sign-out or account switch.";
-        asset.updatedAt = now();
-        await this.store.companion.updateStudioAsset(asset);
-        await this.usage.release(reservation);
-        return { asset, applied: false, draft };
-      }
-      const blob = await this.store.companion.putBlob({
-        id: companionId("blob"),
+      return this.finalizeGeneratedImage({
         businessId,
-        mime: generated.mime,
-        bytes: generated.bytes,
-        createdAt: now()
-      });
-      asset.status = "ready";
-      asset.blobId = blob.id;
-      asset.model = generated.model;
-      asset.updatedAt = now();
-      await this.store.companion.updateStudioAsset(asset);
-      const attemptStillOwns =
-        (latest.attempt ?? 1) === attempt && (!latestUsage || usageAttempt(latestUsage) === attempt);
-      if (!attemptStillOwns) {
-        return {
-          asset,
-          applied: false,
-          draft: (await this.store.companion.getStudioDraft(draft.id)) || draft,
-          conflict: true
-        };
-      }
-      const attach = {
-        ...draft,
-        selectedAssetId: asset.id,
-        saveRevision: (draft.saveRevision ?? 1) + 1,
-        updatedAt: nextStamp(draft.updatedAt)
-      };
-      const swapped = await this.store.companion.compareAndSwapStudioDraft(attach, draft.saveRevision ?? 1);
-      const settled = await this.usage.settle(reservation);
-      if (usageAttempt(settled) !== attempt || settled.status !== "settled") {
-        return {
-          asset,
-          applied: false,
-          draft: (await this.store.companion.getStudioDraft(draft.id)) || draft,
-          conflict: true
-        };
-      }
-      await this.store.companion.compareAndSwapJob(
-        {
-          ...job,
-          attempt,
-          status: "completed",
-          updatedAt: now(),
-          resultJson: JSON.stringify({ assetId: asset.id, applied: Boolean(swapped), attempt })
-        },
-        attempt
-      );
-      return {
+        auth,
+        draft,
+        expectedSaveRevision: draft.saveRevision ?? 1,
+        job,
+        reservation,
+        attempt,
         asset,
-        applied: Boolean(swapped),
-        draft: swapped ?? ((await this.store.companion.getStudioDraft(draft.id)) || draft),
-        conflict: !swapped
-      };
+        generated
+      });
     } catch (error) {
-      await this.usage.release(reservation);
-      asset.status = "failed";
-      asset.error = error instanceof Error ? error.message : "Image generation failed.";
-      asset.updatedAt = now();
-      await this.store.companion.updateStudioAsset(asset);
-      await this.store.companion.compareAndSwapJob(
-        {
-          ...job,
-          attempt,
-          status: "failed",
-          updatedAt: now(),
-          error: asset.error
-        },
-        attempt
-      );
+      await this.failGeneratedImage(reservation, job, asset, attempt, error);
       throw error;
     }
+  }
+
+  private async finalizeGeneratedImage(input: {
+    businessId: string;
+    auth: AuthContext;
+    draft: StudioDraft;
+    expectedSaveRevision: number;
+    job: GenerationJob;
+    reservation: UsageReservation;
+    attempt: number;
+    asset: StudioAsset;
+    generated: { bytes: Uint8Array; mime: string; model: string };
+  }) {
+    if (this.finalizeBarrier) await this.finalizeBarrier();
+    return this.store.runInTransaction(async () => {
+      const business = await this.store.companion.getBusiness(input.businessId);
+      if (!business || business.id !== input.businessId) {
+        throw new NotFoundError("Business workspace not found.");
+      }
+      const locked = await this.store.companion.lockStudioGeneration(
+        input.job.id,
+        input.reservation.event.id,
+        input.draft.id
+      );
+      const jobNow = locked.job;
+      const usageNow = locked.usage;
+      const draftNow = locked.draft ?? input.draft;
+      if (jobNow?.status === "completed" && (jobNow.attempt ?? 1) === input.attempt && jobNow.resultJson) {
+        const parsed = JSON.parse(jobNow.resultJson) as { assetId?: string; applied?: boolean };
+        if (parsed.assetId) {
+          const existing = await this.store.companion.getStudioAsset(parsed.assetId);
+          if (existing) {
+            return {
+              asset: existing,
+              applied: draftNow.selectedAssetId === existing.id,
+              draft: draftNow,
+              conflict: draftNow.selectedAssetId !== existing.id
+            };
+          }
+        }
+      }
+      const session = await this.store.getSession(input.auth.session.id);
+      const jobOwnsAttempt = Boolean(jobNow) && (jobNow?.attempt ?? 1) === input.attempt;
+      const usageOwnsHold =
+        Boolean(usageNow) && usageAttempt(usageNow!) === input.attempt && usageNow?.status === "held";
+      if (!jobNow || jobNow.status === "invalidated" || !session) {
+        input.asset.status = "invalidated";
+        input.asset.error = "Generation was invalidated after sign-out or account switch.";
+        input.asset.updatedAt = now();
+        await this.store.companion.updateStudioAsset(input.asset);
+        if (usageOwnsHold) await this.usage.release(input.reservation);
+        return { asset: input.asset, applied: false, draft: draftNow };
+      }
+      if (!jobOwnsAttempt || jobNow.status !== "pending" || !usageOwnsHold) {
+        const ready = await this.retainReadyAsset(input.asset, input.generated);
+        return { asset: ready, applied: false, draft: draftNow, conflict: true };
+      }
+      const ready = await this.retainReadyAsset(input.asset, input.generated);
+      const completed = await this.store.companion.compareAndSwapJob(
+        {
+          ...jobNow,
+          attempt: input.attempt,
+          status: "completed",
+          updatedAt: now(),
+          resultJson: JSON.stringify({ assetId: ready.id, applied: false, attempt: input.attempt })
+        },
+        input.attempt,
+        "pending"
+      );
+      if (!completed) {
+        return { asset: ready, applied: false, draft: draftNow, conflict: true };
+      }
+      const settled = await this.usage.settle(input.reservation);
+      if (usageAttempt(settled) !== input.attempt || settled.status !== "settled") {
+        return { asset: ready, applied: false, draft: draftNow, conflict: true };
+      }
+      const attach = {
+        ...draftNow,
+        selectedAssetId: ready.id,
+        saveRevision: (draftNow.saveRevision ?? 1) + 1,
+        updatedAt: nextStamp(draftNow.updatedAt)
+      };
+      const swapped = await this.store.companion.compareAndSwapStudioDraft(attach, input.expectedSaveRevision);
+      if (swapped) {
+        await this.store.companion.compareAndSwapJob(
+          {
+            ...completed,
+            status: "completed",
+            updatedAt: now(),
+            resultJson: JSON.stringify({ assetId: ready.id, applied: true, attempt: input.attempt })
+          },
+          input.attempt,
+          "completed"
+        );
+      }
+      return {
+        asset: ready,
+        applied: Boolean(swapped),
+        draft: swapped ?? draftNow,
+        conflict: !swapped
+      };
+    });
+  }
+
+  private async retainReadyAsset(
+    asset: StudioAsset,
+    generated: { bytes: Uint8Array; mime: string; model: string }
+  ) {
+    const blob = await this.store.companion.putBlob({
+      id: companionId("blob"),
+      businessId: asset.businessId,
+      mime: generated.mime,
+      bytes: generated.bytes,
+      createdAt: now()
+    });
+    asset.status = "ready";
+    asset.blobId = blob.id;
+    asset.model = generated.model;
+    asset.updatedAt = now();
+    await this.store.companion.updateStudioAsset(asset);
+    return asset;
+  }
+
+  private async failGeneratedImage(
+    reservation: UsageReservation,
+    job: GenerationJob,
+    asset: StudioAsset,
+    attempt: number,
+    error: unknown
+  ) {
+    await this.store.runInTransaction(async () => {
+      const locked = await this.store.companion.lockStudioGeneration(job.id, reservation.event.id, asset.draftId ?? "");
+      if (locked.usage && usageAttempt(locked.usage) === attempt && locked.usage.status === "held") {
+        await this.usage.release(reservation);
+      }
+      const currentAsset = (await this.store.companion.getStudioAsset(asset.id)) ?? asset;
+      if (currentAsset.status === "pending") {
+        currentAsset.status = "failed";
+        currentAsset.error = error instanceof Error ? error.message : "Image generation failed.";
+        currentAsset.updatedAt = now();
+        await this.store.companion.updateStudioAsset(currentAsset);
+        Object.assign(asset, currentAsset);
+      }
+      if (locked.job && (locked.job.attempt ?? 1) === attempt && locked.job.status === "pending") {
+        await this.store.companion.compareAndSwapJob(
+          {
+            ...locked.job,
+            attempt,
+            status: "failed",
+            updatedAt: now(),
+            error: asset.error
+          },
+          attempt,
+          "pending"
+        );
+      }
+    });
   }
 
   private async editFromAsset(parent: StudioAsset, prompt: string, signal?: AbortSignal) {

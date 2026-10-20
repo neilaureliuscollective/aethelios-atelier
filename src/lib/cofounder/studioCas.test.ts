@@ -449,4 +449,277 @@ describe("studio draft compare-and-swap", () => {
     expect((await store.companion.getUsageEvent(usage!.id))?.status).toBe("held");
     expect((await store.companion.getJobByIdempotency(ctx.business.id, "stale-1"))?.status).toBe("pending");
   });
+
+  it("does not complete or select after invalidate wins the finalize window", async () => {
+    const store = new MemoryPersistence();
+    await seedSimulatedUsers(store, ["neil.local@atelier.invalid"]);
+    const owner = (await store.getUserByEmail("owner.local@atelier.invalid")) as User;
+    const session = {
+      user: owner,
+      session: {
+        id: `sess_${owner.id}_fin`,
+        userId: owner.id,
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 60_000).toISOString()
+      },
+      adapter: "simulated" as const
+    };
+    await store.createSession(session.session);
+    let enteredFinalize!: () => void;
+    const sawFinalize = new Promise<void>((resolve) => {
+      enteredFinalize = resolve;
+    });
+    let resumeFinalize!: () => void;
+    const holdFinalize = new Promise<void>((resolve) => {
+      resumeFinalize = resolve;
+    });
+    const studio = new CompanionStudio(store)
+      .withImageProvider({
+        async generate() {
+          const { encodeSolidPng } = await import("@/lib/cofounder/png");
+          return { bytes: encodeSolidPng(32, 32), mime: "image/png", model: "final" };
+        },
+        async edit() {
+          return this.generate({ prompt: "edit" });
+        }
+      })
+      .withFinalizeBarrier(async () => {
+        enteredFinalize();
+        await holdFinalize;
+      });
+    const ctx = await new CompanionWorkspace(store).ensureForUser(owner);
+    const created = await studio.createFromCopy(ctx.business.id, owner, { headline: "Keep copy" });
+    const pending = studio.generate(ctx.business.id, owner, session, {
+      draftId: created.draft.id,
+      prompt: "final",
+      idempotencyKey: "finalize-1"
+    });
+    await sawFinalize;
+    expect(await store.companion.invalidateJobsForSession(session.session.id)).toBe(1);
+    resumeFinalize();
+    const result = await pending;
+    expect(result.applied).toBe(false);
+    expect(result.asset.status).toBe("invalidated");
+    expect(result.asset.blobId).toBeUndefined();
+    expect((await store.companion.getStudioDraft(created.draft.id))?.selectedAssetId).toBeUndefined();
+    expect((await store.companion.getJobByIdempotency(ctx.business.id, "finalize-1"))?.status).toBe("invalidated");
+    const usage = await store.companion.getUsageByOperation(ctx.business.id, "finalize-1");
+    expect(usage?.status).toBe("released");
+  });
+
+  it("does not let a superseded finalize settle a newer hold", async () => {
+    const store = new MemoryPersistence();
+    await seedSimulatedUsers(store, ["neil.local@atelier.invalid"]);
+    const owner = (await store.getUserByEmail("owner.local@atelier.invalid")) as User;
+    const session = {
+      user: owner,
+      session: {
+        id: `sess_${owner.id}_retryfin`,
+        userId: owner.id,
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 60_000).toISOString()
+      },
+      adapter: "simulated" as const
+    };
+    await store.createSession(session.session);
+    let enteredFinalize!: () => void;
+    const sawFinalize = new Promise<void>((resolve) => {
+      enteredFinalize = resolve;
+    });
+    let resumeFinalize!: () => void;
+    const holdFinalize = new Promise<void>((resolve) => {
+      resumeFinalize = resolve;
+    });
+    const studio = new CompanionStudio(store)
+      .withImageProvider({
+        async generate() {
+          const { encodeSolidPng } = await import("@/lib/cofounder/png");
+          return { bytes: encodeSolidPng(32, 32), mime: "image/png", model: "retryfin" };
+        },
+        async edit() {
+          return this.generate({ prompt: "edit" });
+        }
+      })
+      .withFinalizeBarrier(async () => {
+        enteredFinalize();
+        await holdFinalize;
+      });
+    const ctx = await new CompanionWorkspace(store).ensureForUser(owner);
+    const created = await studio.createFromCopy(ctx.business.id, owner, { headline: "Retry window" });
+    const pending = studio.generate(ctx.business.id, owner, session, {
+      draftId: created.draft.id,
+      prompt: "retryfin",
+      idempotencyKey: "finalize-retry"
+    });
+    await sawFinalize;
+    const usage = await store.companion.getUsageByOperation(ctx.business.id, "finalize-retry");
+    const job = await store.companion.getJobByIdempotency(ctx.business.id, "finalize-retry");
+    await store.companion.updateUsageEvent({
+      ...usage!,
+      status: "held",
+      attempt: 2,
+      metadata: { ...usage!.metadata, attempt: 2 }
+    });
+    await store.companion.updateJob({ ...job!, attempt: 2, status: "pending" });
+    resumeFinalize();
+    const late = await pending;
+    expect(late.applied).toBe(false);
+    expect(late.asset.status).toBe("ready");
+    expect((await store.companion.getUsageEvent(usage!.id))?.status).toBe("held");
+    expect((await store.companion.getUsageEvent(usage!.id))?.attempt).toBe(2);
+    expect((await store.companion.getJob(job!.id))?.status).toBe("pending");
+    expect((await store.companion.getStudioDraft(created.draft.id))?.selectedAssetId).not.toBe(late.asset.id);
+  });
+
+  it("keeps a usable ready image when only the draft changed during finalize", async () => {
+    const store = new MemoryPersistence();
+    await seedSimulatedUsers(store, ["neil.local@atelier.invalid"]);
+    const owner = (await store.getUserByEmail("owner.local@atelier.invalid")) as User;
+    const session = {
+      user: owner,
+      session: {
+        id: `sess_${owner.id}_editfin`,
+        userId: owner.id,
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 60_000).toISOString()
+      },
+      adapter: "simulated" as const
+    };
+    await store.createSession(session.session);
+    let enteredFinalize!: () => void;
+    const sawFinalize = new Promise<void>((resolve) => {
+      enteredFinalize = resolve;
+    });
+    let resumeFinalize!: () => void;
+    const holdFinalize = new Promise<void>((resolve) => {
+      resumeFinalize = resolve;
+    });
+    const studio = new CompanionStudio(store)
+      .withImageProvider({
+        async generate() {
+          const { encodeSolidPng } = await import("@/lib/cofounder/png");
+          return { bytes: encodeSolidPng(32, 32), mime: "image/png", model: "editfin" };
+        },
+        async edit() {
+          return this.generate({ prompt: "edit" });
+        }
+      })
+      .withFinalizeBarrier(async () => {
+        enteredFinalize();
+        await holdFinalize;
+      });
+    const ctx = await new CompanionWorkspace(store).ensureForUser(owner);
+    const created = await studio.createFromCopy(ctx.business.id, owner, { headline: "Original" });
+    const pending = studio.generate(ctx.business.id, owner, session, {
+      draftId: created.draft.id,
+      prompt: "editfin",
+      idempotencyKey: "finalize-edit"
+    });
+    await sawFinalize;
+    const edited = await studio.updateDraft(ctx.business.id, owner, created.draft.id, {
+      layers: created.draft.layers.map((layer) =>
+        layer.kind === "headline" ? { ...layer, text: "Newer during finalize" } : layer
+      ),
+      expectedSaveRevision: created.draft.saveRevision
+    });
+    resumeFinalize();
+    const late = await pending;
+    expect(late.applied).toBe(false);
+    expect(late.conflict).toBe(true);
+    expect(late.asset.status).toBe("ready");
+    expect(late.asset.blobId).toBeTruthy();
+    const draft = await studio.getDraft(ctx.business.id, owner, created.draft.id);
+    expect(draft.layers.find((layer) => layer.kind === "headline")?.text).toBe("Newer during finalize");
+    expect(draft.selectedAssetId).toBeUndefined();
+    const applied = await studio.applyAsset(ctx.business.id, owner, created.draft.id, late.asset.id, {
+      expectedSaveRevision: edited.saveRevision
+    });
+    expect(applied.selectedAssetId).toBe(late.asset.id);
+    expect(applied.layers.find((layer) => layer.kind === "headline")?.text).toBe("Newer during finalize");
+  });
+
+  it("returns the first completion for a duplicate generate without another asset", async () => {
+    const store = new MemoryPersistence();
+    await seedSimulatedUsers(store, ["neil.local@atelier.invalid"]);
+    const owner = (await store.getUserByEmail("owner.local@atelier.invalid")) as User;
+    const session = {
+      user: owner,
+      session: {
+        id: `sess_${owner.id}_dupfin`,
+        userId: owner.id,
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 60_000).toISOString()
+      },
+      adapter: "simulated" as const
+    };
+    await store.createSession(session.session);
+    let calls = 0;
+    const studio = new CompanionStudio(store).withImageProvider({
+      async generate() {
+        calls += 1;
+        const { encodeSolidPng } = await import("@/lib/cofounder/png");
+        return { bytes: encodeSolidPng(32, 32), mime: "image/png", model: "dupfin" };
+      },
+      async edit() {
+        return this.generate({ prompt: "edit" });
+      }
+    });
+    const ctx = await new CompanionWorkspace(store).ensureForUser(owner);
+    const created = await studio.createFromCopy(ctx.business.id, owner, { headline: "Dup" });
+    const first = await studio.generate(ctx.business.id, owner, session, {
+      draftId: created.draft.id,
+      prompt: "dupfin",
+      idempotencyKey: "finalize-dup"
+    });
+    const second = await studio.generate(ctx.business.id, owner, session, {
+      draftId: created.draft.id,
+      prompt: "dupfin",
+      idempotencyKey: "finalize-dup"
+    });
+    expect(calls).toBe(1);
+    expect(second.asset.id).toBe(first.asset.id);
+    const events = (await store.companion.listStudioAssets(ctx.business.id)).filter((item) => item.draftId === created.draft.id);
+    expect(events.filter((item) => item.status === "ready").length).toBe(1);
+    expect(await store.companion.sumUsage(ctx.business.id, "image", "2000-01-01T00:00:00.000Z")).toBe(1);
+  });
+
+  it("does not leave the draft pointing at a failed asset", async () => {
+    const store = new MemoryPersistence();
+    await seedSimulatedUsers(store, ["neil.local@atelier.invalid"]);
+    const owner = (await store.getUserByEmail("owner.local@atelier.invalid")) as User;
+    const session = {
+      user: owner,
+      session: {
+        id: `sess_${owner.id}_failfin`,
+        userId: owner.id,
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 60_000).toISOString()
+      },
+      adapter: "simulated" as const
+    };
+    await store.createSession(session.session);
+    const studio = new CompanionStudio(store).withImageProvider({
+      async generate() {
+        throw new Error("provider_down");
+      },
+      async edit() {
+        return this.generate({ prompt: "edit" });
+      }
+    });
+    const ctx = await new CompanionWorkspace(store).ensureForUser(owner);
+    const created = await studio.createFromCopy(ctx.business.id, owner, { headline: "Fail clean" });
+    await expect(
+      studio.generate(ctx.business.id, owner, session, {
+        draftId: created.draft.id,
+        prompt: "failfin",
+        idempotencyKey: "finalize-fail"
+      })
+    ).rejects.toThrow(/provider_down/);
+    const draft = await store.companion.getStudioDraft(created.draft.id);
+    expect(draft?.selectedAssetId).toBeUndefined();
+    const assets = (await store.companion.listStudioAssets(ctx.business.id)).filter((item) => item.draftId === created.draft.id);
+    expect(assets.every((item) => item.status === "failed")).toBe(true);
+    expect((await store.companion.getJobByIdempotency(ctx.business.id, "finalize-fail"))?.status).toBe("failed");
+    expect((await store.companion.getUsageByOperation(ctx.business.id, "finalize-fail"))?.status).toBe("released");
+  });
 });

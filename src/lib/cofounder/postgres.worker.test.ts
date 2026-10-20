@@ -73,10 +73,16 @@ it.skipIf(!process.env.ATELIER_PG_TASK)("runs one isolated PostgreSQL worker tas
       return { bytes: encodeSolidPng(32, 32), mime: "image/png", model: "pg-worker" };
     },
     async edit() {
-      return this.generate({ prompt: "edit" });
+      return this.generate();
     }
   };
   const studio = new CompanionStudio(store).withImageProvider(provider);
+  if (process.env.ATELIER_PG_HOLD_FINALIZE === "1") {
+    studio.withFinalizeBarrier(async () => {
+      writeStarted(`${process.env.ATELIER_PG_ROLE}-finalize-read`);
+      await waitFor("continue-finalize");
+    });
+  }
   try {
     if (task === "generate-slot") {
       const result = await studio.generate(ctx.businessId, owner, auth, {
@@ -95,6 +101,10 @@ it.skipIf(!process.env.ATELIER_PG_TASK)("runs one isolated PostgreSQL worker tas
         process.env.ATELIER_PG_OP || `op-${process.env.ATELIER_PG_ROLE}`
       );
       emit({ ok: true, id: reservation.event.id, reused: Boolean(reservation.reused), attempt: reservation.event.attempt });
+    } else if (task === "invalidate-session") {
+      const sessionId = process.env.ATELIER_PG_SESSION || `sess_${owner.id}_a`;
+      const count = await store.companion.invalidateJobsForSession(sessionId);
+      emit({ ok: true, count });
     } else if (task === "settle-stale") {
       const payload = JSON.parse(readFileSync(`${barrierDir()}/stale-reservation.json`, "utf8"));
       const latest = await usage.settle({ event: payload });

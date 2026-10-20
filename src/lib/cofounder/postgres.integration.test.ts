@@ -241,4 +241,93 @@ describe.skipIf(!isolated)("PostgreSQL companion integration", () => {
     continueGenerate();
     expect((await pending).applied).toBe(true);
   }, 60_000);
+
+  it("does not let a cancelled finalize select after the provider has returned", async () => {
+    const { storeA, storeB, owner, authA, ctx } = await openStores();
+    let enteredFinalize!: () => void;
+    const sawFinalize = new Promise<void>((resolve) => {
+      enteredFinalize = resolve;
+    });
+    let resumeFinalize!: () => void;
+    const holdFinalize = new Promise<void>((resolve) => {
+      resumeFinalize = resolve;
+    });
+    const studioA = new CompanionStudio(storeA)
+      .withImageProvider({
+        async generate() {
+          return { bytes: encodeSolidPng(32, 32), mime: "image/png", model: "pg-final" };
+        },
+        async edit() {
+          return this.generate({ prompt: "edit" });
+        }
+      })
+      .withFinalizeBarrier(async () => {
+        enteredFinalize();
+        await holdFinalize;
+      });
+    const created = await studioA.createFromCopy(ctx.business.id, owner, { headline: "PG finalize" });
+    const pending = studioA.generate(ctx.business.id, owner, authA, {
+      draftId: created.draft.id,
+      prompt: "pg-final",
+      idempotencyKey: "pg-finalize-1"
+    });
+    await sawFinalize;
+    expect(await storeB.companion.invalidateJobsForSession(authA.session.id)).toBe(1);
+    resumeFinalize();
+    const result = await pending;
+    expect(result.applied).toBe(false);
+    expect(result.asset.status).toBe("invalidated");
+    expect((await storeA.companion.getStudioDraft(created.draft.id))?.selectedAssetId).toBeUndefined();
+    expect((await storeB.companion.getJobByIdempotency(ctx.business.id, "pg-finalize-1"))?.status).toBe(
+      "invalidated"
+    );
+  }, 60_000);
+
+  it("does not let the old attempt settle a newer hold after finalize starts", async () => {
+    const { storeA, storeB, owner, authA, ctx } = await openStores();
+    let enteredFinalize!: () => void;
+    const sawFinalize = new Promise<void>((resolve) => {
+      enteredFinalize = resolve;
+    });
+    let resumeFinalize!: () => void;
+    const holdFinalize = new Promise<void>((resolve) => {
+      resumeFinalize = resolve;
+    });
+    const studioA = new CompanionStudio(storeA)
+      .withImageProvider({
+        async generate() {
+          return { bytes: encodeSolidPng(32, 32), mime: "image/png", model: "pg-retry" };
+        },
+        async edit() {
+          return this.generate({ prompt: "edit" });
+        }
+      })
+      .withFinalizeBarrier(async () => {
+        enteredFinalize();
+        await holdFinalize;
+      });
+    const created = await studioA.createFromCopy(ctx.business.id, owner, { headline: "PG retry" });
+    const pending = studioA.generate(ctx.business.id, owner, authA, {
+      draftId: created.draft.id,
+      prompt: "pg-retry",
+      idempotencyKey: "pg-finalize-retry"
+    });
+    await sawFinalize;
+    const usage = await storeB.companion.getUsageByOperation(ctx.business.id, "pg-finalize-retry");
+    const job = await storeB.companion.getJobByIdempotency(ctx.business.id, "pg-finalize-retry");
+    await storeB.companion.updateUsageEvent({
+      ...usage!,
+      status: "held",
+      attempt: 2,
+      metadata: { ...usage!.metadata, attempt: 2 }
+    });
+    await storeB.companion.updateJob({ ...job!, attempt: 2, status: "pending" });
+    resumeFinalize();
+    const late = await pending;
+    expect(late.applied).toBe(false);
+    expect((await storeA.companion.getUsageEvent(usage!.id))?.attempt).toBe(2);
+    expect((await storeA.companion.getUsageEvent(usage!.id))?.status).toBe("held");
+    expect((await storeA.companion.getJob(job!.id))?.status).toBe("pending");
+    expect((await storeA.companion.getStudioDraft(created.draft.id))?.selectedAssetId).not.toBe(late.asset.id);
+  }, 60_000);
 });

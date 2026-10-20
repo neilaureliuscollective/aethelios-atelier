@@ -528,16 +528,31 @@ export class PostgresCompanionStore implements CompanionStore {
     return job;
   }
 
-  async compareAndSwapJob(job: GenerationJob, expectedAttempt: number) {
+  async compareAndSwapJob(
+    job: GenerationJob,
+    expectedAttempt: number,
+    expectedStatus: GenerationJob["status"] = "pending"
+  ) {
     const rows = await this.client()`
       UPDATE generation_jobs
       SET status = ${job.status}, session_id = ${job.sessionId}, updated_at = ${job.updatedAt},
           result_json = ${job.resultJson ?? null}, error = ${job.error ?? null},
           attempt = ${job.attempt ?? expectedAttempt}
-      WHERE id = ${job.id} AND attempt = ${expectedAttempt}
+      WHERE id = ${job.id} AND attempt = ${expectedAttempt} AND status = ${expectedStatus}
       RETURNING *
     `;
     return rows[0] ? mapJob(rows[0] as Row) : null;
+  }
+
+  async lockStudioGeneration(jobId: string, usageId: string, draftId: string) {
+    const jobs = await this.client()`SELECT * FROM generation_jobs WHERE id = ${jobId} FOR UPDATE`;
+    const usage = await this.client()`SELECT * FROM usage_events WHERE id = ${usageId} FOR UPDATE`;
+    const drafts = await this.client()`SELECT * FROM studio_drafts WHERE id = ${draftId} FOR UPDATE`;
+    return {
+      job: jobs[0] ? mapJob(jobs[0] as Row) : null,
+      usage: usage[0] ? mapUsage(usage[0] as Row) : null,
+      draft: drafts[0] ? mapStudioDraft(drafts[0] as Row) : null
+    };
   }
 
   async invalidateJobsForSession(sessionId: string) {

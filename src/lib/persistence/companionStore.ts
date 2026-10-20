@@ -68,7 +68,18 @@ export type CompanionStore = {
     event: UsageEvent,
     expectedAttempt?: number
   ): UsageEvent | null | Promise<UsageEvent | null>;
-  compareAndSwapJob(job: GenerationJob, expectedAttempt: number): GenerationJob | null | Promise<GenerationJob | null>;
+  compareAndSwapJob(
+    job: GenerationJob,
+    expectedAttempt: number,
+    expectedStatus?: GenerationJob["status"]
+  ): GenerationJob | null | Promise<GenerationJob | null>;
+  lockStudioGeneration(
+    jobId: string,
+    usageId: string,
+    draftId: string
+  ):
+    | { job: GenerationJob | null; usage: UsageEvent | null; draft: StudioDraft | null }
+    | Promise<{ job: GenerationJob | null; usage: UsageEvent | null; draft: StudioDraft | null }>;
 
   addStudioAsset(asset: StudioAsset): StudioAsset | Promise<StudioAsset>;
   getStudioAsset(id: string): StudioAsset | null | Promise<StudioAsset | null>;
