@@ -784,7 +784,7 @@ h3 { font-size: 28px; }
 .brief-item:last-child { border-bottom: 0; }
 
 label .lbl { display: block; margin-bottom: 8px; color: var(--text-gold); }
-textarea, input[type="text"], input[type="url"], input[type="email"] {
+textarea, input[type="text"], input[type="url"], input[type="email"], select {
   width: 100%;
   background: var(--bg-input);
   border: 1px solid var(--border-soft);
@@ -1268,15 +1268,143 @@ a.chip {
   background: color-mix(in srgb, var(--obsidian) 78%, transparent);
 }
 
+.pricing-page section[id] { scroll-margin-top: calc(var(--header-h) + 18px); }
+.pricing-review-banner {
+  width: min(1180px, calc(100% - 32px));
+  margin: 18px auto 0;
+  padding: 12px 16px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--deep) 35%, transparent);
+  background: color-mix(in srgb, var(--deep) 10%, var(--ivory));
+  color: var(--obsidian);
+  font-size: 14px;
+}
+.pricing-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(280px, 0.95fr);
+  gap: 28px;
+  align-items: stretch;
+  padding: 48px 0 12px;
+}
+.pricing-ways { padding: 28px; display: grid; align-content: start; gap: 8px; }
+.pricing-ways h2 { font-size: clamp(28px, 3vw, 40px); }
+.pricing-ways ol { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 16px; }
+.pricing-ways li { display: grid; gap: 6px; }
+.pricing-ways strong { font-family: var(--font-display); font-size: 24px; font-weight: 500; color: var(--ivory); }
+.pricing-ways span { color: color-mix(in srgb, var(--ivory) 78%, var(--sage)); font-size: 15px; }
+.pricing-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 0 8px;
+}
+.pricing-commission-list,
+.pricing-plan-grid,
+.pricing-meaning,
+.pricing-boundaries {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.pricing-plan-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.pricing-commission,
+.pricing-plan,
+.pricing-meaning article,
+.pricing-boundaries article {
+  padding: 24px;
+  min-width: 0;
+}
+.pricing-commission h3,
+.pricing-plan h3 { font-size: 30px; }
+.pricing-charges {
+  display: grid;
+  gap: 12px;
+  margin: 18px 0;
+}
+.pricing-charges div {
+  display: grid;
+  gap: 4px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.pricing-charges dt {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.pricing-charges dd {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(26px, 3vw, 34px);
+  line-height: 1.15;
+  color: var(--obsidian);
+}
+.surface-obsidian .pricing-charges dd { color: var(--ivory); }
+.pricing-founder-notes {
+  margin: 0 0 18px;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+.surface-obsidian .pricing-founder-notes { color: color-mix(in srgb, var(--ivory) 78%, var(--sage)); }
+.pricing-compare { display: grid; gap: 12px; }
+.pricing-compare-row { padding: 18px 20px; }
+.pricing-compare-row h3 {
+  font-size: 22px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: baseline;
+}
+.pricing-compare-row dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px 16px;
+  margin: 12px 0 0;
+}
+.pricing-compare-row dt {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.pricing-compare-row dd { margin: 4px 0 0; color: var(--obsidian); }
+.pricing-process { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.pricing-faq { display: grid; gap: 10px; }
+.pricing-faq-item { padding: 4px 18px 4px; }
+.pricing-faq-item summary {
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 22px;
+  list-style-position: outside;
+  padding: 8px 0;
+}
+.pricing-faq-item summary::-webkit-details-marker { color: var(--deep); }
+.pricing-faq-item p { padding-bottom: 14px; max-width: 68ch; }
+.pricing-checklist {
+  margin: 0;
+  padding: 20px 20px 20px 36px;
+  display: grid;
+  gap: 10px;
+}
+.plan-interest select { margin-top: 8px; }
+
 @media (max-width: 1100px) {
   .workspace-shell { grid-template-columns: 200px minmax(0, 1fr); }
   .living-brief { position: static; grid-column: 1 / -1; }
-  .card-grid, .process, .offer-mosaic, .about-grid, .founder-review-grid, .service-showcase, .split-head, .cinematic-shell, .possibilities-panel { grid-template-columns: 1fr 1fr; }
+  .card-grid, .process, .offer-mosaic, .about-grid, .founder-review-grid, .service-showcase, .split-head, .cinematic-shell, .possibilities-panel, .pricing-hero, .pricing-commission-list, .pricing-meaning { grid-template-columns: 1fr 1fr; }
   .founder-band, .service-feature, .service-feature-reverse { grid-template-columns: 1fr; }
+  .pricing-plan-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 980px) {
-  .hero, .cinematic-shell, .possibilities-panel { grid-template-columns: 1fr; }
+  .hero, .cinematic-shell, .possibilities-panel, .pricing-hero { grid-template-columns: 1fr; }
   .cta-band { flex-direction: column; align-items: flex-start; }
   .header-actions .btn-gold { display: none; }
   .cinematic-hero { min-height: 0; }
@@ -1291,7 +1419,7 @@ a.chip {
   .container, .container-wide { width: min(100% - 20px, 720px); }
   .brief-stage { padding: 18px; }
   .hero { padding-top: 28px; }
-  .workspace-shell, .card-grid, .process, .offer-mosaic, .about-grid, .founder-review-grid, .service-showcase, .split-head { grid-template-columns: 1fr; }
+  .workspace-shell, .card-grid, .process, .offer-mosaic, .about-grid, .founder-review-grid, .service-showcase, .split-head, .pricing-hero, .pricing-commission-list, .pricing-plan-grid, .pricing-meaning, .pricing-boundaries, .pricing-compare-row dl { grid-template-columns: 1fr; }
   .hero-phone-wrap { width: min(200px, 56%); }
   .device-phone { max-width: none; }
   .living-brief, .step-nav { position: static; }
@@ -1337,6 +1465,9 @@ a.chip {
   h1 { font-size: 34px; }
   .container, .container-wide { width: min(100% - 16px, 390px); }
   .btn { min-height: 44px; }
+  .pricing-review-banner { width: min(100% - 16px, 390px); }
+  .pricing-charges dd { font-size: 26px; }
+  .pricing-faq-item summary { font-size: 20px; }
 }
 
 @media (max-width: 320px) {

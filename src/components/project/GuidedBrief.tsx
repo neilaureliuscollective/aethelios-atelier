@@ -18,6 +18,7 @@ import { CONSENT_TEXT, INTELLIGENCE_DISPLAY_NAME, displayIntelligenceLabel } fro
 import { AppLink } from "@/components/ui/AppLink";
 import { DraftCompare } from "@/components/project/DraftCompare";
 import { DiscoveryImport } from "@/components/project/DiscoveryImport";
+import { PlanInterest } from "@/components/project/PlanInterest";
 import { LivingBrief } from "@/components/project/LivingBrief";
 import { SaveStatusBar } from "@/components/status/SaveStatus";
 import { api, ApiError } from "@/lib/client/api";
@@ -328,7 +329,10 @@ export function GuidedBrief({
     }
   }, [guestBrief, guestId, messages, project]);
 
-  function applyImportedBrief(next: Brief) {
+  function applyReviewedBrief(
+    next: Brief,
+    copy: { recovery: string; saved: string; guest: string }
+  ) {
     const session = sessionRef.current;
     if (session && project) {
       const stored = session.applyLocalEdit(next);
@@ -341,16 +345,32 @@ export function GuidedBrief({
       if (session.reviewRequired) {
         queueRef.current?.setReviewHold(true);
         queueRef.current?.enqueue(next);
-        setStatus("Prepared direction was added locally. Resolve recovery before treating it as saved.");
+        setStatus(copy.recovery);
         return;
       }
       queueRef.current?.enqueue(next);
-      setStatus("Prepared direction added to this brief. Consent again before sending. Nothing has been submitted.");
+      setStatus(copy.saved);
       return;
     }
     setGuestBrief(next);
     setGuestConsent(false);
-    setStatus("Prepared direction added to this device draft. It has not been sent or added to an account.");
+    setStatus(copy.guest);
+  }
+
+  function applyImportedBrief(next: Brief) {
+    applyReviewedBrief(next, {
+      recovery: "Prepared direction was added locally. Resolve recovery before treating it as saved.",
+      saved: "Prepared direction added to this brief. Consent again before sending. Nothing has been submitted.",
+      guest: "Prepared direction added to this device draft. It has not been sent or added to an account."
+    });
+  }
+
+  function applyPlanNote(next: Brief) {
+    applyReviewedBrief(next, {
+      recovery: "Plan discussion note was added locally. Resolve recovery before treating it as saved.",
+      saved: "Plan discussion note added to this brief. Consent again before sending. Nothing has been submitted or purchased.",
+      guest: "Plan discussion note added to this device draft. It has not been sent, billed, or added to an account."
+    });
   }
 
   function updateField(key: BriefFieldKey, value: string) {
@@ -778,6 +798,7 @@ export function GuidedBrief({
             blocked={Boolean(comparing)}
             onApply={applyImportedBrief}
           />
+          <PlanInterest brief={brief} blocked={Boolean(comparing)} onApply={applyPlanNote} />
           {step < 5 ? (
             <>
               <h1 className="brief-heading">{FIELD_HINTS[visibleFields[0] ?? "vision"]}</h1>
