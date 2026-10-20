@@ -14,6 +14,7 @@ import { createEmptyBrief } from "@/lib/brief";
 import { ForbiddenError, LimitError } from "@/lib/domain/errors";
 import { ProjectService } from "@/lib/domain/projects";
 import { MemoryPersistence } from "@/lib/persistence/memory";
+import { encodeSolidPng } from "@/lib/cofounder/png";
 import type { AuthContext, User } from "@/lib/types";
 
 const originalEnv = { ...process.env };
@@ -212,8 +213,7 @@ describe("companion workspace isolation", () => {
     expect(asset.status).toBe("ready");
     expect(asset.blobId).toBeTruthy();
     const exported = await studio.exportDraft(ctx.business.id, owner, created.draft.id, "square_announcement", {
-      composedPngBase64:
-        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+      composedPngBase64: Buffer.from(encodeSolidPng(1080, 1080)).toString("base64")
     });
     expect(exported.labeled).toBe("composition_export");
     expect(exported.asset?.blobId).toBeTruthy();

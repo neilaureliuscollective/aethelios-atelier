@@ -102,6 +102,20 @@ describe("discovery selection", () => {
     expect(new Set([lumenA.opening, hearth.opening, signal.opening]).size).toBe(3);
   });
 
+  it("keeps the Lifestyle concept on confirmed facts only", () => {
+    const draft = sampleDraft();
+    draft.businessName = "AETHELIOS LIFESTYLE";
+    draft.headline = "";
+    const content = buildConceptContent(draft, "lumen");
+    expect(content.headline).toMatch(/elevate mine/i);
+    expect(content.services.map((service) => service.title)).toEqual(["The house", "The mark", "The record"]);
+    expect(content.services.some((service) => /invented ingredients, benefits, endorsements/i.test(service.detail))).toBe(
+      true
+    );
+    expect(content.actionLabel).toBe("Continue in Companion");
+    expect(content.imageCaption).toMatch(/still to be supplied/);
+  });
+
   it("recommends a direction from qualities without calling it AI", () => {
     expect(recommendDirection(["bold"])).toBe("signal");
     expect(recommendDirection(["welcoming", "grounded"])).toBe("hearth");

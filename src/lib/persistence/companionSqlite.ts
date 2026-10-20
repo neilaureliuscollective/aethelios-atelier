@@ -11,6 +11,7 @@ import type {
   CompanionMessage,
   GenerationJob,
   MemoryProposal,
+  CompositionRevision,
   StudioAsset,
   StudioDraft,
   UsageEvent,
@@ -27,6 +28,7 @@ import {
   mapMember,
   mapMemory,
   mapProfile,
+  mapCompositionRevision,
   mapStudioAsset,
   mapStudioDraft,
   mapUsage,
@@ -39,12 +41,32 @@ export class SqliteCompanionStore implements CompanionStore {
   constructor(private readonly db: DatabaseSync) {
     this.db.exec(COMPANION_SQL);
     this.ensureProjectBusinessColumn();
+    this.ensureUsageColumns();
+    this.ensureAssetRevisionColumn();
   }
 
   private ensureProjectBusinessColumn() {
     const columns = this.db.prepare("PRAGMA table_info(projects)").all() as Array<{ name: string }>;
     if (!columns.some((column) => column.name === "business_id")) {
       this.db.exec("ALTER TABLE projects ADD COLUMN business_id TEXT");
+    }
+  }
+
+  private ensureUsageColumns() {
+    const columns = this.db.prepare("PRAGMA table_info(usage_events)").all() as Array<{ name: string }>;
+    const names = new Set(columns.map((column) => column.name));
+    if (!names.has("operation_id")) this.db.exec("ALTER TABLE usage_events ADD COLUMN operation_id TEXT");
+    if (!names.has("status")) this.db.exec("ALTER TABLE usage_events ADD COLUMN status TEXT");
+    if (!names.has("expires_at")) this.db.exec("ALTER TABLE usage_events ADD COLUMN expires_at TEXT");
+    this.db.exec(
+      "CREATE UNIQUE INDEX IF NOT EXISTS usage_events_operation_idx ON usage_events (business_id, operation_id) WHERE operation_id IS NOT NULL"
+    );
+  }
+
+  private ensureAssetRevisionColumn() {
+    const columns = this.db.prepare("PRAGMA table_info(studio_assets)").all() as Array<{ name: string }>;
+    if (!columns.some((column) => column.name === "composition_revision_id")) {
+      this.db.exec("ALTER TABLE studio_assets ADD COLUMN composition_revision_id TEXT");
     }
   }
 
@@ -423,7 +445,7 @@ export class SqliteCompanionStore implements CompanionStore {
   addUsageEvent(event: UsageEvent) {
     this.db
       .prepare(
-        "INSERT INTO usage_events(id,business_id,user_id,kind,units,created_at,metadata_json) VALUES(?,?,?,?,?,?,?)"
+        "INSERT INTO usage_events(id,business_id,user_id,kind,units,created_at,metadata_json,operation_id,status,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?)"
       )
       .run(
         event.id,
@@ -432,16 +454,98 @@ export class SqliteCompanionStore implements CompanionStore {
         event.kind,
         event.units,
         event.createdAt,
-        event.metadata ? JSON.stringify(event.metadata) : null
+        event.metadata ? JSON.stringify(event.metadata) : null,
+        event.operationId ?? null,
+        event.status ?? null,
+        event.expiresAt ?? null
       );
     return event;
   }
 
   updateUsageEvent(event: UsageEvent) {
     this.db
-      .prepare("UPDATE usage_events SET units=?, metadata_json=? WHERE id=?")
-      .run(event.units, event.metadata ? JSON.stringify(event.metadata) : null, event.id);
+      .prepare("UPDATE usage_events SET units=?, metadata_json=?, status=?, expires_at=? WHERE id=?")
+      .run(
+        event.units,
+        event.metadata ? JSON.stringify(event.metadata) : null,
+        event.status ?? null,
+        event.expiresAt ?? null,
+        event.id
+      );
     return event;
+  }
+
+  getUsageEvent(id: string) {
+    const row = this.db.prepare("SELECT * FROM usage_events WHERE id = ?").get(id) as Row | undefined;
+    return row ? mapUsage(row) : null;
+  }
+
+  getUsageByOperation(businessId: string, operationId: string) {
+    const row = this.db
+      .prepare("SELECT * FROM usage_events WHERE business_id = ? AND operation_id = ?")
+      .get(businessId, operationId) as Row | undefined;
+    return row ? mapUsage(row) : null;
+  }
+
+  releaseExpiredHolds(asOfIso: string) {
+    const rows = this.db
+      .prepare("SELECT * FROM usage_events WHERE status = 'held' AND expires_at IS NOT NULL AND expires_at <= ?")
+      .all(asOfIso) as Row[];
+    for (const row of rows) {
+      const event = mapUsage(row);
+      this.updateUsageEvent({
+        ...event,
+        status: "released",
+        expiresAt: undefined,
+        metadata: { ...event.metadata, status: "released", releasedAt: asOfIso, reason: "expired_hold" }
+      });
+    }
+    return rows.length;
+  }
+
+  addCompositionRevision(revision: CompositionRevision) {
+    this.db
+      .prepare(
+        `INSERT INTO studio_composition_revisions(
+           id,business_id,draft_id,work_item_id,version,layout,width,height,layers_json,palette_json,composition_json,created_at,created_by
+         ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`
+      )
+      .run(
+        revision.id,
+        revision.businessId,
+        revision.draftId,
+        revision.workItemId ?? null,
+        revision.version,
+        revision.layout,
+        revision.width,
+        revision.height,
+        JSON.stringify(revision.layers),
+        JSON.stringify(revision.palette),
+        JSON.stringify(revision.composition),
+        revision.createdAt,
+        revision.createdBy
+      );
+    return revision;
+  }
+
+  getCompositionRevision(id: string) {
+    const row = this.db.prepare("SELECT * FROM studio_composition_revisions WHERE id = ?").get(id) as Row | undefined;
+    return row ? mapCompositionRevision(row) : null;
+  }
+
+  listCompositionRevisions(draftId: string) {
+    return (
+      this.db
+        .prepare("SELECT * FROM studio_composition_revisions WHERE draft_id = ? ORDER BY version ASC")
+        .all(draftId) as Row[]
+    ).map(mapCompositionRevision);
+  }
+
+  nextCompositionVersion(draftId: string) {
+    const row = this.db
+      .prepare("SELECT MAX(version) as total FROM studio_composition_revisions WHERE draft_id = ?")
+      .get(draftId) as { total: number | null } | undefined;
+    return Number(row?.total ?? 0) + 1;
   }
 
   sumUsage(businessId: string, kind: UsageKind, sinceIso: string) {

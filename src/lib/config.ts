@@ -3,10 +3,13 @@ import path from "node:path";
 import { z } from "zod";
 import { CONSENT_TEXT } from "@/lib/copy";
 import {
+  authjsAuthAllowed,
   hostedEphemeralPersistenceReason,
   hostedPlatformName,
+  readAuthSecret,
   readDatabaseUrl,
-  simulatedAuthAllowed
+  simulatedAuthAllowed,
+  type AuthjsProviderState
 } from "@/lib/runtime/hosted";
 
 export { CONSENT_TEXT };
@@ -18,7 +21,7 @@ const schema = z.object({
     .default("unconfigured"),
   dataDir: z.string().default(".data"),
   databaseUrl: z.string().optional().default(""),
-  authAdapter: z.enum(["simulated", "unconfigured"]).default("unconfigured"),
+  authAdapter: z.enum(["simulated", "authjs", "unconfigured"]).default("unconfigured"),
   sessionSecret: z.string().optional().default(""),
   founderEmails: z.string().default("neil.local@atelier.invalid"),
   publicOrigin: z.string().optional().default(""),
@@ -59,10 +62,12 @@ export type AppConfig = z.infer<typeof schema> & {
   platform: string | null;
   persistence: PersistenceState;
   auth: {
-    adapter: "simulated" | "unconfigured";
+    adapter: "simulated" | "authjs" | "unconfigured";
     ready: boolean;
     labeled: boolean;
     missing?: string;
+    providers: AuthjsProviderState[];
+    secretConfigured: boolean;
   };
   aurelius: {
     enabled: boolean;
@@ -84,7 +89,7 @@ function readEnv() {
     dataDir: process.env.ATELIER_DATA_DIR ?? ".data",
     databaseUrl: readDatabaseUrl(process.env),
     authAdapter: process.env.ATELIER_AUTH_ADAPTER ?? "unconfigured",
-    sessionSecret: process.env.ATELIER_SESSION_SECRET ?? "",
+    sessionSecret: readAuthSecret(process.env),
     founderEmails: process.env.ATELIER_FOUNDER_EMAILS ?? "neil.local@atelier.invalid",
     publicOrigin:
       process.env.ATELIER_PUBLIC_ORIGIN ||
@@ -145,23 +150,52 @@ export function loadConfig(): AppConfig {
 
   const persistence = persistenceState(env);
   const simulated = simulatedAuthAllowed(process.env);
-  const authReady = simulated.allowed;
+  const authjs = authjsAuthAllowed(process.env);
+  const secretConfigured = env.sessionSecret.length >= 32;
   const openAiExplicitlyEnabled = env.openAiEnabled === "true";
   const hasKey = Boolean(env.openAiKey.trim());
+
+  const auth = simulated.allowed
+    ? {
+        adapter: "simulated" as const,
+        ready: true,
+        labeled: true,
+        providers: [] as AuthjsProviderState[],
+        secretConfigured
+      }
+    : authjs.allowed
+      ? {
+          adapter: "authjs" as const,
+          ready: true,
+          labeled: false,
+          providers: authjs.providers,
+          secretConfigured
+        }
+      : {
+          adapter:
+            env.authAdapter === "simulated"
+              ? ("simulated" as const)
+              : env.authAdapter === "authjs"
+                ? ("authjs" as const)
+                : ("unconfigured" as const),
+          ready: false,
+          labeled: env.authAdapter === "simulated",
+          missing:
+            env.authAdapter === "authjs"
+              ? authjs.reason
+              : env.authAdapter === "simulated"
+                ? simulated.reason
+                : "ATELIER_AUTH_ADAPTER",
+          providers: [] as AuthjsProviderState[],
+          secretConfigured
+        };
 
   return {
     ...env,
     founderEmailList,
     platform: hostedPlatformName(process.env),
     persistence,
-    auth: authReady
-      ? { adapter: "simulated", ready: true, labeled: true }
-      : {
-          adapter: env.authAdapter === "simulated" ? "simulated" : "unconfigured",
-          ready: false,
-          labeled: env.authAdapter === "simulated",
-          missing: simulated.reason ?? "ATELIER_AUTH_ADAPTER"
-        },
+    auth,
     aurelius: {
       enabled: openAiExplicitlyEnabled,
       ready: openAiExplicitlyEnabled && hasKey,
@@ -194,25 +228,32 @@ export function publicRuntimeConfig() {
       adapter: config.auth.adapter,
       ready: config.auth.ready,
       labeled: config.auth.labeled,
-      identities: config.auth.ready
-        ? [
-            {
-              email: "owner.local@atelier.invalid",
-              role: "client",
-              label: "Simulated owner"
-            },
-            {
-              email: "owner-two.local@atelier.invalid",
-              role: "client",
-              label: "Simulated second owner"
-            },
-            {
-              email: "neil.local@atelier.invalid",
-              role: "founder",
-              label: "Simulated founder"
-            }
-          ]
-        : []
+      missing: config.auth.missing,
+      providers: config.auth.providers.map((provider) => ({
+        id: provider.id,
+        label: provider.label,
+        capture: provider.capture === true
+      })),
+      identities:
+        config.auth.adapter === "simulated" && config.auth.ready
+          ? [
+              {
+                email: "owner.local@atelier.invalid",
+                role: "client",
+                label: "Simulated owner"
+              },
+              {
+                email: "owner-two.local@atelier.invalid",
+                role: "client",
+                label: "Simulated second owner"
+              },
+              {
+                email: "neil.local@atelier.invalid",
+                role: "founder",
+                label: "Simulated founder"
+              }
+            ]
+          : []
     },
     aurelius: {
       ready: config.aurelius.ready,
@@ -226,8 +267,9 @@ export function publicRuntimeConfig() {
     companion: {
       routes: ["/companion", "/companion/talk", "/companion/studio", "/companion/work", "/companion/business"],
       voiceReady: false,
+      voiceCommissioned: false,
       billingActivated: false,
-      note: "Companion entitlements are server-checked. Client flags do not grant access. Commercial prices stay out of this public config until billing is reviewed."
+      note: "Companion entitlements are server-checked. Client flags do not grant access. Commercial prices stay out of this public config until billing is reviewed. Live voice stays gated until provider duration evidence exists."
     }
   };
 }

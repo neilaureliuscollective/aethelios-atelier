@@ -1,4 +1,5 @@
 import type {
+  AuthAccountRecord,
   ChatMessage,
   ClarificationResponse,
   ClientUpdate,
@@ -15,7 +16,8 @@ import type {
   Session,
   Submission,
   Suggestion,
-  User
+  User,
+  VerificationTokenRecord
 } from "@/lib/types";
 import { MemoryCompanionStore } from "@/lib/persistence/companionMemory";
 import type { PersistenceAdapter } from "@/lib/persistence/adapter";
@@ -32,6 +34,9 @@ export class MemoryPersistence implements PersistenceAdapter {
   private users = new Map<string, User>();
   private usersByEmail = new Map<string, string>();
   private sessions = new Map<string, Session>();
+  private authAccounts = new Map<string, AuthAccountRecord>();
+  private verificationTokens = new Map<string, VerificationTokenRecord>();
+  private txChain: Promise<unknown> = Promise.resolve();
   private projects = new Map<string, Project>();
   private submissions = new Map<string, Submission>();
   private messages = new Map<string, ChatMessage[]>();
@@ -55,13 +60,26 @@ export class MemoryPersistence implements PersistenceAdapter {
   async ping() {}
 
   async runInTransaction<T>(fn: () => T | Promise<T>): Promise<T> {
-    return await fn();
+    let release!: (value?: unknown) => void;
+    const next = new Promise((resolve) => {
+      release = resolve;
+    });
+    const previous = this.txChain;
+    this.txChain = next;
+    await previous.catch(() => undefined);
+    try {
+      return await fn();
+    } finally {
+      release();
+    }
   }
 
   resetForTests() {
     this.users.clear();
     this.usersByEmail.clear();
     this.sessions.clear();
+    this.authAccounts.clear();
+    this.verificationTokens.clear();
     this.projects.clear();
     this.submissions.clear();
     this.messages.clear();
@@ -116,6 +134,40 @@ export class MemoryPersistence implements PersistenceAdapter {
 
   deleteSession(id: string) {
     this.sessions.delete(id);
+  }
+
+  updateSession(session: Session) {
+    if (!this.sessions.has(session.id)) return null;
+    this.sessions.set(session.id, clone(session));
+    return clone(session);
+  }
+
+  createAuthAccount(account: AuthAccountRecord) {
+    this.authAccounts.set(`${account.provider}:${account.providerAccountId}`, clone(account));
+    return clone(account);
+  }
+
+  getAuthAccount(provider: string, providerAccountId: string) {
+    const account = this.authAccounts.get(`${provider}:${providerAccountId}`);
+    return account ? clone(account) : null;
+  }
+
+  deleteAuthAccount(provider: string, providerAccountId: string) {
+    this.authAccounts.delete(`${provider}:${providerAccountId}`);
+  }
+
+  createVerificationToken(token: VerificationTokenRecord) {
+    const next = { ...token, identifier: token.identifier.toLowerCase() };
+    this.verificationTokens.set(`${next.identifier}:${next.token}`, clone(next));
+    return clone(next);
+  }
+
+  useVerificationToken(identifier: string, token: string) {
+    const key = `${identifier.toLowerCase()}:${token}`;
+    const existing = this.verificationTokens.get(key);
+    if (!existing) return null;
+    this.verificationTokens.delete(key);
+    return clone(existing);
   }
 
   createProject(project: Project) {

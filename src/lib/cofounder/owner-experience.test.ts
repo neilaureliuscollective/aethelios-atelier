@@ -7,7 +7,8 @@ import { CompanionUsage } from "@/lib/cofounder/usage";
 import { CompanionWork } from "@/lib/cofounder/work";
 import { CompanionWorkspace } from "@/lib/cofounder/workspace";
 import { CompanionVoice } from "@/lib/cofounder/voice";
-import { ForbiddenError, LimitError, UnconfiguredError } from "@/lib/domain/errors";
+import { encodeSolidPng } from "@/lib/cofounder/png";
+import { ConflictError, ForbiddenError, LimitError, UnconfiguredError } from "@/lib/domain/errors";
 import { MemoryPersistence } from "@/lib/persistence/memory";
 import type { AuthContext, User } from "@/lib/types";
 
@@ -385,7 +386,7 @@ describe("Studio import, drafts, logo, and export evidence", () => {
         layers: cleared.layers,
         expectedUpdatedAt: "2000-01-01T00:00:00.000Z"
       })
-    ).rejects.toBeInstanceOf(ForbiddenError);
+    ).rejects.toBeInstanceOf(ConflictError);
     expect(cleared.updatedAt).not.toBe("2000-01-01T00:00:00.000Z");
   });
 
@@ -419,8 +420,14 @@ describe("Studio import, drafts, logo, and export evidence", () => {
     );
     expect((await store.companion.getWorkItem(created.workItem.id))?.status).toBe(workBefore?.status);
     expect((await store.companion.getWorkItem(created.workItem.id))?.status).not.toBe("exported");
+    await expect(
+      studio.exportDraft(ctx.business.id, owner, created.draft.id, "portrait_social", {
+        composedPngBase64: PNG
+      })
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    expect((await store.companion.getWorkItem(created.workItem.id))?.status).not.toBe("exported");
     const exported = await studio.exportDraft(ctx.business.id, owner, created.draft.id, "portrait_social", {
-      composedPngBase64: PNG
+      composedPngBase64: Buffer.from(encodeSolidPng(1080, 1350)).toString("base64")
     });
     expect(exported.asset?.blobId).toBeTruthy();
     const after = await store.companion.getWorkItem(created.workItem.id);
@@ -457,6 +464,7 @@ describe("voice session lifecycle", () => {
     const { owner, workspace, store, usage } = await setup();
     process.env.ATELIER_OPENAI_ENABLED = "true";
     process.env.OPENAI_API_KEY = "sk-test-fixture";
+    process.env.ATELIER_VOICE_COMMISSIONED = "true";
     const ctx = await workspace.ensureForUser(owner);
     const failing = new CompanionVoice(store, new CompanionWorkspace(store), usage, async () => {
       return new Response("no", { status: 503 });
@@ -485,6 +493,22 @@ describe("voice session lifecycle", () => {
       sdp: "v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\n"
     });
     expect(session.workspaceBound).toBe(true);
-    expect((await usage.snapshot(ctx.business.id, owner)).voiceMinutesUsed).toBe(1);
+    expect(session.billedMinutes).toBe(0);
+    expect((await usage.snapshot(ctx.business.id, owner)).voiceMinutesUsed).toBe(0);
+  });
+
+  it("keeps live voice gated when provider credentials exist but voice is not commissioned", async () => {
+    process.env.ATELIER_OPENAI_ENABLED = "true";
+    process.env.OPENAI_API_KEY = "sk-test-fixture";
+    delete process.env.ATELIER_VOICE_COMMISSIONED;
+    const { owner, workspace, store } = await setup();
+    const ctx = await workspace.ensureForUser(owner);
+    await expect(
+      new CompanionVoice(store).createWebRtcSession({
+        businessId: ctx.business.id,
+        user: owner,
+        sdp: "v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\n"
+      })
+    ).rejects.toBeInstanceOf(UnconfiguredError);
   });
 });

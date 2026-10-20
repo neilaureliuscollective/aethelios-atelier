@@ -56,6 +56,13 @@ export function CompanionShell({
         <p className="lede">{lede}</p>
         <p className="tiny" title={user.email}>
           Signed in as {user.displayName || user.email}. Membership is checked on the server for every action.
+          Next: {pathname.startsWith("/companion/studio")
+            ? "Save or export this exact composition."
+            : pathname.startsWith("/companion/talk")
+              ? "Save copy, then open that exact item in Studio."
+              : pathname.startsWith("/companion/work")
+                ? "Open the exact saved item in Studio — never another draft."
+                : "Choose Talk, Studio, or Work for this project."}
         </p>
       </div>
       <nav className={styles.nav} aria-label="Companion">

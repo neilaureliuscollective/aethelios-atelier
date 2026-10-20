@@ -11,6 +11,7 @@ import type {
   GenerationJob,
   MemoryProposal,
   PlanId,
+  CompositionRevision,
   StudioAsset,
   StudioDraft,
   UsageEvent,
@@ -159,6 +160,7 @@ export function mapStudioAsset(row: Row): StudioAsset {
     blobId: asOptionalString(row.blob_id),
     revision: asNumber(row.revision),
     parentId: asOptionalString(row.parent_id),
+    compositionRevisionId: asOptionalString(row.composition_revision_id),
     error: asOptionalString(row.error),
     createdAt: asString(row.created_at),
     updatedAt: asString(row.updated_at)
@@ -175,7 +177,27 @@ export function mapUsage(row: Row): UsageEvent {
     units: asNumber(row.units),
     createdAt: asString(row.created_at),
     metadata,
-    status: usageEventStatus({ metadata })
+    operationId: asOptionalString(row.operation_id),
+    expiresAt: asOptionalString(row.expires_at),
+    status: usageEventStatus({ status: asOptionalString(row.status) as UsageEvent["status"], metadata })
+  };
+}
+
+export function mapCompositionRevision(row: Row): CompositionRevision {
+  return {
+    id: asString(row.id),
+    businessId: asString(row.business_id),
+    draftId: asString(row.draft_id),
+    workItemId: asOptionalString(row.work_item_id),
+    version: asNumber(row.version),
+    layout: asString(row.layout) as CompositionRevision["layout"],
+    width: asNumber(row.width),
+    height: asNumber(row.height),
+    layers: parseJson(asString(row.layers_json, "[]"), []),
+    palette: parseJson(asString(row.palette_json, "{}"), { canvas: "#2a2218", ink: "#f4efe4", muted: "#c9bba8", accent: "#b5834a" }),
+    composition: parseJson(asString(row.composition_json, "{}"), {}),
+    createdAt: asString(row.created_at),
+    createdBy: asString(row.created_by)
   };
 }
 

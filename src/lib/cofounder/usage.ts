@@ -15,19 +15,17 @@ function companionId(prefix: string) {
   return `${prefix}_${crypto.randomUUID()}`;
 }
 
-const locks = new Map<string, Promise<void>>();
+/** Local extra serialization only. Database transactions are the real guarantee. */
+const locks = new Map<string, Promise<unknown>>();
 
-async function withLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
+export async function withProcessLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
   const previous = locks.get(key) ?? Promise.resolve();
-  let release!: () => void;
-  const current = new Promise<void>((resolve) => {
+  let release!: (value?: unknown) => void;
+  const current = new Promise((resolve) => {
     release = resolve;
   });
-  locks.set(
-    key,
-    previous.then(() => current)
-  );
-  await previous;
+  locks.set(key, current);
+  await previous.catch(() => undefined);
   try {
     return await fn();
   } finally {
@@ -49,8 +47,11 @@ export function configuredLimitOverrides(): Partial<PlanLimits> {
   };
 }
 
+export const USAGE_HOLD_MS = 15 * 60 * 1000;
+
 export type UsageReservation = {
   event: UsageEvent;
+  reused?: boolean;
 };
 
 export class CompanionUsage {
@@ -61,6 +62,7 @@ export class CompanionUsage {
 
   async snapshot(businessId: string, user: User): Promise<UsageSnapshot> {
     const context = await this.workspace.requireMembership(businessId, user);
+    await this.recoverExpiredHolds();
     const since = periodStartIso();
     const [talkUsed, imagesUsed, voiceMinutesUsed] = await Promise.all([
       this.store.companion.sumUsage(businessId, "talk", since),
@@ -76,15 +78,27 @@ export class CompanionUsage {
     });
   }
 
+  async recoverExpiredHolds() {
+    return this.store.companion.releaseExpiredHolds(new Date().toISOString());
+  }
+
   async reserve(
     businessId: string,
     user: User,
     kind: UsageKind,
     units = 1,
-    metadata?: Record<string, unknown>
+    metadata?: Record<string, unknown>,
+    operationId?: string
   ): Promise<UsageReservation> {
-    return withLock(`${businessId}:${kind}`, async () => {
-      const snapshot = await this.snapshot(businessId, user);
+    const op = operationId || (typeof metadata?.operationId === "string" ? metadata.operationId : companionId("op"));
+    return this.store.runInTransaction(async () => {
+      await this.workspace.requireMembership(businessId, user);
+      await this.store.companion.releaseExpiredHolds(new Date().toISOString());
+      const existing = await this.store.companion.getUsageByOperation(businessId, op);
+      if (existing) {
+        return { event: existing, reused: true };
+      }
+      const snapshot = await this.snapshotInTx(businessId, user);
       const check = assertWithinBudget(snapshot, kind, units);
       if (!check.ok) throw new LimitError(check.message);
       const event = await this.store.companion.addUsageEvent({
@@ -95,37 +109,61 @@ export class CompanionUsage {
         units,
         createdAt: new Date().toISOString(),
         status: "held",
-        metadata: { ...metadata, status: "held" }
+        operationId: op,
+        expiresAt: new Date(Date.now() + USAGE_HOLD_MS).toISOString(),
+        metadata: { ...metadata, status: "held", operationId: op }
       });
       return { event };
     });
   }
 
   async settle(reservation: UsageReservation, actualUnits?: number) {
-    const units = actualUnits ?? reservation.event.units;
-    const event: UsageEvent = {
-      ...reservation.event,
-      units,
-      status: "settled",
-      metadata: { ...reservation.event.metadata, status: "settled", settledAt: new Date().toISOString() }
-    };
-    await this.store.companion.updateUsageEvent(event);
-    return event;
+    return this.store.runInTransaction(async () => {
+      const latest =
+        (await this.store.companion.getUsageEvent(reservation.event.id)) ?? reservation.event;
+      if (latest.status === "settled") return latest;
+      if (latest.status === "released") {
+        throw new LimitError("That usage hold was already released and cannot be settled.");
+      }
+      const units = actualUnits ?? latest.units;
+      const event: UsageEvent = {
+        ...latest,
+        units,
+        status: "settled",
+        expiresAt: undefined,
+        metadata: { ...latest.metadata, status: "settled", settledAt: new Date().toISOString() }
+      };
+      await this.store.companion.updateUsageEvent(event);
+      return event;
+    });
   }
 
   async release(reservation: UsageReservation) {
-    const event: UsageEvent = {
-      ...reservation.event,
-      status: "released",
-      metadata: { ...reservation.event.metadata, status: "released", releasedAt: new Date().toISOString() }
-    };
-    await this.store.companion.updateUsageEvent(event);
-    return event;
+    return this.store.runInTransaction(async () => {
+      const latest =
+        (await this.store.companion.getUsageEvent(reservation.event.id)) ?? reservation.event;
+      if (latest.status === "released" || latest.status === "settled") return latest;
+      const event: UsageEvent = {
+        ...latest,
+        status: "released",
+        expiresAt: undefined,
+        metadata: { ...latest.metadata, status: "released", releasedAt: new Date().toISOString() }
+      };
+      await this.store.companion.updateUsageEvent(event);
+      return event;
+    });
   }
 
-  async consume(businessId: string, user: User, kind: UsageKind, units = 1, metadata?: Record<string, unknown>) {
-    const reservation = await this.reserve(businessId, user, kind, units, metadata);
-    await this.settle(reservation, units);
+  async consume(
+    businessId: string,
+    user: User,
+    kind: UsageKind,
+    units = 1,
+    metadata?: Record<string, unknown>,
+    operationId?: string
+  ) {
+    const reservation = await this.reserve(businessId, user, kind, units, metadata, operationId);
+    if (!reservation.reused) await this.settle(reservation, units);
     return this.snapshot(businessId, user);
   }
 
@@ -136,5 +174,22 @@ export class CompanionUsage {
     if (pending >= limit) {
       throw new LimitError("A generation is already in progress for this workspace. Wait for it to finish or retry the same request.");
     }
+  }
+
+  private async snapshotInTx(businessId: string, user: User): Promise<UsageSnapshot> {
+    const context = await this.workspace.requireMembership(businessId, user);
+    const since = periodStartIso();
+    const [talkUsed, imagesUsed, voiceMinutesUsed] = await Promise.all([
+      this.store.companion.sumUsage(businessId, "talk", since),
+      this.store.companion.sumUsage(businessId, "image", since),
+      this.store.companion.sumUsage(businessId, "voice", since)
+    ]);
+    return toUsageSnapshot({
+      planId: context.business.planId,
+      talkUsed,
+      imagesUsed,
+      voiceMinutesUsed,
+      limits: configuredLimitOverrides()
+    });
   }
 }

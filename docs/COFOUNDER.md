@@ -2,7 +2,7 @@
 
 Standalone feature area for Aethelios Atelier. This is not the main Aethelios Human Ascendance app, not Aethelios Reserve, and not Aurelius.
 
-Base for this V1 branch: `79ec8a51f808677834b6209970cad04178760b9a` (`origin/main` at branch creation). Isolated worktree: `/home/ubuntu/atelier-cofounder` on `cursor/atelier-digital-cofounder-v1-38aa`.
+Owner-journey integration branch: `cursor/atelier-owner-journey-a72b`. Baseline `origin/main` `460994b` plus PR #9 `b6145b7` and Auth.js from PR #6. Isolated worktree: `/tmp/atelier-owner-journey`.
 
 ## Ownership
 
@@ -12,7 +12,7 @@ Base for this V1 branch: `79ec8a51f808677834b6209970cad04178760b9a` (`origin/mai
 
 ## Auth contract
 
-`main` still uses the labeled simulated-identity adapter (`src/lib/auth/session.ts`). The Auth.js branch `cursor/real-auth-accounts-63da` is **not merged**. Companion membership is bound to `user.id` from the current session so a later Auth.js merge does not require a second identity system.
+Companion membership is bound to `user.id` from the current session. Auth.js (Google / Resend) is integrated behind the same session cookie and identity model. Simulated identities remain the local default. Live voice stays gated: a successful SDP handshake is not a billed minute and does not commission voice.
 
 ## Isolated run
 

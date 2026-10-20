@@ -6,6 +6,7 @@ import { api } from "@/lib/client/api";
 import { actionErrorMessage } from "@/lib/client/asyncAction";
 import { ownerFence } from "@/lib/client/ownerFence";
 import { useSession } from "@/components/shell/SessionShell";
+import { LIFESTYLE_PROJECT, lifestyleMissingCopy } from "@/lib/cofounder/lifestyle";
 import type { ApprovedRate, BusinessProfile, MemoryProposal, UsageSnapshot } from "@/lib/cofounder/types";
 import styles from "./companion.module.css";
 
@@ -108,6 +109,12 @@ export function BusinessClient() {
       {profile ? (
         <div className={styles.grid}>
           <article className={`surface-dimensional ${styles.card}`}>
+            {/lifestyle/i.test(profile.fields.name.value) ? (
+              <p className="notice">
+                Selected project: {LIFESTYLE_PROJECT.brandName}. {LIFESTYLE_PROJECT.story} Missing
+                assets: {lifestyleMissingCopy()}.
+              </p>
+            ) : null}
             {Object.values(profile.fields).map((field) => (
               <label key={field.key} className={styles.composer}>
                 <span className="tiny">

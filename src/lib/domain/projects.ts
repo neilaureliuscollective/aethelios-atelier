@@ -126,7 +126,7 @@ export class ProjectService {
     return this.buildClientView(project, {
       user,
       session: { id: "", userId: user.id, createdAt: "", expiresAt: "" },
-      adapter: "simulated"
+      adapter: user.adapter
     });
   }
 

@@ -72,13 +72,56 @@ await page.goto(`${BASE}/companion/work`, { waitUntil: "networkidle0" });
 check("work shows saved copy", (await page.content()).includes("Saved work"));
 await shot("companion-work-1440.png");
 
+await page.goto(`${BASE}/companion/work`, { waitUntil: "networkidle0" });
+await page.waitForSelector("input.field, aside input");
+await page.evaluate(async () => {
+  const workspace = await fetch("/api/companion/workspace").then((response) => response.json());
+  const businessId = workspace.business.id;
+  await fetch("/api/companion/work", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ businessId, title: "Porch season", body: "Custom timber porches." })
+  });
+  await fetch("/api/companion/work", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ businessId, title: "Evening gathering", body: "Aethelios Lifestyle dinner." })
+  });
+});
+await page.reload({ waitUntil: "networkidle0" });
+const workLinks = await page.$$eval("a[href*='workItemId=']", (nodes) =>
+  nodes.map((node) => ({
+    href: node.getAttribute("href") || "",
+    title: node.closest(".surface-read")?.querySelector("h3")?.textContent?.trim() || ""
+  }))
+);
+const porch = workLinks.find((item) => item.title.includes("Porch season"));
+const evening = workLinks.find((item) => item.title.includes("Evening gathering"));
+check("two distinct work items can open Studio", Boolean(porch && evening && porch.href !== evening.href));
+if (!porch || !evening) {
+  await browser.close();
+  process.exit(1);
+}
+
+await page.goto(`${BASE}${porch.href}`, { waitUntil: "networkidle0" });
+await page.waitForFunction(() => {
+  const field = document.querySelector("#headline");
+  return field && field.value.includes("Porch season");
+});
+const firstHeadline = await page.$eval("#headline", (node) => node.value);
+check("first work item opens its exact copy", firstHeadline.includes("Porch season"));
+
+await page.goto(`${BASE}${evening.href}`, { waitUntil: "networkidle0" });
+await page.waitForFunction(() => {
+  const field = document.querySelector("#headline");
+  return field && field.value.includes("Evening gathering");
+});
+const secondHeadline = await page.$eval("#headline", (node) => node.value);
+check("second work item does not inherit the first Studio draft", secondHeadline.includes("Evening gathering"));
+check("incorrect first-draft fallback is absent", !secondHeadline.includes("Porch season"));
+
 await page.goto(`${BASE}/companion/studio`, { waitUntil: "networkidle0" });
 await page.waitForSelector("#headline");
-await page.evaluate(() => {
-  const button = [...document.querySelectorAll("button")].find((item) => item.textContent?.includes("Use"));
-  button?.click();
-});
-await page.waitForFunction(() => document.querySelector("#headline")?.value || document.body.innerText.includes("Studio draft"));
 const studio = await page.content();
 check("studio editor is present", studio.includes("Brand Studio") && studio.includes("Generate image"));
 check("studio has draft selector and layouts", studio.includes("Saved draft") && studio.includes("Portrait social"));

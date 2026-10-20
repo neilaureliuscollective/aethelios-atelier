@@ -7,8 +7,21 @@ import { api } from "@/lib/client/api";
 import { actionErrorMessage } from "@/lib/client/asyncAction";
 import { ownerFence } from "@/lib/client/ownerFence";
 import { useSession } from "@/components/shell/SessionShell";
-import { assetUrl, buildComposition, documentUrl, studioLayouts, type CompositionSpec } from "@/lib/cofounder/composition";
-import type { StudioAsset, StudioDraft, StudioLayoutId, WorkItem } from "@/lib/cofounder/types";
+import {
+  assetUrl,
+  buildComposition,
+  compositionCssFont,
+  coverCropRect,
+  documentUrl,
+  layersFromControls,
+  paletteForProfile,
+  studioLayouts,
+  wrapLines,
+  type BrandPalette,
+  type CompositionSpec
+} from "@/lib/cofounder/composition";
+import { resolveStudioOpen, selectedWorkText } from "@/lib/cofounder/studioOpen";
+import type { BusinessProfile, StudioAsset, StudioDraft, StudioLayoutId, WorkItem } from "@/lib/cofounder/types";
 import styles from "./companion.module.css";
 
 const LAYOUTS = studioLayouts();
@@ -17,6 +30,7 @@ export function StudioClient() {
   const { user, generation } = useSession();
   const search = useSearchParams();
   const [businessId, setBusinessId] = useState<string>();
+  const [profile, setProfile] = useState<Pick<BusinessProfile, "fields"> | null>(null);
   const [drafts, setDrafts] = useState<StudioDraft[]>([]);
   const [assets, setAssets] = useState<StudioAsset[]>([]);
   const [current, setCurrent] = useState<StudioDraft | null>(null);
@@ -25,19 +39,24 @@ export function StudioClient() {
   const [direction, setDirection] = useState("Quiet workshop light. No fake testimonials or invented results.");
   const [layout, setLayout] = useState<StudioLayoutId>("square_announcement");
   const [logoX, setLogoX] = useState(8);
-  const [logoY, setLogoY] = useState(78);
+  const [logoY, setLogoY] = useState(80);
   const [cropX, setCropX] = useState(50);
   const [cropY, setCropY] = useState(50);
   const [cropZoom, setCropZoom] = useState(1);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
+  const [recovery, setRecovery] = useState("");
   const [asset, setAsset] = useState<StudioAsset | null>(null);
   const [workItems, setWorkItems] = useState<WorkItem[]>([]);
-  const [logoDocumentId, setLogoDocumentId] = useState<string>();
+  const [logoDocumentId, setLogoDocumentId] = useState<string | undefined>();
   const [generating, setGenerating] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const generateKeyRef = useRef<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const previewImageRef = useRef<HTMLImageElement | null>(null);
+  const [previewNatural, setPreviewNatural] = useState<{ width: number; height: number } | null>(null);
 
   function hydrate(draft: StudioDraft | null) {
     setCurrent(draft);
@@ -46,18 +65,21 @@ export function StudioClient() {
     setLayout(draft?.layout ?? "square_announcement");
     const logo = draft?.layers.find((layer) => layer.kind === "logo");
     setLogoX(logo?.x ?? 8);
-    setLogoY(logo?.y ?? 78);
-    if (logo?.documentId) setLogoDocumentId(logo.documentId);
+    setLogoY(logo?.y ?? 80);
+    setLogoDocumentId(logo?.documentId);
     const image = draft?.layers.find((layer) => layer.kind === "image");
     setCropX(image?.cropX ?? 50);
     setCropY(image?.cropY ?? 50);
     setCropZoom(image?.cropZoom ?? 1);
+    setDirty(false);
+    setPreviewNatural(null);
   }
 
   async function refresh(gen = generation) {
-    const workspace = await api<{ business: { id: string }; rawProfile?: { brandAssets?: Array<{ kind: string; documentId?: string }> } }>(
-      "/api/companion/workspace"
-    );
+    const workspace = await api<{
+      business: { id: string; name: string };
+      rawProfile?: BusinessProfile;
+    }>("/api/companion/workspace");
     const data = await api<{ drafts: StudioDraft[] }>(
       `/api/companion/studio?businessId=${encodeURIComponent(workspace.business.id)}`
     );
@@ -69,20 +91,48 @@ export function StudioClient() {
     );
     if (!ownerFence.isCurrent(gen, user?.id ?? null)) return;
     setBusinessId(workspace.business.id);
+    setProfile(workspace.rawProfile ?? null);
     setDrafts(data.drafts);
     setWorkItems(work.items);
     setAssets(today.today.pendingAssets);
-    const logo = workspace.rawProfile?.brandAssets?.find((item) => item.kind === "logo");
-    if (logo?.documentId) setLogoDocumentId(logo.documentId);
-    const requested = search.get("draftId") ?? search.get("workItemId");
-    const match =
-      data.drafts.find((item) => item.id === requested) ??
-      data.drafts.find((item) => item.workItemId === requested || item.sourceWorkItemId === requested) ??
-      data.drafts.find((item) => item.id === current?.id) ??
-      data.drafts[0] ??
-      null;
-    if (!current || match?.id !== current.id || match?.updatedAt !== current.updatedAt) {
-      hydrate(match);
+    const requestedDraft = search.get("draftId");
+    const requestedWork = search.get("workItemId");
+    if (!requestedDraft && !requestedWork) {
+      if (current) {
+        const latest = data.drafts.find((item) => item.id === current.id);
+        if (latest && latest.updatedAt !== current.updatedAt) hydrate(latest);
+      }
+      return;
+    }
+    const resolved = resolveStudioOpen(
+      { draftId: requestedDraft, workItemId: requestedWork },
+      data.drafts,
+      work.items
+    );
+    if (resolved.kind === "draft") {
+      if (!current || current.id !== resolved.draft.id || current.updatedAt !== resolved.draft.updatedAt) {
+        hydrate(resolved.draft);
+      }
+      setError("");
+      setRecovery("");
+      return;
+    }
+    if (resolved.kind === "create_from_work") {
+      const copy = selectedWorkText(resolved.workItem);
+      setHeadline(copy.headline);
+      setBody(copy.body);
+      setDirty(true);
+      await createDraft({
+        workItemId: resolved.workItem.id,
+        headline: copy.headline,
+        body: copy.body
+      });
+      return;
+    }
+    if (resolved.kind === "error") {
+      setError(resolved.message);
+      setRecovery(resolved.recovery);
+      hydrate(null);
     }
   }
 
@@ -94,45 +144,57 @@ export function StudioClient() {
 
   const selected = current;
   const backgroundUrl =
-    asset?.status === "ready" && selected?.selectedAssetId && businessId
-      ? assetUrl(businessId, selected.selectedAssetId)
-      : selected?.selectedAssetId && businessId && asset?.status !== "failed"
-        ? assetUrl(businessId, selected.selectedAssetId)
-        : "";
+    selected?.selectedAssetId && businessId ? assetUrl(businessId, selected.selectedAssetId) : "";
   const logoUrl = logoDocumentId && businessId ? documentUrl(businessId, logoDocumentId) : "";
+  const palette: BrandPalette | undefined = profile ? paletteForProfile(profile) : undefined;
+
+  const liveLayers = useMemo(
+    () =>
+      layersFromControls({
+        headline,
+        body,
+        layout,
+        logoDocumentId,
+        logoX,
+        logoY,
+        cropX,
+        cropY,
+        cropZoom
+      }),
+    [headline, body, layout, logoDocumentId, logoX, logoY, cropX, cropY, cropZoom]
+  );
 
   const composition = useMemo(() => {
     if (!businessId) return null;
     return buildComposition({
       layout,
-      layers: [
-        { id: "headline", kind: "headline", text: headline, x: 8, y: 12, width: 84, height: 18 },
-        { id: "body", kind: "body", text: body, x: 8, y: 34, width: 84, height: 28 },
-        ...(logoDocumentId
-          ? [{ id: "logo", kind: "logo" as const, documentId: logoDocumentId, x: logoX, y: logoY, width: 18, height: 14 }]
-          : []),
-        {
-          id: "image",
-          kind: "image",
-          x: 0,
-          y: 0,
-          width: 100,
-          height: 100,
-          cropX,
-          cropY,
-          cropZoom
-        }
-      ],
+      layers: liveLayers,
       businessId,
+      palette,
+      profile,
       backgroundImageUrl: backgroundUrl || null,
       logoUrl: logoUrl || null
     });
-  }, [businessId, layout, headline, body, logoDocumentId, logoX, logoY, cropX, cropY, cropZoom, backgroundUrl, logoUrl]);
+  }, [businessId, layout, liveLayers, palette, profile, backgroundUrl, logoUrl]);
+
+  const previewCrop = useMemo(() => {
+    if (!composition || !previewNatural) return null;
+    return coverCropRect(
+      previewNatural.width,
+      previewNatural.height,
+      composition.width,
+      composition.height,
+      composition.crop.x,
+      composition.crop.y,
+      composition.crop.zoom
+    );
+  }, [composition, previewNatural]);
 
   async function createDraft(input?: { workItemId?: string; headline: string; body: string }) {
     const nextHeadline = input?.headline ?? headline;
     const nextBody = input?.body ?? body;
     setError("");
+    setRecovery("");
     try {
       const created = await api<{ draft: StudioDraft }>("/api/companion/studio", {
         method: "POST",
@@ -147,43 +209,48 @@ export function StudioClient() {
       });
       hydrate(created.draft);
       await refresh();
-      setStatus("Studio draft saved with the exact selected copy.");
+      setStatus(`Studio draft linked to ${input?.workItemId ? "the exact Work item" : "this composition"}.`);
     } catch (err) {
       setError(actionErrorMessage(err, "Studio draft could not be created."));
+      setRecovery("Keep the copy. Retry create, or return to Work and open the item again.");
     }
   }
 
-  function currentLayers() {
-    return (selected?.layers ?? []).map((layer) => {
-      if (layer.kind === "headline") return { ...layer, text: headline };
-      if (layer.kind === "body") return { ...layer, text: body };
-      if (layer.kind === "logo") return { ...layer, documentId: logoDocumentId ?? layer.documentId, x: logoX, y: logoY };
-      if (layer.kind === "image") return { ...layer, cropX, cropY, cropZoom };
-      return layer;
-    });
-  }
-
-  async function saveLayers() {
-    if (!selected) return;
-    const layers = currentLayers();
-    if (!layers.some((layer) => layer.kind === "logo") && logoDocumentId) {
-      layers.push({ id: "logo", kind: "logo", documentId: logoDocumentId, x: logoX, y: logoY, width: 18, height: 14 });
-    }
-    if (!layers.some((layer) => layer.kind === "image")) {
-      layers.push({ id: "image", kind: "image", x: 0, y: 0, width: 100, height: 100, cropX, cropY, cropZoom });
-    }
-    const updated = await api<{ draft: StudioDraft }>("/api/companion/studio", {
-      method: "PATCH",
-      body: JSON.stringify({
-        businessId,
-        draftId: selected.id,
+  async function saveLayers(explicitLogoId = logoDocumentId) {
+    if (!selected) return selected;
+    setSaving(true);
+    try {
+      const layers = layersFromControls({
+        headline,
+        body,
         layout,
-        layers,
-        expectedUpdatedAt: selected.updatedAt
-      })
-    });
-    hydrate(updated.draft);
-    setStatus("Layers saved. Empty text stayed empty. Generated pixels were not asked to reproduce the logo.");
+        logoDocumentId: explicitLogoId,
+        logoX,
+        logoY,
+        cropX,
+        cropY,
+        cropZoom
+      });
+      const updated = await api<{ draft: StudioDraft }>("/api/companion/studio", {
+        method: "PATCH",
+        body: JSON.stringify({
+          businessId,
+          draftId: selected.id,
+          layout,
+          layers,
+          expectedUpdatedAt: selected.updatedAt
+        })
+      });
+      hydrate(updated.draft);
+      setStatus("Saved. Preview, export, and the stored revision now share this composition.");
+      return updated.draft;
+    } catch (err) {
+      setError(actionErrorMessage(err, "Layers could not be saved. The draft is still editable."));
+      setRecovery("Reload the newer revision, or retry save. Export was not marked complete.");
+      return null;
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function generate(sourceAssetId?: string) {
@@ -234,8 +301,11 @@ export function StudioClient() {
     if (!selected || !composition || exporting) return;
     setExporting(true);
     setError("");
-    setStatus("Composing export…");
+    setRecovery("");
+    setStatus("Saving the exact revision, then exporting…");
     try {
+      const saved = dirty ? await saveLayers() : selected;
+      if (!saved) return;
       const composedPngBase64 = await composePng(composition, canvasRef.current);
       const result = await api<{
         exported: { labeled: string; dimensions: { width: number; height: number }; assetUrl?: string | null };
@@ -243,21 +313,25 @@ export function StudioClient() {
         method: "POST",
         body: JSON.stringify({
           businessId,
-          draftId: selected.id,
+          draftId: saved.id,
           format: layout,
+          layout,
+          layers: liveLayers,
           composedPngBase64,
-          expectedUpdatedAt: selected.updatedAt
+          expectedUpdatedAt: saved.updatedAt
         })
       });
-      const href = `data:image/png;base64,${composedPngBase64}`;
-      const link = document.createElement("a");
-      link.href = href;
-      link.download = `${selected.id}.png`;
-      link.click();
-      setStatus(`Exported as ${result.exported.labeled}. The finished file is saved in Work.`);
+      if (result.exported.assetUrl) {
+        const link = document.createElement("a");
+        link.href = result.exported.assetUrl;
+        link.download = `${saved.id}.png`;
+        link.click();
+      }
+      setStatus(`Exported ${result.exported.dimensions.width}×${result.exported.dimensions.height}. The saved revision and file match.`);
       await refresh();
     } catch (err) {
       setError(actionErrorMessage(err, "Export failed. The draft is still editable and was not marked exported."));
+      setRecovery("Keep editing, then retry export. A mismatched or 1×1 image will not mark Work as exported.");
       setStatus("");
     } finally {
       setExporting(false);
@@ -284,16 +358,23 @@ export function StudioClient() {
       })
     });
     setLogoDocumentId(result.document.id);
+    setDirty(true);
     setStatus("Original logo stored. Preview and export use the same placement.");
-    if (selected) await saveLayers();
+    if (selected) await saveLayers(result.document.id);
   }
 
   async function importWork(item: WorkItem) {
-    const nextHeadline = item.title;
-    const nextBody = String(item.payload.body ?? item.payload.preview ?? "");
-    setHeadline(nextHeadline);
-    setBody(nextBody);
-    await createDraft({ workItemId: item.id, headline: nextHeadline, body: nextBody });
+    const copy = selectedWorkText(item);
+    setHeadline(copy.headline);
+    setBody(copy.body);
+    await createDraft({ workItemId: item.id, headline: copy.headline, body: copy.body });
+  }
+
+  function markDirty<T>(setter: (value: T) => void) {
+    return (value: T) => {
+      setter(value);
+      setDirty(true);
+    };
   }
 
   return (
@@ -302,6 +383,11 @@ export function StudioClient() {
       lede="Import the exact Talk copy, place the real logo, and export only after the composed file is saved."
     >
       <canvas ref={canvasRef} hidden />
+      <p className="tiny" data-project-name={profile?.fields.name.value ?? ""}>
+        {profile?.fields.name.value ? `Selected project: ${profile.fields.name.value}` : "Select a business in Companion."}
+        {selected ? ` · Draft ${selected.id.slice(0, 12)}` : " · No draft open"}
+        {dirty ? " · Unsaved edits" : selected ? " · Saved" : ""}
+      </p>
       <div className={styles.grid}>
         <article className={`surface-dimensional ${styles.card}`}>
           <div
@@ -314,13 +400,28 @@ export function StudioClient() {
           >
             {backgroundUrl ? (
               <img
+                ref={previewImageRef}
                 className={styles.canvasImage}
                 src={backgroundUrl}
                 alt=""
-                style={{
-                  objectPosition: `${cropX}% ${cropY}%`,
-                  transform: `scale(${cropZoom})`
+                onLoad={(event) => {
+                  setPreviewNatural({
+                    width: event.currentTarget.naturalWidth,
+                    height: event.currentTarget.naturalHeight
+                  });
                 }}
+                style={
+                  previewCrop && composition
+                    ? {
+                        objectFit: "none",
+                        width: `${(previewCrop.width / composition.width) * 100}%`,
+                        height: `${(previewCrop.height / composition.height) * 100}%`,
+                        left: `${(previewCrop.x / composition.width) * 100}%`,
+                        top: `${(previewCrop.y / composition.height) * 100}%`,
+                        transform: "none"
+                      }
+                    : undefined
+                }
               />
             ) : (
               <p className={`${styles.emptyCanvas} tiny`}>No generated image. The logo and copy still compose.</p>
@@ -333,7 +434,11 @@ export function StudioClient() {
                     left: `${composition.headline.x}%`,
                     top: `${composition.headline.y}%`,
                     width: `${composition.headline.width}%`,
-                    color: composition.headline.color
+                    color: composition.headline.color,
+                    fontSize: `calc(${composition.headline.fontSize} * 1px * (100 / ${composition.width}))`,
+                    lineHeight: composition.headline.lineHeight,
+                    fontFamily: `"${composition.headline.fontFamily}", serif`,
+                    fontWeight: composition.headline.fontWeight
                   }}
                 >
                   {composition.headline.text}
@@ -344,7 +449,11 @@ export function StudioClient() {
                     left: `${composition.body.x}%`,
                     top: `${composition.body.y}%`,
                     width: `${composition.body.width}%`,
-                    color: composition.body.color
+                    color: composition.body.color,
+                    fontSize: `calc(${composition.body.fontSize} * 1px * (100 / ${composition.width}))`,
+                    lineHeight: composition.body.lineHeight,
+                    fontFamily: `"${composition.body.fontFamily}", sans-serif`,
+                    fontWeight: composition.body.fontWeight
                   }}
                 >
                   {composition.body.text}
@@ -369,6 +478,7 @@ export function StudioClient() {
           </div>
           <p className="tiny">{status}</p>
           {error ? <p className="notice notice-warn">{error}</p> : null}
+          {recovery ? <p className="tiny">{recovery}</p> : null}
         </article>
         <aside className={`panel ${styles.card}`}>
           <label className="tiny" htmlFor="studio-draft">
@@ -378,9 +488,14 @@ export function StudioClient() {
             id="studio-draft"
             className={styles.select}
             value={selected?.id ?? ""}
-            onChange={(event) => hydrate(drafts.find((item) => item.id === event.target.value) ?? null)}
+            onChange={(event) => {
+              const next = drafts.find((item) => item.id === event.target.value) ?? null;
+              hydrate(next);
+              setError("");
+              setRecovery("");
+            }}
           >
-            <option value="">New composition</option>
+            <option value="">No composition selected</option>
             {drafts.map((draft) => (
               <option key={draft.id} value={draft.id}>
                 {draft.layers.find((layer) => layer.kind === "headline")?.text || "Untitled"} · {draft.layout}
@@ -394,22 +509,28 @@ export function StudioClient() {
             id="studio-layout"
             className={styles.select}
             value={layout}
-            onChange={(event) => setLayout(event.target.value as StudioLayoutId)}
+            onChange={(event) => markDirty(setLayout)(event.target.value as StudioLayoutId)}
           >
             {LAYOUTS.map((item) => (
               <option key={item.id} value={item.id}>
-                {item.label}
+                {item.label} · {item.purpose}
               </option>
             ))}
           </select>
           <label className="tiny" htmlFor="headline">
             Headline
           </label>
-          <input id="headline" className={styles.field} value={headline} onChange={(event) => setHeadline(event.target.value)} />
+          <input
+            id="headline"
+            className={styles.field}
+            data-work-title={headline}
+            value={headline}
+            onChange={(event) => markDirty(setHeadline)(event.target.value)}
+          />
           <label className="tiny" htmlFor="body">
             Body
           </label>
-          <textarea id="body" className={styles.field} value={body} onChange={(event) => setBody(event.target.value)} />
+          <textarea id="body" className={styles.field} value={body} onChange={(event) => markDirty(setBody)(event.target.value)} />
           <label className="tiny" htmlFor="direction">
             Image direction
           </label>
@@ -417,24 +538,36 @@ export function StudioClient() {
           <label className="tiny" htmlFor="crop-x">
             Image crop X {cropX}
           </label>
-          <input id="crop-x" type="range" min={0} max={100} value={cropX} onChange={(event) => setCropX(Number(event.target.value))} />
+          <input id="crop-x" type="range" min={0} max={100} value={cropX} onChange={(event) => markDirty(setCropX)(Number(event.target.value))} />
           <label className="tiny" htmlFor="crop-y">
             Image crop Y {cropY}
           </label>
-          <input id="crop-y" type="range" min={0} max={100} value={cropY} onChange={(event) => setCropY(Number(event.target.value))} />
+          <input id="crop-y" type="range" min={0} max={100} value={cropY} onChange={(event) => markDirty(setCropY)(Number(event.target.value))} />
+          <label className="tiny" htmlFor="crop-zoom">
+            Crop zoom {cropZoom}
+          </label>
+          <input
+            id="crop-zoom"
+            type="range"
+            min={1}
+            max={2.4}
+            step={0.05}
+            value={cropZoom}
+            onChange={(event) => markDirty(setCropZoom)(Number(event.target.value))}
+          />
           <label className="tiny" htmlFor="logo-x">
             Logo placement
           </label>
           <div className={styles.actions}>
-            <input aria-label="Logo X" type="range" min={2} max={80} value={logoX} onChange={(event) => setLogoX(Number(event.target.value))} />
-            <input aria-label="Logo Y" type="range" min={2} max={88} value={logoY} onChange={(event) => setLogoY(Number(event.target.value))} />
+            <input aria-label="Logo X" type="range" min={2} max={80} value={logoX} onChange={(event) => markDirty(setLogoX)(Number(event.target.value))} />
+            <input aria-label="Logo Y" type="range" min={2} max={88} value={logoY} onChange={(event) => markDirty(setLogoY)(Number(event.target.value))} />
           </div>
           <div className={styles.actions}>
             <button className="btn btn-gold" type="button" onClick={() => void createDraft()}>
               New draft
             </button>
-            <button className="btn btn-ghost" type="button" onClick={() => void saveLayers()} disabled={!selected}>
-              Save layers
+            <button className="btn btn-ghost" type="button" onClick={() => void saveLayers()} disabled={!selected || saving}>
+              {saving ? "Saving…" : dirty ? "Save layers" : "Saved"}
             </button>
             <button className="btn btn-ghost" type="button" onClick={() => void generate()} disabled={!selected || generating}>
               {generating ? "Generating…" : "Generate image"}
@@ -493,23 +626,41 @@ async function composePng(spec: CompositionSpec, canvas: HTMLCanvasElement | nul
   target.height = spec.height;
   const ctx = target.getContext("2d");
   if (!ctx) throw new Error("This browser could not compose the export canvas.");
+  if (document.fonts?.ready) await document.fonts.ready;
   ctx.fillStyle = spec.palette.canvas;
   ctx.fillRect(0, 0, spec.width, spec.height);
   if (spec.backgroundImageUrl) {
     const image = await loadImage(spec.backgroundImageUrl);
-    const zoom = spec.crop.zoom;
-    const width = spec.width * zoom;
-    const height = spec.height * zoom;
-    const x = ((spec.crop.x / 100) * spec.width) - width / 2;
-    const y = ((spec.crop.y / 100) * spec.height) - height / 2;
-    ctx.drawImage(image, x + spec.width / 2 - width / 2, y + spec.height / 2 - height / 2, width, height);
+    const crop = coverCropRect(
+      image.naturalWidth || image.width,
+      image.naturalHeight || image.height,
+      spec.width,
+      spec.height,
+      spec.crop.x,
+      spec.crop.y,
+      spec.crop.zoom
+    );
+    ctx.drawImage(image, crop.x, crop.y, crop.width, crop.height);
   }
   ctx.fillStyle = spec.headline.color;
-  ctx.font = `600 ${spec.headline.fontSize}px serif`;
-  wrapText(ctx, spec.headline.text, (spec.headline.x / 100) * spec.width, (spec.headline.y / 100) * spec.height + spec.headline.fontSize, (spec.headline.width / 100) * spec.width);
+  ctx.font = compositionCssFont(spec.headline);
+  ctx.textBaseline = "top";
+  const headlineWidth = (spec.headline.width / 100) * spec.width;
+  const headlineX = (spec.headline.x / 100) * spec.width;
+  const headlineY = (spec.headline.y / 100) * spec.height;
+  const headlineLines = wrapLines(spec.headline.text, headlineWidth, (value) => ctx.measureText(value).width);
+  headlineLines.forEach((line, index) => {
+    ctx.fillText(line, headlineX, headlineY + index * spec.headline.fontSize * spec.headline.lineHeight);
+  });
   ctx.fillStyle = spec.body.color;
-  ctx.font = `400 ${spec.body.fontSize}px sans-serif`;
-  wrapText(ctx, spec.body.text, (spec.body.x / 100) * spec.width, (spec.body.y / 100) * spec.height + spec.body.fontSize, (spec.body.width / 100) * spec.width);
+  ctx.font = compositionCssFont(spec.body);
+  const bodyWidth = (spec.body.width / 100) * spec.width;
+  const bodyX = (spec.body.x / 100) * spec.width;
+  const bodyY = (spec.body.y / 100) * spec.height;
+  const bodyLines = wrapLines(spec.body.text, bodyWidth, (value) => ctx.measureText(value).width);
+  bodyLines.forEach((line, index) => {
+    ctx.fillText(line, bodyX, bodyY + index * spec.body.fontSize * spec.body.lineHeight);
+  });
   if (spec.logo) {
     const logo = await loadImage(spec.logo.src);
     const boxW = (spec.logo.width / 100) * spec.width;
@@ -530,22 +681,4 @@ function loadImage(src: string) {
     img.onerror = () => reject(new Error("A background or logo image failed to load. Export was not marked complete."));
     img.src = src;
   });
-}
-
-function wrapText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number) {
-  if (!text) return;
-  const words = text.split(/\s+/);
-  let line = "";
-  let cursor = y;
-  for (const word of words) {
-    const next = line ? `${line} ${word}` : word;
-    if (ctx.measureText(next).width > maxWidth && line) {
-      ctx.fillText(line, x, cursor);
-      line = word;
-      cursor += Math.round(ctx.canvas.width / 22);
-    } else {
-      line = next;
-    }
-  }
-  if (line) ctx.fillText(line, x, cursor);
 }

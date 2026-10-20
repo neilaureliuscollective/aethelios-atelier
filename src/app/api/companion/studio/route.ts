@@ -11,9 +11,14 @@ export async function GET(request: Request) {
     const { auth, store, context } = await requireCompanion(url.searchParams.get("businessId") ?? undefined);
     const studio = new CompanionStudio(store);
     const draftId = url.searchParams.get("draftId");
+    const workItemId = url.searchParams.get("workItemId");
     if (draftId) {
       const draft = await studio.getDraft(context.business.id, auth.user, draftId);
       return json({ ok: true, draft, layouts: studioLayouts() });
+    }
+    if (workItemId) {
+      const opened = await studio.openFromWork(context.business.id, auth.user, workItemId);
+      return json({ ok: true, draft: opened.draft, created: opened.created, workItem: opened.workItem, layouts: studioLayouts() });
     }
     const drafts = await studio.listDrafts(context.business.id, auth.user);
     return json({ ok: true, drafts, layouts: studioLayouts() });
@@ -57,7 +62,10 @@ const patchSchema = z.object({
         x: z.number(),
         y: z.number(),
         width: z.number(),
-        height: z.number()
+        height: z.number(),
+        cropX: z.number().optional(),
+        cropY: z.number().optional(),
+        cropZoom: z.number().optional()
       })
     )
     .optional(),

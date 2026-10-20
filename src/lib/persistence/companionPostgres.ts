@@ -11,6 +11,7 @@ import type {
   CompanionMessage,
   GenerationJob,
   MemoryProposal,
+  CompositionRevision,
   StudioAsset,
   StudioDraft,
   UsageEvent,
@@ -27,6 +28,7 @@ import {
   mapMember,
   mapMemory,
   mapProfile,
+  mapCompositionRevision,
   mapStudioAsset,
   mapStudioDraft,
   mapUsage,
@@ -45,6 +47,10 @@ export class PostgresCompanionStore implements CompanionStore {
       await this.client().unsafe(statement);
     }
     await this.client().unsafe("ALTER TABLE projects ADD COLUMN IF NOT EXISTS business_id TEXT");
+    await this.client().unsafe("ALTER TABLE usage_events ADD COLUMN IF NOT EXISTS operation_id TEXT");
+    await this.client().unsafe("ALTER TABLE usage_events ADD COLUMN IF NOT EXISTS status TEXT");
+    await this.client().unsafe("ALTER TABLE usage_events ADD COLUMN IF NOT EXISTS expires_at TEXT");
+    await this.client().unsafe("ALTER TABLE studio_assets ADD COLUMN IF NOT EXISTS composition_revision_id TEXT");
   }
 
   async reset() {
@@ -336,10 +342,11 @@ export class PostgresCompanionStore implements CompanionStore {
 
   async addUsageEvent(event: UsageEvent) {
     await this.client()`
-      INSERT INTO usage_events(id,business_id,user_id,kind,units,created_at,metadata_json)
+      INSERT INTO usage_events(id,business_id,user_id,kind,units,created_at,metadata_json,operation_id,status,expires_at)
       VALUES (
         ${event.id}, ${event.businessId}, ${event.userId}, ${event.kind}, ${event.units}, ${event.createdAt},
-        ${event.metadata ? JSON.stringify(event.metadata) : null}
+        ${event.metadata ? JSON.stringify(event.metadata) : null}, ${event.operationId ?? null},
+        ${event.status ?? null}, ${event.expiresAt ?? null}
       )
     `;
     return event;
@@ -348,10 +355,67 @@ export class PostgresCompanionStore implements CompanionStore {
   async updateUsageEvent(event: UsageEvent) {
     await this.client()`
       UPDATE usage_events
-      SET units = ${event.units}, metadata_json = ${event.metadata ? JSON.stringify(event.metadata) : null}
+      SET units = ${event.units}, metadata_json = ${event.metadata ? JSON.stringify(event.metadata) : null},
+          status = ${event.status ?? null}, expires_at = ${event.expiresAt ?? null}
       WHERE id = ${event.id}
     `;
     return event;
+  }
+
+  async getUsageEvent(id: string) {
+    const rows = await this.client()`SELECT * FROM usage_events WHERE id = ${id}`;
+    return rows[0] ? mapUsage(rows[0] as Row) : null;
+  }
+
+  async getUsageByOperation(businessId: string, operationId: string) {
+    const rows =
+      await this.client()`SELECT * FROM usage_events WHERE business_id = ${businessId} AND operation_id = ${operationId}`;
+    return rows[0] ? mapUsage(rows[0] as Row) : null;
+  }
+
+  async releaseExpiredHolds(asOfIso: string) {
+    const rows =
+      await this.client()`SELECT * FROM usage_events WHERE status = 'held' AND expires_at IS NOT NULL AND expires_at <= ${asOfIso}`;
+    for (const row of rows) {
+      const event = mapUsage(row as Row);
+      await this.updateUsageEvent({
+        ...event,
+        status: "released",
+        expiresAt: undefined,
+        metadata: { ...event.metadata, status: "released", releasedAt: asOfIso, reason: "expired_hold" }
+      });
+    }
+    return rows.length;
+  }
+
+  async addCompositionRevision(revision: CompositionRevision) {
+    await this.client()`
+      INSERT INTO studio_composition_revisions(
+        id,business_id,draft_id,work_item_id,version,layout,width,height,layers_json,palette_json,composition_json,created_at,created_by
+      ) VALUES (
+        ${revision.id}, ${revision.businessId}, ${revision.draftId}, ${revision.workItemId ?? null}, ${revision.version},
+        ${revision.layout}, ${revision.width}, ${revision.height}, ${JSON.stringify(revision.layers)},
+        ${JSON.stringify(revision.palette)}, ${JSON.stringify(revision.composition)}, ${revision.createdAt}, ${revision.createdBy}
+      )
+    `;
+    return revision;
+  }
+
+  async getCompositionRevision(id: string) {
+    const rows = await this.client()`SELECT * FROM studio_composition_revisions WHERE id = ${id}`;
+    return rows[0] ? mapCompositionRevision(rows[0] as Row) : null;
+  }
+
+  async listCompositionRevisions(draftId: string) {
+    const rows =
+      await this.client()`SELECT * FROM studio_composition_revisions WHERE draft_id = ${draftId} ORDER BY version ASC`;
+    return rows.map((row) => mapCompositionRevision(row as Row));
+  }
+
+  async nextCompositionVersion(draftId: string) {
+    const rows =
+      await this.client()`SELECT COALESCE(MAX(version), 0) as total FROM studio_composition_revisions WHERE draft_id = ${draftId}`;
+    return Number(rows[0]?.total ?? 0) + 1;
   }
 
   async sumUsage(businessId: string, kind: UsageKind, sinceIso: string) {

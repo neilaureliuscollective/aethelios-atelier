@@ -1,5 +1,6 @@
 import { emptyProfile, normalizeProfile } from "@/lib/cofounder/profile";
 import { resolvePlanId } from "@/lib/cofounder/entitlements";
+import { isLifestyleOwner, lifestyleProfileFields, LIFESTYLE_PROJECT } from "@/lib/cofounder/lifestyle";
 import { ForbiddenError, NotFoundError } from "@/lib/domain/errors";
 import { currentClientProposal, isClientVisibleProposal } from "@/lib/domain/proposal";
 import type { PersistenceAdapter } from "@/lib/persistence/adapter";
@@ -36,15 +37,17 @@ export class CompanionWorkspace {
       return this.requireMembership(requestedBusinessId, user);
     }
     const existing = await this.store.companion.listBusinessesForUser(user.id);
-    if (existing[0]) {
-      await this.attachOrphanProjects(existing[0], user);
-      return this.requireMembership(existing[0].id, user);
+    const owned = existing.find((business) => business.ownerId === user.id);
+    if (owned) {
+      await this.attachOrphanProjects(owned, user);
+      return this.requireMembership(owned.id, user);
     }
     const stamp = now();
+    const lifestyle = isLifestyleOwner(user.email);
     const business: Business = {
       id: companionId("biz"),
       ownerId: user.id,
-      name: user.displayName ? `${user.displayName}’s business` : "Your business",
+      name: lifestyle ? LIFESTYLE_PROJECT.brandName : user.displayName ? `${user.displayName}’s business` : "Your business",
       planId: resolvePlanId(process.env.ATELIER_DEFAULT_PLAN),
       createdAt: stamp,
       updatedAt: stamp
@@ -56,7 +59,11 @@ export class CompanionWorkspace {
       role: user.role === "founder" ? "founder" : "owner",
       createdAt: stamp
     });
-    await this.store.companion.upsertProfile(emptyProfile(business.id, stamp));
+    const profile = emptyProfile(business.id, stamp);
+    if (lifestyle) {
+      profile.fields = lifestyleProfileFields(stamp);
+    }
+    await this.store.companion.upsertProfile(profile);
     await this.attachOrphanProjects(business, user);
     return this.requireMembership(business.id, user);
   }

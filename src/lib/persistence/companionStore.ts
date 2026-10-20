@@ -8,6 +8,7 @@ import type {
   CompanionMessage,
   GenerationJob,
   MemoryProposal,
+  CompositionRevision,
   StudioAsset,
   StudioDraft,
   UsageEvent,
@@ -66,8 +67,16 @@ export type CompanionStore = {
 
   addUsageEvent(event: UsageEvent): UsageEvent | Promise<UsageEvent>;
   updateUsageEvent(event: UsageEvent): UsageEvent | Promise<UsageEvent>;
+  getUsageEvent(id: string): UsageEvent | null | Promise<UsageEvent | null>;
+  getUsageByOperation(businessId: string, operationId: string): UsageEvent | null | Promise<UsageEvent | null>;
+  releaseExpiredHolds(asOfIso: string): number | Promise<number>;
   sumUsage(businessId: string, kind: UsageKind, sinceIso: string): number | Promise<number>;
   countPendingJobs(businessId: string, kind: GenerationJob["kind"]): number | Promise<number>;
+
+  addCompositionRevision(revision: CompositionRevision): CompositionRevision | Promise<CompositionRevision>;
+  getCompositionRevision(id: string): CompositionRevision | null | Promise<CompositionRevision | null>;
+  listCompositionRevisions(draftId: string): CompositionRevision[] | Promise<CompositionRevision[]>;
+  nextCompositionVersion(draftId: string): number | Promise<number>;
 
   addJob(job: GenerationJob): GenerationJob | Promise<GenerationJob>;
   getJob(id: string): GenerationJob | null | Promise<GenerationJob | null>;
@@ -191,7 +200,29 @@ CREATE TABLE IF NOT EXISTS usage_events (
   kind TEXT NOT NULL,
   units INTEGER NOT NULL,
   created_at TEXT NOT NULL,
-  metadata_json TEXT
+  metadata_json TEXT,
+  operation_id TEXT,
+  status TEXT,
+  expires_at TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS usage_events_operation_idx
+  ON usage_events (business_id, operation_id)
+  WHERE operation_id IS NOT NULL;
+CREATE TABLE IF NOT EXISTS studio_composition_revisions (
+  id TEXT PRIMARY KEY,
+  business_id TEXT NOT NULL,
+  draft_id TEXT NOT NULL,
+  work_item_id TEXT,
+  version INTEGER NOT NULL,
+  layout TEXT NOT NULL,
+  width INTEGER NOT NULL,
+  height INTEGER NOT NULL,
+  layers_json TEXT NOT NULL,
+  palette_json TEXT NOT NULL,
+  composition_json TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  created_by TEXT NOT NULL,
+  UNIQUE (draft_id, version)
 );
 CREATE TABLE IF NOT EXISTS generation_jobs (
   id TEXT PRIMARY KEY,
@@ -220,6 +251,7 @@ export const COMPANION_RESET_SQL = `
   DELETE FROM companion_blobs;
   DELETE FROM generation_jobs;
   DELETE FROM usage_events;
+  DELETE FROM studio_composition_revisions;
   DELETE FROM studio_assets;
   DELETE FROM studio_drafts;
   DELETE FROM work_items;

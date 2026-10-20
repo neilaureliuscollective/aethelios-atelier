@@ -201,9 +201,26 @@ export type StudioAsset = {
   blobId?: string;
   revision: number;
   parentId?: string;
+  compositionRevisionId?: string;
   error?: string;
   createdAt: string;
   updatedAt: string;
+};
+
+export type CompositionRevision = {
+  id: string;
+  businessId: string;
+  draftId: string;
+  workItemId?: string;
+  version: number;
+  layout: StudioLayoutId;
+  width: number;
+  height: number;
+  layers: StudioLayer[];
+  palette: { canvas: string; ink: string; muted: string; accent: string };
+  composition: Record<string, unknown>;
+  createdAt: string;
+  createdBy: string;
 };
 
 export type UsageEvent = {
@@ -214,6 +231,8 @@ export type UsageEvent = {
   units: number;
   createdAt: string;
   status?: UsageEventStatus;
+  operationId?: string;
+  expiresAt?: string;
   metadata?: Record<string, unknown>;
 };
 

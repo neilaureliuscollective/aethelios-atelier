@@ -2,7 +2,38 @@
 /**
  * Companion HTTP acceptance. Simulated identities. No live OpenAI spend.
  */
+import { deflateSync, crc32 } from "node:zlib";
+
 const BASE = process.env.ATELIER_BASE ?? "http://127.0.0.1:3010";
+
+function encodeSolidPng(width, height) {
+  const raw = Buffer.alloc((width * 4 + 1) * height);
+  for (let y = 0; y < height; y += 1) {
+    raw[y * (width * 4 + 1)] = 0;
+    for (let x = 0; x < width; x += 1) {
+      const i = y * (width * 4 + 1) + 1 + x * 4;
+      raw[i] = 42;
+      raw[i + 1] = 34;
+      raw[i + 2] = 24;
+      raw[i + 3] = 255;
+    }
+  }
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 6;
+  const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+  const chunk = (type, data) => {
+    const typeBuf = Buffer.from(type, "ascii");
+    const length = Buffer.alloc(4);
+    length.writeUInt32BE(data.byteLength, 0);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(Buffer.concat([typeBuf, data])) >>> 0, 0);
+    return Buffer.concat([length, typeBuf, data, crc]);
+  };
+  return Buffer.concat([signature, chunk("IHDR", ihdr), chunk("IDAT", deflateSync(raw)), chunk("IEND", Buffer.alloc(0))]);
+}
 
 async function req(path, { method = "GET", body, cookie } = {}) {
   const res = await fetch(`${BASE}${path}`, {
@@ -167,7 +198,7 @@ const failedExport = await req("/api/companion/studio/export", {
 });
 check("export without a real composed file is rejected", failedExport.status === 403);
 
-const exported = await req("/api/companion/studio/export", {
+const tinyRejected = await req("/api/companion/studio/export", {
   method: "POST",
   cookie: owner,
   body: {
@@ -176,6 +207,20 @@ const exported = await req("/api/companion/studio/export", {
     format: "portrait_social",
     composedPngBase64:
       "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+  }
+});
+check("1x1 PNG is not accepted as a portrait export", tinyRejected.status === 403);
+
+const exported = await req("/api/companion/studio/export", {
+  method: "POST",
+  cookie: owner,
+  body: {
+    businessId,
+    draftId: imported.json.draft.id,
+    format: "portrait_social",
+    layout: "portrait_social",
+    layers: imported.json.draft.layers,
+    composedPngBase64: encodeSolidPng(1080, 1350).toString("base64")
   }
 });
 check("export succeeds only after composed bytes persist", exported.status === 200 && exported.json.exported?.assetUrl);

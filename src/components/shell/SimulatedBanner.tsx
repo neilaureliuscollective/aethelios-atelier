@@ -7,6 +7,7 @@ export function SimulatedBanner({
   auth: { adapter: string; labeled: boolean; ready: boolean };
   user: User | null;
 }) {
+  if (auth.adapter === "authjs" && auth.ready) return null;
   if (!auth.ready && !auth.labeled) return null;
   const identity = auth.ready
     ? "sign-in is a labeled local simulator"

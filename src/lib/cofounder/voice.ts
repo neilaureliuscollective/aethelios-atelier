@@ -8,16 +8,22 @@ import { LimitError, UnconfiguredError } from "@/lib/domain/errors";
 import type { PersistenceAdapter } from "@/lib/persistence/adapter";
 import type { User } from "@/lib/types";
 
+export const VOICE_LIMITATION =
+  "Handshake is not a billed voice minute. Live voice stays gated until OpenAI duration evidence can be reconciled. A successful SDP exchange does not commission voice.";
+
 export type VoiceCapability = {
   ready: boolean;
   live: boolean;
+  commissioned: boolean;
   transport: "webrtc";
   providerPath: "openai_realtime_sessions" | "unavailable";
   reason?: string;
   prerequisite?: string;
+  limitation: string;
 };
 
 export function voiceCapability(): VoiceCapability {
+  const commissioned = process.env.ATELIER_VOICE_COMMISSIONED === "true";
   const status = aureliusStatus();
   if (!status.ready) {
     const prerequisite =
@@ -26,17 +32,23 @@ export function voiceCapability(): VoiceCapability {
     return {
       ready: false,
       live: false,
+      commissioned: false,
       transport: "webrtc",
       providerPath: "unavailable",
       reason: prerequisite,
-      prerequisite
+      prerequisite,
+      limitation: VOICE_LIMITATION
     };
   }
   return {
-    ready: true,
-    live: true,
+    ready: commissioned,
+    live: commissioned,
+    commissioned,
     transport: "webrtc",
-    providerPath: "openai_realtime_sessions"
+    providerPath: "openai_realtime_sessions",
+    reason: commissioned ? undefined : VOICE_LIMITATION,
+    prerequisite: commissioned ? undefined : VOICE_LIMITATION,
+    limitation: VOICE_LIMITATION
   };
 }
 
@@ -54,20 +66,32 @@ export class CompanionVoice {
     businessId: string;
     user: User;
     sdp: string;
+    operationId?: string;
   }) {
     const capability = voiceCapability();
-    if (!capability.ready) {
+    if (!aureliusStatus().ready) {
       throw new UnconfiguredError(capability.prerequisite ?? capability.reason ?? "Voice is not configured.");
+    }
+    if (!capability.commissioned) {
+      throw new UnconfiguredError(VOICE_LIMITATION);
     }
     if (!input.sdp.trim()) {
       throw new LimitError("An SDP offer is required to start a voice session.");
     }
     await this.workspace.requireMutable(input.businessId, input.user);
     const context = await this.workspace.requireMembership(input.businessId, input.user);
-    const reservation = await this.usage.reserve(input.businessId, input.user, "voice", 1, {
-      transport: "webrtc",
-      stage: "handshake"
-    });
+    const reservation = await this.usage.reserve(
+      input.businessId,
+      input.user,
+      "voice",
+      0,
+      {
+        transport: "webrtc",
+        stage: "session_open",
+        billed: false
+      },
+      input.operationId
+    );
     const config = loadConfig();
     const modelContext = buildAuthorizedModelContext({ context, history: [] });
     const instructions = `${companionSystemPrompt()}\nAuthorized workspace:\n${JSON.stringify(modelContext)}`;
@@ -79,19 +103,39 @@ export class CompanionVoice {
       if (!handshake.sdp) {
         throw new UnconfiguredError("OpenAI returned a voice session without an SDP answer. Voice did not connect.");
       }
-      await this.usage.settle(reservation);
       return {
         ok: true as const,
         transport: "webrtc" as const,
         sdp: handshake.sdp,
         instructions,
         workspaceBound: scoped.workspaceBound === true,
-        sessionConfigured: scoped.workspaceBound === true
+        sessionConfigured: scoped.workspaceBound === true,
+        usageEventId: reservation.event.id,
+        billedMinutes: 0,
+        limitation: VOICE_LIMITATION
       };
     } catch (error) {
       await this.usage.release(reservation);
       throw error;
     }
+  }
+
+  async endSession(input: { businessId: string; user: User; usageEventId: string; startedAt: string }) {
+    const event = await this.store.companion.getUsageEvent(input.usageEventId);
+    if (!event || event.businessId !== input.businessId) {
+      throw new UnconfiguredError("That voice session is not in this workspace.");
+    }
+    await this.usage.release({ event });
+    const elapsedMs = Math.max(0, Date.now() - new Date(input.startedAt).getTime());
+    const minutes = elapsedMs === 0 ? 0 : Math.max(1, Math.ceil(elapsedMs / 60_000));
+    if (minutes > 0 && process.env.ATELIER_VOICE_RECONCILE === "true") {
+      await this.usage.consume(input.businessId, input.user, "voice", minutes, {
+        stage: "session_end",
+        elapsedMs,
+        note: "Local elapsed time only. Not provider duration evidence."
+      });
+    }
+    return { billedMinutes: 0, elapsedMs, limitation: VOICE_LIMITATION };
   }
 
   private async configureScopedSession(apiKey: string, instructions: string) {

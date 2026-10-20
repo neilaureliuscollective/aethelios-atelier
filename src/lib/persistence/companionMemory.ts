@@ -10,6 +10,7 @@ import type {
   CompanionMessage,
   GenerationJob,
   MemoryProposal,
+  CompositionRevision,
   StudioAsset,
   StudioDraft,
   UsageEvent,
@@ -36,6 +37,7 @@ export class MemoryCompanionStore implements CompanionStore {
   private usage: UsageEvent[] = [];
   private jobs = new Map<string, GenerationJob>();
   private blobs = new Map<string, CompanionBlob>();
+  private revisions = new Map<string, CompositionRevision>();
 
   reset() {
     this.businesses.clear();
@@ -51,6 +53,7 @@ export class MemoryCompanionStore implements CompanionStore {
     this.usage = [];
     this.jobs.clear();
     this.blobs.clear();
+    this.revisions.clear();
   }
 
   createBusiness(business: Business) {
@@ -245,6 +248,53 @@ export class MemoryCompanionStore implements CompanionStore {
     const index = this.usage.findIndex((item) => item.id === event.id);
     if (index >= 0) this.usage[index] = clone(event);
     return clone(event);
+  }
+
+  getUsageEvent(id: string) {
+    const event = this.usage.find((item) => item.id === id);
+    return event ? clone(event) : null;
+  }
+
+  getUsageByOperation(businessId: string, operationId: string) {
+    const event = this.usage.find((item) => item.businessId === businessId && item.operationId === operationId);
+    return event ? clone(event) : null;
+  }
+
+  releaseExpiredHolds(asOfIso: string) {
+    let count = 0;
+    this.usage = this.usage.map((event) => {
+      if (event.status === "held" && event.expiresAt && event.expiresAt <= asOfIso) {
+        count += 1;
+        return {
+          ...event,
+          status: "released" as const,
+          metadata: { ...event.metadata, status: "released", releasedAt: asOfIso, reason: "expired_hold" }
+        };
+      }
+      return event;
+    });
+    return count;
+  }
+
+  addCompositionRevision(revision: CompositionRevision) {
+    this.revisions.set(revision.id, clone(revision));
+    return clone(revision);
+  }
+
+  getCompositionRevision(id: string) {
+    const revision = this.revisions.get(id);
+    return revision ? clone(revision) : null;
+  }
+
+  listCompositionRevisions(draftId: string) {
+    return [...this.revisions.values()]
+      .filter((item) => item.draftId === draftId)
+      .sort((a, b) => a.version - b.version)
+      .map(clone);
+  }
+
+  nextCompositionVersion(draftId: string) {
+    return this.listCompositionRevisions(draftId).reduce((max, item) => Math.max(max, item.version), 0) + 1;
   }
 
   sumUsage(businessId: string, kind: UsageKind, sinceIso: string) {
