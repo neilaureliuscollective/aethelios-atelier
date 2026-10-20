@@ -27,15 +27,18 @@ export function Intake({
   onContinue: () => void;
 }) {
   const current = sanitizeIntakeStep(step).step;
+  const last = current >= 3;
+  const advance = () => (last ? onContinue() : onStep(current + 1));
+
   return (
     <section className={styles.panel}>
       <p className={styles.kicker}>About the business · {current + 1} of {INTAKE_STEP_COUNT}</p>
       {current === 0 ? (
         <>
           <h2 className={styles.heading} data-discovery-heading tabIndex={-1}>What is the name of the business?</h2>
-          <p className={styles.lede}>You can leave this open. The preview will say “Your business” until you name it.</p>
+          <p className={styles.lede}>Optional. The preview will say “Your business” until you name it. Answers stay if you go back.</p>
           <label className={styles.field}>
-            <span>Business name</span>
+            <span>Business name · optional</span>
             <input
               className={styles.input}
               type="text"
@@ -50,7 +53,7 @@ export function Intake({
       {current === 1 ? (
         <>
           <h2 className={styles.heading} data-discovery-heading tabIndex={-1}>What kind of business is this?</h2>
-          <p className={styles.lede}>Start with an appointment-based practice if that is closest. Unknown is allowed.</p>
+          <p className={styles.lede}>Optional. Start with an appointment-based practice if that is closest. Unknown is allowed.</p>
           <div className={styles.options} role="radiogroup" aria-label="Type of business">
             {BUSINESS_TYPES.map((id) => (
               <label className={styles.option} key={id}>
@@ -73,7 +76,7 @@ export function Intake({
       {current === 2 ? (
         <>
           <h2 className={styles.heading} data-discovery-heading tabIndex={-1}>What should this make possible?</h2>
-          <p className={styles.lede}>Choose the closest aim. You can add a sentence if you already know more.</p>
+          <p className={styles.lede}>Optional. Choose the closest aim, or skip and add a sentence later.</p>
           <div className={styles.options} role="radiogroup" aria-label="What they want to achieve">
             {INTENT_IDS.map((id) => (
               <label className={styles.option} key={id}>
@@ -105,7 +108,7 @@ export function Intake({
       {current === 3 ? (
         <>
           <h2 className={styles.heading} data-discovery-heading tabIndex={-1}>How should customers feel?</h2>
-          <p className={styles.lede}>This shapes atmosphere. It is not a growth promise.</p>
+          <p className={styles.lede}>Optional. This shapes atmosphere. It is not a growth promise.</p>
           <div className={styles.options} role="radiogroup" aria-label="How customers should feel">
             {FEELING_IDS.map((id) => (
               <label className={styles.option} key={id}>
@@ -143,13 +146,14 @@ export function Intake({
         >
           Back
         </button>
-        <button
-          className={`${styles.btn} ${styles.btnGold}`}
-          type="button"
-          onClick={() => (current >= 3 ? onContinue() : onStep(current + 1))}
-        >
-          {current >= 3 ? "Choose qualities" : "Continue"}
-        </button>
+        <div className={styles.actions} style={{ marginBottom: 0 }}>
+          <button className={`${styles.btn} ${styles.btnGhost}`} type="button" onClick={advance}>
+            Skip this question
+          </button>
+          <button className={`${styles.btn} ${styles.btnGold}`} type="button" onClick={advance}>
+            {last ? "Choose qualities" : "Continue"}
+          </button>
+        </div>
       </div>
     </section>
   );

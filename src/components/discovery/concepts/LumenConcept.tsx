@@ -48,6 +48,15 @@ export function LumenConcept({
         </nav>
       </header>
       <section className={styles.opening} id={conceptSectionId(instanceId, "opening")}>
+        <div className={styles.heroPlate} aria-hidden="true">
+          <ScenePlate
+            src={plates.primary}
+            fallbackSrc={plates.fallback}
+            alt=""
+            width={plates.width}
+            height={plates.height}
+          />
+        </div>
         <p className={styles.kicker}>{content.kicker}</p>
         <h2>{content.headline}</h2>
         <p>{content.opening}</p>
@@ -64,6 +73,7 @@ export function LumenConcept({
         <figcaption>{content.imageCaption}</figcaption>
       </figure>
       <section className={styles.services} id={conceptSectionId(instanceId, "services")}>
+        <p className={styles.kicker}>The offering</p>
         {content.services.map((service, index) => (
           <div className={styles.service} key={service.id}>
             <div className={styles.index}>{String(index + 1).padStart(2, "0")}</div>
