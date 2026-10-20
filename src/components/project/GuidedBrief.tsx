@@ -62,13 +62,15 @@ import { canCommitSubmitReadback, classifyVerificationFailure } from "@/lib/clie
 import { useSession } from "@/components/shell/SessionShell";
 import type { Brief, BriefFieldKey, ChatMessage, ClientProjectView, Project, Suggestion, User } from "@/lib/types";
 
-const STEPS = [
-  { n: 1, label: "Vision" },
-  { n: 2, label: "Audience" },
-  { n: 3, label: "References" },
-  { n: 4, label: "Scope" },
-  { n: 5, label: "Review" }
-];
+function briefSteps(brief: Brief) {
+  return [
+    { n: 1, label: "Vision" },
+    { n: 2, label: "Audience" },
+    { n: 3, label: isCustomProjectRoute(brief) || isFunctionalPurpose(brief.context?.purpose) ? "Today" : "References" },
+    { n: 4, label: "Scope" },
+    { n: 5, label: "Review" }
+  ] as const;
+}
 
 const TYPE_OPTIONS = COMMISSION_TYPE_OPTIONS;
 
@@ -760,7 +762,7 @@ export function GuidedBrief({
         <nav className="surface-glass step-nav" aria-label="Brief steps">
           <p className="tiny">Your project brief</p>
           <ol>
-            {STEPS.map((item) => (
+            {briefSteps(brief).map((item) => (
               <li key={item.n}>
                 <button
                   type="button"
@@ -791,7 +793,7 @@ export function GuidedBrief({
 
         <section className={`surface-dense brief-stage ${pane === "edit" ? "" : "pane-hidden"}`}>
           <p className="step-progress-mobile tiny">
-            Step {step} of 5 · {STEPS[step - 1]?.label}
+            Step {step} of 5 · {briefSteps(brief)[step - 1]?.label}
           </p>
           {comparing && compareAgainst && draftSnap ? (
             <DraftCompare

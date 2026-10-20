@@ -55,7 +55,7 @@ export function FollowUpWorkspace({ compact = false }: { compact?: boolean }) {
   }
 
   return (
-    <div className={styles.panel}>
+    <div className={styles.panel} data-demo="follow-up-workspace">
       <IllustrativeBadge />
       <header className={styles.header}>
         <strong className={styles.word}>Follow-up</strong>
@@ -106,14 +106,19 @@ export function FollowUpWorkspace({ compact = false }: { compact?: boolean }) {
       <div className={styles.body}>
         {visible.length ? (
           visible.map((task) => (
-            <article className={styles.card} key={task.id}>
-              <p className={styles.meta}>
+            <article className={styles.card} key={task.id} data-task={task.id}>
+              <p className={styles.meta} data-task-meta={task.id}>
                 {task.priority} · {task.status}
               </p>
               <strong>{task.name}</strong>
               <p>{task.note}</p>
               <div className={styles.actions}>
-                <button className={styles.action} type="button" onClick={() => cycleStatus(task.id)}>
+                <button
+                  className={styles.action}
+                  type="button"
+                  data-action="cycle-status"
+                  onClick={() => cycleStatus(task.id)}
+                >
                   Change status
                 </button>
                 <button className={styles.action} type="button" onClick={() => togglePriority(task.id)}>

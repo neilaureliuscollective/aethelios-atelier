@@ -34,7 +34,7 @@ export function StudyOrganizer({ compact = false }: { compact?: boolean }) {
   }
 
   return (
-    <div className={`${styles.panel} ${styles.study}`}>
+    <div className={`${styles.panel} ${styles.study}`} data-demo="study-organizer">
       <IllustrativeBadge />
       <header className={styles.header}>
         <strong className={styles.word}>Study list</strong>

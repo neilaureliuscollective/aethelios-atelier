@@ -130,14 +130,50 @@ export function applyBriefContext(brief: Brief, patch: Partial<CommissionContext
   };
 }
 
-function applyStarterIfEmpty(brief: Brief, key: BriefFieldKey, value: string): Brief {
-  if (brief[key].value.trim() || !value.trim()) return brief;
+const EXAMPLE_STARTER_KEYS = [
+  "vision",
+  "audience",
+  "existingWebsite",
+  "goals",
+  "priorities",
+  "constraints"
+] as const;
+
+function applyStarterField(
+  brief: Brief,
+  key: BriefFieldKey,
+  value: string,
+  previousStarter: string
+): Brief {
+  if (!value.trim()) return brief;
+  const current = brief[key].value.trim();
+  if (current && current !== previousStarter.trim()) return brief;
   return applyClientValue(brief, key, value);
 }
 
+function clearMatchingStarter(brief: Brief, exampleId: string | undefined): Brief {
+  const previous = exampleId ? exampleById(exampleId) : undefined;
+  if (!previous) return brief;
+  let next = brief;
+  for (const key of EXAMPLE_STARTER_KEYS) {
+    if (brief[key].value.trim() === previous.starter[key].trim()) {
+      next = applyClientValue(next, key, "");
+    }
+  }
+  return next;
+}
+
 export function applyCommissionIntent(brief: Brief, intent: CommissionIntent): Brief {
-  let next = applyBriefContext(brief, intent.context);
-  if (!brief.projectType.value.trim() && intent.projectType) {
+  const previousExample = brief.context?.exampleId || "";
+  const nextExample = intent.context.exampleId || "";
+  const purposeChanged = Boolean(intent.context.purpose && intent.context.purpose !== brief.context?.purpose);
+  const exampleChanged = Boolean(nextExample && nextExample !== previousExample);
+  let next = brief;
+  if ((exampleChanged || (purposeChanged && !nextExample)) && previousExample) {
+    next = clearMatchingStarter(next, previousExample);
+  }
+  next = applyBriefContext(next, intent.context);
+  if (intent.projectType) {
     const stored = serviceInterestToStoredProjectType(intent.projectType);
     if (stored) next = applyClientValue(next, "projectType", stored);
     else if (intent.projectType === "undecided") next = applyClientValue(next, "projectType", "undecided");
@@ -150,13 +186,11 @@ export function applyCommissionIntent(brief: Brief, intent: CommissionIntent): B
   }
   if (intent.applyExampleStarter && intent.context.exampleId) {
     const example = exampleById(intent.context.exampleId);
+    const previous = exampleById(previousExample);
     if (example) {
-      next = applyStarterIfEmpty(next, "vision", example.starter.vision);
-      next = applyStarterIfEmpty(next, "audience", example.starter.audience);
-      next = applyStarterIfEmpty(next, "existingWebsite", example.starter.existingWebsite);
-      next = applyStarterIfEmpty(next, "goals", example.starter.goals);
-      next = applyStarterIfEmpty(next, "priorities", example.starter.priorities);
-      next = applyStarterIfEmpty(next, "constraints", example.starter.constraints);
+      for (const key of EXAMPLE_STARTER_KEYS) {
+        next = applyStarterField(next, key, example.starter[key], previous?.starter[key] ?? "");
+      }
     }
   }
   return next;

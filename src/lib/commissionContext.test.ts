@@ -1,5 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { applyCommissionIntent, applyBriefContext, createEmptyBrief, fieldsForStep, isBookingConnected, normalizeBrief } from "@/lib/brief";
+import {
+  applyBriefContext,
+  applyClientValue,
+  applyCommissionIntent,
+  createEmptyBrief,
+  fieldsForStep,
+  isBookingConnected,
+  normalizeBrief
+} from "@/lib/brief";
 import { briefsEqual } from "@/lib/client/briefDiff";
 import {
   needsBrandQuestions,
@@ -66,6 +74,26 @@ describe("commission context metadata", () => {
     expect(briefsEqual(withPurpose, applyBriefContext(createEmptyBrief(), { purpose: "personal", route: "custom_project" }))).toBe(
       true
     );
+  });
+
+  it("replaces an illustrative starter when a different example arrives, without touching edited text", () => {
+    const study = applyCommissionIntent(
+      createEmptyBrief(),
+      parseCommissionIntent(new URLSearchParams("purpose=study&example=study_organizer"))
+    );
+    const switched = applyCommissionIntent(
+      study,
+      parseCommissionIntent(new URLSearchParams("purpose=personal&example=personal_tracker"))
+    );
+    expect(switched.vision.value).toMatch(/personal commitments/i);
+    expect(switched.context?.exampleId).toBe("personal_tracker");
+
+    const edited = applyClientValue(study, "vision", "My own study idea, written by me.");
+    const kept = applyCommissionIntent(
+      edited,
+      parseCommissionIntent(new URLSearchParams("purpose=personal&example=personal_tracker"))
+    );
+    expect(kept.vision.value).toBe("My own study idea, written by me.");
   });
 
   it("starts a functional example without submitting and keeps the idea editable", () => {

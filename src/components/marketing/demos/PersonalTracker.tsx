@@ -26,7 +26,7 @@ export function PersonalTracker({ compact = false }: { compact?: boolean }) {
   const remaining = items.filter((item) => item.today === "open").length;
 
   return (
-    <div className={`${styles.panel} ${styles.personal}`}>
+    <div className={`${styles.panel} ${styles.personal}`} data-demo="personal-tracker">
       <IllustrativeBadge />
       <header className={styles.header}>
         <strong className={styles.word}>Today</strong>

@@ -61,13 +61,20 @@ try {
   check("examples are labeled illustrative", /Illustrative/i.test(custom.labels));
   check("examples do not name Cisco or friends as clients", !/Cisco|endorsement/i.test(custom.labels));
 
-  const statusBefore = await page.$eval("article.service-feature button", (el) => el.getAttribute("aria-pressed"));
-  await page.click("article.service-feature button");
-  const statusAfter = await page.evaluate(() => {
-    const meta = document.querySelector("article.service-feature .card p");
-    return meta?.textContent || "";
+  const followUp = await page.evaluate(async () => {
+    const demo = document.querySelector("[data-demo='follow-up-workspace']");
+    const before = demo?.querySelector("[data-task-meta='t1']")?.textContent || "";
+    const change = demo?.querySelector("[data-action='cycle-status']");
+    change?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    const after = demo?.querySelector("[data-task-meta='t1']")?.textContent || "";
+    return { before, after, clicked: Boolean(change), found: Boolean(demo) };
   });
-  check("follow-up demo is interactive", Boolean(statusAfter) && statusBefore !== "done");
+  check(
+    "follow-up demo is interactive",
+    followUp.clicked && followUp.after !== followUp.before,
+    `${followUp.before} -> ${followUp.after}`
+  );
 
   await page.goto(`${BASE}/project?purpose=study&example=study_organizer&route=custom_project`, {
     waitUntil: "networkidle0"
@@ -83,12 +90,14 @@ try {
   check("study brief preselects study purpose", /Study/i.test(study.purpose || ""));
   check("study brief does not require a company or booking provider on step 1", !/Booking provider/i.test(study.body));
 
-  await page.click("button.chip");
-  await page.evaluate(() => {
-    const continueBtn = [...document.querySelectorAll("button")].find((btn) => btn.textContent?.includes("Continue"));
-    continueBtn?.click();
-    continueBtn?.click();
-    continueBtn?.click();
+  await page.evaluate(async () => {
+    const clickContinue = () =>
+      [...document.querySelectorAll("button")].find((btn) => btn.textContent?.includes("Continue"))?.click();
+    clickContinue();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    clickContinue();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    clickContinue();
   });
   await page.waitForFunction(() => /useful first version|Must-haves|Booking provider/i.test(document.body.innerText));
   const studyScope = await page.evaluate(() => document.body.innerText);
@@ -98,11 +107,14 @@ try {
   await page.goto(`${BASE}/project?interest=custom_apps_platforms&purpose=business`, {
     waitUntil: "networkidle0"
   });
-  await page.evaluate(() => {
-    const continueBtn = [...document.querySelectorAll("button")].find((btn) => btn.textContent?.includes("Continue"));
-    continueBtn?.click();
-    continueBtn?.click();
-    continueBtn?.click();
+  await page.evaluate(async () => {
+    const clickContinue = () =>
+      [...document.querySelectorAll("button")].find((btn) => btn.textContent?.includes("Continue"))?.click();
+    clickContinue();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    clickContinue();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    clickContinue();
   });
   await page.waitForFunction(() => /Goals|useful first version|Booking provider/i.test(document.body.innerText));
   const toolScope = await page.evaluate(() => document.body.innerText);
