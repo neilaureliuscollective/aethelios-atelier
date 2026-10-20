@@ -3,6 +3,7 @@ import { DatabaseSync } from "node:sqlite";
 import fs from "node:fs";
 import path from "node:path";
 import type {
+  AuthAccountRecord,
   Brief,
   ChatMessage,
   ClarificationResponse,
@@ -20,17 +21,21 @@ import type {
   Session,
   Submission,
   Suggestion,
-  User
+  User,
+  VerificationTokenRecord
 } from "@/lib/types";
 import { normalizeBrief } from "@/lib/brief";
+import { SqliteCompanionStore } from "@/lib/persistence/companionSqlite";
 import type { PersistenceAdapter } from "@/lib/persistence/adapter";
 import {
+  mapAuthAccount,
   mapContentRequest,
   mapDeliveryFeedback,
   mapDeliveryMilestone,
   mapDeliveryVersion,
   mapProposal,
-  mapProposalDecision
+  mapProposalDecision,
+  mapUser
 } from "@/lib/persistence/map";
 
 const SCHEMA = `
@@ -40,7 +45,28 @@ CREATE TABLE IF NOT EXISTS users (
   display_name TEXT NOT NULL,
   role TEXT NOT NULL,
   adapter TEXT NOT NULL,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  email_verified_at TEXT
+);
+CREATE TABLE IF NOT EXISTS auth_accounts (
+  provider TEXT NOT NULL,
+  provider_account_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  type TEXT NOT NULL,
+  refresh_token TEXT,
+  access_token TEXT,
+  expires_at INTEGER,
+  token_type TEXT,
+  scope TEXT,
+  id_token TEXT,
+  session_state TEXT,
+  PRIMARY KEY (provider, provider_account_id)
+);
+CREATE TABLE IF NOT EXISTS auth_verification_tokens (
+  identifier TEXT NOT NULL,
+  token TEXT NOT NULL,
+  expires TEXT NOT NULL,
+  PRIMARY KEY (identifier, token)
 );
 CREATE TABLE IF NOT EXISTS sessions (
   id TEXT PRIMARY KEY,
@@ -226,7 +252,9 @@ function parseJson<T>(value: string): T {
 export class SqlitePersistence implements PersistenceAdapter {
   readonly kind = "sqlite_local" as const;
   readonly labeled = true as const;
+  readonly companion: SqliteCompanionStore;
   private db: DatabaseSync;
+  private txDepth = 0;
 
   constructor(filePath: string) {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -235,6 +263,8 @@ export class SqlitePersistence implements PersistenceAdapter {
     this.db.exec("PRAGMA foreign_keys = ON;");
     this.db.exec(SCHEMA);
     this.ensureSubmissionRequestColumns();
+    this.ensureAuthColumns();
+    this.companion = new SqliteCompanionStore(this.db);
   }
 
   private ensureSubmissionRequestColumns() {
@@ -248,6 +278,14 @@ export class SqlitePersistence implements PersistenceAdapter {
     }
   }
 
+  private ensureAuthColumns() {
+    const columns = this.db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+    const names = new Set(columns.map((column) => column.name));
+    if (!names.has("email_verified_at")) {
+      this.db.exec("ALTER TABLE users ADD COLUMN email_verified_at TEXT");
+    }
+  }
+
   ready() {
     return true;
   }
@@ -255,7 +293,9 @@ export class SqlitePersistence implements PersistenceAdapter {
   async ping() {}
 
   async runInTransaction<T>(fn: () => T | Promise<T>): Promise<T> {
+    if (this.txDepth > 0) return await fn();
     this.db.exec("BEGIN IMMEDIATE");
+    this.txDepth += 1;
     try {
       const result = await fn();
       this.db.exec("COMMIT");
@@ -267,6 +307,8 @@ export class SqlitePersistence implements PersistenceAdapter {
         /* already rolled back */
       }
       throw error;
+    } finally {
+      this.txDepth = 0;
     }
   }
 
@@ -288,18 +330,33 @@ export class SqlitePersistence implements PersistenceAdapter {
       DELETE FROM submissions;
       DELETE FROM projects;
       DELETE FROM sessions;
+      DELETE FROM auth_accounts;
+      DELETE FROM auth_verification_tokens;
       DELETE FROM users;
     `);
+    this.companion.reset();
+  }
+
+  listProjectsByBusiness(businessId: string) {
+    const rows = this.db
+      .prepare("SELECT * FROM projects WHERE business_id = ? ORDER BY updated_at DESC")
+      .all(businessId) as Record<string, unknown>[];
+    return rows.map((row) => this.mapProject(row));
   }
 
   upsertUser(user: User) {
     this.db
       .prepare(
-        `INSERT INTO users(id,email,display_name,role,adapter,created_at)
-         VALUES(?,?,?,?,?,?)
-         ON CONFLICT(id) DO UPDATE SET email=excluded.email, display_name=excluded.display_name, role=excluded.role`
+        `INSERT INTO users(id,email,display_name,role,adapter,created_at,email_verified_at)
+         VALUES(?,?,?,?,?,?,?)
+         ON CONFLICT(id) DO UPDATE SET
+           email=excluded.email,
+           display_name=excluded.display_name,
+           role=excluded.role,
+           adapter=excluded.adapter,
+           email_verified_at=excluded.email_verified_at`
       )
-      .run(user.id, user.email, user.displayName, user.role, user.adapter, user.createdAt);
+      .run(user.id, user.email, user.displayName, user.role, user.adapter, user.createdAt, user.emailVerifiedAt ?? null);
     return user;
   }
 
@@ -346,11 +403,90 @@ export class SqlitePersistence implements PersistenceAdapter {
     this.db.prepare("DELETE FROM sessions WHERE id = ?").run(id);
   }
 
+  updateSession(session: Session) {
+    const result = this.db
+      .prepare("UPDATE sessions SET user_id=?, created_at=?, expires_at=? WHERE id=?")
+      .run(session.userId, session.createdAt, session.expiresAt, session.id);
+    if (!result.changes) return null;
+    return session;
+  }
+
+  createAuthAccount(account: AuthAccountRecord) {
+    this.db
+      .prepare(
+        `INSERT INTO auth_accounts(
+           provider, provider_account_id, user_id, type, refresh_token, access_token,
+           expires_at, token_type, scope, id_token, session_state
+         ) VALUES(?,?,?,?,?,?,?,?,?,?,?)
+         ON CONFLICT(provider, provider_account_id) DO UPDATE SET
+           user_id=excluded.user_id,
+           type=excluded.type,
+           refresh_token=excluded.refresh_token,
+           access_token=excluded.access_token,
+           expires_at=excluded.expires_at,
+           token_type=excluded.token_type,
+           scope=excluded.scope,
+           id_token=excluded.id_token,
+           session_state=excluded.session_state`
+      )
+      .run(
+        account.provider,
+        account.providerAccountId,
+        account.userId,
+        account.type,
+        account.refresh_token ?? null,
+        account.access_token ?? null,
+        account.expires_at ?? null,
+        account.token_type ?? null,
+        account.scope ?? null,
+        account.id_token ?? null,
+        account.session_state ?? null
+      );
+    return account;
+  }
+
+  getAuthAccount(provider: string, providerAccountId: string) {
+    const row = this.db
+      .prepare("SELECT * FROM auth_accounts WHERE provider = ? AND provider_account_id = ?")
+      .get(provider, providerAccountId) as Record<string, unknown> | undefined;
+    return row ? mapAuthAccount(row) : null;
+  }
+
+  deleteAuthAccount(provider: string, providerAccountId: string) {
+    this.db.prepare("DELETE FROM auth_accounts WHERE provider = ? AND provider_account_id = ?").run(provider, providerAccountId);
+  }
+
+  createVerificationToken(token: VerificationTokenRecord) {
+    this.db
+      .prepare(
+        `INSERT INTO auth_verification_tokens(identifier, token, expires)
+         VALUES(?,?,?)
+         ON CONFLICT(identifier, token) DO UPDATE SET expires=excluded.expires`
+      )
+      .run(token.identifier.toLowerCase(), token.token, token.expires);
+    return { ...token, identifier: token.identifier.toLowerCase() };
+  }
+
+  useVerificationToken(identifier: string, token: string) {
+    const row = this.db
+      .prepare("SELECT * FROM auth_verification_tokens WHERE identifier = ? AND token = ?")
+      .get(identifier.toLowerCase(), token) as Record<string, unknown> | undefined;
+    if (!row) return null;
+    this.db
+      .prepare("DELETE FROM auth_verification_tokens WHERE identifier = ? AND token = ?")
+      .run(identifier.toLowerCase(), token);
+    return {
+      identifier: String(row.identifier),
+      token: String(row.token),
+      expires: String(row.expires)
+    };
+  }
+
   createProject(project: Project) {
     this.db
       .prepare(
-        `INSERT INTO projects(id,owner_id,title,status,brief_json,version,created_at,updated_at,adopted_from_guest_id,latest_submission_id)
-         VALUES(?,?,?,?,?,?,?,?,?,?)`
+        `INSERT INTO projects(id,owner_id,title,status,brief_json,version,created_at,updated_at,adopted_from_guest_id,latest_submission_id,business_id)
+         VALUES(?,?,?,?,?,?,?,?,?,?,?)`
       )
       .run(
         project.id,
@@ -362,7 +498,8 @@ export class SqlitePersistence implements PersistenceAdapter {
         project.createdAt,
         project.updatedAt,
         project.adoptedFromGuestId ?? null,
-        project.latestSubmissionId ?? null
+        project.latestSubmissionId ?? null,
+        project.businessId ?? null
       );
     return project;
   }
@@ -405,7 +542,7 @@ export class SqlitePersistence implements PersistenceAdapter {
   updateProject(project: Project) {
     this.db
       .prepare(
-        `UPDATE projects SET title=?, status=?, brief_json=?, version=?, updated_at=?, adopted_from_guest_id=?, latest_submission_id=?
+        `UPDATE projects SET title=?, status=?, brief_json=?, version=?, updated_at=?, adopted_from_guest_id=?, latest_submission_id=?, business_id=?
          WHERE id=?`
       )
       .run(
@@ -416,6 +553,7 @@ export class SqlitePersistence implements PersistenceAdapter {
         project.updatedAt,
         project.adoptedFromGuestId ?? null,
         project.latestSubmissionId ?? null,
+        project.businessId ?? null,
         project.id
       );
     return project;
@@ -930,14 +1068,7 @@ export class SqlitePersistence implements PersistenceAdapter {
   }
 
   private mapUser(row: Record<string, string>): User {
-    return {
-      id: String(row.id),
-      email: String(row.email),
-      displayName: String(row.display_name),
-      role: row.role as User["role"],
-      adapter: "simulated",
-      createdAt: String(row.created_at)
-    };
+    return mapUser(row);
   }
 
   private mapProject(row: Record<string, unknown>): Project {
@@ -951,7 +1082,8 @@ export class SqlitePersistence implements PersistenceAdapter {
       createdAt: String(row.created_at),
       updatedAt: String(row.updated_at),
       adoptedFromGuestId: row.adopted_from_guest_id ? String(row.adopted_from_guest_id) : undefined,
-      latestSubmissionId: row.latest_submission_id ? String(row.latest_submission_id) : undefined
+      latestSubmissionId: row.latest_submission_id ? String(row.latest_submission_id) : undefined,
+      businessId: row.business_id ? String(row.business_id) : undefined
     };
   }
 

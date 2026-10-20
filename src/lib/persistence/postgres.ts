@@ -2,6 +2,7 @@ import "server-only";
 import { AsyncLocalStorage } from "node:async_hooks";
 import postgres, { type Sql, type TransactionSql } from "postgres";
 import type {
+  AuthAccountRecord,
   ChatMessage,
   ClarificationResponse,
   ClientUpdate,
@@ -18,7 +19,8 @@ import type {
   Session,
   Submission,
   Suggestion,
-  User
+  User,
+  VerificationTokenRecord
 } from "@/lib/types";
 import type { PersistenceAdapter } from "@/lib/persistence/adapter";
 import {
@@ -37,10 +39,12 @@ import {
   mapSession,
   mapSubmission,
   mapSuggestion,
+  mapAuthAccount,
   mapUpdate,
   mapUser,
   type Row
 } from "@/lib/persistence/map";
+import { PostgresCompanionStore } from "@/lib/persistence/companionPostgres";
 
 const txSql = new AsyncLocalStorage<Sql | TransactionSql>();
 
@@ -51,7 +55,29 @@ const SCHEMA_STATEMENTS = [
     display_name TEXT NOT NULL,
     role TEXT NOT NULL,
     adapter TEXT NOT NULL,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    email_verified_at TEXT
+  )`,
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TEXT`,
+  `CREATE TABLE IF NOT EXISTS auth_accounts (
+    provider TEXT NOT NULL,
+    provider_account_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    type TEXT NOT NULL,
+    refresh_token TEXT,
+    access_token TEXT,
+    expires_at INTEGER,
+    token_type TEXT,
+    scope TEXT,
+    id_token TEXT,
+    session_state TEXT,
+    PRIMARY KEY (provider, provider_account_id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS auth_verification_tokens (
+    identifier TEXT NOT NULL,
+    token TEXT NOT NULL,
+    expires TEXT NOT NULL,
+    PRIMARY KEY (identifier, token)
   )`,
   `CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
@@ -235,7 +261,8 @@ const SCHEMA_STATEMENTS = [
   `CREATE INDEX IF NOT EXISTS content_requests_project_id_idx ON content_requests (project_id)`,
   `CREATE INDEX IF NOT EXISTS delivery_milestones_project_id_idx ON delivery_milestones (project_id)`,
   `ALTER TABLE submissions ADD COLUMN IF NOT EXISTS reviewed_version INTEGER NOT NULL DEFAULT 0`,
-  `ALTER TABLE submissions ADD COLUMN IF NOT EXISTS payload_hash TEXT NOT NULL DEFAULT ''`
+  `ALTER TABLE submissions ADD COLUMN IF NOT EXISTS payload_hash TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE projects ADD COLUMN IF NOT EXISTS business_id TEXT`
 ];
 
 function sslFor(url: string): boolean | "require" {
@@ -261,11 +288,13 @@ function createClient(url: string) {
 export class PostgresPersistence implements PersistenceAdapter {
   readonly kind = "postgres" as const;
   readonly labeled = true as const;
+  readonly companion: PostgresCompanionStore;
   private readonly sql: Sql;
   private initialized = false;
 
   constructor(url: string) {
     this.sql = createClient(url);
+    this.companion = new PostgresCompanionStore(() => this.client());
   }
 
   private client(): Sql | TransactionSql {
@@ -281,6 +310,7 @@ export class PostgresPersistence implements PersistenceAdapter {
     for (const statement of SCHEMA_STATEMENTS) {
       await this.sql.unsafe(statement);
     }
+    await this.companion.initialize();
     this.initialized = true;
   }
 
@@ -315,18 +345,29 @@ export class PostgresPersistence implements PersistenceAdapter {
       DELETE FROM submissions;
       DELETE FROM projects;
       DELETE FROM sessions;
+      DELETE FROM auth_accounts;
+      DELETE FROM auth_verification_tokens;
       DELETE FROM users;
     `);
+    await this.companion.reset();
+  }
+
+  async listProjectsByBusiness(businessId: string) {
+    const rows =
+      await this.client()`SELECT * FROM projects WHERE business_id = ${businessId} ORDER BY updated_at DESC`;
+    return rows.map((row) => mapProject(row as Row));
   }
 
   async upsertUser(user: User) {
     await this.client()`
-      INSERT INTO users(id,email,display_name,role,adapter,created_at)
-      VALUES (${user.id}, ${user.email}, ${user.displayName}, ${user.role}, ${user.adapter}, ${user.createdAt})
+      INSERT INTO users(id,email,display_name,role,adapter,created_at,email_verified_at)
+      VALUES (${user.id}, ${user.email}, ${user.displayName}, ${user.role}, ${user.adapter}, ${user.createdAt}, ${user.emailVerifiedAt ?? null})
       ON CONFLICT (id) DO UPDATE SET
         email = excluded.email,
         display_name = excluded.display_name,
-        role = excluded.role
+        role = excluded.role,
+        adapter = excluded.adapter,
+        email_verified_at = excluded.email_verified_at
     `;
     return user;
   }
@@ -363,9 +404,75 @@ export class PostgresPersistence implements PersistenceAdapter {
     await this.client()`DELETE FROM sessions WHERE id = ${id}`;
   }
 
+  async updateSession(session: Session) {
+    const rows = await this.client()`
+      UPDATE sessions
+      SET user_id = ${session.userId}, created_at = ${session.createdAt}, expires_at = ${session.expiresAt}
+      WHERE id = ${session.id}
+      RETURNING *
+    `;
+    return rows[0] ? session : null;
+  }
+
+  async createAuthAccount(account: AuthAccountRecord) {
+    await this.client()`
+      INSERT INTO auth_accounts(
+        provider, provider_account_id, user_id, type, refresh_token, access_token,
+        expires_at, token_type, scope, id_token, session_state
+      ) VALUES (
+        ${account.provider}, ${account.providerAccountId}, ${account.userId}, ${account.type},
+        ${account.refresh_token ?? null}, ${account.access_token ?? null}, ${account.expires_at ?? null},
+        ${account.token_type ?? null}, ${account.scope ?? null}, ${account.id_token ?? null}, ${account.session_state ?? null}
+      )
+      ON CONFLICT (provider, provider_account_id) DO UPDATE SET
+        user_id = excluded.user_id,
+        type = excluded.type,
+        refresh_token = excluded.refresh_token,
+        access_token = excluded.access_token,
+        expires_at = excluded.expires_at,
+        token_type = excluded.token_type,
+        scope = excluded.scope,
+        id_token = excluded.id_token,
+        session_state = excluded.session_state
+    `;
+    return account;
+  }
+
+  async getAuthAccount(provider: string, providerAccountId: string) {
+    const rows =
+      await this.client()`SELECT * FROM auth_accounts WHERE provider = ${provider} AND provider_account_id = ${providerAccountId}`;
+    return rows[0] ? mapAuthAccount(rows[0] as Row) : null;
+  }
+
+  async deleteAuthAccount(provider: string, providerAccountId: string) {
+    await this.client()`DELETE FROM auth_accounts WHERE provider = ${provider} AND provider_account_id = ${providerAccountId}`;
+  }
+
+  async createVerificationToken(token: VerificationTokenRecord) {
+    const identifier = token.identifier.toLowerCase();
+    await this.client()`
+      INSERT INTO auth_verification_tokens(identifier, token, expires)
+      VALUES (${identifier}, ${token.token}, ${token.expires})
+      ON CONFLICT (identifier, token) DO UPDATE SET expires = excluded.expires
+    `;
+    return { ...token, identifier };
+  }
+
+  async useVerificationToken(identifier: string, token: string) {
+    const rows =
+      await this.client()`SELECT * FROM auth_verification_tokens WHERE identifier = ${identifier.toLowerCase()} AND token = ${token}`;
+    if (!rows[0]) return null;
+    await this.client()`DELETE FROM auth_verification_tokens WHERE identifier = ${identifier.toLowerCase()} AND token = ${token}`;
+    return {
+      identifier: String(rows[0].identifier),
+      token: String(rows[0].token),
+      expires: String(rows[0].expires)
+    };
+  }
+
   async createProject(project: Project) {
     await this.client()`
-      INSERT INTO projects(id,owner_id,title,status,brief_json,version,created_at,updated_at,adopted_from_guest_id,latest_submission_id)
+      INSERT INTO projects(id,owner_id,title,status,brief_json,version,created_at,updated_at,adopted_from_guest_id,latest_submission_id,business_id)
       VALUES (
         ${project.id},
         ${project.ownerId},
@@ -376,7 +483,8 @@ export class PostgresPersistence implements PersistenceAdapter {
         ${project.createdAt},
         ${project.updatedAt},
         ${project.adoptedFromGuestId ?? null},
-        ${project.latestSubmissionId ?? null}
+        ${project.latestSubmissionId ?? null},
+        ${project.businessId ?? null}
       )
     `;
     return project;
@@ -420,7 +528,8 @@ export class PostgresPersistence implements PersistenceAdapter {
         version = ${project.version},
         updated_at = ${project.updatedAt},
         adopted_from_guest_id = ${project.adoptedFromGuestId ?? null},
-        latest_submission_id = ${project.latestSubmissionId ?? null}
+        latest_submission_id = ${project.latestSubmissionId ?? null},
+        business_id = ${project.businessId ?? null}
       WHERE id = ${project.id}
     `;
     return project;

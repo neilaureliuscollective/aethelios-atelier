@@ -37,8 +37,20 @@ export class UnconfiguredError extends DomainError {
   }
 }
 
+export class AuthenticationError extends DomainError {
+  constructor(message = "Sign in is required for this action.") {
+    super(message, "unauthenticated", 401);
+  }
+}
+
 export class UncertainError extends DomainError {
   constructor(message: string) {
     super(message, "uncertain", 202);
+  }
+}
+
+export class LimitError extends DomainError {
+  constructor(message: string) {
+    super(message, "limit", 429);
   }
 }

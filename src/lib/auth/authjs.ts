@@ -1,0 +1,99 @@
+import "server-only";
+import NextAuth from "next-auth";
+import Google from "next-auth/providers/google";
+import type { NextAuthConfig, NextAuthResult } from "next-auth";
+import { createLazyAtelierAuthAdapter } from "@/lib/auth/adapter";
+import { emailProviderFrom, sendAtelierVerificationRequest } from "@/lib/auth/sendEmail";
+import { SESSION_COOKIE, SESSION_MS, sessionCookieOptions } from "@/lib/auth/session";
+import { loadConfig } from "@/lib/config";
+import { UnconfiguredError } from "@/lib/domain/errors";
+import { readGoogleOAuth, readResendEmail } from "@/lib/runtime/hosted";
+
+let cached: NextAuthResult | null = null;
+
+export function createAuthjsConfig(): NextAuthConfig {
+  const config = loadConfig();
+  if (config.auth.adapter !== "authjs" || !config.auth.ready) {
+    throw new UnconfiguredError(config.auth.missing ?? "Auth.js is not configured.");
+  }
+
+  const google = readGoogleOAuth();
+  const resend = readResendEmail();
+  const providers: NextAuthConfig["providers"] = [];
+
+  if (config.auth.providers.some((provider) => provider.id === "google") && google.id && google.secret) {
+    providers.push(
+      Google({
+        clientId: google.id,
+        clientSecret: google.secret,
+        allowDangerousEmailAccountLinking: true
+      })
+    );
+  }
+
+  if (config.auth.providers.some((provider) => provider.id === "email")) {
+    providers.push({
+      id: "email",
+      name: "Email",
+      type: "email",
+      from: emailProviderFrom(config),
+      maxAge: 60 * 60 * 24,
+      apiKey: resend.apiKey || undefined,
+      sendVerificationRequest: ({ identifier, url, provider }) =>
+        sendAtelierVerificationRequest({ identifier, url, provider })
+    });
+  }
+
+  const cookie = sessionCookieOptions(new Date(Date.now() + SESSION_MS));
+
+  return {
+    secret: config.sessionSecret,
+    trustHost: true,
+    adapter: createLazyAtelierAuthAdapter(),
+    providers,
+    session: {
+      strategy: "database",
+      maxAge: SESSION_MS / 1000,
+      updateAge: 60 * 60 * 24
+    },
+    cookies: {
+      sessionToken: {
+        name: SESSION_COOKIE,
+        options: {
+          httpOnly: cookie.httpOnly,
+          sameSite: cookie.sameSite,
+          path: cookie.path,
+          secure: cookie.secure
+        }
+      }
+    },
+    pages: {
+      signIn: "/account",
+      verifyRequest: "/account",
+      error: "/account"
+    },
+    callbacks: {
+      async signIn({ user }) {
+        return Boolean(user.email);
+      }
+    }
+  };
+}
+
+export function getAuthjs(): NextAuthResult {
+  const config = loadConfig();
+  if (config.auth.adapter !== "authjs" || !config.auth.ready) {
+    throw new UnconfiguredError(
+      config.auth.missing ??
+        "Auth.js is not configured. Set ATELIER_AUTH_ADAPTER=authjs plus AUTH_SECRET and a real Google or Resend provider."
+    );
+  }
+  if (!cached) {
+    cached = NextAuth(createAuthjsConfig());
+  }
+  return cached;
+}
+
+export function resetAuthjsForTests() {
+  cached = null;
+}

@@ -7,14 +7,23 @@ export function SimulatedBanner({
   auth: { adapter: string; labeled: boolean; ready: boolean };
   user: User | null;
 }) {
+  if (auth.adapter === "authjs" && auth.ready) return null;
   if (!auth.ready && !auth.labeled) return null;
-  const identity = auth.ready
-    ? "sign-in is a labeled local simulator"
-    : "sign-in is not configured";
+  const simulated = auth.ready;
   return (
-    <div className="sim-banner" role="status">
-      Development preview · {identity}
-      {user ? ` · signed in as ${user.email}` : " · guest drafts stay on this device"}
-    </div>
+    <details className="sim-banner" role="status">
+      <summary>
+        {simulated
+          ? "Local rehearsal · this is a labeled simulated session, not a real sign-in"
+          : "Sign-in is not configured · guest drafts stay on this device"}
+        {user ? ` · ${user.email}` : ""}
+      </summary>
+      <p>
+        {simulated
+          ? "The account switcher is a local simulator for rehearsal. It does not prove Google or Resend authentication."
+          : "A real Auth.js provider is still required before hosted rehearsal."}{" "}
+        Mode: {auth.adapter}.
+      </p>
+    </details>
   );
 }

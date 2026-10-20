@@ -4,14 +4,14 @@ This application is a standalone product. It does not import Aethelios, Carreón
 
 ## Stack decision
 
-Next.js 15 (App Router) + React 19 + TypeScript is the maintainable typed stack for a website that *is* the application: routes, server-validated APIs, and a PWA shell in one codebase. Persistence uses `node:sqlite` (Node 22) locally, an in-memory adapter for tests, and a dedicated Postgres adapter (`postgres`) for Vercel / Neon. Auth is a labeled simulated-identity adapter on isolated local machines and is refused on hosted platforms until a real provider is connected. OpenAI is an optional server-only boundary and stays off unless `ATELIER_OPENAI_ENABLED=true` and `OPENAI_API_KEY` are both set.
+Next.js 15 (App Router) + React 19 + TypeScript is the maintainable typed stack for a website that *is* the application: routes, server-validated APIs, and a PWA shell in one codebase. Persistence uses `node:sqlite` (Node 22) locally, an in-memory adapter for tests, and a dedicated Postgres adapter (`postgres`) for Vercel / Neon. Auth keeps the existing `User` / `Session` / `AuthContext` interfaces. Local machines use the labeled simulated-identity adapter; hosted activation uses Auth.js (Google and/or Resend) from PR #6. Supabase may supply Postgres without becoming the authentication provider. OpenAI is an optional server-only boundary and stays off unless `ATELIER_OPENAI_ENABLED=true` and `OPENAI_API_KEY` are both set. OpenAI is an optional server-only boundary and stays off unless `ATELIER_OPENAI_ENABLED=true` and `OPENAI_API_KEY` are both set.
 
 ## Adapters
 
 | Concern | Local candidate | Hosted later |
 | --- | --- | --- |
 | Persistence | `sqlite_local` in `.data/atelier.sqlite` | Dedicated Atelier Postgres (`ATELIER_PERSISTENCE_ADAPTER=postgres` + `DATABASE_URL` / `POSTGRES_URL`) — never the Aethelios production DB. sqlite and memory are refused on Vercel. |
-| Auth | Simulated identities | Real identity provider |
+| Auth | Simulated identities | Auth.js (Google / Resend) when `ATELIER_AUTH_ADAPTER=authjs` and credentials exist |
 | In-app intelligence (Aethelios; internal `aurelius` identifiers) | Disabled unless explicitly enabled | Same boundary, with spend approval |
 | Billing | Isolated module, not activated | Future Stripe work in `src/lib/billing/boundary.ts` only |
 
@@ -33,5 +33,11 @@ Unconfigured adapters fail closed and report the missing connection instead of s
 ## Schema
 
 See `src/lib/persistence/schema.sql`, `src/lib/persistence/schema.postgres.sql`, `src/lib/persistence/sqlite.ts`, and `src/lib/persistence/postgres.ts`. Additive only. Do not apply to a shared production database. Proposal, decision, delivery-version, feedback, content-request, and milestone tables are versioned records for the client approval workflow.
+
+## Companion / digital co-founder
+
+Additive workspace for a client business: membership-checked profile, Talk, Studio, Work, and Today. Persistence lives in dedicated companion tables on the same Atelier adapters (`src/lib/persistence/companionStore.ts`). Client AI context is built only from authorized confirmed facts, preferences, and the owner’s projects — never founder notes or another client’s records.
+
+See `docs/COFOUNDER.md`.
 
 Hosted deployment steps: `docs/VERCEL.md`.

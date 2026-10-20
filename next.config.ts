@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   devIndicators: false,
   typedRoutes: true,
+  distDir: process.env.ATELIER_DIST_DIR || ".next",
   serverExternalPackages: ["postgres"],
   images: {
     formats: ["image/webp"],

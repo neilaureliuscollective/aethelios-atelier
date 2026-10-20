@@ -1,4 +1,6 @@
+import type { CompanionStore } from "@/lib/persistence/companionStore";
 import type {
+  AuthAccountRecord,
   ChatMessage,
   ClarificationResponse,
   ClientUpdate,
@@ -15,7 +17,8 @@ import type {
   Session,
   Submission,
   Suggestion,
-  User
+  User,
+  VerificationTokenRecord
 } from "@/lib/types";
 
 export type PersistenceKind = "sqlite_local" | "memory" | "postgres";
@@ -25,10 +28,12 @@ export type MaybePromise<T> = T | Promise<T>;
 export type PersistenceAdapter = {
   readonly kind: PersistenceKind;
   readonly labeled: true;
+  readonly companion: CompanionStore;
   ready(): boolean;
   ping(): MaybePromise<void>;
   resetForTests(): MaybePromise<void>;
   runInTransaction<T>(fn: () => MaybePromise<T>): Promise<T>;
+  listProjectsByBusiness(businessId: string): MaybePromise<Project[]>;
 
   upsertUser(user: User): MaybePromise<User>;
   getUserById(id: string): MaybePromise<User | null>;
@@ -37,7 +42,15 @@ export type PersistenceAdapter = {
 
   createSession(session: Session): MaybePromise<Session>;
   getSession(id: string): MaybePromise<Session | null>;
+  updateSession(session: Session): MaybePromise<Session | null>;
   deleteSession(id: string): MaybePromise<void>;
+
+  createAuthAccount(account: AuthAccountRecord): MaybePromise<AuthAccountRecord>;
+  getAuthAccount(provider: string, providerAccountId: string): MaybePromise<AuthAccountRecord | null>;
+  deleteAuthAccount(provider: string, providerAccountId: string): MaybePromise<void>;
+
+  createVerificationToken(token: VerificationTokenRecord): MaybePromise<VerificationTokenRecord>;
+  useVerificationToken(identifier: string, token: string): MaybePromise<VerificationTokenRecord | null>;
 
   createProject(project: Project): MaybePromise<Project>;
   getProject(id: string): MaybePromise<Project | null>;

@@ -15,6 +15,14 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+Companion feature isolation (independent port and build output):
+
+```bash
+pnpm dev:cofounder
+```
+
+Open [http://localhost:3010/companion](http://localhost:3010/companion).
+
 Simulated identities (labeled, not production auth):
 
 - `owner.local@atelier.invalid` — client
@@ -48,6 +56,10 @@ pnpm build
 node scripts/api-flow.mjs
 node scripts/privacy-browser.mjs
 node scripts/browser-regressions.mjs
+node scripts/companion-api.mjs
+node scripts/companion-browser.mjs
+node scripts/lifestyle-journey.mjs
+node scripts/usage-concurrency.mjs
 ```
 
 ## Configuration
@@ -56,7 +68,7 @@ See `.env.example`. Fail-closed rules:
 
 - Local persistence: `ATELIER_PERSISTENCE_ADAPTER=sqlite_local` or `memory`.
 - Hosted persistence: `postgres` plus `DATABASE_URL` / `POSTGRES_URL`. sqlite and memory are refused on Vercel.
-- Auth requires `ATELIER_AUTH_ADAPTER=simulated` on an isolated local machine until a real provider exists. Hosted platforms always refuse simulated auth.
+- Auth requires `ATELIER_AUTH_ADAPTER=simulated` on an isolated local machine until a real provider exists. Hosted platforms always refuse simulated auth. Auth.js (Google / Resend) is integrated and stays fail-closed until credentials exist (`docs/AUTH.md`).
 - Aethelios stays unavailable unless `ATELIER_OPENAI_ENABLED=true` **and** `OPENAI_API_KEY` are set. Live model calls are not made by default and were not used in this implementation. Internal identifiers may still use the older `aurelius` name; visitor-facing copy maps that to Aethelios.
 - Billing is not activated. Do not set Stripe keys.
 

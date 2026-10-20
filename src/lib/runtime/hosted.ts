@@ -95,3 +95,101 @@ export function simulatedAuthAllowed(env: Env = process.env): {
   }
   return { allowed: true };
 }
+
+export function readAuthSecret(env: Env = process.env): string {
+  return (env.AUTH_SECRET || env.ATELIER_SESSION_SECRET || env.NEXTAUTH_SECRET || "").trim();
+}
+
+export function readGoogleOAuth(env: Env = process.env): { id: string; secret: string } {
+  return {
+    id: (env.AUTH_GOOGLE_ID || env.GOOGLE_CLIENT_ID || "").trim(),
+    secret: (env.AUTH_GOOGLE_SECRET || env.GOOGLE_CLIENT_SECRET || "").trim()
+  };
+}
+
+export function readResendEmail(env: Env = process.env): { apiKey: string; from: string } {
+  return {
+    apiKey: (env.AUTH_RESEND_KEY || env.RESEND_API_KEY || "").trim(),
+    from: (env.AUTH_RESEND_FROM || env.ATELIER_AUTH_EMAIL_FROM || "").trim()
+  };
+}
+
+export function emailCaptureAllowed(env: Env = process.env): {
+  allowed: boolean;
+  reason?: string;
+} {
+  if (env.ATELIER_AUTH_EMAIL_CAPTURE !== "true") {
+    return { allowed: false, reason: "ATELIER_AUTH_EMAIL_CAPTURE is not true" };
+  }
+  const hosted = hostedPlatformName(env);
+  if (hosted) {
+    return {
+      allowed: false,
+      reason: `Email capture is refused on hosted platform (${hosted}). Set AUTH_GOOGLE_ID/AUTH_GOOGLE_SECRET and/or AUTH_RESEND_KEY/AUTH_RESEND_FROM.`
+    };
+  }
+  if (env.NODE_ENV === "production") {
+    if (!isIsolatedLocal(env) || !isExactLoopbackOrigin(env)) {
+      return {
+        allowed: false,
+        reason:
+          "Production-mode email capture requires ATELIER_ISOLATED_LOCAL=true and an exact loopback hostname. It is not production sign-in."
+      };
+    }
+  }
+  return { allowed: true };
+}
+
+export type AuthjsProviderId = "google" | "email";
+
+export type AuthjsProviderState = {
+  id: AuthjsProviderId;
+  label: string;
+  capture?: boolean;
+};
+
+export function authjsProviders(env: Env = process.env): AuthjsProviderState[] {
+  const providers: AuthjsProviderState[] = [];
+  const google = readGoogleOAuth(env);
+  if (google.id && google.secret) {
+    providers.push({ id: "google", label: "Google" });
+  }
+  const resend = readResendEmail(env);
+  const capture = emailCaptureAllowed(env);
+  if (resend.apiKey && resend.from) {
+    providers.push({ id: "email", label: "Email" });
+  } else if (capture.allowed) {
+    providers.push({ id: "email", label: "Email (captured locally)", capture: true });
+  }
+  return providers;
+}
+
+export function authjsAuthAllowed(env: Env = process.env): {
+  allowed: boolean;
+  reason?: string;
+  providers: AuthjsProviderState[];
+} {
+  if (env.ATELIER_AUTH_ADAPTER !== "authjs") {
+    return { allowed: false, reason: "ATELIER_AUTH_ADAPTER is not authjs", providers: [] };
+  }
+  const secret = readAuthSecret(env);
+  if (secret.length < 32) {
+    return {
+      allowed: false,
+      reason: "Auth.js requires AUTH_SECRET or ATELIER_SESSION_SECRET (32+ characters). Do not guess a hosted value.",
+      providers: []
+    };
+  }
+  const providers = authjsProviders(env);
+  if (!providers.length) {
+    const capture = emailCaptureAllowed(env);
+    return {
+      allowed: false,
+      reason: capture.reason
+        ? `No Auth.js provider is configured. Set AUTH_GOOGLE_ID and AUTH_GOOGLE_SECRET, or AUTH_RESEND_KEY and AUTH_RESEND_FROM. ${capture.reason}`
+        : "No Auth.js provider is configured. Set AUTH_GOOGLE_ID and AUTH_GOOGLE_SECRET, or AUTH_RESEND_KEY and AUTH_RESEND_FROM. Do not enable fake production sign-in.",
+      providers: []
+    };
+  }
+  return { allowed: true, providers };
+}

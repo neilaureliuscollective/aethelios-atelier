@@ -1,4 +1,5 @@
 import type {
+  AuthAccountRecord,
   Brief,
   ChatMessage,
   ClarificationResponse,
@@ -50,8 +51,25 @@ export function mapUser(row: Row): User {
     email: asString(row.email),
     displayName: asString(row.display_name),
     role: row.role as User["role"],
-    adapter: "simulated",
-    createdAt: asString(row.created_at)
+    adapter: asString(row.adapter) === "authjs" ? "authjs" : "simulated",
+    createdAt: asString(row.created_at),
+    emailVerifiedAt: asOptionalString(row.email_verified_at)
+  };
+}
+
+export function mapAuthAccount(row: Row): AuthAccountRecord {
+  return {
+    provider: asString(row.provider),
+    providerAccountId: asString(row.provider_account_id),
+    userId: asString(row.user_id),
+    type: asString(row.type),
+    refresh_token: row.refresh_token == null ? null : asString(row.refresh_token),
+    access_token: row.access_token == null ? null : asString(row.access_token),
+    expires_at: row.expires_at == null || row.expires_at === "" ? null : asNumber(row.expires_at),
+    token_type: row.token_type == null ? null : asString(row.token_type),
+    scope: row.scope == null ? null : asString(row.scope),
+    id_token: row.id_token == null ? null : asString(row.id_token),
+    session_state: row.session_state == null ? null : asString(row.session_state)
   };
 }
 
@@ -76,7 +94,8 @@ export function mapProject(row: Row): Project {
     createdAt: asString(row.created_at),
     updatedAt: asString(row.updated_at),
     adoptedFromGuestId: asOptionalString(row.adopted_from_guest_id),
-    latestSubmissionId: asOptionalString(row.latest_submission_id)
+    latestSubmissionId: asOptionalString(row.latest_submission_id),
+    businessId: asOptionalString(row.business_id)
   };
 }
 

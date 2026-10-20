@@ -108,6 +108,36 @@ img { max-width: 100%; height: auto; display: block; }
 .app-root[data-surface="studio"] {
   color-scheme: dark;
 }
+.app-root[data-surface="atelier"] {
+  --bg: var(--ivory);
+  --bg-raised: #fffaf1;
+  --bg-panel: #fffdf8;
+  --bg-panel-strong: #fff;
+  --bg-glass: color-mix(in srgb, #ffffff 62%, transparent);
+  --bg-input: #fff;
+  --bg-read: color-mix(in srgb, var(--ivory) 82%, #ffffff 18%);
+  --text: var(--obsidian);
+  --text-muted: color-mix(in srgb, var(--obsidian) 58%, var(--sage));
+  --text-gold: #8a6a32;
+  --border: color-mix(in srgb, var(--gold) 34%, transparent);
+  --border-soft: color-mix(in srgb, var(--obsidian) 10%, transparent);
+  --shadow: 0 24px 48px rgba(18, 26, 23, 0.12);
+  --atelier-read-ink: #14110c;
+  --atelier-read-muted: #3f4a43;
+  --atelier-stage: #070a09;
+  --atelier-glass: color-mix(in srgb, #121a17 58%, transparent);
+  --atelier-glass-border: color-mix(in srgb, var(--gold-champagne) 20%, transparent);
+  --atelier-emerald: color-mix(in srgb, var(--deep) 70%, var(--charcoal));
+  --atelier-on-glass: var(--ivory);
+  --atelier-on-glass-muted: color-mix(in srgb, var(--ivory) 78%, var(--sage));
+  --header-h: 112px;
+  --radius: 18px;
+  --radius-sm: 12px;
+  color-scheme: light;
+}
+.on-glass {
+  /* Marker for emerald-glass surfaces so ghost buttons beat the ivory-page selector. */
+}
 
 .atmosphere {
   position: fixed;
@@ -140,6 +170,175 @@ img { max-width: 100%; height: auto; display: block; }
 .app-root[data-surface="workroom"] .atmosphere::before {
   opacity: 0.35;
   background: linear-gradient(118deg, transparent 42%, rgba(226, 201, 136, 0.14) 46%, transparent 50%);
+}
+.app-root[data-surface="atelier"] .atmosphere {
+  background:
+    radial-gradient(900px 480px at 92% -8%, rgba(226, 201, 136, 0.22), transparent 58%),
+    linear-gradient(180deg, #f7f4eb 0%, var(--ivory) 42%, #efebe0 100%);
+}
+.app-root[data-surface="atelier"] .atmosphere::before {
+  opacity: 0.35;
+  background: linear-gradient(118deg, transparent 42%, rgba(226, 201, 136, 0.14) 46%, transparent 50%);
+}
+.app-root[data-surface="atelier"] .site-header {
+  background:
+    linear-gradient(180deg, rgba(243, 240, 231, 0.08), transparent 42%),
+    color-mix(in srgb, #0d1613 86%, transparent);
+  border-bottom: 1px solid var(--atelier-glass-border);
+  backdrop-filter: blur(20px) saturate(1.15);
+  box-shadow:
+    0 16px 32px rgba(18, 26, 23, 0.12),
+    inset 0 1px 0 rgba(232, 213, 163, 0.12);
+  color: var(--atelier-on-glass, var(--ivory));
+}
+.app-root[data-surface="atelier"] .site-header-inner {
+  min-height: var(--header-h);
+  align-items: center;
+}
+.app-root[data-surface="atelier"] .brand {
+  align-items: center;
+  background: transparent;
+  padding: 0;
+  border: 0;
+}
+.app-root[data-surface="atelier"] .brand img,
+.app-root[data-surface="atelier"] .brand img.brand-lockup {
+  display: block;
+  width: auto;
+  height: 104px;
+  max-width: min(280px, 46vw);
+  background: transparent;
+  object-fit: contain;
+  object-position: left center;
+  filter: drop-shadow(0 10px 20px rgba(8, 12, 11, 0.4));
+}
+.app-root[data-surface="atelier"] .workspace-nav a {
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  color: var(--atelier-on-glass-muted);
+  font-size: 14px;
+  letter-spacing: 0.02em;
+}
+.app-root[data-surface="atelier"] .workspace-nav a[aria-current="page"],
+.app-root[data-surface="atelier"] .workspace-nav a:hover,
+.app-root[data-surface="atelier"] .workspace-nav a:focus-visible {
+  color: var(--atelier-on-glass);
+  background: color-mix(in srgb, var(--deep) 42%, transparent);
+  box-shadow: inset 0 1px 0 rgba(243, 240, 231, 0.16);
+}
+.app-root[data-surface="atelier"] .workspace-nav a[aria-disabled="true"],
+.app-root[data-surface="atelier"] .workspace-nav a:disabled {
+  color: color-mix(in srgb, var(--atelier-on-glass-muted) 55%, transparent);
+  pointer-events: none;
+}
+.app-root[data-surface="atelier"] .sim-banner {
+  background: color-mix(in srgb, var(--deep) 38%, #080c0b);
+  color: var(--gold-champagne);
+  text-align: left;
+}
+.app-root[data-surface="atelier"] .sim-banner summary {
+  cursor: pointer;
+  list-style: none;
+}
+.app-root[data-surface="atelier"] .sim-banner summary::-webkit-details-marker { display: none; }
+.app-root[data-surface="atelier"] .site-footer {
+  background: transparent;
+  color: var(--text-muted);
+  border-top-color: color-mix(in srgb, var(--obsidian) 10%, transparent);
+  padding: 18px 0 28px;
+  font-size: 13px;
+}
+.app-root[data-surface="atelier"] h1 {
+  font-size: clamp(28px, 3.4vw, 40px);
+}
+.app-root[data-surface="atelier"] h2 {
+  font-size: clamp(22px, 2.4vw, 30px);
+}
+.app-root[data-surface="atelier"] h3 { font-size: 22px; }
+.app-root[data-surface="atelier"] .lede { font-size: 16px; max-width: 62ch; color: var(--text-muted); }
+.app-root[data-surface="atelier"] .section { padding: 20px 0 48px; }
+.app-root[data-surface="atelier"] .gold-em { color: var(--text-gold); }
+.app-root[data-surface="atelier"] .btn-ghost {
+  color: var(--obsidian);
+  border-color: color-mix(in srgb, var(--obsidian) 16%, transparent);
+}
+.app-root[data-surface="atelier"] .notice {
+  background: color-mix(in srgb, var(--ivory) 70%, #fff);
+  color: var(--obsidian);
+  border-color: color-mix(in srgb, var(--gold) 34%, transparent);
+}
+.app-root[data-surface="atelier"] .notice-warn { color: #8a6a32; }
+.app-root[data-surface="atelier"] .surface-glass {
+  background: color-mix(in srgb, #101214 62%, rgba(8, 12, 11, 0.72));
+  color: var(--atelier-on-glass, var(--ivory));
+}
+.app-root[data-surface="atelier"] .surface-glass h1,
+.app-root[data-surface="atelier"] .surface-glass h2,
+.app-root[data-surface="atelier"] .surface-glass h3 {
+  color: var(--atelier-on-glass, var(--ivory));
+}
+.app-root[data-surface="atelier"] .surface-glass .lede,
+.app-root[data-surface="atelier"] .surface-glass .muted,
+.app-root[data-surface="atelier"] .surface-glass .tiny,
+.app-root[data-surface="atelier"] .surface-glass .notice {
+  color: var(--atelier-on-glass-muted, color-mix(in srgb, var(--ivory) 78%, var(--sage)));
+}
+.app-root[data-surface="atelier"] .surface-glass .btn-ghost,
+.app-root[data-surface="atelier"] .site-header .btn-ghost,
+.app-root[data-surface="atelier"] .on-glass .btn-ghost {
+  color: var(--atelier-on-glass);
+  border-color: color-mix(in srgb, var(--ivory) 28%, transparent);
+}
+.app-root[data-surface="atelier"] .surface-glass .btn-ghost:hover,
+.app-root[data-surface="atelier"] .site-header .btn-ghost:hover,
+.app-root[data-surface="atelier"] .on-glass .btn-ghost:hover,
+.app-root[data-surface="atelier"] .surface-glass .btn-ghost:focus-visible,
+.app-root[data-surface="atelier"] .site-header .btn-ghost:focus-visible,
+.app-root[data-surface="atelier"] .on-glass .btn-ghost:focus-visible {
+  color: var(--ivory);
+  border-color: color-mix(in srgb, var(--gold-champagne) 42%, transparent);
+}
+.app-root[data-surface="atelier"] .surface-glass .btn-ghost:disabled,
+.app-root[data-surface="atelier"] .site-header .btn-ghost:disabled,
+.app-root[data-surface="atelier"] .on-glass .btn-ghost:disabled,
+.app-root[data-surface="atelier"] .surface-glass .btn-ghost[aria-disabled="true"],
+.app-root[data-surface="atelier"] .site-header .btn-ghost[aria-disabled="true"],
+.app-root[data-surface="atelier"] .on-glass .btn-ghost[aria-disabled="true"] {
+  color: color-mix(in srgb, var(--atelier-on-glass) 62%, transparent);
+  border-color: color-mix(in srgb, var(--ivory) 16%, transparent);
+}
+.app-root[data-surface="atelier"] .site-header .menu-toggle {
+  color: var(--ivory);
+  border-color: color-mix(in srgb, var(--ivory) 28%, transparent);
+}
+.app-root[data-surface="atelier"] .workspace-nav .muted {
+  color: var(--atelier-on-glass-muted, color-mix(in srgb, var(--ivory) 78%, var(--sage)));
+}
+.app-root[data-surface="atelier"] .mobile-nav {
+  background: color-mix(in srgb, #0d1613 94%, var(--deep));
+  color: var(--ivory);
+  border-top-color: var(--atelier-glass-border);
+}
+.app-root[data-surface="atelier"] .mobile-nav a,
+.app-root[data-surface="atelier"] .mobile-nav button {
+  color: var(--ivory);
+}
+.app-root[data-surface="atelier"] .surface-read {
+  background: var(--bg-read);
+  color: var(--atelier-read-ink);
+}
+.app-root[data-surface="atelier"] .surface-read .muted,
+.app-root[data-surface="atelier"] .surface-read .tiny {
+  color: var(--atelier-read-muted);
+}
+@media (prefers-reduced-transparency: reduce), (prefers-reduced-motion: reduce) {
+  .app-root[data-surface="atelier"] .site-header,
+  .app-root[data-surface="atelier"] .surface-glass,
+  .app-root[data-surface="atelier"] .glass {
+    backdrop-filter: none;
+    background: var(--charcoal);
+  }
 }
 .app-root[data-surface="studio"] .atmosphere::after {
   content: "";
@@ -1111,6 +1310,15 @@ a.chip {
   }
   .bottom-nav { display: flex; }
   main { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+  .app-root[data-surface="atelier"] main { padding-bottom: 36px; }
+  .app-root[data-surface="atelier"] .brand img,
+  .app-root[data-surface="atelier"] .brand img.brand-lockup {
+    height: 80px;
+    max-width: min(200px, 48vw);
+  }
+  .app-root[data-surface="atelier"] {
+    --header-h: 92px;
+  }
   .approach-step { grid-template-columns: 1fr; }
   .recovery-panel { position: relative; top: auto; bottom: auto; }
   .recovery-pair { grid-template-columns: 1fr; }

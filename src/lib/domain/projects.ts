@@ -70,6 +70,7 @@ export class ProjectService {
   async createProject(owner: User, brief?: Brief, guestDraftId?: string) {
     const normalized = normalizeBrief(brief ?? createEmptyBrief());
     const stamp = now();
+    const businesses = await this.store.companion.listBusinessesForUser(owner.id);
     const project: Project = {
       id: createId("prj"),
       ownerId: owner.id,
@@ -79,7 +80,8 @@ export class ProjectService {
       version: 1,
       createdAt: stamp,
       updatedAt: stamp,
-      adoptedFromGuestId: guestDraftId
+      adoptedFromGuestId: guestDraftId,
+      businessId: businesses[0]?.id
     };
     return this.store.createProject(project);
   }
@@ -124,7 +126,7 @@ export class ProjectService {
     return this.buildClientView(project, {
       user,
       session: { id: "", userId: user.id, createdAt: "", expiresAt: "" },
-      adapter: "simulated"
+      adapter: user.adapter
     });
   }
 
