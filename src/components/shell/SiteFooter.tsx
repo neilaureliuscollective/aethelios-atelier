@@ -8,6 +8,7 @@ export function SiteFooter() {
         <nav className="row" aria-label="Footer">
           <AppLink href="/discover">Discover</AppLink>
           <AppLink href="/services">Services</AppLink>
+          <AppLink href="/pricing">Pricing</AppLink>
           <AppLink href="/approach">Approach</AppLink>
           <AppLink href="/project">Begin a brief</AppLink>
         </nav>
