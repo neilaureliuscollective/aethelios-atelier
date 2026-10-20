@@ -1,8 +1,10 @@
 export const PROJECT_TYPES = [
   "website",
-  "booking_connected_website",
+  "custom_apps_platforms",
+  "ecommerce_storefronts",
   "digital_infrastructure",
-  "undecided"
+  "undecided",
+  "booking_connected_website"
 ] as const;
 
 export type ProjectType = (typeof PROJECT_TYPES)[number];

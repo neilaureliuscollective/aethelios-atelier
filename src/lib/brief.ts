@@ -1,5 +1,9 @@
 import { INTELLIGENCE_DISPLAY_NAME } from "@/lib/copy";
 import {
+  asksBookingProvider,
+  displayProjectTypeLabel
+} from "@/lib/serviceCategories";
+import {
   BRIEF_FIELD_KEYS,
   type Brief,
   type BriefField,
@@ -65,26 +69,29 @@ export function normalizeBrief(input: unknown): Brief {
 }
 
 export const PROJECT_TYPE_LABELS: Record<ProjectType, string> = {
-  website: "Website",
-  booking_connected_website: "Booking-connected website",
+  website: "Branded websites",
+  custom_apps_platforms: "Custom apps & platforms",
+  ecommerce_storefronts: "E-commerce & storefronts",
   digital_infrastructure: "Digital infrastructure",
-  undecided: "Project brief"
+  undecided: "Project brief",
+  booking_connected_website: "Custom apps & platforms"
 };
 
 export function briefTitle(brief: Brief) {
-  const type = (brief.projectType.value || "undecided") as ProjectType;
-  return PROJECT_TYPE_LABELS[type] ?? "Untitled brief";
+  const type = brief.projectType.value || "undecided";
+  if (!type || type === "undecided") return "Project brief";
+  return displayProjectTypeLabel(type);
 }
 
 export function displayFieldValue(key: BriefFieldKey, value: string) {
   if (key === "projectType") {
-    return PROJECT_TYPE_LABELS[value as ProjectType] ?? value;
+    return displayProjectTypeLabel(value) || PROJECT_TYPE_LABELS[value as ProjectType] || value;
   }
   return value;
 }
 
 export function isBookingConnected(brief: Brief) {
-  return brief.projectType.value === "booking_connected_website";
+  return asksBookingProvider(brief.projectType.value);
 }
 
 export function applyClientValue(brief: Brief, key: BriefFieldKey, value: string): Brief {

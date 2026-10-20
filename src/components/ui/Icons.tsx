@@ -27,3 +27,23 @@ export function NodesIcon() {
     </svg>
   );
 }
+
+export function AppsIcon() {
+  return (
+    <svg className="icon-glyph" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="3.5" y="4" width="7" height="7" rx="1.6" stroke="currentColor" strokeWidth="1.4" />
+      <rect x="13.5" y="4" width="7" height="7" rx="1.6" stroke="currentColor" strokeWidth="1.4" />
+      <rect x="3.5" y="13.5" width="7" height="7" rx="1.6" stroke="currentColor" strokeWidth="1.4" />
+      <rect x="13.5" y="13.5" width="7" height="7" rx="1.6" stroke="currentColor" strokeWidth="1.4" />
+    </svg>
+  );
+}
+
+export function StoreIcon() {
+  return (
+    <svg className="icon-glyph" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 8.5 6 5h12l2 3.5V10a3 3 0 0 1-3 3 3 3 0 0 1-3-3 3 3 0 0 1-3 3 3 3 0 0 1-3-3 3 3 0 0 1-3 3" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M6 13.2V19h12v-5.8" stroke="currentColor" strokeWidth="1.4" />
+    </svg>
+  );
+}

@@ -180,10 +180,10 @@ export function validateDesignSpec(input: unknown): SpecValidation {
         const item = asset as DesignAsset;
         const href = bounded(item?.href, 180, `assets.${index}.href`, issues);
         const fallbackHref = bounded(item?.fallbackHref, 180, `assets.${index}.fallbackHref`, issues);
-        if (href && !href.startsWith("/discovery/")) {
+        if (href && !href.startsWith("/discovery/") && !href.startsWith("/atmosphere/")) {
           issues.push({ path: `assets.${index}.href`, message: "assets must be local approved paths" });
         }
-        if (fallbackHref && !fallbackHref.startsWith("/discovery/")) {
+        if (fallbackHref && !fallbackHref.startsWith("/discovery/") && !fallbackHref.startsWith("/atmosphere/")) {
           issues.push({ path: `assets.${index}.fallbackHref`, message: "fallbacks must be local approved paths" });
         }
         return {

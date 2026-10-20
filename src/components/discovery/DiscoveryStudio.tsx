@@ -1024,8 +1024,13 @@ function ReviewBody({
           <div className={styles.options} role="radiogroup" aria-label="Service interest">
             {[
               ["unspecified", "Not sure yet"],
-              ["website", "Branded website"],
-              ["booking_connected_website", "Booking-connected website"]
+              ["website", "Branded websites"],
+              ["custom_apps_platforms", "Custom apps & platforms"],
+              ["ecommerce_storefronts", "E-commerce & storefronts"],
+              ["digital_infrastructure", "Digital infrastructure"],
+              ...(draft.serviceInterest === "booking_connected_website"
+                ? ([["booking_connected_website", "Saved as booking-connected website"]] as const)
+                : [])
             ].map(([id, label]) => (
               <label className={styles.option} key={id}>
                 <input

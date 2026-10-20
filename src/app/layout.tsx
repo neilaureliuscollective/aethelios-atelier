@@ -58,21 +58,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${display.variable} ${body.variable}`}>
       <body>
-        <div className="atmosphere" aria-hidden="true" />
         <a className="skip-link" href="#main">
           Skip to content
         </a>
-        <div className="app-root">
-          <SessionShell
-            auth={{
-              adapter: runtime.auth.adapter,
-              labeled: runtime.auth.labeled,
-              ready: runtime.auth.ready
-            }}
-          >
-            {children}
-          </SessionShell>
-        </div>
+        <SessionShell
+          auth={{
+            adapter: runtime.auth.adapter,
+            labeled: runtime.auth.labeled,
+            ready: runtime.auth.ready
+          }}
+        >
+          {children}
+        </SessionShell>
         <RegisterPwa />
       </body>
     </html>

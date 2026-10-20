@@ -19,9 +19,9 @@ export const CONCEPT_THEME_VERSION = 2;
 const SCENE_FOR: Record<DirectionId, Record<DiscoveryDraft["visualDirectionId"], { primary: string; secondary: string; fallback: string; alt: string }>> = {
   lumen: {
     glass: {
-      primary: "/discovery/scenes/lumen-nocturne.svg",
+      primary: "/atmosphere/lumen.webp",
       secondary: "/discovery/scenes/lumen-glass.svg",
-      fallback: "/discovery/materials/arch.svg",
+      fallback: "/discovery/scenes/lumen-nocturne.svg",
       alt: "Cinematic architectural study — composed night light, not a completed project photograph"
     },
     material: {
@@ -45,10 +45,10 @@ const SCENE_FOR: Record<DirectionId, Record<DiscoveryDraft["visualDirectionId"],
       alt: "Warm interior light study"
     },
     material: {
-      primary: "/discovery/scenes/hearth-hearth.svg",
+      primary: "/atmosphere/hearth.webp",
       secondary: "/discovery/scenes/hearth-linen.svg",
-      fallback: "/discovery/materials/linen.svg",
-      alt: "Hospitality material study — cloth, timber, and quiet firelight"
+      fallback: "/discovery/scenes/hearth-hearth.svg",
+      alt: "Hospitality material study — cloth, timber, and quiet firelight. Atmosphere, not a building commission."
     },
     mark: {
       primary: "/discovery/scenes/hearth-mark.svg",
@@ -59,10 +59,10 @@ const SCENE_FOR: Record<DirectionId, Record<DiscoveryDraft["visualDirectionId"],
   },
   signal: {
     glass: {
-      primary: "/discovery/scenes/signal-depth.svg",
+      primary: "/atmosphere/signal.webp",
       secondary: "/discovery/materials/arch.svg",
-      fallback: "/discovery/materials/grid.svg",
-      alt: "Precision architecture study"
+      fallback: "/discovery/scenes/signal-depth.svg",
+      alt: "Precision architecture study — atmosphere for a digital concept, not a completed project photograph"
     },
     material: {
       primary: "/discovery/scenes/signal-material.svg",
@@ -86,7 +86,7 @@ export function sceneAssets(directionId: DirectionId, visual: DiscoveryDraft["vi
       id: "primary",
       href: scene.primary,
       fallbackHref: scene.fallback,
-      kind: "svg_plate",
+      kind: scene.primary.endsWith(".webp") || scene.primary.endsWith(".jpg") ? "photo_plate" : "svg_plate",
       alt: scene.alt,
       width: 1600,
       height: 1000
@@ -95,7 +95,7 @@ export function sceneAssets(directionId: DirectionId, visual: DiscoveryDraft["vi
       id: "secondary",
       href: scene.secondary,
       fallbackHref: scene.fallback,
-      kind: "svg_plate",
+      kind: scene.secondary.endsWith(".webp") || scene.secondary.endsWith(".jpg") ? "photo_plate" : "svg_plate",
       alt: scene.alt,
       width: 1200,
       height: 900

@@ -18,7 +18,7 @@ export function Entrance({ onExplore }: { onExplore: () => void }) {
           personally review. No account and no contact details are required to explore.
         </p>
         <div className={styles.actions}>
-          <button className={`${styles.btn} ${styles.btnGold}`} type="button" onClick={onExplore}>
+          <button className="btn btn-emerald-glass" type="button" onClick={onExplore}>
             Explore your direction
           </button>
           <AppLink className={`${styles.btn} ${styles.btnGhost}`} href="/project">
@@ -67,11 +67,11 @@ export function Entrance({ onExplore }: { onExplore: () => void }) {
                 A quieter way to be found.
               </h2>
               <p style={{ color: "#B7B1A4", maxWidth: "36ch" }}>
-                A cinematic editorial opening, composed atmosphere, and a clear next step toward the
-                booking tool you already use.
+                A cinematic editorial opening, composed atmosphere, and a clear next step for the
+                digital presence — not a live website.
               </p>
               <img
-                src="/discovery/scenes/lumen-nocturne.svg"
+                src="/atmosphere/lumen.webp"
                 alt=""
                 width={1600}
                 height={420}

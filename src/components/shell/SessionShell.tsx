@@ -1,7 +1,8 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { atelierSurfaceForPath } from "@/lib/atelierSurface";
 import type { Route } from "next";
 import { SiteHeader } from "@/components/shell/SiteHeader";
 import { SiteFooter } from "@/components/shell/SiteFooter";
@@ -36,6 +37,8 @@ export function SessionShell({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const surface = atelierSurfaceForPath(pathname);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [generation, setGeneration] = useState(0);
@@ -84,10 +87,13 @@ export function SessionShell({
 
   return (
     <SessionContext.Provider value={value}>
-      <SimulatedBanner auth={auth} user={user} />
-      <SiteHeader user={user} />
-      <main id="main">{children}</main>
-      <SiteFooter />
+      <div className="app-root" data-surface={surface}>
+        <div className="atmosphere" aria-hidden="true" />
+        <SimulatedBanner auth={auth} user={user} />
+        <SiteHeader user={user} />
+        <main id="main">{children}</main>
+        <SiteFooter />
+      </div>
     </SessionContext.Provider>
   );
 }

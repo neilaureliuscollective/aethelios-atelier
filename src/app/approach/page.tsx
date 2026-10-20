@@ -16,13 +16,13 @@ export default function ApproachPage() {
       </p>
       <ol className="approach-steps">
         {([
-          ["Discover a direction", "Try on curated, personalized website directions. Nothing is sent from discovery.", "/discover"],
+          ["Discover a direction", "Try on curated, personalized directions for websites, apps, storefronts, and infrastructure. Nothing is sent from discovery.", "/discover"],
           ["Shape a living brief", "Suggestions from Aethelios stay pending until you accept them. Manual completion is enough.", "/project"],
           ["Consent to a saved snapshot", "You send an immutable copy of the exact revision you reviewed. That creates a durable receipt.", "/project"],
           ["Submitted is not under review", "Review begins only when Neil opens the commission. There is no implied acceptance or delivery date.", "/about"],
           ["Scope after human review", "Timing and price are confirmed only after that review, never by the brief itself.", "/about"]
         ] as const).map(([title, copy, href], index) => (
-          <Reveal as="li" className="surface-dimensional approach-step" key={title} delay={(index % 3) as 0 | 1 | 2}>
+          <Reveal as="li" className="surface-ivory approach-step" key={title} delay={(index % 3) as 0 | 1 | 2}>
             <span className="num">{String(index + 1).padStart(2, "0")}</span>
             <div>
               <h2>{title}</h2>
@@ -39,7 +39,7 @@ export default function ApproachPage() {
         responses. Offline edits are never treated as delivered submissions.
       </p>
       <div className="row" style={{ marginTop: 20 }}>
-        <AppLink className="btn btn-gold" href="/discover">
+        <AppLink className="btn btn-emerald-glass" href="/discover">
           Explore your direction
         </AppLink>
         <AppLink className="btn btn-ghost" href="/project">
