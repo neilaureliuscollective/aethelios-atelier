@@ -51,8 +51,14 @@ export class SqliteCompanionStore implements CompanionStore {
     this.ensureAssetRevisionColumn();
     this.ensureOutputHashColumns();
     this.ensureDraftRevisionColumn();
+    const draftColumns = this.db.prepare("PRAGMA table_info(studio_drafts)").all() as Array<{ name: string }>;
+    for (const name of ["direction", "brand_kit_json", "palette_json"]) {
+      if (!draftColumns.some((column) => column.name === name)) this.db.exec(`ALTER TABLE studio_drafts ADD COLUMN ${name} TEXT`);
+    }
+    if (!draftColumns.some((column) => column.name === "layout_version")) this.db.exec("ALTER TABLE studio_drafts ADD COLUMN layout_version INTEGER");
     this.ensureJobAttemptColumn();
     this.ensureConfirmationDraftColumn();
+    this.ensureGuestClaimRevisions();
   }
 
   private ensureProjectBusinessColumn() {
@@ -111,6 +117,31 @@ export class SqliteCompanionStore implements CompanionStore {
     if (!columns.some((column) => column.name === "studio_draft_id")) {
       this.db.exec("ALTER TABLE business_confirmations ADD COLUMN studio_draft_id TEXT");
     }
+  }
+
+  private ensureGuestClaimRevisions() {
+    const columns = this.db.prepare("PRAGMA table_info(guest_work_claims)").all() as Array<{ name: string; pk: number }>;
+    if (!columns.length) return;
+    const hasRevision = columns.some((column) => column.name === "source_revision");
+    const compositePk = columns.filter((column) => column.pk > 0).length > 1;
+    if (hasRevision && compositePk) return;
+    this.db.exec(`
+      CREATE TABLE guest_work_claims_v2 (
+        guest_work_id TEXT NOT NULL,
+        source_revision INTEGER NOT NULL DEFAULT 0,
+        owner_id TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        destination TEXT NOT NULL,
+        payload_json TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY (guest_work_id, source_revision)
+      );
+      INSERT INTO guest_work_claims_v2(guest_work_id,source_revision,owner_id,kind,destination,payload_json,created_at)
+        SELECT guest_work_id, ${hasRevision ? "source_revision" : "0"}, owner_id, kind, destination, payload_json, created_at
+        FROM guest_work_claims;
+      DROP TABLE guest_work_claims;
+      ALTER TABLE guest_work_claims_v2 RENAME TO guest_work_claims;
+    `);
   }
 
   lockUsageBudget() {
@@ -205,21 +236,40 @@ export class SqliteCompanionStore implements CompanionStore {
     return { claimed: existing === businessId, businessId: existing ?? businessId };
   }
 
-  getGuestWorkClaim(guestWorkId: string) {
-    const row = this.db.prepare("SELECT * FROM guest_work_claims WHERE guest_work_id = ?").get(guestWorkId) as
-      | Row
-      | undefined;
-    return row ? mapGuestClaim(row) : null;
+  listGuestWorkClaims(guestWorkId: string) {
+    const rows = this.db
+      .prepare("SELECT * FROM guest_work_claims WHERE guest_work_id = ? ORDER BY source_revision ASC")
+      .all(guestWorkId) as Row[];
+    return rows.map((row) => mapGuestClaim(row));
+  }
+
+  getGuestWorkClaim(guestWorkId: string, sourceRevision?: number | null) {
+    if (sourceRevision != null) {
+      const row = this.db
+        .prepare("SELECT * FROM guest_work_claims WHERE guest_work_id = ? AND source_revision = ?")
+        .get(guestWorkId, sourceRevision) as Row | undefined;
+      return row ? mapGuestClaim(row) : null;
+    }
+    const listed = this.listGuestWorkClaims(guestWorkId);
+    return listed.at(-1) ?? null;
   }
 
   insertGuestWorkClaim(claim: GuestWorkClaim) {
     this.db
       .prepare(
-        `INSERT OR IGNORE INTO guest_work_claims(guest_work_id,owner_id,kind,destination,payload_json,created_at)
-         VALUES(?,?,?,?,?,?)`
+        `INSERT OR IGNORE INTO guest_work_claims(guest_work_id,source_revision,owner_id,kind,destination,payload_json,created_at)
+         VALUES(?,?,?,?,?,?,?)`
       )
-      .run(claim.guestWorkId, claim.ownerId, claim.kind, claim.destination, claim.payloadJson, claim.createdAt);
-    const stored = this.getGuestWorkClaim(claim.guestWorkId);
+      .run(
+        claim.guestWorkId,
+        claim.sourceRevision,
+        claim.ownerId,
+        claim.kind,
+        claim.destination,
+        claim.payloadJson,
+        claim.createdAt
+      );
+    const stored = this.getGuestWorkClaim(claim.guestWorkId, claim.sourceRevision);
     if (!stored) {
       throw new Error("The guest work claim could not be stored.");
     }
@@ -330,6 +380,12 @@ export class SqliteCompanionStore implements CompanionStore {
     return (this.db.prepare("SELECT * FROM business_members WHERE business_id = ?").all(businessId) as Row[]).map(
       mapMember
     );
+  }
+
+  compareAndSwapProfile(profile: BusinessProfile, expectedUpdatedAt: string) {
+    const result = this.db.prepare(`UPDATE business_profiles SET profile_json=?, updated_at=?, updated_by=? WHERE business_id=? AND updated_at=?`)
+      .run(JSON.stringify(profile), profile.updatedAt, profile.updatedBy ?? null, profile.businessId, expectedUpdatedAt);
+    return Number(result.changes) === 1 ? profile : null;
   }
 
   upsertProfile(profile: BusinessProfile) {
@@ -565,8 +621,8 @@ export class SqliteCompanionStore implements CompanionStore {
   addStudioDraft(draft: StudioDraft) {
     this.db
       .prepare(
-        `INSERT INTO studio_drafts(id,business_id,work_item_id,layout,layers_json,selected_asset_id,source_work_item_id,created_at,updated_at,save_revision)
-         VALUES(?,?,?,?,?,?,?,?,?,?)`
+        `INSERT INTO studio_drafts(id,business_id,work_item_id,layout,layers_json,selected_asset_id,source_work_item_id,created_at,updated_at,save_revision,direction,brand_kit_json,palette_json,layout_version)
+         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
       )
       .run(
         draft.id,
@@ -578,7 +634,11 @@ export class SqliteCompanionStore implements CompanionStore {
         draft.sourceWorkItemId ?? null,
         draft.createdAt,
         draft.updatedAt,
-        draft.saveRevision ?? 1
+        draft.saveRevision ?? 1,
+        draft.direction ?? null,
+        draft.brandKit ? JSON.stringify(draft.brandKit) : null,
+        draft.palette ? JSON.stringify(draft.palette) : null,
+        draft.layoutVersion ?? 1
       );
     return draft;
   }
@@ -597,7 +657,7 @@ export class SqliteCompanionStore implements CompanionStore {
   updateStudioDraft(draft: StudioDraft) {
     this.db
       .prepare(
-        "UPDATE studio_drafts SET layout=?, layers_json=?, selected_asset_id=?, updated_at=?, save_revision=? WHERE id=?"
+        "UPDATE studio_drafts SET layout=?, layers_json=?, selected_asset_id=?, updated_at=?, save_revision=?, direction=?, brand_kit_json=?, palette_json=?, layout_version=? WHERE id=?"
       )
       .run(
         draft.layout,
@@ -605,6 +665,10 @@ export class SqliteCompanionStore implements CompanionStore {
         draft.selectedAssetId ?? null,
         draft.updatedAt,
         draft.saveRevision ?? 1,
+        draft.direction ?? null,
+        draft.brandKit ? JSON.stringify(draft.brandKit) : null,
+        draft.palette ? JSON.stringify(draft.palette) : null,
+        draft.layoutVersion ?? 1,
         draft.id
       );
     return draft;
@@ -613,7 +677,7 @@ export class SqliteCompanionStore implements CompanionStore {
   compareAndSwapStudioDraft(draft: StudioDraft, expectedSaveRevision: number) {
     const result = this.db
       .prepare(
-        "UPDATE studio_drafts SET layout=?, layers_json=?, selected_asset_id=?, updated_at=?, save_revision=? WHERE id=? AND save_revision=?"
+        "UPDATE studio_drafts SET layout=?, layers_json=?, selected_asset_id=?, updated_at=?, save_revision=?, direction=?, brand_kit_json=?, palette_json=?, layout_version=? WHERE id=? AND save_revision=?"
       )
       .run(
         draft.layout,
@@ -621,6 +685,10 @@ export class SqliteCompanionStore implements CompanionStore {
         draft.selectedAssetId ?? null,
         draft.updatedAt,
         draft.saveRevision,
+        draft.direction ?? null,
+        draft.brandKit ? JSON.stringify(draft.brandKit) : null,
+        draft.palette ? JSON.stringify(draft.palette) : null,
+        draft.layoutVersion ?? 1,
         draft.id,
         expectedSaveRevision
       );

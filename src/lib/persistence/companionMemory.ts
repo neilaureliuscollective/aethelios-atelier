@@ -130,15 +130,31 @@ export class MemoryCompanionStore implements CompanionStore {
     return { claimed: true, businessId };
   }
 
-  getGuestWorkClaim(guestWorkId: string) {
-    const item = this.guestClaims.get(guestWorkId);
-    return item ? clone(item) : null;
+  private claimKey(guestWorkId: string, sourceRevision: number) {
+    return `${guestWorkId}:${sourceRevision}`;
+  }
+
+  listGuestWorkClaims(guestWorkId: string) {
+    return [...this.guestClaims.values()]
+      .filter((item) => item.guestWorkId === guestWorkId)
+      .sort((a, b) => a.sourceRevision - b.sourceRevision)
+      .map((item) => clone(item));
+  }
+
+  getGuestWorkClaim(guestWorkId: string, sourceRevision?: number | null) {
+    if (sourceRevision != null) {
+      const item = this.guestClaims.get(this.claimKey(guestWorkId, sourceRevision));
+      return item ? clone(item) : null;
+    }
+    const listed = this.listGuestWorkClaims(guestWorkId);
+    return listed.at(-1) ?? null;
   }
 
   insertGuestWorkClaim(claim: GuestWorkClaim) {
-    const existing = this.guestClaims.get(claim.guestWorkId);
+    const key = this.claimKey(claim.guestWorkId, claim.sourceRevision);
+    const existing = this.guestClaims.get(key);
     if (existing) return clone(existing);
-    this.guestClaims.set(claim.guestWorkId, clone(claim));
+    this.guestClaims.set(key, clone(claim));
     return clone(claim);
   }
 
@@ -198,6 +214,11 @@ export class MemoryCompanionStore implements CompanionStore {
 
   listMembers(businessId: string) {
     return [...this.members.values()].filter((item) => item.businessId === businessId).map(clone);
+  }
+
+  compareAndSwapProfile(profile: BusinessProfile, expectedUpdatedAt: string) {
+    if (this.profiles.get(profile.businessId)?.updatedAt !== expectedUpdatedAt) return null;
+    return this.upsertProfile(profile);
   }
 
   upsertProfile(profile: BusinessProfile) {

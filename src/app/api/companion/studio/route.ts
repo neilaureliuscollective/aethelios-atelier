@@ -35,7 +35,7 @@ const createSchema = z.object({
   headline: z.string().min(1).max(160),
   body: z.string().max(800).optional(),
   direction: z.string().max(800).optional(),
-  layout: z.enum(["square_announcement", "portrait_social", "story_portrait", "website_banner"]).optional(),
+  layout: z.enum(["square_announcement", "portrait_social", "story_portrait", "website_banner", "direction_board"]).optional(),
   workItemId: z.string().min(1).optional()
 });
 
@@ -53,7 +53,8 @@ export async function POST(request: Request) {
 const patchSchema = z.object({
   businessId: z.string().min(1).optional(),
   draftId: z.string().min(1),
-  layout: z.enum(["square_announcement", "portrait_social", "story_portrait", "website_banner"]).optional(),
+  direction: z.string().max(800).optional(),
+  layout: z.enum(["square_announcement", "portrait_social", "story_portrait", "website_banner", "direction_board"]).optional(),
   layers: z
     .array(
       z.object({

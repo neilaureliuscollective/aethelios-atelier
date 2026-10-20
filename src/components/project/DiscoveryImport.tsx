@@ -130,6 +130,11 @@ export function DiscoveryImport({
         This sketch stays on this device until you choose how to add it. It has not been sent to Neil
         and is not an account save.
       </p>
+      <p className="muted">
+        This commission import adds brief text. To keep the structured palette, typography,
+        layout and imagery references for editable work, <a href="/companion/talk">open Companion
+        and review saving this direction to your business</a>.
+      </p>
       {message ? <p className="notice">{message}</p> : null}
       {staleOpen ? (
         <p className="notice notice-warn">

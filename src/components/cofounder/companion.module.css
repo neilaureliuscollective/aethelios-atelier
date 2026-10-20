@@ -457,20 +457,29 @@
 
 .picker {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
   gap: 10px;
 }
 
 .pick {
+  margin: 0;
   display: grid;
   gap: 8px;
   min-width: 0;
 }
 
+.pick button {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
+  white-space: normal;
+}
+
 .pick img {
   width: 100%;
   aspect-ratio: 1;
-  object-fit: cover;
+  object-fit: contain;
   border-radius: 10px;
   border: 1px solid color-mix(in srgb, var(--ivory) 12%, transparent);
   background: var(--atelier-stage, #070a09);
@@ -539,11 +548,14 @@
   .canvas { width: 100%; }
   .composerBar { position: sticky; bottom: 0; }
   .primaryActions {
-    position: sticky;
-    bottom: 8px;
-    background: color-mix(in srgb, #121a17 88%, transparent);
-    padding: 8px 0;
+    position: static;
+    order: -1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 0 0 12px;
+    border-bottom: 1px solid var(--atelier-glass-border);
   }
+  .primaryActions button { min-width: 0; min-height: 44px; white-space: normal; }
 }
 
 @media (max-width: 390px) {
@@ -577,3 +589,8 @@
     background: var(--charcoal);
   }
 }
+
+.compactHead { max-width:none; display:flex; justify-content:space-between; align-items:baseline; gap:12px; }
+.compactHead h1 { font-size:30px; order:-1; margin:0; }
+.compactHead .context { font-size:11px; }
+@media(max-width:700px) { .compactHead h1 { font-size:24px; } .compactHead .context { display:none; } .shell:has(.compactHead) { gap:10px; padding-top:10px; } }

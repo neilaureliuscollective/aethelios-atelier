@@ -1,3 +1,4 @@
+import type { BrandKit } from "@/lib/cofounder/brandKit";
 export const BUSINESS_MEMBER_ROLES = ["owner", "member", "founder"] as const;
 export type BusinessMemberRole = (typeof BUSINESS_MEMBER_ROLES)[number];
 
@@ -75,6 +76,7 @@ export type BrandAssetRef = {
 };
 
 export type BusinessProfile = {
+  brandKit?: BrandKit;
   businessId: string;
   fields: Record<ProfileFieldKey, ProfileField>;
   approvedRates: ApprovedRate[];
@@ -97,6 +99,7 @@ export type GuestWorkKind = "discovery" | "brief";
 
 export type GuestWorkClaim = {
   guestWorkId: string;
+  sourceRevision: number;
   ownerId: string;
   kind: GuestWorkKind;
   destination: string;
@@ -211,9 +214,15 @@ export type StudioLayer = {
   cropZoom?: number;
 };
 
-export type StudioLayoutId = "square_announcement" | "portrait_social" | "story_portrait" | "website_banner";
+export type StudioLayoutId = "square_announcement" | "portrait_social" | "story_portrait" | "website_banner" | "direction_board";
 
 export type StudioDraft = {
+  /** Preserve saved geometry when the curated renderer evolves. */
+  layoutVersion?: 1 | 2;
+  /** Immutable identity snapshot for this saved artifact. */
+  brandKit?: BrandKit;
+  palette?: { canvas: string; ink: string; muted: string; accent: string };
+  direction?: string;
   id: string;
   businessId: string;
   workItemId: string;
@@ -262,7 +271,7 @@ export type CompositionRevision = {
   createdBy: string;
 };
 
-export const COMPOSITION_RENDERER_VERSION = "atelier-owner-canvas-1";
+export const COMPOSITION_RENDERER_VERSION = "atelier-owner-canvas-3";
 
 export type UsageEvent = {
   id: string;

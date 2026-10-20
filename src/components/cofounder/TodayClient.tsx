@@ -17,8 +17,12 @@ export function TodayClient() {
   const [businessId, setBusinessId] = useState<string>();
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const [error, setError] = useState("");
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
+    setToday(null);
+    setPreviewUrl("");
+    setError("");
     if (!user) return;
     const gen = generation;
     void (async () => {
@@ -47,7 +51,7 @@ export function TodayClient() {
         setError(actionErrorMessage(err, "Today could not be loaded."));
       }
     })();
-  }, [generation, user]);
+  }, [generation, user, retry]);
 
   const continueItem = today
     ? today.unfinishedDrafts.find((item) => item.id === today.continueItemId) ??
@@ -59,8 +63,8 @@ export function TodayClient() {
       title="What is actually waiting"
       lede="Continue the project in front of you. Today is derived from unfinished drafts, owner-created tasks, and pending approvals."
     >
-      {error ? <p className="notice notice-warn">{error}</p> : null}
-      {!today ? <p className="muted">Gathering saved work…</p> : null}
+      {error ? <div className="notice notice-warn" role="alert"><p>{error}</p><button className="btn btn-ghost" type="button" onClick={() => setRetry((value) => value + 1)}>Retry loading Today</button></div> : null}
+      {!today && !error ? <p className="muted">Gathering saved work…</p> : null}
       {today ? (
         <div className={styles.grid}>
           <article className={`${styles.glassCard} on-glass`}>
@@ -95,7 +99,19 @@ export function TodayClient() {
                 </div>
               </div>
             ) : (
-              <p className="muted">{today.emptyReason ?? "No open drafts. Start in Talk or Studio."}</p>
+              <div className={styles.list}>
+                <h2>Make your first useful piece</h2>
+                <p className="muted">{today.emptyReason ?? "No open drafts yet."}</p>
+                <ol>
+                  <li>Add your business name, audience, and offering in Business context.</li>
+                  <li>Prepare an announcement in Talk, then review its exact wording.</li>
+                  <li>Open the saved draft in Studio to edit, save, and export it.</li>
+                </ol>
+                <div className={styles.actions}>
+                  <AppLink className="btn btn-gold" href="/companion/business">Add business facts</AppLink>
+                  <AppLink className="btn btn-ghost" href="/companion/talk">Prepare an announcement</AppLink>
+                </div>
+              </div>
             )}
           </article>
           <aside className={`${styles.inspector} on-glass`}>

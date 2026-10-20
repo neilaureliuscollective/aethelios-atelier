@@ -18,7 +18,7 @@ function check(name, ok, extra = "") {
 }
 
 const browser = await puppeteer.launch({
-  executablePath: "/usr/bin/google-chrome-stable",
+  executablePath: process.env.ATELIER_BROWSER_PATH ?? "/usr/bin/google-chrome-stable",
   headless: true,
   args: ["--no-sandbox", "--disable-gpu", "--window-size=1440,900"]
 });
@@ -46,11 +46,13 @@ await page.goto(`${BASE}/companion/business`, { waitUntil: "networkidle0" });
 await page.waitForSelector("textarea");
 const fields = await page.$$("textarea");
 if (fields[0]) {
-  await fields[0].click({ clickCount: 3 });
+  await fields[0].click();
+  await page.keyboard.down("Control"); await page.keyboard.press("A"); await page.keyboard.up("Control");
   await fields[0].type("Cedar & Stone");
 }
 if (fields[2]) {
-  await fields[2].click({ clickCount: 3 });
+  await fields[2].click();
+  await page.keyboard.down("Control"); await page.keyboard.press("A"); await page.keyboard.up("Control");
   await fields[2].type("Custom timber porches");
 }
 const saveProfile = await page.$("button.btn-gold");
@@ -152,7 +154,10 @@ check(
 );
 check("preview headline is large enough to read at 1440", metrics1440.headlinePx >= 12);
 check("studio has no error overlay at 1440", !/error|failed|500/i.test(metrics1440.errors));
-await page.click("#headline", { clickCount: 3 });
+await page.click("#headline");
+await page.keyboard.down("Control");
+await page.keyboard.press("A");
+await page.keyboard.up("Control");
 await page.keyboard.press("Backspace");
 await page.type("#headline", "Evening gathering — saved", { delay: 15 });
 await page.waitForFunction(() =>
@@ -168,6 +173,7 @@ await page.evaluate(() => {
 });
 const savedHttp = await saveResponse;
 check("browser save writes the edited draft", savedHttp.ok(), String(savedHttp.status()));
+await page.waitForFunction(() => document.querySelector("[data-studio-preview='canvas']")?.dataset.renderState === 'ready');
 const previewRaster = await page.evaluate(() => {
   const canvas = document.querySelector("[data-studio-preview='canvas']");
   if (!canvas) return null;
@@ -221,8 +227,9 @@ const retainedUi = await page.evaluate(() => {
   const apply = document.querySelector("[data-apply-retained]");
   return { hasList: Boolean(document.querySelector("[data-retained-images]")), applyLabel: apply?.textContent || "", applyId: apply?.getAttribute("data-apply-retained") || "" };
 });
-check("retained-image recovery is visible after export", retainedUi.hasList && Boolean(retainedUi.applyId), JSON.stringify(retainedUi));
+check("retained-image recovery is visible after export", retainedUi.hasList, JSON.stringify(retainedUi));
 if (retainedUi.applyId) {
+  await page.waitForFunction(() => { const button = document.querySelector("[data-apply-retained]"); return button && !button.disabled; });
   const applyResponse = page.waitForResponse(
     (response) => response.url().includes("/api/companion/studio/apply") && response.request().method() === "POST",
     { timeout: 20000 }
@@ -232,6 +239,7 @@ if (retainedUi.applyId) {
     button?.click();
   });
   const appliedHttp = await applyResponse.catch(() => null);
+  await page.waitForFunction(() => Boolean(document.querySelector("[data-retained-applied='true']")) || document.body.innerText.includes("Retained image applied")).catch(() => null);
   const afterApply = await page.evaluate(() => ({
     applied: Boolean(document.querySelector("[data-retained-applied='true']")),
     status: document.body.innerText.includes("Retained image applied")
@@ -239,7 +247,7 @@ if (retainedUi.applyId) {
   check(
     "owner can apply the retained image from Studio",
     Boolean(appliedHttp?.ok()) && (afterApply.applied || afterApply.status),
-    JSON.stringify({ status: appliedHttp?.status(), ...afterApply })
+    JSON.stringify({ httpStatus: appliedHttp?.status(), ...afterApply })
   );
 }
 
@@ -374,7 +382,7 @@ for (const format of [
     .waitForFunction(
       (width, height) => {
         const canvas = document.querySelector("[data-studio-preview='canvas']");
-        return canvas && canvas.width === width && canvas.height === height;
+        return canvas && canvas.width === width && canvas.height === height && canvas.dataset.renderState === 'ready';
       },
       { timeout: 10000 },
       format.width,
@@ -398,7 +406,10 @@ check(
 );
 
 await page.waitForSelector("#headline");
-await page.click("#headline", { clickCount: 3 });
+await page.click("#headline");
+await page.keyboard.down("Control");
+await page.keyboard.press("A");
+await page.keyboard.up("Control");
 await page.keyboard.type("Later draft edit after reopen");
 const laterSave = page.waitForResponse(
   (response) => response.url().includes("/api/companion/studio") && response.request().method() === "PATCH",

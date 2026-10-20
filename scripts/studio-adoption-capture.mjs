@@ -98,13 +98,13 @@ await page.evaluate(() => {
   const button = [...document.querySelectorAll("button")].find((node) => /Confirm and continue/i.test(node.textContent || ""));
   button?.click();
 });
-await page.waitForFunction(() => /Replace the previous direction|Opening the matching Studio|Brand Studio|Considered sourcing/i.test(document.body.innerText), {
+await page.waitForFunction(() => /Replace the previous direction|Adopt the newer revision|Opening the matching Studio|Brand Studio|Considered sourcing/i.test(document.body.innerText), {
   timeout: 12000
 });
-const needsReplace = await page.evaluate(() => /Replace the previous direction/i.test(document.body.innerText));
+const needsReplace = await page.evaluate(() => /Replace the previous direction|Adopt the newer revision/i.test(document.body.innerText));
 if (needsReplace) {
   await page.evaluate(() => {
-    const button = [...document.querySelectorAll("button")].find((node) => /Replace the previous direction/i.test(node.textContent || ""));
+    const button = [...document.querySelectorAll("button")].find((node) => /Replace the previous direction|Adopt the newer revision/i.test(node.textContent || ""));
     button?.click();
   });
 }

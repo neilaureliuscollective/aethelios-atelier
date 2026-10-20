@@ -183,3 +183,110 @@ describe("canonical studio composition", () => {
     }
   });
 });
+
+describe("retained design direction composition", () => {
+  it("keeps palette, type, layout and retained imagery distinct across curated concepts", async () => {
+    const { createDraft } = await import("@/lib/discovery");
+    const { trustedSpecFromDiscovery } = await import("@/lib/design-spec/fromDiscovery");
+    const specs = (["lumen", "hearth", "signal"] as const).map(direction => {
+      const paletteId = ({ lumen: "nocturne", hearth: "hearth_linen", signal: "signal_ink" } as const)[direction];
+      const draft = createDraft({ activeDirectionId: direction, paletteId, businessName: "Northwind" });
+      const designSpec = trustedSpecFromDiscovery(draft, direction);
+      return buildComposition({
+        layout: "square_announcement", businessId: "biz_1", designSpec,
+        layers: defaultLayers({ headline: "Opening soon", body: "Visit us", designSpec })
+      });
+    });
+    expect(new Set(specs.map(spec => spec.headline.fontFamily)).size).toBe(3);
+    expect(new Set(specs.map(spec => spec.headline.y)).size).toBe(3);
+    expect(new Set(specs.map(spec => spec.palette.canvas)).size).toBe(3);
+    for (const spec of specs) {
+      expect(spec.backgroundImageUrl).toBe(spec.designSpec?.assets[0]?.href);
+      expect(spec.imageFrame).toBeDefined();
+      expect(spec.imageFrame!.width * spec.imageFrame!.height).toBeGreaterThanOrEqual(3800);
+      expect(scaleCompositionPx(spec.headline.fontSize, spec.width, 320)).toBeGreaterThanOrEqual(27);
+      expect(scaleCompositionPx(spec.body.fontSize, spec.width, 320)).toBeGreaterThanOrEqual(11);
+      // New compositions place copy outside the retained image, rather than using a tiny corner picture.
+      const image = spec.imageFrame!;
+      for (const box of [spec.headline, spec.body]) {
+        const separated = box.x + box.width <= image.x || image.x + image.width <= box.x ||
+          box.y + box.height <= image.y || image.y + image.height <= box.y;
+        expect(separated).toBe(true);
+      }
+      expect(spec.headline.text).toBe("Opening soon");
+      expect(spec.designSpec?.source).toBe("curated_local");
+    }
+  });
+
+  it("preserves explicit identity palettes and exact editable layer positions", async () => {
+    const { createDraft } = await import("@/lib/discovery");
+    const { trustedSpecFromDiscovery } = await import("@/lib/design-spec/fromDiscovery");
+    const designSpec = trustedSpecFromDiscovery(createDraft(), "signal");
+    const layers = defaultLayers({ headline: "Identity intact", body: "Existing brand", designSpec });
+    const headline = layers.find(layer => layer.kind === "headline")!;
+    headline.x = 17;
+    const spec = buildComposition({ layout: "square_announcement", businessId: "biz_1", layers,
+      designSpec, palette: LIFESTYLE_PALETTE, backgroundImageUrl: "/retained-identity.png" });
+    expect(spec.palette).toEqual(LIFESTYLE_PALETTE);
+    expect(spec.headline.x).toBe(17);
+    expect(spec.backgroundImageUrl).toBe("/retained-identity.png");
+  });
+
+  it("retains a logo asset without requiring a source document", () => {
+    const layers = defaultLayers({ headline: "Identity", body: "Preserved", logoAssetId: "asset_logo" });
+    expect(layers.find(layer => layer.kind === "logo")?.assetId).toBe("asset_logo");
+    const spec = buildComposition({ layout: "square_announcement", layers, businessId: "biz_1" });
+    expect(spec.logo?.src).toBe("/api/companion/assets/asset_logo?businessId=biz_1");
+    const edited = layersFromControls({ headline: "Updated", body: "Copy", layout: "square_announcement", logoAssetId: "asset_logo" });
+    expect(edited.find(layer => layer.kind === "logo")?.assetId).toBe("asset_logo");
+  });
+
+  it("does not turn a gold or champagne accent request into a dark brown brand", () => {
+    const fields = lifestyleProfileFields(new Date().toISOString());
+    fields.name.value = "Northwind";
+    fields.brandNotes.value = "Ivory with champagne gold";
+    const palette = paletteForProfile({ fields });
+    expect(palette.canvas).toBe("#f4f0e6");
+    expect(palette).not.toEqual(LIFESTYLE_PALETTE);
+  });
+});
+
+
+describe("saved layout version compatibility", () => {
+  it("keeps legacy text clear of the legacy image and preserves font metrics", async () => {
+    const { createDraft } = await import("@/lib/discovery");
+    const { trustedSpecFromDiscovery } = await import("@/lib/design-spec/fromDiscovery");
+    for (const direction of ["lumen", "hearth", "signal"] as const) {
+      const designSpec = trustedSpecFromDiscovery(createDraft(), direction);
+      const layers = defaultLayers({ headline: "Opening", body: "Tomorrow", designSpec, layoutVersion: 1 });
+      const legacy = buildComposition({ layout: "square_announcement", businessId: "biz", layers, designSpec, layoutVersion: 1 });
+      expect(legacy.layoutVersion).toBe(1);
+      expect(legacy.headline.fontSize).toBe(63);
+      expect(legacy.body.fontSize).toBe(28);
+      expect(legacy.imageFrame).toEqual(direction === "hearth"
+        ? { x: 34, y: 7, width: 56, height: 34 }
+        : { x: 58, y: 70, width: 34, height: 22 });
+      if (direction !== "hearth") {
+        expect(legacy.body.y).toBe(42);
+        expect(legacy.body.y + legacy.body.height).toBeLessThan(legacy.imageFrame!.y);
+      }
+    }
+  });
+
+  it("preserves pre-direction artwork defaults while new drafts use paper", () => {
+    const layers = defaultLayers({ headline: "Original", body: "Copy", layoutVersion: 1 });
+    const saved = buildComposition({ layout: "square_announcement", businessId: "biz", layers, layoutVersion: 1 });
+    const fresh = buildComposition({ layout: "square_announcement", businessId: "biz", layers });
+    expect(saved.palette.canvas).toBe("#2a2218");
+    expect(fresh.palette.canvas).toBe("#f4f0e6");
+    expect(saved.headline.fontSize).toBe(fresh.headline.fontSize);
+  });
+});
+
+describe("direction board readable headline area", () => {
+  it("reserves two full headline lines without entering the body", () => {
+    const spec = buildComposition({businessId: "fixture", layout: "direction_board", layers: defaultLayers({headline: "A place to gather", body: "Opening this autumn.", layout: "direction_board"})});
+    expect(spec.headline.height * spec.height / 100).toBeGreaterThanOrEqual(2 * spec.headline.fontSize * spec.headline.lineHeight);
+    expect(spec.headline.y + spec.headline.height).toBeLessThan(spec.body.y);
+  });
+});

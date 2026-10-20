@@ -4,37 +4,50 @@ import { useEffect, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { useSession } from "@/components/shell/SessionShell";
 import { api } from "@/lib/client/api";
+import { actionErrorMessage } from "@/lib/client/asyncAction";
+import { accountLink } from "@/lib/auth/continuation";
 import { readGuestIntent } from "@/lib/guest/intent";
 import styles from "./companion.module.css";
+
+type WorkspaceGate = "checking" | "ready" | "confirm" | "error";
 
 export function CompanionShell({
   title,
   lede,
   wide = false,
+  compact = false,
   children
 }: {
   title: string;
   lede: string;
   wide?: boolean;
+  compact?: boolean;
   children: ReactNode;
 }) {
   const pathname = usePathname();
   const { user, loading } = useSession();
   const [businessName, setBusinessName] = useState("");
-  const [studioGate, setStudioGate] = useState<"checking" | "ready" | "confirm">(
-    pathname.startsWith("/companion/studio") ? "checking" : "ready"
-  );
+  const [signInHref, setSignInHref] = useState(accountLink(pathname));
+  const [workspaceError, setWorkspaceError] = useState("");
+  const [retryNonce, setRetryNonce] = useState(0);
+  const [studioGate, setStudioGate] = useState<WorkspaceGate>("checking");
 
   useEffect(() => {
+    setSignInHref(accountLink(window.location.pathname + window.location.search + window.location.hash));
+  }, [pathname]);
+
+  useEffect(() => {
+    let active = true;
+    setBusinessName("");
+    setWorkspaceError("");
     if (!user) return;
-    if (pathname.startsWith("/companion/studio")) {
-      setStudioGate("checking");
-    }
+    setStudioGate("checking");
     void api<{
       business: { name: string };
       confirmation: { sourceSelectionId: string | null; studioDraftId?: string | null } | null;
     }>("/api/companion/workspace")
       .then((data) => {
+        if (!active) return;
         setBusinessName(data.business.name);
         const intent = readGuestIntent();
         if (
@@ -47,13 +60,16 @@ export function CompanionShell({
           setStudioGate("ready");
         }
       })
-      .catch(() => {
+      .catch((err) => {
+        if (!active) return;
         setBusinessName("");
-        if (pathname.startsWith("/companion/studio")) {
-          setStudioGate("ready");
-        }
+        setWorkspaceError(actionErrorMessage(err, "This workspace could not be verified."));
+        setStudioGate("error");
       });
-  }, [user, pathname]);
+    return () => {
+      active = false;
+    };
+  }, [user, pathname, retryNonce]);
 
   if (loading) {
     return (
@@ -76,7 +92,7 @@ export function CompanionShell({
           <p className="lede">
             This is your business workspace — not a public chatbot and not a guest draft.
           </p>
-          <a className="btn btn-gold" href={`/account?next=${encodeURIComponent(pathname || "/companion")}`}>
+          <a className="btn btn-gold" href={signInHref}>
             Sign in
           </a>
         </div>
@@ -88,11 +104,41 @@ export function CompanionShell({
     return (
       <section className={`container ${styles.shell}`}>
         <div className={`surface-glass ${styles.gate}`}>
-          <p className={styles.meta}>Studio</p>
+          <p className={styles.meta}>{pathname.startsWith("/companion/studio") ? "Studio" : "Workspace"}</p>
           <h1>Checking this workspace</h1>
           <p className="lede">
-            Resolving the signed-in owner and any confirmed Discovery draft before a composition is shown.
+            Resolving the signed-in owner
+            {pathname.startsWith("/companion/studio")
+              ? " and any confirmed Discovery draft before a composition is shown."
+              : " before private actions are available."}
           </p>
+        </div>
+      </section>
+    );
+  }
+
+  if (studioGate === "error") {
+    return (
+      <section className={`container ${styles.shell}`}>
+        <div className={`surface-glass ${styles.gate}`}>
+          <p className={styles.meta}>Workspace verification failed</p>
+          <h1>This private workspace is not ready</h1>
+          <p className="lede">
+            {workspaceError || "The signed-in owner could not be verified. Private actions stay blocked."}
+          </p>
+          <p className={styles.meta}>
+            The brief and any unsaved work on this device were not treated as a successful open.
+          </p>
+          <button
+            className="btn btn-gold"
+            type="button"
+            onClick={() => {
+              setStudioGate("checking");
+              setRetryNonce((value) => value + 1);
+            }}
+          >
+            Retry verification
+          </button>
         </div>
       </section>
     );
@@ -126,14 +172,14 @@ export function CompanionShell({
 
   return (
     <section className={`${wide ? "container-wide" : "container"} ${styles.shell}`}>
-      <header className={styles.pageHead}>
+      <header className={`${styles.pageHead} ${compact ? styles.compactHead : ""}`}>
         <p className={styles.context}>
           <strong>{businessName || "Atelier workspace"}</strong>
           <span>{user.displayName || user.email}</span>
         </p>
         <h1>{title}</h1>
-        <p className="lede">{lede}</p>
-        <p className={styles.meta}>{nextHint}</p>
+        {!compact ? <p className="lede">{lede}</p> : null}
+        {!compact ? <p className={styles.meta}>{nextHint}</p> : null}
       </header>
       {children}
     </section>

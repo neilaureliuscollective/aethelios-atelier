@@ -116,6 +116,7 @@ export type PreviewActionContext = {
 };
 
 export type DiscoverySelection = {
+  designSpec?: import("@/lib/design-spec/types").DesignSpec;
   selectionId: string;
   localRevision: number;
   catalogVersion: number;

@@ -1,0 +1,11 @@
+// Isolated review fixture only. Explicit FixtureImageProvider; never a live model.
+import { it, expect } from 'vitest';
+import fs from 'node:fs';
+import { PNG } from 'pngjs';
+import { SqlitePersistence } from '@/lib/persistence/sqlite';
+import { CompanionWorkspace } from '@/lib/cofounder/workspace';
+import { CompanionStudio, FixtureImageProvider } from '@/lib/cofounder/studio';
+it('seeds retained source image through existing persistence and fixture provider',async()=>{
+ if(process.env.ATELIER_DATA_DIR!=='.data-review'||process.env.ATELIER_OPENAI_ENABLED!=='false')throw new Error('Requires isolated .data-review with providers disabled');
+ const store=new SqlitePersistence('.data-review/atelier.sqlite');const owner=await store.getUserByEmail('owner.local@atelier.invalid');if(!owner)throw new Error('Missing local owner');const context=await new CompanionWorkspace(store).ensureForUser(owner);const png=new PNG({width:900,height:600});for(let y=0;y<600;y++)for(let x=0;x<900;x++){const i=(y*900+x)*4;png.data[i]=65+Math.round(x/900*90);png.data[i+1]=91+Math.round(y/600*80);png.data[i+2]=91;png.data[i+3]=255}const studio=new CompanionStudio(store).withImageProvider(new FixtureImageProvider(PNG.sync.write(png)));const draft=await studio.createFromCopy(context.business.id,owner,{headline:'Gather here',body:'Retained source study. Deterministic fixture.',direction:'Fixture gradient image; no live AI.'});const auth={user:owner,session:{id:'sess_immersive_fixture_'+Date.now(),userId:owner.id,createdAt:new Date().toISOString(),expiresAt:new Date(Date.now()+3600000).toISOString()},adapter:'simulated' as const};await store.createSession(auth.session);const generated=await studio.generate(context.business.id,owner,auth,{draftId:draft.draft.id,prompt:'Deterministic retained gradient fixture, no live provider.',idempotencyKey:'immersive-fixture-'+draft.draft.id});expect(generated.asset.status).toBe('ready');await studio.generate(context.business.id,owner,auth,{draftId:draft.draft.id,prompt:'Second deterministic choice; no live provider.',idempotencyKey:'immersive-fixture-second-'+draft.draft.id});fs.writeFileSync('/tmp/atelier-retained-fixture.json',JSON.stringify({draftId:draft.draft.id,assetId:generated.asset.id,model:generated.asset.model,mode:'FixtureImageProvider, local SQLite, no live AI'}));
+});

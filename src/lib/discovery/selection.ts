@@ -1,3 +1,5 @@
+import { trustedSpecFromDiscovery } from "@/lib/design-spec/fromDiscovery";
+import { validateDesignSpec } from "@/lib/design-spec/validate";
 import { DIRECTIONS, defaultPaletteFor, defaultVisualFor } from "./catalog";
 import { visitorNotesFromDraft } from "./personalize";
 import { LIMITS, sanitizeMultiline, sanitizePlainText } from "./sanitize";
@@ -204,6 +206,7 @@ export function confirmSelection(
   const timestamp = now.toISOString();
   const sanitized = sanitizeDraft(draft);
   return {
+    designSpec: trustedSpecFromDiscovery(sanitized, sanitized.activeDirectionId),
     selectionId: previous?.selectionId ?? createSelectionId(),
     localRevision: (previous?.localRevision ?? 0) + 1,
     catalogVersion: DISCOVERY_CATALOG_VERSION,
@@ -313,9 +316,12 @@ export function parseSelection(input: unknown): DiscoverySelection | null {
   if (typeof prefs.headline !== "string") return null;
   if (!isServiceInterestId(raw.serviceInterest)) return null;
 
+  const snapshot = raw.designSpec === undefined ? null : validateDesignSpec(raw.designSpec);
+  if (snapshot && (!snapshot.ok || snapshot.spec.directionId !== raw.selectedDirectionId || snapshot.spec.paletteId !== prefs.paletteId || snapshot.spec.visualDirectionId !== prefs.visualDirectionId)) return null;
   const qualities = Array.isArray(raw.desiredQualities) ? raw.desiredQualities.filter(isQualityId) : [];
 
   return {
+    ...(snapshot?.ok ? { designSpec: snapshot.spec } : {}),
     selectionId: sanitizePlainText(raw.selectionId, 80),
     localRevision: Math.floor(raw.localRevision),
     catalogVersion: DISCOVERY_CATALOG_VERSION,

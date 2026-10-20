@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CompanionShell } from "@/components/cofounder/CompanionShell";
+import { BrandDirectionImport } from "@/components/cofounder/BrandDirectionImport";
 import { VoiceControl } from "@/components/cofounder/VoiceControl";
 import { AppLink } from "@/components/ui/AppLink";
 import { api } from "@/lib/client/api";
@@ -26,12 +27,37 @@ export function TalkClient() {
   const [proposed, setProposed] = useState<ProposedAction[]>([]);
   const [savedWork, setSavedWork] = useState<SavedWork[]>([]);
   const [error, setError] = useState("");
+  const [historyRetry, setHistoryRetry] = useState(0);
+  const [historyError, setHistoryError] = useState("");
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const [actionError, setActionError] = useState("");
+  const [actionStatus, setActionStatus] = useState("");
+  const confirmRef = useRef(false);
+  const sendRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
   const requestRef = useRef<string | null>(null);
   const draftRef = useRef("");
   const listRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    setMessages([]);
+    setInput("");
+    setError("");
+    setStreaming("");
+    setPending(false);
+    setConfirming(null);
+    requestRef.current = null;
+    draftRef.current = "";
+    sendRef.current = false;
+    confirmRef.current = false;
+    setConversationId(undefined);
+    setBusinessId(undefined);
+    setHistoryError("");
+    setProposed([]);
+    setSavedWork([]);
+    setActionError("");
+    setActionStatus("");
+    abortRef.current?.abort();
     if (!user) return;
     const gen = generation;
     void (async () => {
@@ -46,17 +72,23 @@ export function TalkClient() {
         setMessages(data.messages);
       } catch (err) {
         if (!ownerFence.isCurrent(gen, user.id)) return;
-        setError(actionErrorMessage(err, "Talk history could not be loaded."));
+        setHistoryError(actionErrorMessage(err, "Talk history could not be loaded."));
       }
     })();
-  }, [generation, user]);
+    return () => { abortRef.current?.abort(); };
+  }, [generation, user, historyRetry]);
 
   useEffect(() => {
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
+    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   }, [messages, streaming]);
 
   async function send(message: string) {
-    if (!message.trim() || pending) return;
+    if (!message.trim() || sendRef.current || !businessId || historyError) return;
+    if (requestRef.current && draftRef.current !== message) {
+      setError("Retry the interrupted message first, or start a new request explicitly. Your edited text has not been sent.");
+      return;
+    }
+    sendRef.current = true;
     draftRef.current = message;
     setPending(true);
     setError("");
@@ -66,6 +98,7 @@ export function TalkClient() {
     abortRef.current = controller;
     const idempotencyKey = requestRef.current ?? crypto.randomUUID();
     requestRef.current = idempotencyKey;
+    let completed = false;
     try {
       const response = await fetch("/api/companion/talk", {
         method: "POST",
@@ -121,7 +154,9 @@ export function TalkClient() {
           if (event.type === "delta" && event.text) {
             setStreaming((current) => current + event.text);
           }
+          if (event.type === "error") throw new Error(event.text ?? "Reply interrupted before completion.");
           if (event.type === "done" && event.turn) {
+            completed = true;
             setConversationId(event.turn.conversation.id);
             setMessages((current) => {
               const next = [...current];
@@ -138,7 +173,9 @@ export function TalkClient() {
           }
         }
       }
+      if (!completed) throw new Error("The connection ended before completion. Retry the same request to check its saved result.");
     } catch (err) {
+      if (!ownerFence.isCurrent(generation, user?.id ?? null)) return;
       setInput(draftRef.current);
       if (controller.signal.aborted) {
         setError("Reply interrupted. Unsent text is still here. Review Work if a tool already saved something.");
@@ -146,16 +183,39 @@ export function TalkClient() {
         setError(actionErrorMessage(err, "That reply failed. Unsent text is still here. Retry uses the same request id."));
       }
     } finally {
-      setPending(false);
+      if (ownerFence.isCurrent(generation, user?.id ?? null) && abortRef.current === controller) { sendRef.current = false; setPending(false); }
     }
   }
 
   async function confirmAction(id: string) {
-    await api("/api/companion/work", {
-      method: "PATCH",
-      body: JSON.stringify({ workItemId: id, action: "confirm", businessId })
-    });
-    setProposed((current) => current.filter((item) => item.id !== id));
+    if (confirmRef.current) return;
+    confirmRef.current = true;
+    setConfirming(id);
+    setActionError("");
+    setActionStatus("");
+    try {
+      // Reconcile before retry: a lost response may already have confirmed this proposal.
+      const existing = await api<{ items: Array<{ id: string; status: string; title: string }> }>(`/api/companion/work?businessId=${encodeURIComponent(businessId ?? "")}`);
+      const item = existing.items.find((entry) => entry.id === id);
+      if (!item) throw new Error("This proposal is unavailable. Open Work to review current records.");
+      if (item.status === "awaiting_review") {
+        await api("/api/companion/work", {
+          method: "PATCH",
+          body: JSON.stringify({ workItemId: id, action: "confirm", businessId })
+        });
+      } else if (item.status === "archived") {
+        throw new Error("This proposal was archived. Open Work to review it.");
+      }
+      if (!ownerFence.isCurrent(generation, user?.id ?? null)) return;
+      setProposed((current) => current.filter((entry) => entry.id !== id));
+      setSavedWork((current) => current.some((entry) => entry.id === id) ? current : [...current, { id, title: item.title, href: `/companion/work?workItemId=${encodeURIComponent(id)}` }]);
+      setActionStatus("Action confirmed. Open the saved item below.");
+    } catch (err) {
+      if (ownerFence.isCurrent(generation, user?.id ?? null)) setActionError(actionErrorMessage(err, "Confirmation did not complete. Retry using Confirm and save, or review Work."));
+    } finally {
+      confirmRef.current = false;
+      if (ownerFence.isCurrent(generation, user?.id ?? null)) setConfirming(null);
+    }
   }
 
   return (
@@ -163,6 +223,10 @@ export function TalkClient() {
       title="Talk as working interface"
       lede="Plan a promotion, draft copy, review your documents, or prepare an estimate from approved rates."
     >
+      <BrandDirectionImport businessId={businessId} />
+      {historyError ? <div className="notice notice-warn" role="alert"><p>{historyError}</p><button className="btn btn-ghost" type="button" onClick={() => setHistoryRetry((value) => value + 1)}>Retry loading history</button></div> : null}
+      {actionError ? <p className="notice notice-warn" role="alert">{actionError} You can retry Confirm and save; the saved state is checked first.</p> : null}
+      {actionStatus ? <p className="notice" role="status">{actionStatus}</p> : null}
       <div className={styles.grid}>
         <article className={`${styles.glassCard} on-glass`}>
           <div className={styles.messages} aria-live="polite" ref={listRef}>
@@ -211,8 +275,8 @@ export function TalkClient() {
                   <p className="muted" style={{ whiteSpace: "pre-wrap" }}>
                     {item.preview.slice(0, 280)}
                   </p>
-                  <button className="btn btn-gold btn-compact" type="button" onClick={() => void confirmAction(item.id)}>
-                    Confirm and save
+                  <button className="btn btn-gold btn-compact" type="button" disabled={Boolean(confirming)} onClick={() => void confirmAction(item.id)}>
+                    {confirming === item.id ? "Confirming…" : "Confirm and save"}
                   </button>
                 </div>
               ))}
@@ -234,12 +298,11 @@ export function TalkClient() {
               value={input}
               onChange={(event) => {
                 setInput(event.target.value);
-                draftRef.current = event.target.value;
               }}
               placeholder="Help me announce my new service."
             />
             <div className={styles.actions}>
-              <button className="btn btn-gold" type="submit" disabled={pending}>
+              <button className="btn btn-gold" type="submit" disabled={pending || !businessId || Boolean(historyError)}>
                 {pending ? "Working…" : "Send"}
               </button>
               <button
@@ -253,11 +316,12 @@ export function TalkClient() {
               <button
                 className="btn btn-ghost"
                 type="button"
-                disabled={pending || !error}
+                disabled={pending || !requestRef.current || !error}
                 onClick={() => void send(draftRef.current || input)}
               >
                 Retry same request
               </button>
+              {requestRef.current && error ? <button className="btn btn-ghost" type="button" disabled={pending} onClick={() => { requestRef.current = null; draftRef.current = ""; setError("New request ready. The prior request may have saved work; review Work before sending again."); }}>Start a new request</button> : null}
             </div>
             {error ? <p className="notice notice-warn">{error}</p> : null}
           </form>
@@ -270,6 +334,7 @@ export function TalkClient() {
                 key={action.id}
                 className="btn btn-ghost"
                 type="button"
+                disabled={pending || !businessId || Boolean(historyError)}
                 onClick={() => void send(action.prompt)}
               >
                 {action.label}

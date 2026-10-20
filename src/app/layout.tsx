@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import Script from "next/script";
+import { MotionPreferences } from "@/components/motion/MotionPreferences";
 import { Cormorant_Garamond, Figtree } from "next/font/google";
 import { RegisterPwa } from "@/components/pwa/RegisterPwa";
 import { SessionShell } from "@/components/shell/SessionShell";
@@ -84,9 +84,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${display.variable} ${body.variable}`}>
       <body>
-        <Script id="atelier-js-motion" strategy="beforeInteractive">
-          {`(function(){try{if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches){document.documentElement.classList.add('js-motion');}}catch(e){}})();`}
-        </Script>
+        <MotionPreferences />
         <a className="skip-link" href="#main">
           Skip to content
         </a>

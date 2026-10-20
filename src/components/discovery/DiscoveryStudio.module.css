@@ -1061,3 +1061,96 @@
     box-shadow: 0 12px 40px rgba(18, 26, 23, 0.1);
   }
 }
+
+/* A working stage: direction shelf, contextual tools, and the actual interactive artboard. */
+.workspaceHeader,
+.directionShelf,
+.workspaceDock { grid-column: 1 / -1; min-width: 0; }
+.workspaceHeader { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 10px 2px; }
+.workspaceTitle { font-family: var(--font-display); font-size: clamp(30px, 3.4vw, 48px); font-weight: 500; line-height: 1.06; margin: 6px 0 10px; color: #172b24; }
+.workspaceHeader p { margin-bottom: 0; }
+.directionShelf { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; padding: 8px 2px 18px; }
+.directionTile { position: relative; display: block; min-width: 0; cursor: pointer; border: 1px solid #d5cbb9; border-radius: 16px; padding: 6px; background: #f9f6ee; box-shadow: 0 9px 18px #172b2410, inset 0 1px 0 #fff; transition: border-color 180ms ease, box-shadow 180ms ease; }
+.directionTile[data-selected="true"] { border-color: #186348; box-shadow: 0 0 0 2px #186348, 0 12px 24px #172b2419; }
+.directionTile:focus-within { outline: 3px solid #8a6a32; outline-offset: 4px; }
+.directionTile > input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.directionThumbnail { height: 130px; overflow: hidden; border-radius: 10px; position: relative; background: #10271e; pointer-events: none; }
+.thumbnailViewport { width: 1000px; transform: scale(.36); transform-origin: top left; container-type: inline-size; }
+.directionCaption { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px; padding: 12px 8px 3px; color: #143f30; font-size: 13px; font-weight: 650; }
+.directionCaption > span:last-child { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+.directionEpithet { display: block; font-size: 12px; color: #625b50; padding: 0 8px 10px; }
+.workspaceDock { border: 1px solid #d7cebd; border-radius: 18px; padding: 12px 16px; background: linear-gradient(180deg, #fffdf9, #ece8dc); box-shadow: inset 0 1px 0 #fff, 0 10px 26px #172b240d; }
+.workspaceDock .stickyPrimary { display: flex; align-items: center; justify-content: space-between; gap: 16px; position: static; background: transparent; padding: 0; border: 0; box-shadow: none; margin: 0; }
+.dockIdentity { display: grid; gap: 2px; }
+.dockIdentity .kicker { font-size: 10px; margin: 0; }
+.dockIdentity strong { font-size: 19px; color: #173a2b; }
+.workspaceDock .chipRow { margin: 0; flex-wrap: nowrap; }
+.workspaceDock .dockActions { justify-content: flex-end; }
+.artboardLabel { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 6px; color: #60584a; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+.studio .previewColumn { padding: 10px 18px 20px; border: 1px solid #d4cbb9; border-radius: 24px; background: linear-gradient(150deg, #e9e5da, #f4f0e6 44%, #ded8c9); box-shadow: inset 0 1px 0 #fff, inset 0 -2px 8px #172b2408; }
+.studio .previewShell { border-radius: 16px; padding: 5px; background: #203b30; border-color: #315946; box-shadow: 0 18px 34px #172b2429, 0 2px 3px #172b2420; }
+.studio .device { border-radius: 11px; }
+.studio .rail { top: 90px; max-height: calc(100dvh - 110px); overflow-y: auto; scrollbar-width: thin; border-radius: 20px; }
+.studio .rail .solid { border-color: #d3c5ab; box-shadow: inset 0 1px 0 #fff, 0 12px 26px #172b2412; }
+.comparisonNotes { padding: 12px 4px; color: #383c32; font-size: 13px; line-height: 1.6; }
+.comparisonNotes summary { min-height: 44px; cursor: pointer; font-weight: 600; color: #234d3a; }
+.studio[data-focused="true"] { grid-template-columns: 1fr; }
+.studio[data-focused="true"] .directionShelf,
+.studio[data-focused="true"] .rail { display: none; }
+@media (max-width: 1100px) {
+  .studio .rail { max-height: none; overflow: visible; }
+  .workspaceDock .stickyPrimary { flex-wrap: wrap; }
+  .workspaceDock .dockActions { margin-left: auto; }
+  .directionThumbnail { height: 110px; }
+  .thumbnailViewport { transform: scale(.27); }
+}
+@media (max-width: 720px) {
+  .workspaceHeader { gap: 12px; align-items: flex-start; flex-direction: column; }
+  .workspaceHeader > button { min-height: 44px; }
+  .directionShelf { gap: 10px; display: flex; overflow-x: auto; padding: 6px 4px 16px; scroll-snap-type: x proximity; }
+  .directionTile { flex: 0 0 224px; scroll-snap-align: start; }
+  .thumbnailViewport { transform: scale(.23); }
+  .directionThumbnail { height: 108px; }
+  .workspaceDock { padding: 12px; }
+  .workspaceDock .stickyPrimary { gap: 12px; }
+  .dockIdentity .fine { display: none; }
+  .workspaceDock .dockActions { width: 100%; margin: 0; justify-content: flex-start; }
+  .studio .previewColumn { padding: 6px 7px 10px; border-radius: 18px; }
+  .artboardLabel { font-size: 10px; flex-wrap: wrap; gap: 5px; }
+  .studio .previewShell { min-height: 560px; padding: 3px; }
+  .studio .device { min-height: 550px; max-height: 700px; }
+  .studio .comparePanel .device { min-height: 520px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .directionTile { transition: none; }
+  .directionShelf { scroll-behavior: auto; scroll-snap-type: none; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .workspaceDock, .directionTile, .studio .previewColumn { background: #f4f0e6; backdrop-filter: none; }
+}
+
+/* Mobile keeps the working artboard near the fold and its actions reachable while refining. */
+@media (max-width: 720px) {
+  .workspaceHeader { flex-direction: row; align-items: center; gap: 12px; padding: 0; }
+  .workspaceHeader .kicker,
+  .workspaceHeader .fine { display: none; }
+  .workspaceTitle { font-size: 25px; margin: 0; line-height: 1.12; }
+  .workspaceHeader > button { flex: 0 0 112px; padding: 8px 10px; font-size: 12px; }
+  .directionShelf { gap: 8px; padding: 4px 3px 10px; }
+  .directionTile { flex-basis: 142px; padding: 4px; border-radius: 12px; }
+  .directionThumbnail { height: 56px; border-radius: 8px; }
+  .thumbnailViewport { transform: scale(.145); }
+  .directionCaption { padding: 8px 3px 4px; font-size: 12px; gap: 3px; }
+  .directionCaption > span:last-child { font-size: 9px; }
+  .directionEpithet { display: none; }
+  .workspaceDock { position: sticky; top: var(--header-h, 76px); z-index: 7; padding: 8px 10px; background: #f9f6ee; }
+  .workspaceDock .stickyPrimary { gap: 8px; }
+  .dockIdentity { display: none; }
+  .workspaceDock .chipRow { width: 100%; }
+  .workspaceDock .dockActions { gap: 6px; flex-wrap: nowrap; }
+  .workspaceDock .dockActions .btn { padding: 0 9px; font-size: 12px; flex: 1 1 auto; }
+  .workspaceDock .dockActions .btn:nth-child(2) { flex-grow: 2; }
+  .studio .rail { scroll-margin-top: calc(var(--header-h, 76px) + 135px); }
+  .studio .rail :is(input, textarea, summary, button) { scroll-margin-block: calc(var(--header-h, 76px) + 135px) 24px; }
+}
+.root .btn:global(.btn-emerald-glass) { color: #f3f0e7; }

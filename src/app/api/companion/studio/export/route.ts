@@ -23,11 +23,11 @@ const layerSchema = z.object({
 const bodySchema = z.object({
   businessId: z.string().min(1).optional(),
   draftId: z.string().min(1),
-  format: z.enum(["square_announcement", "portrait_social", "story_portrait", "website_banner"]),
+  format: z.enum(["square_announcement", "portrait_social", "story_portrait", "website_banner", "direction_board"]),
   composedPngBase64: z.string().min(8),
   expectedUpdatedAt: z.string().optional(),
   layers: z.array(layerSchema).optional(),
-  layout: z.enum(["square_announcement", "portrait_social", "story_portrait", "website_banner"]).optional()
+  layout: z.enum(["square_announcement", "portrait_social", "story_portrait", "website_banner", "direction_board"]).optional()
 });
 
 export async function POST(request: Request) {

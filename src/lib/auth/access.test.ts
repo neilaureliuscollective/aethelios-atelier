@@ -57,6 +57,9 @@ describe("Auth.js identity mapping and authorization", () => {
     expect(safeCallbackUrl("/account/adopt")).toBe("/account/adopt");
     expect(safeCallbackUrl("/companion/confirm")).toBe("/companion/confirm");
     expect(safeCallbackUrl("/workspace/proj_1")).toBe("/workspace/proj_1");
+    expect(safeCallbackUrl("/companion/studio?draftId=studio_1#composition")).toBe(
+      "/companion/studio?draftId=studio_1#composition"
+    );
     expect(safeCallbackUrl("https://evil.example")).toBe("/account");
     expect(safeCallbackUrl("//evil.example")).toBe("/account");
     expect(safeCallbackUrl("/\\evil")).toBe("/account");

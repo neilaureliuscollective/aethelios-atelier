@@ -1,3 +1,4 @@
+import { parseBrandKit } from "@/lib/cofounder/brandKit";
 import {
   PROFILE_FIELD_KEYS,
   type ApprovedRate,
@@ -44,6 +45,7 @@ export function normalizeProfile(input: Partial<BusinessProfile> & { businessId:
   base.brandAssets = input.brandAssets ?? [];
   base.sourceDocumentIds = input.sourceDocumentIds ?? [];
   base.updatedBy = input.updatedBy;
+  base.brandKit = parseBrandKit(input.brandKit) ?? undefined;
   return base;
 }
 

@@ -8,6 +8,7 @@ import { useSession } from "@/components/shell/SessionShell";
 import { AppLink } from "@/components/ui/AppLink";
 import { ApiError, api } from "@/lib/client/api";
 import { actionErrorMessage } from "@/lib/client/asyncAction";
+import { PALETTES, VISUAL_DIRECTION_COPY } from "@/lib/discovery/catalog";
 import { DIRECTIONS, parseSelection, readDiscoveryHandoff, type DiscoverySelection } from "@/lib/discovery";
 import { clearGuestIntent, readGuestIntent } from "@/lib/guest/intent";
 import type { Business, BusinessConfirmation, StudioDraft } from "@/lib/cofounder/types";
@@ -156,6 +157,13 @@ export function ConfirmClient() {
   }
 
   const direction = selection ? DIRECTIONS[selection.selectedDirectionId] : null;
+  const palette = selection ? PALETTES[selection.visualPreferences.paletteId] : null;
+  const visual = selection ? VISUAL_DIRECTION_COPY[selection.visualPreferences.visualDirectionId] : null;
+  const replacing =
+    Boolean(confirmation?.sourceSelectionId && selection) &&
+    (confirmation?.sourceSelectionId !== selection?.selectionId ||
+      confirmation?.sourceRevision !== selection?.localRevision ||
+      confirmation?.directionId !== selection?.selectedDirectionId);
   const canSubmit =
     phase === "ready" && Boolean(business) && !pending && (!selection || claimState === "claimed");
 
@@ -204,12 +212,12 @@ export function ConfirmClient() {
             decisions are not invented here.
           </p>
           <div className={styles.actions}>
-            <button className="btn btn-gold" type="button" disabled={!canSubmit} onClick={() => void submit(false)}>
+            <button className="btn btn-gold" type="button" disabled={!canSubmit || replacing} onClick={() => void submit(false)}>
               {pending ? "Saving…" : saved ? "Confirmed" : "Confirm and continue"}
             </button>
-            {conflict ? (
+            {conflict || replacing ? (
               <button className="btn btn-ghost" type="button" disabled={!canSubmit} onClick={() => void submit(true)}>
-                Replace the previous direction
+                Adopt the newer revision and keep the first draft
               </button>
             ) : null}
           </div>
@@ -224,10 +232,20 @@ export function ConfirmClient() {
               <p className={styles.meta}>
                 Selection {selection.selectionId} · revision {selection.localRevision}
               </p>
-              <p>{selection.businessName || "Business name was not specified in Discovery."}</p>
+              <p data-visual-palette={selection.visualPreferences.paletteId}>
+                {palette?.label ?? selection.visualPreferences.paletteId} · {visual?.label ?? selection.visualPreferences.visualDirectionId}
+              </p>
+              <p>{selection.visualPreferences.headline || selection.businessName || "Business name was not specified in Discovery."}</p>
               <p className={styles.meta}>
                 {selection.audience.trim() || "Audience not specified."}
               </p>
+              {replacing ? (
+                <p className="notice notice-warn" data-revision-replace="pending">
+                  A newer Discovery revision is waiting. The first confirmed draft stays saved. Confirm
+                  replacement to adopt revision {selection.localRevision} without overwriting revision{" "}
+                  {confirmation?.sourceRevision}.
+                </p>
+              ) : null}
             </>
           ) : (
             <p className="muted">No Discovery direction is waiting on this device. You can still confirm the business name.</p>

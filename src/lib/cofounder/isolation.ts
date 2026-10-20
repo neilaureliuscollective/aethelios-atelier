@@ -34,6 +34,7 @@ export function clientSafeProfile(profile: BusinessProfile) {
       updatedAt: rate.updatedAt
     })),
     brandAssets: profile.brandAssets,
+    brandKit: profile.brandKit,
     sourceDocumentIds: profile.sourceDocumentIds
   };
 }

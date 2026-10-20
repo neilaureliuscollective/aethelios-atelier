@@ -19,7 +19,7 @@ function check(name, ok, extra = "") {
 }
 
 const browser = await puppeteer.launch({
-  executablePath: "/usr/bin/google-chrome-stable",
+  executablePath: process.env.ATELIER_BROWSER_PATH ?? "/usr/bin/google-chrome-stable",
   headless: true,
   args: ["--no-sandbox", "--disable-gpu", "--hide-scrollbars"]
 });
@@ -112,7 +112,7 @@ await page.waitForSelector("text/Explore your direction");
 check("open sample after visitor answers", await continueBtn(page, "See a sample direction"));
 await page.waitForSelector("[data-preview-source='exploration']");
 const preservedSample = await page.evaluate(() => {
-  const preview = document.querySelector("[data-preview-source='exploration']");
+  const preview = document.querySelector("[data-preview-source='exploration'][data-preview-name]");
   return {
     name: preview?.getAttribute("data-preview-name") ?? "",
     body: document.body.innerText
@@ -293,7 +293,7 @@ async function conceptViewport(direction, width) {
   await page.click("input[name='preview-studio'][value='desktop']");
   await new Promise((r) => setTimeout(r, 280));
   return page.evaluate((directionId) => {
-    const article = document.querySelector(`[data-direction="${directionId}"]`);
+    const article = document.querySelector(`[data-preview-instance^="preview-solo"] [data-direction="${directionId}"]`);
     if (!article) return { ok: false, reason: "missing concept" };
     const box = article.getBoundingClientRect();
     const cols = getComputedStyle(article).gridTemplateColumns.trim();
@@ -342,7 +342,7 @@ await page.click("input[name='direction-studio'][value='signal']");
 await page.click("input[name='preview-studio'][value='desktop']");
 await new Promise((r) => setTimeout(r, 250));
 const signalDesktop = await page.evaluate(() => {
-  const article = document.querySelector('[data-direction="signal"]');
+  const article = document.querySelector('[data-preview-instance^="preview-solo"] [data-direction="signal"]');
   const cols = article ? getComputedStyle(article).gridTemplateColumns.trim() : "";
   const colCount = cols === "none" || cols === "auto" ? 1 : cols.split(/\s+(?![^()]*\))/).filter(Boolean).length;
   return { colCount, width: article ? Math.round(article.getBoundingClientRect().width) : 0 };
@@ -355,7 +355,7 @@ check(
 await page.click("input[name='direction-studio'][value='lumen']");
 
 check("compare two", await continueBtn(page, "Compare two"));
-await page.waitForFunction(() => document.body.innerText.includes("Choose with feeling"));
+await page.waitForFunction(() => document.body.innerText.includes("Two ways to express"));
 await page.setViewport({ width: 1440, height: 1100, deviceScaleFactor: 1 });
 await shot(page, 1440, "discover_compare_desktop", 1100, false);
 await shot(page, 884, "discover_compare", 1100, false);

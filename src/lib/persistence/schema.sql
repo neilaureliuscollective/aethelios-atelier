@@ -204,12 +204,14 @@ CREATE TABLE IF NOT EXISTS user_initial_business (
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS guest_work_claims (
-  guest_work_id TEXT PRIMARY KEY,
+  guest_work_id TEXT NOT NULL,
+  source_revision INTEGER NOT NULL DEFAULT 0,
   owner_id TEXT NOT NULL,
   kind TEXT NOT NULL,
   destination TEXT NOT NULL,
   payload_json TEXT NOT NULL,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (guest_work_id, source_revision)
 );
 CREATE TABLE IF NOT EXISTS business_confirmations (
   business_id TEXT PRIMARY KEY,

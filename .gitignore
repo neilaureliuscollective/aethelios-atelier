@@ -7,6 +7,7 @@ out
 .data-cofounder
 .data-atelier-visual
 .data-adopt-verify
+.data-visual
 .vercel
 .env
 .env.local
@@ -17,3 +18,6 @@ coverage
 tsconfig.tsbuildinfo
 playwright-report
 test-results
+
+.next-review
+.data-review

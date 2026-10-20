@@ -16,8 +16,15 @@ const bodySchema = z.object({
 export async function GET(request: Request) {
   try {
     const auth = await requireSession();
-    const guestWorkId = new URL(request.url).searchParams.get("guestWorkId") ?? "";
-    const claim = await new GuestWorkService(await getStore()).readForUser(auth.user, guestWorkId);
+    const params = new URL(request.url).searchParams;
+    const guestWorkId = params.get("guestWorkId") ?? "";
+    const revisionRaw = params.get("sourceRevision");
+    const sourceRevision = revisionRaw == null || revisionRaw === "" ? undefined : Number(revisionRaw);
+    const claim = await new GuestWorkService(await getStore()).readForUser(
+      auth.user,
+      guestWorkId,
+      Number.isInteger(sourceRevision) ? sourceRevision : undefined
+    );
     return json({ ok: true, claim: claim ? publicGuestClaim(claim) : null });
   } catch (error) {
     return handleError(error);

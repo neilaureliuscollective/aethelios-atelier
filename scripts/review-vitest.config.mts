@@ -1,0 +1,3 @@
+import {defineConfig} from 'vitest/config';
+import path from 'node:path';
+export default defineConfig({plugins:[{name:'review-node-sqlite',enforce:'pre',transform(code,id){if(id.endsWith('/src/lib/persistence/sqlite.ts'))return code.replace('import { DatabaseSync } from "node:sqlite";', 'import { createRequire } from "node:module"; const { DatabaseSync } = createRequire(import.meta.url)("node:sqlite");')}}],test:{environment:'node',include:['scripts/retained-review.seed.test.ts'],server:{deps:{external:['node:sqlite']}}},ssr:{external:['node:sqlite']},resolve:{alias:{'@':path.resolve('src'),'server-only':path.resolve('src/test/server-only-stub.ts')}}});

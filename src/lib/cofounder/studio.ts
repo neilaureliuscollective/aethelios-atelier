@@ -1,7 +1,9 @@
+import { brandKitFromSelection } from "@/lib/cofounder/brandKit";
+import { studioAssetKind, isStudioBackgroundAsset } from "@/lib/cofounder/studioAssets";
 import { CompanionWorkspace } from "@/lib/cofounder/workspace";
 import { CompanionWork } from "@/lib/cofounder/work";
 import { CompanionUsage, usageAttempt, type UsageReservation } from "@/lib/cofounder/usage";
-import { buildComposition, defaultLayers, paletteForProfile, studioLayouts, STUDIO_LAYOUTS } from "@/lib/cofounder/composition";
+import { buildComposition, defaultLayers, paletteForDesignSpec, paletteForProfile, studioLayouts, STUDIO_LAYOUTS } from "@/lib/cofounder/composition";
 import { assertExportMatchesRevision, hashPng } from "@/lib/cofounder/png";
 import { selectedWorkText } from "@/lib/cofounder/studioOpen";
 import { aureliusStatus } from "@/lib/aurelius/boundary";
@@ -17,6 +19,8 @@ import {
   type StudioLayer,
   type StudioLayoutId
 } from "@/lib/cofounder/types";
+import { confirmSelection, createDraft } from "@/lib/discovery/selection";
+import type { ClaimedDiscoverySnapshot } from "@/lib/guest/snapshot";
 import type { AuthContext, User } from "@/lib/types";
 
 export { studioLayouts, STUDIO_LAYOUTS };
@@ -195,15 +199,23 @@ export class CompanionStudio {
       body: selectedBody,
       layout: input.layout,
       logoDocumentId: logo?.documentId,
-      logoAssetId: logo?.assetId
+      logoAssetId: logo?.assetId,
+      layoutVersion: 2,
+      designSpec: context.profile.brandKit?.designSpec
     });
     const draft: StudioDraft = {
       id: companionId("studio"),
+      layoutVersion: 2,
       businessId,
       workItemId: workItem.id,
       layout: input.layout ?? "square_announcement",
       layers,
       sourceWorkItemId: source?.id,
+      direction: input.direction ?? "",
+      palette: context.profile.brandKit?.mode === "new_brand"
+        ? paletteForDesignSpec(context.profile.brandKit.designSpec)
+        : paletteForProfile(context.profile),
+      brandKit: context.profile.brandKit ? structuredClone(context.profile.brandKit) : undefined,
       saveRevision: 1,
       createdAt: now(),
       updatedAt: now()
@@ -221,6 +233,7 @@ export class CompanionStudio {
       body?: string;
       direction?: string;
       layout?: StudioLayoutId;
+      snapshot?: ClaimedDiscoverySnapshot;
     }
   ) {
     const context = await this.workspace.requireMutable(businessId, user);
@@ -229,7 +242,7 @@ export class CompanionStudio {
       if (existing.businessId !== businessId) {
         throw new ForbiddenError("That Studio draft belongs to another workspace.");
       }
-      return { draft: existing, workItem: await this.work.get(businessId, user, existing.workItemId), direction: input.direction ?? "" };
+      return { draft: existing, workItem: await this.work.get(businessId, user, existing.workItemId), direction: input.direction ?? existing.direction ?? "" };
     }
     const selectedBody = input.body ?? "";
     const workItem = await this.work.saveDraft(businessId, user, {
@@ -239,33 +252,82 @@ export class CompanionStudio {
       workItemId: undefined
     });
     const logo = context.profile.brandAssets.find((asset) => asset.kind === "logo");
+    const retained = logo ? [logo] : context.profile.brandKit?.retainedAssets ?? [];
+    const kit = input.snapshot
+      ? brandKitFromSelection(
+          input.snapshot.selection ??
+            confirmSelection(
+              createDraft({
+                businessName: input.snapshot.businessName,
+                audience: input.snapshot.audience,
+                intentNote: input.snapshot.intentNote,
+                headline: input.snapshot.headline,
+                activeDirectionId: input.snapshot.selectedDirectionId,
+                paletteId: input.snapshot.paletteId,
+                visualDirectionId: input.snapshot.visualDirectionId
+              }),
+              null
+            ),
+          { mode: "new_brand", locked: true, retainedAssets: retained }
+        )
+      : context.profile.brandKit
+        ? structuredClone(context.profile.brandKit)
+        : null;
+    if (kit && input.snapshot) {
+      kit.sourceSelectionId = input.snapshot.selectionId;
+      kit.sourceRevision = input.snapshot.localRevision;
+      kit.businessName = input.snapshot.businessName || kit.businessName;
+    }
+    const layout = input.layout ?? (kit ? "direction_board" : "square_announcement");
     const layers = defaultLayers({
       headline: input.headline,
       body: selectedBody,
-      layout: input.layout,
+      layout,
       logoDocumentId: logo?.documentId,
-      logoAssetId: logo?.assetId
+      logoAssetId: logo?.assetId,
+      layoutVersion: 2,
+      designSpec: kit?.designSpec ?? input.snapshot?.designSpec
     });
     const stamp = now();
     const draft: StudioDraft = {
       id: draftId,
+      layoutVersion: 2,
       businessId,
       workItemId: workItem.id,
-      layout: input.layout ?? "square_announcement",
+      layout,
       layers,
+      direction: input.direction ?? input.snapshot?.selectedDirectionId ?? "",
+      palette: kit
+        ? paletteForDesignSpec(kit.designSpec)
+        : input.snapshot
+          ? (() => {
+              const spec = confirmSelection(
+                createDraft({
+                  activeDirectionId: input.snapshot.selectedDirectionId,
+                  paletteId: input.snapshot.paletteId,
+                  visualDirectionId: input.snapshot.visualDirectionId,
+                  headline: input.headline,
+                  businessName: input.snapshot.businessName
+                }),
+                null
+              ).designSpec;
+              return spec ? paletteForDesignSpec(spec) : paletteForProfile(context.profile);
+            })()
+          : paletteForProfile(context.profile),
+      brandKit: kit ?? undefined,
       saveRevision: 1,
       createdAt: stamp,
       updatedAt: stamp
     };
     await this.store.companion.addStudioDraft(draft);
-    return { draft, workItem, direction: input.direction ?? "" };
+    return { draft, workItem, direction: draft.direction ?? "" };
   }
 
   async updateDraft(
     businessId: string,
     user: User,
     draftId: string,
-    patch: Partial<Pick<StudioDraft, "layout" | "layers" | "selectedAssetId">> & {
+    patch: Partial<Pick<StudioDraft, "layout" | "layers" | "selectedAssetId" | "direction">> & {
       expectedUpdatedAt?: string;
       expectedSaveRevision?: number;
     }
@@ -273,10 +335,18 @@ export class CompanionStudio {
     await this.workspace.requireMutable(businessId, user);
     const draft = await this.requireDraft(businessId, draftId);
     const token = concurrencyToken(draft, patch);
+    if (patch.selectedAssetId) {
+      const selected = await this.store.companion.getStudioAsset(patch.selectedAssetId);
+      if (!selected || selected.businessId !== businessId || selected.draftId !== draft.id || !isStudioBackgroundAsset(selected)) {
+        throw new ForbiddenError("Choose a retained background image from this draft. Finished composition exports cannot be applied beneath editable text and logos.");
+      }
+    }
+    if (patch.layers) await this.assertAuthorizedLayers(businessId, patch.layers);
     const written = {
       ...draft,
       ...(patch.layout ? { layout: patch.layout } : {}),
       ...(patch.layers ? { layers: patch.layers } : {}),
+      ...(patch.direction !== undefined ? { direction: patch.direction } : {}),
       ...(patch.selectedAssetId !== undefined ? { selectedAssetId: patch.selectedAssetId } : {}),
       saveRevision: token + 1,
       updatedAt: nextStamp(draft.updatedAt)
@@ -303,6 +373,9 @@ export class CompanionStudio {
     }
     if (asset.draftId !== draft.id) {
       throw new ForbiddenError("That image belongs to a different Studio draft.");
+    }
+    if (studioAssetKind(asset) === "composition_export") {
+      throw new ForbiddenError("This is a finished composition export. Download it or reopen its editable draft; applying it as a background would duplicate text and logos.");
     }
     if (asset.status !== "ready" || !asset.blobId) {
       throw new ForbiddenError(
@@ -365,6 +438,10 @@ export class CompanionStudio {
     if (existing?.status === "pending") {
       throw new ForbiddenError("That generation is already in progress. Wait or retry the same request after it finishes.");
     }
+    const parent = input.sourceAssetId ? await this.store.companion.getStudioAsset(input.sourceAssetId) : null;
+    if (input.sourceAssetId && (!parent || parent.businessId !== businessId || !isStudioBackgroundAsset(parent))) {
+      throw new ForbiddenError("Choose a retained source image in this workspace. Finished composition exports cannot be edited as background imagery.");
+    }
     const reservation = await this.usage.reserve(
       businessId,
       user,
@@ -413,11 +490,6 @@ export class CompanionStudio {
           updatedAt: now(),
           attempt
         });
-    const parent = input.sourceAssetId ? await this.store.companion.getStudioAsset(input.sourceAssetId) : null;
-    if (parent && parent.businessId !== businessId) {
-      await this.usage.release(reservation);
-      throw new ForbiddenError("That source image is not part of this workspace.");
-    }
     const asset: StudioAsset = {
       id: companionId("asset"),
       businessId,
@@ -663,7 +735,10 @@ export class CompanionStudio {
         throw new ConflictError("This Studio draft changed since you last edited it. Reload the newer revision before exporting.");
       }
       const asset = draft.selectedAssetId ? await this.store.companion.getStudioAsset(draft.selectedAssetId) : null;
-      if (asset && (asset.businessId !== businessId || asset.status !== "ready")) {
+      if (asset && studioAssetKind(asset) === "composition_export") {
+        throw new ForbiddenError("This draft has a finished export selected as its background. Remove it or choose a source image before exporting, to avoid duplicating text and logos.");
+      }
+      if (draft.selectedAssetId && (!asset || asset.businessId !== businessId || !isStudioBackgroundAsset(asset))) {
         throw new ForbiddenError("The selected image is not a completed asset in this workspace. Export the text and logo layers, or retry generation.");
       }
       const composed = options?.composedPngBase64?.trim() ?? "";
@@ -676,13 +751,15 @@ export class CompanionStudio {
       } catch {
         throw new ForbiddenError("The composed image could not be read. The draft was not marked exported.");
       }
-      const palette = paletteForProfile(context.profile);
+      const palette = draft.palette ?? (draft.brandKit?.mode === "new_brand" ? paletteForDesignSpec(draft.brandKit.designSpec) : paletteForProfile(context.profile, draft.layoutVersion ?? 1));
       const composition = buildComposition({
         layout: nextLayout,
         layers: nextLayers,
         businessId,
         palette,
         profile: context.profile,
+        designSpec: draft.brandKit?.designSpec,
+        layoutVersion: draft.layoutVersion ?? 1,
         backgroundImageUrl: asset?.status === "ready" ? `/api/companion/assets/${asset.id}?businessId=${encodeURIComponent(businessId)}` : null
       });
       let inspected;
@@ -702,7 +779,7 @@ export class CompanionStudio {
         width: composition.width,
         height: composition.height,
         layers: nextLayers,
-        palette,
+        palette: composition.palette,
         composition: composition as unknown as Record<string, unknown>,
         rendererVersion: COMPOSITION_RENDERER_VERSION,
         outputHash,
@@ -824,6 +901,9 @@ export class CompanionStudio {
         const asset = await this.store.companion.getStudioAsset(layer.assetId);
         if (!asset || asset.businessId !== businessId) {
           throw new ForbiddenError("An image on this composition is not in this workspace. The draft was not marked exported.");
+        }
+        if (studioAssetKind(asset) === "composition_export") {
+          throw new ForbiddenError("A finished composition export cannot be used as an image or logo layer. Reopen its editable draft instead.");
         }
       }
     }

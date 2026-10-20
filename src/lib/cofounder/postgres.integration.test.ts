@@ -462,4 +462,103 @@ describe.skipIf(!isolated)("PostgreSQL companion integration", () => {
     expect(await storeA.companion.listStudioDrafts(ctx.business.id)).toHaveLength(0);
     expect(await storeA.companion.getGuestWorkClaim("dsel_pg_fail")).toBeTruthy();
   }, 60_000);
+
+  it("claims a newer Discovery revision without overwriting the first snapshot", async () => {
+    const { storeA, storeB, owner, ctx } = await openStores();
+    const guests = new GuestWorkService(storeA);
+    await guests.claim(owner, {
+      guestWorkId: "dsel_pg_rev",
+      kind: "discovery",
+      payload: {
+        selectionId: "dsel_pg_rev",
+        localRevision: 1,
+        selectedDirectionId: "lumen",
+        paletteId: "ivory_hall",
+        visualDirectionId: "glass",
+        businessName: "Lumen House",
+        visualPreferences: { headline: "Glass evening", paletteId: "ivory_hall", visualDirectionId: "glass" }
+      }
+    });
+    const newer = await guests.claim(owner, {
+      guestWorkId: "dsel_pg_rev",
+      kind: "discovery",
+      payload: {
+        selectionId: "dsel_pg_rev",
+        localRevision: 2,
+        selectedDirectionId: "hearth",
+        paletteId: "hearth_linen",
+        visualDirectionId: "material",
+        businessName: "Hearth Room",
+        visualPreferences: { headline: "Linen gathering", paletteId: "hearth_linen", visualDirectionId: "material" }
+      }
+    });
+    expect(newer.sourceRevision).toBe(2);
+    expect((await storeA.companion.getGuestWorkClaim("dsel_pg_rev", 1))?.payloadJson).toContain("ivory_hall");
+    await expect(
+      guests.claim(owner, {
+        guestWorkId: "dsel_pg_rev",
+        kind: "discovery",
+        payload: { selectionId: "dsel_pg_rev", localRevision: 1, selectedDirectionId: "signal" }
+      })
+    ).rejects.toBeInstanceOf(ConflictError);
+
+    const adoption = new BusinessAdoption(storeA);
+    const first = await adoption.confirm(ctx.business.id, owner, {
+      businessName: "Lumen House",
+      businessContext: "Quiet glass.",
+      sourceSelectionId: "dsel_pg_rev",
+      sourceRevision: 1,
+      directionId: "lumen"
+    });
+    const [retryA, retryB] = await Promise.all([
+      new BusinessAdoption(storeB).confirm(ctx.business.id, owner, {
+        businessName: "Hearth Room",
+        businessContext: "Warm linen.",
+        sourceSelectionId: "dsel_pg_rev",
+        sourceRevision: 2,
+        directionId: "hearth",
+        replaceConfirmedDirection: true
+      }),
+      adoption.confirm(ctx.business.id, owner, {
+        businessName: "Hearth Room",
+        businessContext: "Warm linen.",
+        sourceSelectionId: "dsel_pg_rev",
+        sourceRevision: 2,
+        directionId: "hearth",
+        replaceConfirmedDirection: true
+      })
+    ]);
+    expect(retryA.draft?.id).toBe(retryB.draft?.id);
+    expect(retryA.draft?.id).not.toBe(first.draft?.id);
+    expect((await storeA.companion.getStudioDraft(first.draft!.id))?.layers.find((layer) => layer.kind === "headline")?.text).toBe(
+      "Glass evening"
+    );
+    expect(retryA.draft?.brandKit?.designSpec.paletteId).toBe("hearth_linen");
+    expect(await storeA.companion.listStudioDrafts(ctx.business.id)).toHaveLength(2);
+  }, 60_000);
+
+  it("initializes two connections against an empty schema without a type-name race", async () => {
+    const postgres = (await import("postgres")).default;
+    const admin = postgres(url, { max: 1, prepare: false, connection: { application_name: "atelier-init-admin" } });
+    const dbName = `atelier_init_${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`;
+    try {
+      await admin.unsafe(`CREATE DATABASE ${dbName}`);
+      const isolatedUrl = url.replace(/\/[^/?]+(\?|$)/, `/${dbName}$1`);
+      const storeA = new PostgresPersistence(isolatedUrl);
+      const storeB = new PostgresPersistence(isolatedUrl);
+      await Promise.all([storeA.initialize(), storeB.initialize()]);
+      await seedSimulatedUsers(storeA, ["neil.local@atelier.invalid"]);
+      const owner = (await storeA.getUserByEmail("owner.local@atelier.invalid")) as User;
+      const claim = await new GuestWorkService(storeA).claim(owner, {
+        guestWorkId: "dsel_pg_init",
+        kind: "discovery",
+        payload: { selectionId: "dsel_pg_init", localRevision: 1, selectedDirectionId: "lumen" }
+      });
+      expect(claim.sourceRevision).toBe(1);
+      expect(await storeB.companion.getGuestWorkClaim("dsel_pg_init", 1)).toBeTruthy();
+    } finally {
+      await admin.unsafe(`DROP DATABASE IF EXISTS ${dbName} WITH (FORCE)`);
+      await admin.end({ timeout: 5 });
+    }
+  }, 60_000);
 });

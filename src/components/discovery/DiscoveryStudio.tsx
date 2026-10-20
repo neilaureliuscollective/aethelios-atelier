@@ -619,8 +619,6 @@ function NativeRadioRow<T extends string>({
 
 function StudioDock({
   state,
-  suggested,
-  onPatch,
   onPreview,
   onConfirm,
   onCompare,
@@ -639,21 +637,11 @@ function StudioDock({
   const comparing = state.phase === "compare";
   return (
     <div className={styles.stickyPrimary}>
-      <NativeRadioRow
-        name="direction-studio"
-        value={state.draft.activeDirectionId}
-        ariaLabel="Concept direction"
-        options={DIRECTION_ORDER.map((id) => ({
-          id,
-          label: `${DIRECTIONS[id].name}${id === suggested ? " · suggested" : ""}`
-        }))}
-        onChange={(id) => onPatch({ activeDirectionId: id })}
-      />
-      <p className={styles.selectedHint}>
-        Selected: {DIRECTIONS[state.draft.activeDirectionId].name} —{" "}
-        {DIRECTIONS[state.draft.activeDirectionId].epithet}
-      </p>
-      <ServiceScopeNote interest={state.draft.serviceInterest} />
+      <div className={styles.dockIdentity}>
+        <span className={styles.kicker}>Working direction</span>
+        <strong>{DIRECTIONS[state.draft.activeDirectionId].name}</strong>
+        <span className={styles.fine}>{DIRECTIONS[state.draft.activeDirectionId].epithet}</span>
+      </div>
       <NativeRadioRow
         name="preview-studio"
         value={state.previewMode}
@@ -674,7 +662,7 @@ function StudioDock({
             Compare two
           </button>
         )}
-        <button className={`${styles.btn} ${styles.btnEmerald}`} type="button" onClick={() => onConfirm()}>
+        <button className={`${styles.btn} btn-emerald-glass`} type="button" onClick={() => onConfirm()}>
           Use this direction
         </button>
         <button className={`${styles.btn} ${styles.btnGhost}`} type="button" onClick={onReview}>
@@ -732,7 +720,7 @@ function StudioControls({
         </p>
       ) : null}
       {compact ? (
-        <details className={styles.moreControls}>
+        <details className={styles.moreControls} open>
           <summary>Edit name, palette, and notes</summary>
           <StudioFields
             state={state}
@@ -920,21 +908,14 @@ function StudioBody({
 }) {
   const comparing = state.phase === "compare";
   const compareIds = state.draft.compareIds;
-  const [narrow, setNarrow] = useState(false);
-  useEffect(() => {
-    const media = window.matchMedia("(max-width: 1100px)");
-    const update = () => setNarrow(media.matches);
-    update();
-    media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
-  }, []);
-  const compact = narrow || comparing;
+  const [focused, setFocused] = useState(false);
+  const compact = true;
   const controlProps = {
     state,
     suggested,
     unpublished,
     compact,
-    showDock: !narrow,
+    showDock: false,
     onPatch,
     onDraft,
     onPreview,
@@ -945,30 +926,47 @@ function StudioBody({
   };
 
   return (
-    <section className={`${styles.studio} ${comparing ? "" : styles.studioWide}`.trim()}>
-      {narrow ? (
-        <StudioDock
-          state={state}
-          suggested={suggested}
-          onPatch={onPatch}
-          onPreview={onPreview}
-          onConfirm={onConfirm}
-          onCompare={onCompare}
-          onStudio={onStudio}
-          onReview={onReview}
-        />
-      ) : null}
+    <section className={`${styles.studio} ${comparing ? "" : styles.studioWide}`.trim()} data-focused={focused ? "true" : "false"}>
+      <header className={styles.workspaceHeader}>
+        <div>
+          <p className={styles.kicker}>Your creative workspace · curated locally</p>
+          <h2 className={styles.workspaceTitle} data-discovery-heading tabIndex={-1}>
+            {state.draft.businessName || "Your brand"}, taking shape.
+          </h2>
+          <p className={styles.fine}>Choose a direction. Refine it in place. Keep the version that feels right.</p>
+        </div>
+        <button className={`${styles.btn} ${styles.btnGhost}`} type="button" aria-pressed={focused} onClick={() => setFocused(value => !value)}>
+          {focused ? "Show directions & tools" : "Focus on preview"}
+        </button>
+      </header>
+      <div className={styles.directionShelf} role="radiogroup" aria-label="Concept direction">
+        {DIRECTION_ORDER.map((id, index) => (
+          <label className={styles.directionTile} key={id} data-selected={state.draft.activeDirectionId === id}>
+            <input type="radio" name="direction-studio" value={id} checked={state.draft.activeDirectionId === id} onChange={() => onPatch({ activeDirectionId: id })} />
+            <div className={styles.directionThumbnail} inert aria-hidden="true">
+              <div className={styles.thumbnailViewport}>
+                <ConceptStage instanceId={`direction-shelf-${id}`} draft={state.draft} directionId={id} onAction={onAction} />
+              </div>
+            </div>
+            <span className={styles.directionCaption}><span>0{index + 1} / {DIRECTIONS[id].name}</span><span>{state.draft.activeDirectionId === id ? "Selected" : id === suggested ? "Suggested" : "Explore"}</span></span>
+            <span className={styles.directionEpithet}>{DIRECTIONS[id].epithet}</span>
+          </label>
+        ))}
+      </div>
+      <div className={styles.workspaceDock}>
+        <StudioDock state={state} suggested={suggested} onPatch={onPatch} onPreview={onPreview} onConfirm={onConfirm} onCompare={onCompare} onStudio={onStudio} onReview={onReview} />
+      </div>
       <div className={styles.previewColumn}>
+        <div className={styles.artboardLabel}><span>{comparing ? "Side-by-side directions" : `${DIRECTIONS[state.draft.activeDirectionId].name} / ${state.previewMode === "mobile" ? "Phone" : "Desktop"}`}</span><span>Interactive concept · scroll to explore</span></div>
+
         {comparing ? (
           <>
             <p className={styles.kicker}>Two-direction comparison</p>
             <h2 className={styles.heading} tabIndex={-1}>
-              Choose with feeling, not conversion claims.
+              Two ways to express your business.
             </h2>
             <p className={styles.lede}>
-              Both previews use the same business name, written intent, qualities, and notes. They
-              differ in emphasis, visual personality, and how a visitor is invited to continue. Neither
-              is a tested revenue or conversion result.
+              The same brief, two visual approaches. Explore each, then keep the direction you prefer.
             </p>
             <div className={styles.chipRow} role="group" aria-label="Directions to compare">
               {DIRECTION_ORDER.map((id) => (
@@ -1020,10 +1018,8 @@ function StudioBody({
                     >
                       Use {DIRECTIONS[id].name}
                     </button>
-                    <article className={styles.solid}>
-                      <h3>
-                        {DIRECTIONS[id].name} — {DIRECTIONS[id].epithet}
-                      </h3>
+                    <details className={styles.comparisonNotes}>
+                      <summary>What makes {DIRECTIONS[id].name} different</summary>
                       <p>
                         <strong>Feeling. </strong>
                         {content.comparisonFeeling}
@@ -1040,15 +1036,12 @@ function StudioBody({
                         Same answers throughout: {content.businessName}
                         {state.draft.intentNote.trim() ? ` — “${state.draft.intentNote.trim()}”` : ""}.
                       </p>
-                    </article>
+                    </details>
                   </div>
                 );
               })}
             </div>
-            <p className={styles.fine}>
-              Neither direction is claimed to increase revenue. They differ in atmosphere, what they
-              emphasize, and how a visitor is invited to continue.
-            </p>
+
             <div className={styles.footerNav}>
               <button className={`${styles.btn} ${styles.btnGhost}`} type="button" onClick={onStudio}>
                 Back to studio
@@ -1067,10 +1060,9 @@ function StudioBody({
       </div>
       <aside className={styles.rail} data-mobile-dock="true">
         <div className={styles.solid}>
-          <p className={styles.kicker}>Studio controls</p>
-          <h2 className={styles.heading} data-discovery-heading tabIndex={-1}>
-            {comparing ? "Compare" : "Shape this direction"}
-          </h2>
+          <p className={styles.kicker}>Refine in place</p>
+          <h2 className={styles.heading}>Your direction, your details</h2>
+          <p className={styles.fine}>Changes appear in the preview. Confirming keeps a separate snapshot.</p>
           <StudioControls {...controlProps} />
         </div>
       </aside>
@@ -1196,6 +1188,7 @@ function ReviewBody({
             onChange={(event) => onPatch({ exclusions: event.target.value })}
           />
         </label>
+        {confirmed ? <p className={styles.fine}>Continue in Studio to create editable artwork in your private workspace, or add this direction to a commission brief below.</p> : null}
         <div className={styles.footerNav}>
           <button className={`${styles.btn} ${styles.btnGhost}`} type="button" onClick={onBack}>
             Back to studio

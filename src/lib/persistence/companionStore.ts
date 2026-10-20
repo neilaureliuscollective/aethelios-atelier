@@ -33,7 +33,8 @@ export type CompanionStore = {
     businessId: string,
     createdAt: string
   ): { claimed: boolean; businessId: string } | Promise<{ claimed: boolean; businessId: string }>;
-  getGuestWorkClaim(guestWorkId: string): GuestWorkClaim | null | Promise<GuestWorkClaim | null>;
+  getGuestWorkClaim(guestWorkId: string, sourceRevision?: number | null): GuestWorkClaim | null | Promise<GuestWorkClaim | null>;
+  listGuestWorkClaims(guestWorkId: string): GuestWorkClaim[] | Promise<GuestWorkClaim[]>;
   insertGuestWorkClaim(claim: GuestWorkClaim): GuestWorkClaim | Promise<GuestWorkClaim>;
   getBusinessConfirmation(businessId: string): BusinessConfirmation | null | Promise<BusinessConfirmation | null>;
   upsertBusinessConfirmation(confirmation: BusinessConfirmation): BusinessConfirmation | Promise<BusinessConfirmation>;
@@ -53,6 +54,7 @@ export type CompanionStore = {
   getMember(businessId: string, userId: string): BusinessMember | null | Promise<BusinessMember | null>;
   listMembers(businessId: string): BusinessMember[] | Promise<BusinessMember[]>;
 
+  compareAndSwapProfile(profile: BusinessProfile, expectedUpdatedAt: string): BusinessProfile | null | Promise<BusinessProfile | null>;
   upsertProfile(profile: BusinessProfile): BusinessProfile | Promise<BusinessProfile>;
   getProfile(businessId: string): BusinessProfile | Promise<BusinessProfile>;
 
@@ -149,12 +151,14 @@ CREATE TABLE IF NOT EXISTS user_initial_business (
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS guest_work_claims (
-  guest_work_id TEXT PRIMARY KEY,
+  guest_work_id TEXT NOT NULL,
+  source_revision INTEGER NOT NULL DEFAULT 0,
   owner_id TEXT NOT NULL,
   kind TEXT NOT NULL,
   destination TEXT NOT NULL,
   payload_json TEXT NOT NULL,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (guest_work_id, source_revision)
 );
 CREATE TABLE IF NOT EXISTS business_confirmations (
   business_id TEXT PRIMARY KEY,
@@ -258,7 +262,11 @@ CREATE TABLE IF NOT EXISTS studio_drafts (
   source_work_item_id TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  save_revision INTEGER NOT NULL DEFAULT 1
+  save_revision INTEGER NOT NULL DEFAULT 1,
+  direction TEXT,
+  brand_kit_json TEXT,
+  palette_json TEXT,
+  layout_version INTEGER
 );
 CREATE TABLE IF NOT EXISTS studio_assets (
   id TEXT PRIMARY KEY,

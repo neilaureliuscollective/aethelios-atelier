@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { CompanionShell } from "@/components/cofounder/CompanionShell";
 import { AppLink } from "@/components/ui/AppLink";
@@ -44,6 +44,56 @@ export function WorkClient() {
   const [kindFilter, setKindFilter] = useState("all");
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [pending, setPending] = useState("");
+  const [status, setStatus] = useState("");
+  const inFlight = useRef(false);
+  const actionSequence = useRef(0);
+  const retryAction = useRef<(() => Promise<void>) | null>(null);
+
+  async function perform(label: string, action: () => Promise<void>, success: string, retrySafe = true) {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    const sequence = ++actionSequence.current;
+    setPending(label);
+    setError("");
+    setStatus("");
+    retryAction.current = retrySafe ? () => perform(label, action, success, retrySafe) : null;
+    const gen = generation;
+    const owner = user?.id ?? null;
+    try {
+      await action();
+      if (ownerFence.isCurrent(gen, owner)) {
+        if (success) setStatus(success);
+        retryAction.current = null;
+      }
+    } catch (err) {
+      if (ownerFence.isCurrent(gen, owner)) setError(actionErrorMessage(err, "The action did not confirm. Review saved work before retrying."));
+    } finally {
+      if (actionSequence.current === sequence) {
+        inFlight.current = false;
+        if (ownerFence.isCurrent(gen, owner)) setPending("");
+      }
+    }
+  }
+
+  async function reload() {
+    setLoading(true);
+    try { await load(); } finally { if (ownerFence.isCurrent(generation, user?.id ?? null)) setLoading(false); }
+  }
+
+  async function updateItem(id: string, action?: "confirm") {
+    if (action === "confirm") {
+      const current = await api<{ items: WorkItem[] }>(`/api/companion/work?businessId=${encodeURIComponent(businessId ?? "")}`);
+      const item = current.items.find((entry) => entry.id === id);
+      if (!item) throw new Error("The requested item is unavailable. Refresh saved work.");
+      if (item.status !== "awaiting_review") { await load(); return; }
+    }
+    await api("/api/companion/work", {
+      method: "PATCH", body: JSON.stringify({ workItemId: id, action, businessId })
+    });
+    await load();
+  }
 
   async function load(gen = generation) {
     const workspace = await api<{ business: { id: string; name: string } }>("/api/companion/workspace");
@@ -63,20 +113,35 @@ export function WorkClient() {
     if (requested) {
       const match = visible.find((item) => item.id === requested);
       if (match) setEditing(match);
+      else setStatus("The requested item is unavailable in this business or was archived. Other saved work is shown below.");
     }
   }
 
   useEffect(() => {
+    actionSequence.current += 1;
+    inFlight.current = false;
+    retryAction.current = null;
+    setTitle("");
+    setDetail("");
+    setBusinessId(undefined);
+    setProjectName("");
+    setItems([]);
+    setAssets([]);
+    setEditing(null);
+    setStatus("");
+    setError("");
+    setPending("");
     if (!user) return;
-    void load().catch((err) => setError(actionErrorMessage(err, "Work could not load.")));
+    void perform("Loading saved work…", reload, "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [generation, user?.id]);
 
   async function addTask() {
     await api("/api/companion/tasks", {
       method: "POST",
-      body: JSON.stringify({ title, detail, status: "open" })
+      body: JSON.stringify({ title, detail, status: "open", businessId })
     });
+    if (!ownerFence.isCurrent(generation, user?.id ?? null)) return;
     setTitle("");
     setDetail("");
     await load();
@@ -88,10 +153,12 @@ export function WorkClient() {
       method: "POST",
       body: JSON.stringify({
         workItemId: editing.id,
+        businessId,
         title: editing.title,
         body: String(editing.payload.body ?? "")
       })
     });
+    if (!ownerFence.isCurrent(generation, user?.id ?? null)) return;
     setEditing(null);
     await load();
   }
@@ -132,7 +199,9 @@ export function WorkClient() {
       title="Saved work"
       lede="Drafts, generated assets, and next actions stay in this workspace. Every record remains visible."
     >
-      {error ? <p className="notice notice-warn">{error}</p> : null}
+      {pending ? <p role="status" className="notice">{pending}</p> : null}
+      {status ? <p role="status" className="notice">{status}</p> : null}
+      {error ? <div role="alert" className="notice notice-warn"><p>{error}</p>{retryAction.current ? <button className="btn btn-ghost" type="button" disabled={Boolean(pending)} onClick={() => void retryAction.current?.()}>Retry action</button> : <p>Refresh saved work before adding this task again; the previous save may have completed.</p>}<button className="btn btn-ghost" type="button" disabled={Boolean(pending)} onClick={() => void perform("Refreshing saved work…", reload, "Saved work refreshed.")}>Refresh saved work</button></div> : null}
       <div className={styles.grid}>
         <article className={`${styles.glassCard} on-glass`}>
           <div className={styles.libraryToolbar}>
@@ -152,10 +221,10 @@ export function WorkClient() {
             </label>
           </div>
           <div className={styles.library}>
-            {filtered.length === 0 ? <p className="muted">No saved work yet.</p> : null}
+            {!loading && !error && filtered.length === 0 ? <div className="muted">{items.length === 0 ? <><p>No saved work yet. Prepare a draft in Talk or compose one in Studio.</p><AppLink className="btn btn-ghost" href="/companion/talk">Start a draft</AppLink></> : <><p>No work matches these filters. Your {items.length} saved records are still here.</p><button className="btn btn-ghost" type="button" onClick={() => { setQuery(""); setKindFilter("all"); setPage(0); }}>Clear filters</button></>}</div> : null}
             {groups.map(([key, group]) => (
               <section key={key} className={styles.group}>
-                {group.length > 1 ? <p className={styles.meta}>{group.length} versions of “{group[0]?.title}” — each record is kept</p> : null}
+                {group.length > 1 ? <p className={styles.meta}>{group.length} separate records titled “{group[0]?.title}” — each record is kept</p> : null}
                 <div className={styles.cards}>
                   {group.map((item) => {
                     const meta = exportMeta(item);
@@ -178,12 +247,8 @@ export function WorkClient() {
                             <button
                               className="btn btn-gold btn-compact"
                               type="button"
-                              onClick={() =>
-                                void api("/api/companion/work", {
-                                  method: "PATCH",
-                                  body: JSON.stringify({ workItemId: item.id, action: "confirm" })
-                                }).then(() => load())
-                              }
+                              disabled={Boolean(pending)}
+                              onClick={() => void perform("Confirming proposed action…", () => updateItem(item.id, "confirm"), "Proposed action confirmed.")}
                             >
                               Confirm proposed action
                             </button>
@@ -209,12 +274,8 @@ export function WorkClient() {
                           <button
                             className="btn btn-ghost btn-compact"
                             type="button"
-                            onClick={() =>
-                              void api("/api/companion/work", {
-                                method: "PATCH",
-                                body: JSON.stringify({ workItemId: item.id })
-                              }).then(() => load())
-                            }
+                            disabled={Boolean(pending)}
+                            onClick={() => void perform("Archiving…", () => updateItem(item.id), "Item archived.")}
                           >
                             Archive
                           </button>
@@ -254,7 +315,7 @@ export function WorkClient() {
                   setEditing({ ...editing, payload: { ...editing.payload, body: event.target.value } })
                 }
               />
-              <button className="btn btn-gold" type="button" onClick={() => void saveDraft()}>
+              <button className="btn btn-gold" type="button" disabled={Boolean(pending)} onClick={() => void perform("Saving wording…", saveDraft, "Exact wording saved.")}>
                 Save exact wording
               </button>
             </>
@@ -263,7 +324,7 @@ export function WorkClient() {
               <p className={styles.label}>Owner task</p>
               <input className={styles.field} placeholder="Follow up on the announcement" value={title} onChange={(event) => setTitle(event.target.value)} />
               <textarea className={styles.field} placeholder="Optional detail" value={detail} onChange={(event) => setDetail(event.target.value)} />
-              <button className="btn btn-gold" type="button" disabled={!title.trim()} onClick={() => void addTask()}>
+              <button className="btn btn-gold" type="button" disabled={!title.trim() || Boolean(pending)} onClick={() => void perform("Adding task…", addTask, "Task saved.", false)}>
                 Add task
               </button>
             </>

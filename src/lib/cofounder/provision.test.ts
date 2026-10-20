@@ -108,14 +108,78 @@ describe("guest work claims", () => {
     const retry = await service.claim(owner, {
       guestWorkId: "dsel_one",
       kind: "discovery",
-      destination: "/companion/studio"
+      destination: "/companion/studio",
+      payload: { selectedDirectionId: "lumen" }
     });
     expect(retry.ownerId).toBe(first.ownerId);
     expect(retry.createdAt).toBe(first.createdAt);
+    expect(retry.sourceRevision).toBe(0);
+    await expect(
+      service.claim(owner, {
+        guestWorkId: "dsel_one",
+        kind: "discovery",
+        payload: { selectedDirectionId: "hearth" }
+      })
+    ).rejects.toBeInstanceOf(ConflictError);
     await expect(
       service.claim(other, { guestWorkId: "dsel_one", kind: "discovery", destination: "/companion/confirm" })
     ).rejects.toBeInstanceOf(ForbiddenError);
     await expect(service.readForUser(other, "dsel_one")).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it("stores immutable Discovery revisions and keeps the first snapshot", async () => {
+    const { store, owner, other } = await setup();
+    const service = new GuestWorkService(store);
+    const first = await service.claim(owner, {
+      guestWorkId: "dsel_rev",
+      kind: "discovery",
+      payload: {
+        selectionId: "dsel_rev",
+        localRevision: 1,
+        selectedDirectionId: "lumen",
+        paletteId: "ivory_hall",
+        visualDirectionId: "glass",
+        businessName: "Lumen House"
+      }
+    });
+    const newer = await service.claim(owner, {
+      guestWorkId: "dsel_rev",
+      kind: "discovery",
+      payload: {
+        selectionId: "dsel_rev",
+        localRevision: 2,
+        selectedDirectionId: "hearth",
+        paletteId: "hearth_linen",
+        visualDirectionId: "material",
+        businessName: "Hearth Room"
+      }
+    });
+    expect(newer.sourceRevision).toBe(2);
+    expect(newer.payloadJson).not.toBe(first.payloadJson);
+    expect((await store.companion.getGuestWorkClaim("dsel_rev", 1))?.payloadJson).toContain("ivory_hall");
+    expect((await store.companion.getGuestWorkClaim("dsel_rev", 2))?.payloadJson).toContain("hearth_linen");
+    await expect(
+      service.claim(owner, {
+        guestWorkId: "dsel_rev",
+        kind: "discovery",
+        payload: {
+          selectionId: "dsel_rev",
+          localRevision: 1,
+          selectedDirectionId: "signal"
+        }
+      })
+    ).rejects.toBeInstanceOf(ConflictError);
+    await expect(
+      service.claim(other, {
+        guestWorkId: "dsel_rev",
+        kind: "discovery",
+        payload: {
+          selectionId: "dsel_rev",
+          localRevision: 3,
+          selectedDirectionId: "signal"
+        }
+      })
+    ).rejects.toBeInstanceOf(ForbiddenError);
   });
 
   it("converges concurrent claims on one owner without a post-conflict select in a failed transaction", async () => {
@@ -217,6 +281,9 @@ describe("business confirmation", () => {
     expect(first.confirmation.businessName).toBe("Northridge");
     expect(first.draft?.id).toBeTruthy();
     expect(first.draft?.layers.some((layer) => layer.text?.includes("Lumen"))).toBe(true);
+    expect(first.draft?.brandKit?.designSpec.directionId).toBe("lumen");
+    expect(first.draft?.palette?.canvas).toBeTruthy();
+    expect(first.draft?.layout).toBe("direction_board");
     await expect(
       adoption.confirm(context.business.id, owner, {
         businessName: "Northridge",
@@ -237,8 +304,75 @@ describe("business confirmation", () => {
     expect(replaced.confirmation.sourceSelectionId).toBe("dsel_b");
     expect(replaced.draft?.id).toBeTruthy();
     expect(replaced.draft?.id).not.toBe(first.draft?.id);
+    expect(replaced.draft?.brandKit?.designSpec.directionId).toBe("hearth");
+    expect(replaced.draft?.palette?.canvas).not.toBe(first.draft?.palette?.canvas);
     expect(await store.companion.getStudioDraft(first.draft!.id)).toBeTruthy();
     await expect(adoption.read(context.business.id, other)).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it("adopts a newer revision of the same selection without overwriting the first draft", async () => {
+    const { store, owner, workspace } = await setup();
+    const context = await workspace.ensureForUser(owner);
+    const guests = new GuestWorkService(store);
+    await guests.claim(owner, {
+      guestWorkId: "dsel_same",
+      kind: "discovery",
+      payload: {
+        selectionId: "dsel_same",
+        localRevision: 1,
+        selectedDirectionId: "lumen",
+        paletteId: "ivory_hall",
+        visualDirectionId: "glass",
+        businessName: "Lumen House",
+        visualPreferences: { headline: "Glass evening", paletteId: "ivory_hall", visualDirectionId: "glass" }
+      }
+    });
+    await guests.claim(owner, {
+      guestWorkId: "dsel_same",
+      kind: "discovery",
+      payload: {
+        selectionId: "dsel_same",
+        localRevision: 2,
+        selectedDirectionId: "hearth",
+        paletteId: "hearth_linen",
+        visualDirectionId: "material",
+        businessName: "Hearth Room",
+        visualPreferences: { headline: "Linen gathering", paletteId: "hearth_linen", visualDirectionId: "material" }
+      }
+    });
+    const adoption = new BusinessAdoption(store);
+    const first = await adoption.confirm(context.business.id, owner, {
+      businessName: "Lumen House",
+      businessContext: "Quiet glass.",
+      sourceSelectionId: "dsel_same",
+      sourceRevision: 1,
+      directionId: "lumen"
+    });
+    await expect(
+      adoption.confirm(context.business.id, owner, {
+        businessName: "Hearth Room",
+        businessContext: "Warm linen.",
+        sourceSelectionId: "dsel_same",
+        sourceRevision: 2,
+        directionId: "hearth"
+      })
+    ).rejects.toBeInstanceOf(ConflictError);
+    const replaced = await adoption.confirm(context.business.id, owner, {
+      businessName: "Hearth Room",
+      businessContext: "Warm linen.",
+      sourceSelectionId: "dsel_same",
+      sourceRevision: 2,
+      directionId: "hearth",
+      replaceConfirmedDirection: true
+    });
+    expect(replaced.draft?.id).not.toBe(first.draft?.id);
+    expect(replaced.draft?.layers.find((layer) => layer.kind === "headline")?.text).toBe("Linen gathering");
+    expect(replaced.draft?.brandKit?.designSpec.paletteId).toBe("hearth_linen");
+    expect(first.draft?.brandKit?.designSpec.paletteId).toBe("ivory_hall");
+    const preserved = await store.companion.getStudioDraft(first.draft!.id);
+    expect(preserved?.layers.find((layer) => layer.kind === "headline")?.text).toBe("Glass evening");
+    expect(preserved?.brandKit?.designSpec.paletteId).toBe("ivory_hall");
+    expect(await store.companion.listStudioDrafts(context.business.id)).toHaveLength(2);
   });
 
   it("refuses adoption when the Discovery snapshot was never claimed", async () => {

@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { BrandDirectionImport } from "@/components/cofounder/BrandDirectionImport";
+import { renderComposition } from "@/lib/cofounder/renderComposition";
 import { CompanionShell } from "@/components/cofounder/CompanionShell";
 import { api } from "@/lib/client/api";
 import { actionErrorMessage } from "@/lib/client/asyncAction";
@@ -10,21 +12,21 @@ import { useSession } from "@/components/shell/SessionShell";
 import {
   assetUrl,
   buildComposition,
-  compositionCssFont,
-  coverCropRect,
   documentUrl,
   layersFromControls,
   paletteForProfile,
   previewScale,
   scaleCompositionPx,
   studioLayouts,
-  wrapLines,
   type BrandPalette,
   type CompositionSpec
 } from "@/lib/cofounder/composition";
 import { resolveStudioOpen, selectedWorkText } from "@/lib/cofounder/studioOpen";
 import type { BusinessProfile, StudioAsset, StudioDraft, StudioLayoutId, WorkItem } from "@/lib/cofounder/types";
 import styles from "./companion.module.css";
+import stage from "./studioStage.module.css";
+import { CompositionStudy } from "./CompositionStudy";
+import { isStudioBackgroundAsset, studioAssetKind } from "@/lib/cofounder/studioAssets";
 
 const LAYOUTS = studioLayouts();
 
@@ -32,14 +34,18 @@ export function StudioClient() {
   const { user, generation } = useSession();
   const search = useSearchParams();
   const [phase, setPhase] = useState<"checking" | "ready" | "error">("checking");
+  const [mode, setMode] = useState<"refine" | "collection" | "identity">("refine");
+  const [panel, setPanel] = useState("Content");
+  const [compareSaved, setCompareSaved] = useState(false);
+  const [kept, setKept] = useState<string[]>([]);
   const [businessId, setBusinessId] = useState<string>();
-  const [profile, setProfile] = useState<Pick<BusinessProfile, "fields"> | null>(null);
+  const [profile, setProfile] = useState<BusinessProfile | null>(null);
   const [drafts, setDrafts] = useState<StudioDraft[]>([]);
   const [assets, setAssets] = useState<StudioAsset[]>([]);
   const [current, setCurrent] = useState<StudioDraft | null>(null);
   const [headline, setHeadline] = useState("");
   const [body, setBody] = useState("");
-  const [direction, setDirection] = useState("Quiet workshop light. No fake testimonials or invented results.");
+  const [direction, setDirection] = useState("");
   const [layout, setLayout] = useState<StudioLayoutId>("square_announcement");
   const [logoX, setLogoX] = useState(8);
   const [logoY, setLogoY] = useState(80);
@@ -51,19 +57,22 @@ export function StudioClient() {
   const [recovery, setRecovery] = useState("");
   const [asset, setAsset] = useState<StudioAsset | null>(null);
   const [workItems, setWorkItems] = useState<WorkItem[]>([]);
+  const [logoAssetId, setLogoAssetId] = useState<string | undefined>();
   const [logoDocumentId, setLogoDocumentId] = useState<string | undefined>();
   const [generating, setGenerating] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const generateKeyRef = useRef<string | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const previewBoxRef = useRef<HTMLDivElement | null>(null);
   const [previewWidth, setPreviewWidth] = useState(0);
 
   function hydrate(draft: StudioDraft | null) {
     setCurrent(draft);
+    setKept((previous) => current?.id === draft?.id ? previous : []);
+    setCompareSaved(false);
+    setDirection(draft?.direction ?? "");
     setHeadline(draft?.layers.find((layer) => layer.kind === "headline")?.text ?? "");
     setBody(draft?.layers.find((layer) => layer.kind === "body")?.text ?? "");
     setLayout(draft?.layout ?? "square_announcement");
@@ -71,6 +80,7 @@ export function StudioClient() {
     setLogoX(logo?.x ?? 8);
     setLogoY(logo?.y ?? 80);
     setLogoDocumentId(logo?.documentId);
+    setLogoAssetId(logo?.assetId);
     const image = draft?.layers.find((layer) => layer.kind === "image");
     setCropX(image?.cropX ?? 50);
     setCropY(image?.cropY ?? 50);
@@ -78,8 +88,8 @@ export function StudioClient() {
     setDirty(false);
   }
 
-  async function refresh(gen = generation) {
-    setPhase("checking");
+  async function refresh(gen = generation, restoreDraft = true) {
+    if (restoreDraft) setPhase("checking");
     const workspace = await api<{
       business: { id: string; name: string };
       rawProfile?: BusinessProfile;
@@ -100,6 +110,10 @@ export function StudioClient() {
     setDrafts(data.drafts);
     setWorkItems(work.items);
     setAssets(data.assets ?? today.today.pendingAssets);
+    if (!restoreDraft) {
+      setPhase("ready");
+      return;
+    }
     const requestedDraft = search.get("draftId") || workspace.confirmation?.studioDraftId || null;
     const requestedWork = search.get("workItemId");
     if (!requestedDraft && !requestedWork) {
@@ -159,8 +173,8 @@ export function StudioClient() {
   const selected = current;
   const backgroundUrl =
     selected?.selectedAssetId && businessId ? assetUrl(businessId, selected.selectedAssetId) : "";
-  const logoUrl = logoDocumentId && businessId ? documentUrl(businessId, logoDocumentId) : "";
-  const palette: BrandPalette | undefined = profile ? paletteForProfile(profile) : undefined;
+  const logoUrl = businessId ? (logoDocumentId ? documentUrl(businessId, logoDocumentId) : logoAssetId ? assetUrl(businessId, logoAssetId) : "") : "";
+  const palette: BrandPalette | undefined = current?.palette ?? (current?.brandKit?.mode === "new_brand" ? undefined : profile ? paletteForProfile(profile, current ? current.layoutVersion ?? 1 : 2) : undefined);
 
   const liveLayers = useMemo(
     () =>
@@ -168,14 +182,17 @@ export function StudioClient() {
         headline,
         body,
         layout,
+        designSpec: current?.brandKit?.designSpec,
+        layoutVersion: current ? current.layoutVersion ?? 1 : 2,
         logoDocumentId,
+        logoAssetId,
         logoX,
         logoY,
         cropX,
         cropY,
         cropZoom
       }),
-    [headline, body, layout, logoDocumentId, logoX, logoY, cropX, cropY, cropZoom]
+    [current, headline, body, layout, logoDocumentId, logoAssetId, logoX, logoY, cropX, cropY, cropZoom]
   );
 
   const composition = useMemo(() => {
@@ -186,10 +203,34 @@ export function StudioClient() {
       businessId,
       palette,
       profile,
+      designSpec: current?.brandKit?.designSpec,
+      layoutVersion: current ? current.layoutVersion ?? 1 : 2,
       backgroundImageUrl: backgroundUrl || null,
       logoUrl: logoUrl || null
     });
-  }, [businessId, layout, liveLayers, palette, profile, backgroundUrl, logoUrl]);
+  }, [current, businessId, layout, liveLayers, palette, profile, backgroundUrl, logoUrl]);
+
+  const collection = useMemo(() => {
+    if (!businessId || !composition) return [];
+    return (["square_announcement", "website_banner", "direction_board"] as StudioLayoutId[]).map((format) => ({
+      format, label: LAYOUTS.find((item) => item.id === format)!.label,
+      spec: buildComposition({ layout: format, businessId, profile, palette,
+        designSpec: current?.brandKit?.designSpec, layoutVersion: current ? current.layoutVersion ?? 1 : 2,
+        layers: layersFromControls({ headline, body, layout: format, designSpec: current?.brandKit?.designSpec,
+          layoutVersion: current ? current.layoutVersion ?? 1 : 2, logoDocumentId, logoAssetId, logoX, logoY, cropX, cropY, cropZoom }),
+        backgroundImageUrl: backgroundUrl || null, logoUrl: logoUrl || null })
+    }));
+  }, [businessId, composition, current, profile, palette, headline, body, logoDocumentId, logoAssetId, logoX, logoY, cropX, cropY, cropZoom, backgroundUrl, logoUrl]);
+  const savedComposition = useMemo(() => current && businessId ? buildComposition({
+    layout: current.layout, layers: current.layers, businessId, profile, palette: current.palette,
+    designSpec: current.brandKit?.designSpec, layoutVersion: current.layoutVersion ?? 1,
+    backgroundImageUrl: current.selectedAssetId ? assetUrl(businessId, current.selectedAssetId) : null,
+    logoUrl: (() => { const logo = current.layers.find((item) => item.kind === "logo");
+      return logo?.documentId ? documentUrl(businessId, logo.documentId) : logo?.assetId ? assetUrl(businessId, logo.assetId) : null; })()
+  }) : null, [current, businessId, profile]);
+  function focusPanel(name: string) {
+    setPanel(name); setMode("refine");
+  }
 
   useEffect(() => {
     const box = previewBoxRef.current;
@@ -204,7 +245,24 @@ export function StudioClient() {
 
   useEffect(() => {
     if (!composition || !previewCanvasRef.current) return;
-    void renderComposition(composition, previewCanvasRef.current).catch(() => undefined);
+    let cancelled = false;
+    const target = previewCanvasRef.current;
+    target.dataset.renderState = "pending";
+    void renderComposition(composition, document.createElement("canvas")).then((rendered) => {
+      if (cancelled) return;
+      target.width = rendered.width;
+      target.height = rendered.height;
+      target.getContext("2d")?.drawImage(rendered, 0, 0);
+      target.dataset.renderState = "ready";
+    }).catch((err) => {
+      if (!cancelled) {
+        target.dataset.renderState = "error";
+        target.width = 0;
+        target.height = 0;
+        setError(actionErrorMessage(err, "Preview could not render. Adjust the copy or retry."));
+      }
+    });
+    return () => { cancelled = true; };
   }, [composition]);
 
   async function createDraft(input?: { workItemId?: string; headline: string; body: string }) {
@@ -241,7 +299,10 @@ export function StudioClient() {
         headline,
         body,
         layout,
+        designSpec: current?.brandKit?.designSpec,
+        layoutVersion: current ? current.layoutVersion ?? 1 : 2,
         logoDocumentId: explicitLogoId,
+        logoAssetId: explicitLogoId ? undefined : logoAssetId,
         logoX,
         logoY,
         cropX,
@@ -253,6 +314,7 @@ export function StudioClient() {
         body: JSON.stringify({
           businessId,
           draftId: selected.id,
+          direction,
           layout,
           layers,
           expectedUpdatedAt: selected.updatedAt
@@ -329,7 +391,7 @@ export function StudioClient() {
     try {
       const saved = dirty ? await saveLayers() : selected;
       if (!saved) return;
-      const composedPngBase64 = await composePng(composition, canvasRef.current ?? previewCanvasRef.current);
+      const composedPngBase64 = await composePng(composition);
       const result = await api<{
         exported: { labeled: string; dimensions: { width: number; height: number }; assetUrl?: string | null };
       }>("/api/companion/studio/export", {
@@ -369,7 +431,10 @@ export function StudioClient() {
   }
 
   async function applyRetained(assetId: string) {
-    if (!selected || !businessId) return;
+    if (!selected || !businessId || saving || exporting || generating) return;
+    const latest = dirty ? await saveLayers() : selected;
+    if (!latest) return;
+    setSaving(true);
     setError("");
     setRecovery("");
     try {
@@ -377,19 +442,36 @@ export function StudioClient() {
         method: "POST",
         body: JSON.stringify({
           businessId,
-          draftId: selected.id,
+          draftId: latest.id,
           assetId,
-          expectedSaveRevision: selected.saveRevision,
-          expectedUpdatedAt: selected.updatedAt
+          expectedSaveRevision: latest.saveRevision,
+          expectedUpdatedAt: latest.updatedAt
         })
       });
       hydrate(result.draft);
+      await refresh(generation, false);
       setStatus("Retained image applied to the current draft. Newer text and layout were kept.");
-      await refresh();
     } catch (err) {
       setError(actionErrorMessage(err, "The retained image could not be applied. Newer draft edits were kept."));
       setRecovery("Reload the newer revision, then apply the image again. The file itself was not deleted.");
+    } finally {
+      setSaving(false);
     }
+  }
+
+  async function removeFlattenedBackground() {
+    if (!current || saving) return;
+    const latest = dirty ? await saveLayers() : current;
+    if (!latest) return;
+    setSaving(true); setError("");
+    try {
+      const result = await api<{ draft: StudioDraft }>("/api/companion/studio", {
+        method: "PATCH", body: JSON.stringify({ businessId, draftId: latest.id, selectedAssetId: "",
+          expectedSaveRevision: latest.saveRevision, expectedUpdatedAt: latest.updatedAt })
+      });
+      hydrate(result.draft); await refresh(generation, false); setStatus("Flattened background removed. Original export remains available.");
+    } catch (err) { setError(actionErrorMessage(err, "Background could not be removed. Reload and retry.")); }
+    finally { setSaving(false); }
   }
 
   async function uploadLogo(file: File) {
@@ -412,6 +494,7 @@ export function StudioClient() {
       })
     });
     setLogoDocumentId(result.document.id);
+    setLogoAssetId(undefined);
     setDirty(true);
     setStatus("Original logo stored. Preview and export use the same placement.");
     if (selected) await saveLayers(result.document.id);
@@ -447,7 +530,7 @@ export function StudioClient() {
                 ? "Saved"
                 : "";
   const readyImages = selected
-    ? assets.filter((item) => item.draftId === selected.id && item.status === "ready" && item.blobId)
+    ? assets.filter((item) => item.draftId === selected.id && isStudioBackgroundAsset(item))
     : [];
 
   if (phase === "checking") {
@@ -462,27 +545,64 @@ export function StudioClient() {
     );
   }
 
+  if (phase === "error" && !current) {
+    return (
+      <CompanionShell
+        wide
+        title="Brand Studio"
+        lede="Studio could not verify this workspace or the requested composition."
+      >
+        <p className="notice notice-warn">{error || "Studio could not load."}</p>
+        {recovery ? <p className={styles.meta}>{recovery}</p> : null}
+        <button
+          className="btn btn-gold"
+          type="button"
+          onClick={() => {
+            setPhase("checking");
+            void refresh().catch((err) => {
+              setError(actionErrorMessage(err, "Studio could not load."));
+              setPhase("error");
+            });
+          }}
+        >
+          Retry Studio
+        </button>
+      </CompanionShell>
+    );
+  }
+
   return (
     <CompanionShell
       wide
+      compact
       title="Brand Studio"
       lede="The artwork is the stage. Import exact Talk copy, place the real logo, and export only after this revision is saved."
     >
-      <canvas ref={canvasRef} hidden />
-      <p className={styles.context} data-project-name={profile?.fields.name.value ?? ""}>
-        <strong>{profile?.fields.name.value || "Select a business in Companion."}</strong>
-        <span>{selected ? `Draft ${selected.id.slice(0, 12)}` : "No draft open"}</span>
-        {saveState ? (
-          <span className={styles.saveState} data-save-state={saveState}>
-            {saveState}
-          </span>
-        ) : null}
-      </p>
-      <div className={styles.studioDesk}>
-        <section className={`${styles.artboard} on-glass`}>
+      <div className={stage.workspace}>
+      <div className={stage.workbar}>
+        <div data-project-name={profile?.fields.name.value ?? ""}><strong>{profile?.fields.name.value || "Your brand"}</strong><span>{current?.brandKit?.designSpec.directionId ?? "Personal composition"} · {saveState || "Start a draft"}</span></div>
+        <nav aria-label="Creative workspace" className={stage.modeSwitch}>
+          <button type="button" aria-pressed={mode === "identity"} onClick={() => setMode("identity")}>Direction</button>
+          <button type="button" aria-pressed={mode === "refine"} onClick={() => setMode("refine")}>Refine</button>
+          <button type="button" aria-pressed={mode === "collection"} onClick={() => setMode("collection")}>Collection</button>
+        </nav>
+      </div>
+      {mode === "identity" ? <section className={stage.identity} aria-label="Choose identity">
+        <div><span className={stage.eyebrow}>Your foundation</span><h2>{current?.brandKit?.mode === "existing_brand" ? "Build on your identity." : "A direction worth making your own."}</h2><p>Compare rendered directions in Discovery. Lock a choice for new work; this saved artwork keeps its own identity.</p><a href="/discover" className="btn btn-emerald-glass">Compare directions</a></div>
+        <BrandDirectionImport businessId={businessId} onAdopt={() => { void refresh(); setStatus("Brand direction saved. Create a new draft to use it; existing artifacts retain their saved identity."); }} />
+      </section> : null}
+      <div className={`${styles.studioDesk} ${stage.desk}`} data-mode={mode}>
+
+        <section className={`${styles.artboard} ${stage.stage} on-glass`} aria-label="Artwork stage">
+          {assets.some((item) => item.id === selected?.selectedAssetId && studioAssetKind(item) === "composition_export") ? <div className="notice notice-warn">This older draft uses a flattened export as its background. Remove it to keep lettering separate.<button type="button" className="btn btn-gold" disabled={saving} onClick={() => void removeFlattenedBackground()}>Remove flattened background</button></div> : null}
+          <div className={stage.stageTop}><span className={stage.eyebrow}>{mode === "collection" ? "One identity · three applications" : "Your working artboard"}</span><button className={stage.compare} type="button" disabled={!current} aria-pressed={compareSaved} onClick={() => { setCompareSaved(!compareSaved); if (mode === "collection") setMode("refine"); }}>{compareSaved ? "Close comparison" : "Compare saved"}</button></div>
+          <div className={stage.formatRail} aria-label="Artifact format">{LAYOUTS.filter((item) => ["square_announcement", "website_banner", "direction_board"].includes(item.id)).map((item) => <button key={item.id} type="button" aria-pressed={layout === item.id} disabled={kept.includes("Layout") || saving || exporting} onClick={() => { markDirty(setLayout)(item.id); setMode("refine"); }}>{item.label}</button>)}</div>
+          <div className={stage.mount} data-compare={compareSaved}>
+          {compareSaved && savedComposition ? <figure className={stage.before}><figcaption>Last saved · {current?.layout}</figcaption><CompositionStudy spec={savedComposition} label="Last saved composition" /></figure> : null}
+          <div className={stage.working}><span className={stage.artLabel}>{dirty ? "Working edit" : "Saved artwork"}</span>
           <div
             ref={previewBoxRef}
-            className={styles.canvas}
+            className={`${styles.canvas} ${stage.canvas}`}
             aria-label="Composition preview"
             data-preview-width={previewWidth || undefined}
             data-preview-scale={
@@ -495,7 +615,7 @@ export function StudioClient() {
             }
             style={{
               aspectRatio: composition?.aspect,
-              background: composition?.palette.canvas ?? "#2a2218"
+              background: composition?.palette.canvas ?? "#f4f0e6"
             }}
           >
             {composition ? (
@@ -506,12 +626,20 @@ export function StudioClient() {
             {asset?.status === "pending" ? <p className={styles.meta} style={{ position: "absolute", bottom: 16, left: 16 }}>Pending generation</p> : null}
             {asset?.status === "failed" ? <p className="notice notice-warn">Generation failed — not a completed asset.</p> : null}
           </div>
-          <p className={styles.meta}>{status}</p>
+          </div></div>
+          <div className={stage.toolDock} aria-label="Select an element">{["Content", "Image", "Brand", "Layout"].map((name) => <button key={name} type="button" aria-pressed={panel === name && mode === "refine"} onClick={() => focusPanel(name)}>{name === "Content" ? "Aa · Text" : name === "Image" ? "◈ · Image" : name === "Brand" ? "◇ · Logo" : "▣ · Format"}</button>)}</div>
+          <div className={stage.collection} data-expanded={mode === "collection"} aria-label="Coordinated artifact previews">{collection.map((item) => <button key={item.format} type="button" className={stage.study} aria-pressed={layout === item.format} disabled={kept.includes("Layout") || saving || exporting} onClick={() => { markDirty(setLayout)(item.format); setMode("refine"); }}><span className={stage.studyCanvas}><CompositionStudy spec={item.spec} label={`${item.label} live collection preview`} /></span><span>{item.label}<small>{layout === item.format ? "On stage" : "Open & edit"}</small></span></button>)}</div>
+          <div className={stage.stageActions}><button className="btn btn-gold" type="button" onClick={() => void saveLayers()} disabled={!selected || saving}>{saving ? "Saving…" : dirty ? "Save layers" : "Saved"}</button><button className="btn btn-emerald-glass" type="button" onClick={() => void exportDraft()} disabled={!selected || exporting}>{exporting ? "Exporting…" : "Export"}</button><button className={stage.compare} type="button" disabled={!current || !dirty} onClick={() => { hydrate(current); setStatus("Restored the last saved composition."); }}>Reset edits</button></div>
+          <p className={styles.meta} role="status">{status}</p>
           {error ? <p className="notice notice-warn">{error}</p> : null}
           {recovery ? <p className={styles.meta}>{recovery}</p> : null}
         </section>
-        <aside className={`${styles.inspector} on-glass`}>
-          <details className={styles.sheet} open>
+        <aside className={`${styles.inspector} ${stage.inspector} on-glass`} aria-label="Refine artwork">
+          <div className={stage.inspectorHead}><div><span className={stage.eyebrow}>Refine this artwork</span><h2>{panel === "Brand" ? "Original identity" : panel}</h2></div><button type="button" className={stage.compare} aria-pressed={kept.includes(panel)} onClick={() => setKept(kept.includes(panel) ? kept.filter((name) => name !== panel) : [...kept, panel])}>{kept.includes(panel) ? "Unlock" : "Keep this"}</button></div>
+          <p className={stage.scope}>{kept.includes(panel) ? "Kept while editing. Unlock to change these controls." : "Artwork only. Other saved work stays unchanged."}</p>
+          <fieldset className={stage.controls} disabled={kept.includes(panel) || saving || exporting}>
+
+          <details className={styles.sheet} open hidden={panel !== "Content"}>
             <summary>Content</summary>
             <label className={styles.label} htmlFor="studio-draft">
               Saved draft
@@ -568,12 +696,12 @@ export function StudioClient() {
             </label>
             <textarea id="body" className={styles.field} value={body} onChange={(event) => markDirty(setBody)(event.target.value)} />
           </details>
-          <details className={styles.sheet} open>
+          <details className={styles.sheet} open hidden={panel !== "Image"}>
             <summary>Image</summary>
             <label className={styles.label} htmlFor="direction">
               Image direction
             </label>
-            <textarea id="direction" className={styles.field} value={direction} onChange={(event) => setDirection(event.target.value)} />
+            <textarea id="direction" className={styles.field} value={direction} onChange={(event) => { setDirection(event.target.value); setDirty(true); }} />
             <label className={styles.label} htmlFor="crop-x">
               Image crop X {cropX}
             </label>
@@ -614,7 +742,7 @@ export function StudioClient() {
                             className="btn btn-ghost btn-compact"
                             type="button"
                             data-apply-retained={item.id}
-                            disabled={applied || saving}
+                            disabled={applied || saving || exporting || generating}
                             onClick={() => void applyRetained(item.id)}
                           >
                             {applied ? "Already applied" : "Apply to draft"}
@@ -626,6 +754,7 @@ export function StudioClient() {
                 )}
               </div>
             ) : null}
+            {assets.some((item) => item.draftId === selected?.id && studioAssetKind(item) === "composition_export") ? <details><summary>Composition exports · download only</summary>{assets.filter((item) => item.draftId === selected?.id && studioAssetKind(item) === "composition_export" && item.blobId).map((item) => <a key={item.id} className="btn btn-ghost btn-compact" href={assetUrl(businessId!, item.id)} download>Download exported revision {item.revision}</a>)}</details> : null}
             {assets.filter((item) => item.status === "pending" || item.status === "failed").length ? (
               <p className={styles.meta}>
                 {assets.filter((item) => item.status === "pending" || item.status === "failed").length} pending or
@@ -633,7 +762,7 @@ export function StudioClient() {
               </p>
             ) : null}
           </details>
-          <details className={styles.sheet}>
+          <details className={styles.sheet} open hidden={panel !== "Brand"}>
             <summary>Brand</summary>
             <label className={styles.label} htmlFor="logo">
               Add original logo
@@ -655,7 +784,7 @@ export function StudioClient() {
             <input className={styles.range} aria-label="Logo Y" type="range" min={2} max={88} value={logoY} onChange={(event) => markDirty(setLogoY)(Number(event.target.value))} />
             <p className={styles.meta}>Business palette stays on the artwork. Atelier chrome does not recolor the export.</p>
           </details>
-          <details className={styles.sheet} open>
+          <details className={styles.sheet} open hidden={panel !== "Layout"}>
             <summary>Layout</summary>
             <label className={styles.label} htmlFor="studio-layout">
               Layout
@@ -673,97 +802,35 @@ export function StudioClient() {
               ))}
             </select>
           </details>
-          <div className={styles.primaryActions}>
-            <button className="btn btn-ghost btn-compact" type="button" onClick={() => void createDraft()}>
+          </fieldset>
+          <div className={`${styles.primaryActions} ${stage.secondaryActions}`}>
+            <button className="btn btn-ghost btn-compact" type="button" disabled={saving || exporting || generating} onClick={() => void createDraft()}>
               New draft
             </button>
-            <button className="btn btn-gold" type="button" onClick={() => void saveLayers()} disabled={!selected || saving}>
-              {saving ? "Saving…" : dirty ? "Save layers" : "Saved"}
-            </button>
-            <button className="btn btn-ghost" type="button" onClick={() => void generate()} disabled={!selected || generating}>
+            <button className="btn btn-ghost" type="button" onClick={() => void generate()} disabled={!selected || generating || kept.includes("Image")}>
               {generating ? "Generating…" : "Generate image"}
             </button>
             <button
               className="btn btn-ghost btn-compact"
               type="button"
               onClick={() => void generate(selected?.selectedAssetId)}
-              disabled={!selected?.selectedAssetId || generating}
+              disabled={!selected?.selectedAssetId || generating || kept.includes("Image")}
             >
               Edit selected image
             </button>
-            <button className="btn btn-emerald-glass" type="button" onClick={() => void exportDraft()} disabled={!selected || exporting}>
-              {exporting ? "Exporting…" : "Export"}
-            </button>
+
           </div>
         </aside>
+      </div>
+      <details className={stage.provenance}><summary>Identity & source · Curated study, no live AI</summary><p>{current?.brandKit ? `Saved identity revision ${current.brandKit.revision} · layout v${current.layoutVersion ?? 1} · ${current.brandKit.mode === "existing_brand" ? "Existing brand continued" : "New brand direction"}` : "Create a draft to save your composition."}. Collection previews use this artwork’s copy, imagery and identity. Open a format and save to retain that artifact. “Keep this” protects controls during this editing session; saved identity assets remain in the business profile.</p></details>
       </div>
     </CompanionShell>
   );
 }
 
-async function renderComposition(spec: CompositionSpec, canvas: HTMLCanvasElement) {
-  canvas.width = spec.width;
-  canvas.height = spec.height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("This browser could not compose the export canvas.");
-  if (document.fonts?.ready) await document.fonts.ready;
-  ctx.fillStyle = spec.palette.canvas;
-  ctx.fillRect(0, 0, spec.width, spec.height);
-  if (spec.backgroundImageUrl) {
-    const image = await loadImage(spec.backgroundImageUrl);
-    const crop = coverCropRect(
-      image.naturalWidth || image.width,
-      image.naturalHeight || image.height,
-      spec.width,
-      spec.height,
-      spec.crop.x,
-      spec.crop.y,
-      spec.crop.zoom
-    );
-    ctx.drawImage(image, crop.x, crop.y, crop.width, crop.height);
-  }
-  ctx.fillStyle = spec.headline.color;
-  ctx.font = compositionCssFont(spec.headline);
-  ctx.textBaseline = "top";
-  const headlineWidth = (spec.headline.width / 100) * spec.width;
-  const headlineX = (spec.headline.x / 100) * spec.width;
-  const headlineY = (spec.headline.y / 100) * spec.height;
-  const headlineLines = wrapLines(spec.headline.text, headlineWidth, (value) => ctx.measureText(value).width);
-  headlineLines.forEach((line, index) => {
-    ctx.fillText(line, headlineX, headlineY + index * spec.headline.fontSize * spec.headline.lineHeight);
-  });
-  ctx.fillStyle = spec.body.color;
-  ctx.font = compositionCssFont(spec.body);
-  const bodyWidth = (spec.body.width / 100) * spec.width;
-  const bodyX = (spec.body.x / 100) * spec.width;
-  const bodyY = (spec.body.y / 100) * spec.height;
-  const bodyLines = wrapLines(spec.body.text, bodyWidth, (value) => ctx.measureText(value).width);
-  bodyLines.forEach((line, index) => {
-    ctx.fillText(line, bodyX, bodyY + index * spec.body.fontSize * spec.body.lineHeight);
-  });
-  if (spec.logo) {
-    const logo = await loadImage(spec.logo.src);
-    const boxW = (spec.logo.width / 100) * spec.width;
-    const boxH = (spec.logo.height / 100) * spec.height;
-    const scale = Math.min(boxW / logo.width, boxH / logo.height);
-    const drawW = logo.width * scale;
-    const drawH = logo.height * scale;
-    ctx.drawImage(logo, (spec.logo.x / 100) * spec.width, (spec.logo.y / 100) * spec.height, drawW, drawH);
-  }
-  return canvas;
-}
-
-async function composePng(spec: CompositionSpec, canvas: HTMLCanvasElement | null) {
-  const target = await renderComposition(spec, canvas ?? document.createElement("canvas"));
+async function composePng(spec: CompositionSpec) {
+  // Match preview rasterization without inheriting CSS text styles from a mounted canvas.
+  const target = await renderComposition(spec, document.createElement("canvas"));
   const data = target.toDataURL("image/png");
   return data.replace(/^data:image\/png;base64,/, "");
-}
-
-function loadImage(src: string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("A background or logo image failed to load. Export was not marked complete."));
-    img.src = src;
-  });
 }

@@ -34,6 +34,7 @@ function parseJson<T>(value: string, fallback: T): T {
 export function mapGuestClaim(row: Row): GuestWorkClaim {
   return {
     guestWorkId: asString(row.guest_work_id),
+    sourceRevision: row.source_revision == null ? 0 : asNumber(row.source_revision),
     ownerId: asString(row.owner_id),
     kind: asString(row.kind) as GuestWorkKind,
     destination: asString(row.destination),
@@ -183,6 +184,10 @@ export function mapStudioDraft(row: Row): StudioDraft {
     businessId: asString(row.business_id),
     workItemId: asString(row.work_item_id),
     layout: row.layout as StudioDraft["layout"],
+    layoutVersion: Number(row.layout_version) === 2 ? 2 : 1,
+    direction: asOptionalString(row.direction),
+    brandKit: row.brand_kit_json ? parseJson(asString(row.brand_kit_json), undefined) : undefined,
+    palette: row.palette_json ? parseJson(asString(row.palette_json), undefined) : undefined,
     layers: parseJson(asString(row.layers_json, "[]"), []),
     selectedAssetId: asOptionalString(row.selected_asset_id),
     sourceWorkItemId: asOptionalString(row.source_work_item_id),

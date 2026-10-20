@@ -57,7 +57,17 @@ check("owner claims discovery", claimed.status === 200 && claimed.json.claim?.gu
 const retry = await req("/api/companion/guest-claim", {
   method: "POST",
   cookie: owner,
-  body: { guestWorkId, kind: "discovery", destination: "/companion/studio" }
+  body: {
+    guestWorkId,
+    kind: "discovery",
+    destination: "/companion/studio",
+    payload: {
+      selectionId: guestWorkId,
+      localRevision: 1,
+      selectedDirectionId: "lumen",
+      businessName: "Northridge Sitting Room"
+    }
+  }
 });
 check("claim is idempotent", retry.status === 200 && retry.json.claim?.createdAt === claimed.json.claim.createdAt);
 

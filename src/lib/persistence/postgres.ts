@@ -311,10 +311,17 @@ export class PostgresPersistence implements PersistenceAdapter {
 
   async initialize() {
     if (this.initialized) return;
-    for (const statement of SCHEMA_STATEMENTS) {
-      await this.sql.unsafe(statement);
-    }
-    await this.companion.initialize();
+    // Serialize first-time CREATE TABLE across independent connections. Concurrent
+    // CREATE TABLE IF NOT EXISTS races on pg_type_typname_nsp_index.
+    await this.sql.begin(async (sql) => {
+      await sql`SELECT pg_advisory_xact_lock(${847261053})`;
+      for (const statement of SCHEMA_STATEMENTS) {
+        await sql.unsafe(statement);
+      }
+      await txSql.run(sql, async () => {
+        await this.companion.initialize();
+      });
+    });
     this.initialized = true;
   }
 
@@ -332,28 +339,33 @@ export class PostgresPersistence implements PersistenceAdapter {
   }
 
   async resetForTests() {
-    await this.client().unsafe(`
-      DELETE FROM request_ledger;
-      DELETE FROM delivery_feedback;
-      DELETE FROM delivery_versions;
-      DELETE FROM proposal_decisions;
-      DELETE FROM proposals;
-      DELETE FROM content_requests;
-      DELETE FROM delivery_milestones;
-      DELETE FROM clarification_responses;
-      DELETE FROM client_updates;
-      DELETE FROM founder_notes;
-      DELETE FROM suggestions;
-      DELETE FROM messages;
-      DELETE FROM review_events;
-      DELETE FROM submissions;
-      DELETE FROM projects;
-      DELETE FROM sessions;
-      DELETE FROM auth_accounts;
-      DELETE FROM auth_verification_tokens;
-      DELETE FROM users;
-    `);
-    await this.companion.reset();
+    await this.sql.begin(async (sql) => {
+      await sql`SELECT pg_advisory_xact_lock(${847261053})`;
+      await txSql.run(sql, async () => {
+        await sql.unsafe(`
+          DELETE FROM request_ledger;
+          DELETE FROM delivery_feedback;
+          DELETE FROM delivery_versions;
+          DELETE FROM proposal_decisions;
+          DELETE FROM proposals;
+          DELETE FROM content_requests;
+          DELETE FROM delivery_milestones;
+          DELETE FROM clarification_responses;
+          DELETE FROM client_updates;
+          DELETE FROM founder_notes;
+          DELETE FROM suggestions;
+          DELETE FROM messages;
+          DELETE FROM review_events;
+          DELETE FROM submissions;
+          DELETE FROM projects;
+          DELETE FROM sessions;
+          DELETE FROM auth_accounts;
+          DELETE FROM auth_verification_tokens;
+          DELETE FROM users;
+        `);
+        await this.companion.reset();
+      });
+    });
   }
 
   async listProjectsByBusiness(businessId: string) {

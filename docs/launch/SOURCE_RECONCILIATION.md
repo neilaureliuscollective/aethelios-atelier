@@ -1,45 +1,59 @@
 # Source reconciliation manifest
 
 Exact working branch: `cursor/atelier-premium-launch-readiness-da63`  
-Inspected incoming head: `6f5dcedf906e26715c4d351227cb9614772dca7c`  
-Application commit: `2c6a4c7`  
-Resulting head: `2cc7a2c6a017a36cec495401bfc212ae1fe65e1e`  
+Inspected incoming head: `a8aabc60d0b91c17bbe1d117443ea4e67a2584f6`  
 This pass continues that branch. It does not reset to `main` and does not replace the application.
 
-## Supplied attachments
+## Immersive source attachment
 
-| Item | Status | What was done |
-| --- | --- | --- |
-| `REHEARSAL.md` | Present at `/home/ubuntu/.cursor/projects/workspace/uploads/REHEARSAL.md_e898.txt` | Copied to `docs/launch/REHEARSAL.md`. Used as historical evidence of the Direction → Refine → Collection rehearsal against application source `99a7524d60b13f2c6a6579a5cea2913e08c71d27`. `e7c7c27` remains later rehearsal evidence only. Neither SHA exists in this repository. |
-| `atelier-integrated-source.patch` | **Still missing** | Searched the workspace, `/tmp`, agent uploads, and public GitHub. The file is not a repository, has no base SHA, and cannot be applied. No weaker immersive Studio was invented to replace it. |
+| Item | Status |
+| --- | --- |
+| Path | `/home/ubuntu/.cursor/projects/workspace/uploads/atelier-immersive-source_a958.txt` |
+| Size | 283,258 bytes |
+| SHA-256 | `6ad51b91012226ae59a5e4d71fd30d6551ee9b753963d634b000b2eec352db35` |
+| Kind | Complete original Git patch with a `.txt` extension |
 
-## Retained from PR #18 / this branch
+The attachment matched the expected size and hash before Studio work began. `REHEARSAL.md` was not treated as the missing source.
 
-- First-customer provisioning (`user_initial_business` + transactional `ensureForUser`)
-- Guest claiming (`guest_work_claims`) and safe return destinations
-- Explicit business / direction confirmation
-- Inquiry-led pricing
-- Official brand assets and the ivory / emerald-glass / gold system
-- Auth.js / simulated-identity boundary, PWA cache `atelier-static-v9`, personalized `/companion` exclusion
-- Existing companion Studio compositions, CAS saves, retained images, and shared preview/export rendering
-- Layout tokens `square_announcement` / `portrait_social` / `story_portrait` / `website_banner` (Square social and Website banner already exist in this Studio)
+## Applicability
 
-## Retained from the rehearsal notes (evidence only)
+- Forward `git apply` of the patch onto `a8aabc6` failed on already-evolved files (`AccountClient`, `CompanionShell`, `StudioClient`, `DiscoveryStudio`, companion persistence).
+- Reverse apply does not apply (expected: the patch is not the inverse of this branch).
+- `git apply --3way` applied the recovered immersive Studio. Four UI files conflicted and were reconciled by hand.
 
-The rehearsal describes Direction → Refine → Collection, BrandKit, Direction board, Continue in Studio, saved-versus-working comparison, and official Reserve-logo handling. Those application files are in the missing patch, not in this checkout. This pass does **not** reconstruct them from the write-up.
+## File-by-file reconcile
 
-## Added in this pass (unblocked work)
+### Applied from the immersive patch (kept)
 
-- Confirmation now requires a signed-in owner and a server-side guest claim before a Discovery direction can be adopted
-- The claimed payload is the source of truth; client/localStorage IDs must match it
-- A failed guest claim blocks adoption
-- Confirmation idempotently creates or resolves one editable Studio draft and returns its id
-- Studio / confirm screens start in a genuine checking state
-- Guest-claim inserts use `ON CONFLICT` / `INSERT OR IGNORE` so PostgreSQL never continues a failed unique-insert transaction
-- Guest-brief adoption retries the whole transaction instead of catching unique and re-querying inside the aborted transaction
+BrandKit, `renderComposition`, `studioAssets`, Direction → Refine → Collection, `CompositionStudy`, `BrandDirectionImport`, `MotionPreferences`, `studioStage.module.css`, `direction_board`, paper fallback palette, continuation helpers, review scripts, and identity persistence columns.
 
-## Still blocked
+### Preserved from Phase B (not overwritten)
 
-1. Applying `atelier-integrated-source.patch` — exact missing source
-2. Restoring BrandKit / Direction board / Collection from that patch
-3. Hosted Auth.js, dedicated Postgres, artifact storage, and provider-backed generation
+Owner-bound guest claims, transactional adoption, exact-draft navigation, idempotent identical adoption, checking states, provisioning uniqueness, revision-aware CAS saves, pricing, official assets, and security boundaries.
+
+### Hand-merged UI
+
+| File | Resolution |
+| --- | --- |
+| `AccountClient.tsx` | Keep guest intent **and** `signInDestination`. |
+| `CompanionShell.tsx` | Keep confirm/checking gates, `accountLink`, and a retryable workspace-error gate. Failed verification is never treated as ready. |
+| `StudioClient.tsx` | Keep `checking\|ready\|error` **and** immersive Direction/Refine/Collection, compare-saved, and exact-draft open (`draftId` or confirmation `studioDraftId`). |
+| `DiscoveryStudio.tsx` | Confirmed continue still goes through `/companion/confirm`, not a silent Studio skip. |
+
+## Visual-brand continuity added in this pass
+
+- Guest claims are immutable and owner-bound per `(guest_work_id, source_revision)`.
+- Same selection/revision + identical payload is an idempotent retry.
+- Same revision + different content conflicts.
+- A newer revision is claimable and explicitly adoptable. The older snapshot and first Studio draft stay.
+- `parseClaimedDiscovery` carries palette, visual direction, layout, and a parseable selection.
+- `createFromConfirmedSnapshot` builds BrandKit + designSpec artwork (`direction_board`) instead of default square layers.
+- Confirmation opens that exact draft. Preview/export continue to share `renderComposition`.
+
+## Recovery patch
+
+`docs/launch/atelier-visual-continuity.patch` is the recoverable diff of this pass against `a8aabc6`.
+
+## Still separate hosted gates
+
+Hosted Auth.js, durable hosted storage, and live provider acceptance remain outside this candidate. See `HOSTED_ACTIVATION.md`.

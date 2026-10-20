@@ -61,9 +61,44 @@ export class PostgresCompanionStore implements CompanionStore {
     await this.client().unsafe("ALTER TABLE studio_composition_revisions ADD COLUMN IF NOT EXISTS renderer_version TEXT");
     await this.client().unsafe("ALTER TABLE studio_composition_revisions ADD COLUMN IF NOT EXISTS output_hash TEXT");
     await this.client().unsafe("ALTER TABLE studio_drafts ADD COLUMN IF NOT EXISTS save_revision INTEGER NOT NULL DEFAULT 1");
+    await this.client().unsafe("ALTER TABLE studio_drafts ADD COLUMN IF NOT EXISTS direction TEXT");
+    await this.client().unsafe("ALTER TABLE studio_drafts ADD COLUMN IF NOT EXISTS brand_kit_json TEXT");
+    await this.client().unsafe("ALTER TABLE studio_drafts ADD COLUMN IF NOT EXISTS palette_json TEXT");
+    await this.client().unsafe("ALTER TABLE studio_drafts ADD COLUMN IF NOT EXISTS layout_version INTEGER");
     await this.client().unsafe("ALTER TABLE usage_events ADD COLUMN IF NOT EXISTS attempt INTEGER NOT NULL DEFAULT 1");
     await this.client().unsafe("ALTER TABLE generation_jobs ADD COLUMN IF NOT EXISTS attempt INTEGER NOT NULL DEFAULT 1");
     await this.client().unsafe("ALTER TABLE business_confirmations ADD COLUMN IF NOT EXISTS studio_draft_id TEXT");
+    await this.ensureGuestClaimRevisions();
+  }
+
+  private async ensureGuestClaimRevisions() {
+    await this.client().unsafe(
+      "ALTER TABLE guest_work_claims ADD COLUMN IF NOT EXISTS source_revision INTEGER NOT NULL DEFAULT 0"
+    );
+    await this.client().unsafe(`
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1
+          FROM information_schema.table_constraints
+          WHERE table_schema = current_schema()
+            AND table_name = 'guest_work_claims'
+            AND constraint_type = 'PRIMARY KEY'
+            AND constraint_name = 'guest_work_claims_pkey'
+        ) AND NOT EXISTS (
+          SELECT 1
+          FROM information_schema.key_column_usage
+          WHERE table_schema = current_schema()
+            AND table_name = 'guest_work_claims'
+            AND constraint_name = 'guest_work_claims_pkey'
+            AND column_name = 'source_revision'
+        ) THEN
+          ALTER TABLE guest_work_claims DROP CONSTRAINT guest_work_claims_pkey;
+          ALTER TABLE guest_work_claims ADD PRIMARY KEY (guest_work_id, source_revision);
+        END IF;
+      END
+      $$;
+    `);
   }
 
   async lockUsageBudget(businessId: string, kind: UsageKind, periodKey: string) {
@@ -158,18 +193,29 @@ export class PostgresCompanionStore implements CompanionStore {
     return { claimed: existing === businessId, businessId: existing ?? businessId };
   }
 
-  async getGuestWorkClaim(guestWorkId: string) {
-    const rows = await this.client()`SELECT * FROM guest_work_claims WHERE guest_work_id = ${guestWorkId}`;
-    return rows[0] ? mapGuestClaim(rows[0] as Row) : null;
+  async listGuestWorkClaims(guestWorkId: string) {
+    const rows =
+      await this.client()`SELECT * FROM guest_work_claims WHERE guest_work_id = ${guestWorkId} ORDER BY source_revision ASC`;
+    return rows.map((row) => mapGuestClaim(row as Row));
+  }
+
+  async getGuestWorkClaim(guestWorkId: string, sourceRevision?: number | null) {
+    if (sourceRevision != null) {
+      const rows =
+        await this.client()`SELECT * FROM guest_work_claims WHERE guest_work_id = ${guestWorkId} AND source_revision = ${sourceRevision}`;
+      return rows[0] ? mapGuestClaim(rows[0] as Row) : null;
+    }
+    const listed = await this.listGuestWorkClaims(guestWorkId);
+    return listed.at(-1) ?? null;
   }
 
   async insertGuestWorkClaim(claim: GuestWorkClaim) {
     await this.client()`
-      INSERT INTO guest_work_claims(guest_work_id,owner_id,kind,destination,payload_json,created_at)
-      VALUES (${claim.guestWorkId}, ${claim.ownerId}, ${claim.kind}, ${claim.destination}, ${claim.payloadJson}, ${claim.createdAt})
-      ON CONFLICT (guest_work_id) DO NOTHING
+      INSERT INTO guest_work_claims(guest_work_id,source_revision,owner_id,kind,destination,payload_json,created_at)
+      VALUES (${claim.guestWorkId}, ${claim.sourceRevision}, ${claim.ownerId}, ${claim.kind}, ${claim.destination}, ${claim.payloadJson}, ${claim.createdAt})
+      ON CONFLICT (guest_work_id, source_revision) DO NOTHING
     `;
-    const stored = await this.getGuestWorkClaim(claim.guestWorkId);
+    const stored = await this.getGuestWorkClaim(claim.guestWorkId, claim.sourceRevision);
     if (!stored) {
       throw new Error("The guest work claim could not be stored.");
     }
@@ -260,6 +306,12 @@ export class PostgresCompanionStore implements CompanionStore {
   async listMembers(businessId: string) {
     const rows = await this.client()`SELECT * FROM business_members WHERE business_id = ${businessId}`;
     return rows.map((row) => mapMember(row as Row));
+  }
+
+  async compareAndSwapProfile(profile: BusinessProfile, expectedUpdatedAt: string) {
+    const rows = await this.client()`UPDATE business_profiles SET profile_json=${JSON.stringify(profile)}, updated_at=${profile.updatedAt}, updated_by=${profile.updatedBy ?? null}
+      WHERE business_id=${profile.businessId} AND updated_at=${expectedUpdatedAt} RETURNING business_id`;
+    return rows.length === 1 ? profile : null;
   }
 
   async upsertProfile(profile: BusinessProfile) {
@@ -428,11 +480,11 @@ export class PostgresCompanionStore implements CompanionStore {
 
   async addStudioDraft(draft: StudioDraft) {
     await this.client()`
-      INSERT INTO studio_drafts(id,business_id,work_item_id,layout,layers_json,selected_asset_id,source_work_item_id,created_at,updated_at,save_revision)
+      INSERT INTO studio_drafts(id,business_id,work_item_id,layout,layers_json,selected_asset_id,source_work_item_id,created_at,updated_at,save_revision,direction,brand_kit_json,palette_json,layout_version)
       VALUES (
         ${draft.id}, ${draft.businessId}, ${draft.workItemId}, ${draft.layout}, ${JSON.stringify(draft.layers)},
         ${draft.selectedAssetId ?? null}, ${draft.sourceWorkItemId ?? null}, ${draft.createdAt}, ${draft.updatedAt},
-        ${draft.saveRevision ?? 1}
+        ${draft.saveRevision ?? 1}, ${draft.direction ?? null}, ${draft.brandKit ? JSON.stringify(draft.brandKit) : null}, ${draft.palette ? JSON.stringify(draft.palette) : null}, ${draft.layoutVersion ?? 1}
       )
     `;
     return draft;
@@ -453,7 +505,8 @@ export class PostgresCompanionStore implements CompanionStore {
       UPDATE studio_drafts
       SET layout = ${draft.layout}, layers_json = ${JSON.stringify(draft.layers)},
           selected_asset_id = ${draft.selectedAssetId ?? null}, updated_at = ${draft.updatedAt},
-          save_revision = ${draft.saveRevision ?? 1}
+          save_revision = ${draft.saveRevision ?? 1}, direction = ${draft.direction ?? null},
+          brand_kit_json = ${draft.brandKit ? JSON.stringify(draft.brandKit) : null}, palette_json = ${draft.palette ? JSON.stringify(draft.palette) : null}, layout_version = ${draft.layoutVersion ?? 1}
       WHERE id = ${draft.id}
     `;
     return draft;
@@ -464,7 +517,8 @@ export class PostgresCompanionStore implements CompanionStore {
       UPDATE studio_drafts
       SET layout = ${draft.layout}, layers_json = ${JSON.stringify(draft.layers)},
           selected_asset_id = ${draft.selectedAssetId ?? null}, updated_at = ${draft.updatedAt},
-          save_revision = ${draft.saveRevision}
+          save_revision = ${draft.saveRevision}, direction = ${draft.direction ?? null},
+          brand_kit_json = ${draft.brandKit ? JSON.stringify(draft.brandKit) : null}, palette_json = ${draft.palette ? JSON.stringify(draft.palette) : null}, layout_version = ${draft.layoutVersion ?? 1}
       WHERE id = ${draft.id} AND save_revision = ${expectedSaveRevision}
       RETURNING *
     `;

@@ -8,6 +8,7 @@ import { actionErrorMessage } from "@/lib/client/asyncAction";
 import { ownerFence } from "@/lib/client/ownerFence";
 import { clearOwnerScopedData } from "@/lib/client/ownerScope";
 import { safeCallbackUrl } from "@/lib/auth/callbackUrl";
+import { signInDestination } from "@/lib/auth/continuation";
 import { readGuestDraft } from "@/lib/guest/draft";
 import { readGuestIntent } from "@/lib/guest/intent";
 import type { User } from "@/lib/types";
@@ -40,7 +41,7 @@ export function AccountClient() {
   const [verifyRequested, setVerifyRequested] = useState(false);
 
   useEffect(() => {
-    void api<Config>("/api/config").then(setConfig);
+    void api<Config>("/api/config").then(setConfig).catch((err) => setError(actionErrorMessage(err, "Sign-in options could not load. Reload to retry.")));
     setGuestDraft(Boolean(readGuestDraft()));
     setVerifyRequested(new URLSearchParams(window.location.search).has("verify"));
   }, []);
@@ -56,7 +57,7 @@ export function AccountClient() {
       });
       setNote(result.note);
       await refresh();
-      window.location.href = nextPath();
+      window.location.href = signInDestination(nextPath(), guestDraft);
     } catch (err) {
       setError(actionErrorMessage(err, "Sign-in did not complete."));
     } finally {
@@ -80,7 +81,7 @@ export function AccountClient() {
           body: JSON.stringify({
             provider,
             email: email.trim() || undefined,
-            callbackUrl: nextPath() !== "/account" ? nextPath() : guestDraft ? "/account/adopt" : nextPath()
+            callbackUrl: signInDestination(nextPath(), guestDraft)
           })
         }
       );

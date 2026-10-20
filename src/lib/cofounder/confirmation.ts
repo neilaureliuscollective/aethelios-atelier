@@ -150,7 +150,7 @@ export class BusinessAdoption {
     if (!requestedId) {
       throw new ForbiddenError("A claimed Discovery selection is required to adopt a direction into Studio.");
     }
-    const claim = await this.guests.requireOwnedClaim(user, requestedId);
+    const claim = await this.guests.requireOwnedClaim(user, requestedId, input.sourceRevision);
     const snapshot = parseClaimedDiscovery(claim);
     if (snapshot.selectionId !== requestedId && snapshot.guestWorkId !== requestedId) {
       throw new ForbiddenError("The submitted selection does not match the claimed Discovery snapshot.");
@@ -228,7 +228,9 @@ export class BusinessAdoption {
     const created = await this.studio.createFromConfirmedSnapshot(businessId, user, reserved.draftId, {
       headline: snapshot.headline,
       body: snapshot.body,
-      direction: snapshot.selectedDirectionId
+      direction: snapshot.selectedDirectionId,
+      layout: snapshot.layout,
+      snapshot
     });
     return created.draft;
   }
