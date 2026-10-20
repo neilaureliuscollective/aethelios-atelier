@@ -57,11 +57,11 @@ describe("offline cache policy", () => {
       })
     ).toBe(false);
     expect(ATELIER_CACHE_PREFIX).toBe("atelier-static-");
-    expect(ATELIER_CACHE_NAME).toBe("atelier-static-v10");
+    expect(ATELIER_CACHE_NAME).toBe("atelier-static-v11");
     expect(
       shouldCacheResponse({
         method: "GET",
-        pathname: "/brand/install/v9/icon-512-maskable.png",
+        pathname: "/brand/install/v10/icon-512-maskable.png",
         contentType: "image/png",
         sameOrigin: true
       })

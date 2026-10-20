@@ -10,31 +10,31 @@ function pngHeader(path: string) {
   };
 }
 
-describe("v9 install icon", () => {
-  it("keeps the official A and a full-bleed plated derivative", () => {
+describe("v10 install icon", () => {
+  it("keeps the supplied emblem and a full-bleed plated derivative", () => {
     const mark = pngHeader("public/brand/original/icon-mark.png");
     const plate = pngHeader("public/brand/original/icon.png");
-    expect(mark.width).toBe(1151);
-    expect(mark.height).toBe(855);
+    expect(mark.width).toBe(1254);
+    expect(mark.height).toBe(1254);
     expect(plate.width).toBe(1024);
     expect(plate.height).toBe(1024);
-    expect(existsSync("public/brand/install/v9/icon-512.png")).toBe(true);
-    expect(existsSync("public/brand/install/v9/icon-512-maskable.png")).toBe(true);
-    expect(existsSync("public/brand/install/v9/apple-touch-icon.png")).toBe(true);
+    expect(existsSync("public/brand/install/v10/icon-512.png")).toBe(true);
+    expect(existsSync("public/brand/install/v10/icon-512-maskable.png")).toBe(true);
+    expect(existsSync("public/brand/install/v10/apple-touch-icon.png")).toBe(true);
   });
 
-  it("points the manifest and metadata at versioned v9 assets", () => {
+  it("points the manifest and metadata at versioned v10 assets", () => {
     const manifest = readFileSync("public/manifest.webmanifest", "utf8");
     const layout = readFileSync("src/app/layout.tsx", "utf8");
     const sw = readFileSync("public/sw.js", "utf8");
     const builder = readFileSync("scripts/build-brand-icons.py", "utf8");
-    expect(manifest).toContain("/brand/install/v9/icon-512.png");
+    expect(manifest).toContain("/brand/install/v10/icon-512.png");
     expect(manifest).toContain('purpose": "maskable"');
-    expect(manifest).not.toContain("/brand/install/v8/");
-    expect(layout).toContain("/brand/install/v9/apple-touch-icon.png");
-    expect(sw).toContain("/brand/install/v9/icon-512-maskable.png");
-    expect(builder).toContain('INSTALL_VERSION = "v9"');
-    expect(builder).toContain("ANY_FILL = 0.78");
-    expect(builder).toContain("MASKABLE_FILL = 0.62");
+    expect(manifest).not.toContain("/brand/install/v9/");
+    expect(layout).toContain("/brand/install/v10/apple-touch-icon.png");
+    expect(sw).toContain("/brand/install/v10/icon-512-maskable.png");
+    expect(builder).toContain('INSTALL_VERSION = "v10"');
+    expect(builder).toContain("ANY_FILL = 0.96");
+    expect(builder).toContain("MASKABLE_FILL = 0.68");
   });
 });

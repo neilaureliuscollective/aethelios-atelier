@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Build Atelier install icons from the official gold-and-emerald emblem.
 
-The official lockup is a transparent gold-and-emerald A. Install icons
-crop that A and seat it on an obsidian plate. Research notes locked here:
+The supplied mark is already the installable app icon: a full-bleed
+sculptural A on an obsidian field. Research notes locked here:
 
 - Do not ship the isolated mark on white. Android pads non-maskable icons
   with white, and a white plate fights Atelier's obsidian/emerald brand.
@@ -10,8 +10,9 @@ crop that A and seat it on an obsidian plate. Research notes locked here:
   squircle / circle / rounded-rect masks. A baked gold frame gets double-cut.
 - Keep the triangular tips inside the maskable safe circle (radius 40% of
   the canvas). A wide A needs a smaller fill than a circular emblem.
-- Seat the mark on a full-bleed obsidian plate (#080C0B) so home-screen
-  crops do not flash a different color.
+- Preserve the official black field for any-purpose icons. Seat maskable
+  derivatives on the same obsidian plate (#080C0B) so home-screen crops
+  do not flash a different color.
 """
 
 from __future__ import annotations
@@ -22,11 +23,11 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 MARK_SRC = ROOT / "public" / "brand" / "original" / "icon-mark.png"
-INSTALL_VERSION = "v9"
+INSTALL_VERSION = "v10"
 OBSIDIAN = (8, 12, 11)
 DEEP = (11, 70, 53)
-ANY_FILL = 0.78
-MASKABLE_FILL = 0.62
+ANY_FILL = 0.96
+MASKABLE_FILL = 0.68
 
 
 def lerp(start: tuple[int, int, int], end: tuple[int, int, int], t: float) -> tuple[int, int, int]:
