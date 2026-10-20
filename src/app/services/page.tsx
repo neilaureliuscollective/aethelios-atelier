@@ -2,31 +2,63 @@ import type { Metadata } from "next";
 import { AppLink } from "@/components/ui/AppLink";
 import { AppsIcon, GlobeIcon, NodesIcon, StoreIcon } from "@/components/ui/Icons";
 import { Reveal } from "@/components/motion/Reveal";
+import {
+  DemoApp,
+  DemoInfra,
+  DemoStore,
+  DemoWebsite,
+  DeviceFrame
+} from "@/components/marketing/DeviceFrame";
 import { SERVICE_CATALOG } from "@/lib/catalog";
 import { SERVICE_CATEGORY_COPY } from "@/lib/serviceCategories";
 
 export const metadata: Metadata = { title: "Services" };
 
 const SECTIONS = [
-  { id: "website", href: "/discover?interest=website", icon: GlobeIcon, reverse: false },
+  {
+    id: "website",
+    href: "/discover?interest=website",
+    icon: GlobeIcon,
+    reverse: false,
+    visual: (
+      <DeviceFrame variant="desktop" depth="tile" label="Illustrative branded website">
+        <DemoWebsite />
+      </DeviceFrame>
+    )
+  },
   {
     id: "custom_apps_platforms",
     href: "/discover?interest=custom_apps_platforms",
     icon: AppsIcon,
-    reverse: true
+    reverse: true,
+    visual: (
+      <DeviceFrame variant="desktop" depth="tile" label="Illustrative custom app">
+        <DemoApp />
+      </DeviceFrame>
+    )
   },
   {
     id: "ecommerce_storefronts",
     href: "/discover?interest=ecommerce_storefronts",
     icon: StoreIcon,
-    reverse: false
+    reverse: false,
+    visual: (
+      <DeviceFrame variant="desktop" depth="tile" label="Illustrative storefront">
+        <DemoStore />
+      </DeviceFrame>
+    )
   },
   {
     id: "digital_infrastructure",
     href: "/discover?interest=digital_infrastructure",
     icon: NodesIcon,
     reverse: true,
-    hash: "digital-infrastructure"
+    hash: "digital-infrastructure",
+    visual: (
+      <DeviceFrame variant="desktop" depth="tile" label="Illustrative infrastructure workflow">
+        <DemoInfra />
+      </DeviceFrame>
+    )
   }
 ] as const;
 
@@ -69,6 +101,9 @@ export default function ServicesPage() {
               </AppLink>
             </div>
             <div className="surface-read service-spec">
+              <div className="service-spec-visual" aria-hidden="true">
+                {section.visual}
+              </div>
               <h3>Includes</h3>
               <ul>
                 {offer?.includes.map((item) => (

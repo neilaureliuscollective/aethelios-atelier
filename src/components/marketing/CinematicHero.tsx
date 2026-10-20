@@ -1,11 +1,16 @@
 import { AppLink } from "@/components/ui/AppLink";
-import { DeviceFrame, DemoWebsite } from "@/components/marketing/DeviceFrame";
+import { HeroShowcase } from "@/components/marketing/HeroShowcase";
 
 export function CinematicHero() {
   return (
     <section className="cinematic-hero" aria-labelledby="home-hero">
       <div className="cinematic-media" aria-hidden="true">
         <picture>
+          <source
+            media="(max-width: 720px)"
+            srcSet="/atmosphere/colonnade.webp"
+            type="image/webp"
+          />
           <source srcSet="/atmosphere/colonnade.webp" type="image/webp" />
           <img
             src="/atmosphere/colonnade.jpg"
@@ -18,7 +23,7 @@ export function CinematicHero() {
         </picture>
       </div>
       <div className="cinematic-shade" aria-hidden="true" />
-      <div className="container cinematic-grid">
+      <div className="cinematic-shell">
         <div className="hero-copy cinematic-copy">
           <p className="kicker">Digital experiences · bespoke solutions</p>
           <h1 id="home-hero">
@@ -49,40 +54,7 @@ export function CinematicHero() {
             <li>Ongoing partnership</li>
           </ul>
         </div>
-        <div className="hero-devices" aria-label="Demonstration of a digital presence">
-          <DeviceFrame variant="desktop" label="Demonstration website on a desktop">
-            <DemoWebsite
-              name="Aethelios Atelier"
-              kicker="Ideas shaped by purpose"
-              headline="A considered digital presence."
-              image="/atmosphere/colonnade.webp"
-              imageAlt="Architectural light used as atmosphere behind a website demonstration"
-              action="Learn more"
-            />
-          </DeviceFrame>
-          <div className="hero-device-stack">
-            <DeviceFrame variant="tablet" label="Demonstration website on a tablet">
-              <DemoWebsite
-                name="Northline"
-                kicker="Bespoke digital experiences"
-                headline="A presence designed for ambitious work."
-                image="/atmosphere/lumen.webp"
-                imageAlt="Glass pavilion atmosphere used inside a website demonstration"
-                action="View work"
-              />
-            </DeviceFrame>
-            <DeviceFrame variant="phone" label="Demonstration website on a phone">
-              <DemoWebsite
-                name="Field & Form"
-                kicker="Built to last"
-                headline="Quiet, useful, online."
-                image="/atmosphere/hearth.webp"
-                imageAlt="Timber interior atmosphere used inside a mobile website demonstration"
-                action="Begin"
-              />
-            </DeviceFrame>
-          </div>
-        </div>
+        <HeroShowcase />
       </div>
     </section>
   );

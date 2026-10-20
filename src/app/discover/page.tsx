@@ -1,26 +1,21 @@
 import type { Metadata } from "next";
-import { Fraunces, Outfit, Syne } from "next/font/google";
+import { Outfit, Syne } from "next/font/google";
 import { DiscoveryStudio } from "@/components/discovery/DiscoveryStudio";
-
-const lumen = Fraunces({
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-  variable: "--font-lumen",
-  display: "swap"
-});
 
 const hearth = Outfit({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["500", "600"],
   variable: "--font-hearth",
-  display: "swap"
+  display: "swap",
+  preload: false
 });
 
 const signal = Syne({
   subsets: ["latin"],
-  weight: ["500", "600", "700"],
+  weight: ["600", "700"],
   variable: "--font-signal",
-  display: "swap"
+  display: "swap",
+  preload: false
 });
 
 export const metadata: Metadata = {
@@ -31,7 +26,7 @@ export const metadata: Metadata = {
 
 export default function DiscoverPage() {
   return (
-    <div className={`${lumen.variable} ${hearth.variable} ${signal.variable}`}>
+    <div className={`${hearth.variable} ${signal.variable}`}>
       <DiscoveryStudio />
     </div>
   );

@@ -16,15 +16,8 @@ const CARDS = [
     href: "/discover?interest=website",
     icon: GlobeIcon,
     visual: (
-      <DeviceFrame variant="tablet" label="Branded website demonstration">
-        <DemoWebsite
-          name="Harbor & Pine"
-          kicker="A public presence"
-          headline="The business, clearly told."
-          image="/atmosphere/colonnade.webp"
-          imageAlt="Atmosphere used inside a branded website demonstration"
-          action="See the work"
-        />
+      <DeviceFrame variant="tablet" depth="tile" label="Branded website demonstration">
+        <DemoWebsite />
       </DeviceFrame>
     )
   },
@@ -33,7 +26,7 @@ const CARDS = [
     href: "/discover?interest=custom_apps_platforms",
     icon: AppsIcon,
     visual: (
-      <DeviceFrame variant="tablet" label="Custom app demonstration">
+      <DeviceFrame variant="tablet" depth="tile" label="Custom app demonstration">
         <DemoApp />
       </DeviceFrame>
     )
@@ -43,7 +36,7 @@ const CARDS = [
     href: "/discover?interest=ecommerce_storefronts",
     icon: StoreIcon,
     visual: (
-      <DeviceFrame variant="tablet" label="Storefront demonstration">
+      <DeviceFrame variant="tablet" depth="tile" label="Storefront demonstration">
         <DemoStore />
       </DeviceFrame>
     )
@@ -53,7 +46,7 @@ const CARDS = [
     href: "/discover?interest=digital_infrastructure",
     icon: NodesIcon,
     visual: (
-      <DeviceFrame variant="tablet" label="Infrastructure demonstration">
+      <DeviceFrame variant="tablet" depth="tile" label="Infrastructure demonstration">
         <DemoInfra />
       </DeviceFrame>
     )

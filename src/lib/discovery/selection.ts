@@ -24,6 +24,40 @@ export function createDraft(partial?: Partial<DiscoveryDraft>): DiscoveryDraft {
   return sanitizeDraft({ ...createBareDraft(), ...partial, activeDirectionId: active });
 }
 
+export function hasVisitorAnswers(draft: DiscoveryDraft): boolean {
+  return Boolean(
+    draft.businessName.trim() ||
+      draft.headline.trim() ||
+      draft.businessType ||
+      draft.intent ||
+      draft.intentNote.trim() ||
+      draft.audience.trim() ||
+      draft.customerFeeling ||
+      draft.qualities.length ||
+      draft.likesNote.trim() ||
+      draft.changeNote.trim() ||
+      draft.exclusions.trim() ||
+      (draft.serviceInterest && draft.serviceInterest !== "unspecified")
+  );
+}
+
+export function createSampleExplorationDraft(): DiscoveryDraft {
+  return createDraft({
+    businessName: "Northridge",
+    businessType: "independent",
+    intent: "clearer_presence",
+    intentNote: "A public presence for a custom home studio.",
+    audience: "People looking for a timber home that belongs to its land.",
+    customerFeeling: "grounded",
+    qualities: ["refined", "grounded"],
+    headline: "Homes in harmony with place",
+    activeDirectionId: "hearth",
+    paletteId: "hearth_linen",
+    visualDirectionId: "material",
+    serviceInterest: "website"
+  });
+}
+
 function createBareDraft(): DiscoveryDraft {
   return {
     catalogVersion: DISCOVERY_CATALOG_VERSION,

@@ -4,6 +4,7 @@
     radial-gradient(80cqi 50cqb at 88% 0%, color-mix(in srgb, var(--c-accent) 16%, transparent), transparent 46%),
     linear-gradient(180deg, var(--c-bg), color-mix(in srgb, var(--c-surface) 70%, var(--c-bg)));
   color: var(--c-text);
+  isolation: isolate;
   font-family: var(--font-body), "Figtree", "Segoe UI", sans-serif;
   padding: 0 0 clamp(48px, 6cqi, 72px);
   position: relative;
@@ -81,7 +82,7 @@
 
 .opening h2 {
   position: relative;
-  font-family: var(--font-lumen), "Fraunces", "Palatino Linotype", serif;
+  font-family: var(--font-lumen), var(--font-display), "Cormorant Garamond", "Palatino Linotype", serif;
   font-weight: 500;
   font-size: clamp(32px, 10cqi, 84px);
   line-height: 0.92;
@@ -148,7 +149,7 @@
 
 .service h3 {
   margin: 0 0 6px;
-  font-family: var(--font-lumen), "Fraunces", serif;
+  font-family: var(--font-lumen), var(--font-display), "Cormorant Garamond", serif;
   font-size: clamp(20px, 3.4cqi, 28px);
   font-weight: 500;
   overflow-wrap: anywhere;
@@ -220,7 +221,7 @@
   font-size: 14px;
 }
 
-@container concept (max-width: 520px) {
+@container concept (max-width: 720px) {
   .mast {
     flex-direction: column;
     align-items: flex-start;

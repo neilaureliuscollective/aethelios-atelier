@@ -788,9 +788,11 @@ export function GuidedBrief({
               {visibleFields.map((key, index) => (
                 <div key={key} style={{ marginTop: 18 }}>
                   <label>
-                    <span className="lbl">{FIELD_LABELS[key]}</span>
+                    <span className="lbl" id={key === "projectType" ? "project-type-label" : undefined}>
+                      {FIELD_LABELS[key]}
+                    </span>
                     {key === "projectType" ? (
-                      <div className="chips" role="group" aria-label="Project type">
+                      <div className="chips" role="group" aria-labelledby="project-type-label">
                         {brief.projectType.value === HISTORICAL_BOOKING_PROJECT_TYPE ? (
                           <span className="chip chip-saved" aria-pressed="true">
                             Saved as booking-connected website

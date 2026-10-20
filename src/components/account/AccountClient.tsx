@@ -68,23 +68,23 @@ export function AccountClient() {
   return (
     <section className="container section">
       <p className="kicker">Account</p>
-      <h1>Identity for this local candidate.</h1>
+      <h1>Sign in</h1>
       <p className="lede">
-        This is a labeled simulated identity adapter. It is not production authentication. Signing in
-        does not adopt a guest draft and does not submit a brief.
+        Sign-in here is a labeled local simulator for testing. It is not production authentication.
+        Signing in does not adopt a guest draft and does not submit a brief.
       </p>
       {!config?.auth.ready ? (
         <p className="notice notice-warn">
-          Auth is unconfigured. Simulated identities stay off unless the isolated-local simulator gate
-          is enabled. No hosted identity provider is connected.
+          Sign-in is not configured. No hosted identity provider is connected, so this cannot become a
+          successful sign-in.
         </p>
       ) : (
-        <p className="notice">Simulated identities are for isolated local testing only.</p>
+        <p className="notice">These identities are for isolated local testing only.</p>
       )}
       {user ? (
         <article className="surface-dense" style={{ padding: 24, marginTop: 20 }}>
           <p>
-            Signed in as <strong>{user.displayName}</strong> ({user.email}) · {user.role} · {user.adapter}
+            Signed in as <strong>{user.displayName}</strong> ({user.email}) · {user.role}
           </p>
           <div className="row" style={{ marginTop: 16 }}>
             {user.role === "founder" ? (

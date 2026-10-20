@@ -3,7 +3,13 @@
 import { AppLink } from "@/components/ui/AppLink";
 import styles from "./DiscoveryStudio.module.css";
 
-export function Entrance({ onExplore }: { onExplore: () => void }) {
+export function Entrance({
+  onExplore,
+  onSample
+}: {
+  onExplore: () => void;
+  onSample: () => void;
+}) {
   return (
     <section className={styles.hero} aria-labelledby="discover-hero">
       <div>
@@ -20,6 +26,9 @@ export function Entrance({ onExplore }: { onExplore: () => void }) {
         <div className={styles.actions}>
           <button className="btn btn-emerald-glass" type="button" onClick={onExplore}>
             Explore your direction
+          </button>
+          <button className={`${styles.btn} ${styles.btnGhost}`} type="button" onClick={onSample}>
+            See a sample direction
           </button>
           <AppLink className={`${styles.btn} ${styles.btnGhost}`} href="/project">
             I already know what I need
@@ -57,7 +66,7 @@ export function Entrance({ onExplore }: { onExplore: () => void }) {
               </p>
               <h2
                 style={{
-                  fontFamily: "var(--font-lumen), Georgia, serif",
+                  fontFamily: "var(--font-lumen), var(--font-display), Georgia, serif",
                   fontSize: "clamp(32px, 4vw, 52px)",
                   lineHeight: 0.95,
                   margin: "8px 0 16px",

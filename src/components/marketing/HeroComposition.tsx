@@ -6,15 +6,8 @@ export function HeroComposition() {
   return (
     <div className="hero-composition" aria-label="Demonstration of a digital presence">
       <div className="composition-glow" aria-hidden="true" />
-      <DeviceFrame variant="desktop" label="Demonstration website">
-        <DemoWebsite
-          name="Aethelios Atelier"
-          kicker="Your project, given form"
-          headline="What would you like to bring to life?"
-          image="/atmosphere/colonnade.webp"
-          imageAlt="Architectural light used as atmosphere inside a website demonstration"
-          action="Begin"
-        />
+      <DeviceFrame variant="desktop" label="Illustrative branded website">
+        <DemoWebsite />
       </DeviceFrame>
       <div className="chips" role="group" aria-label="Commission paths">
         <AppLink className="chip chip-control" href="/discover?interest=website">
@@ -30,7 +23,7 @@ export function HeroComposition() {
           Digital infrastructure
         </AppLink>
       </div>
-      <p className="tiny composition-note">Demonstration of digital work — not a completed client project.</p>
+      <p className="tiny composition-note">Illustrative concept — not a completed client project.</p>
     </div>
   );
 }

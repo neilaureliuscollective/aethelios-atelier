@@ -22,32 +22,25 @@ function preview(id: (typeof OPTIONS)[number]["id"]) {
   switch (id) {
     case "website":
       return (
-        <DeviceFrame variant="desktop" label="Website demonstration">
-          <DemoWebsite
-            name="Harbor & Pine"
-            kicker="Branded website"
-            headline="A public presence people can trust."
-            image="/atmosphere/hearth.webp"
-            imageAlt="Warm interior atmosphere used inside a website demonstration"
-            action="View the work"
-          />
+        <DeviceFrame variant="desktop" label="Illustrative branded website">
+          <DemoWebsite />
         </DeviceFrame>
       );
     case "custom_apps_platforms":
       return (
-        <DeviceFrame variant="desktop" label="Custom app demonstration">
+        <DeviceFrame variant="desktop" label="Illustrative custom app">
           <DemoApp />
         </DeviceFrame>
       );
     case "ecommerce_storefronts":
       return (
-        <DeviceFrame variant="desktop" label="Storefront demonstration">
+        <DeviceFrame variant="desktop" label="Illustrative storefront">
           <DemoStore />
         </DeviceFrame>
       );
     default:
       return (
-        <DeviceFrame variant="desktop" label="Infrastructure demonstration">
+        <DeviceFrame variant="desktop" label="Illustrative infrastructure workflow">
           <DemoInfra />
         </DeviceFrame>
       );
@@ -88,6 +81,7 @@ export function PossibilitiesStage() {
           <p className="tiny">{copy.short}</p>
           <h3>{copy.title}</h3>
           <p className="muted">{copy.summary}</p>
+          <p className="tiny">Illustrative concept — not a completed client project or result.</p>
           <AppLink className="btn btn-emerald-glass" href={current.href}>
             {copy.action}
           </AppLink>

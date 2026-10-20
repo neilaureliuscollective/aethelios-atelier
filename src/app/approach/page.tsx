@@ -35,7 +35,7 @@ export default function ApproachPage() {
         ))}
       </ol>
       <p className="muted" style={{ marginTop: 24 }}>
-        Notifications are not part of this local candidate. Return to your workspace to see founder
+        Notifications are not sent from this app yet. Return to your workspace to read founder
         responses. Offline edits are never treated as delivered submissions.
       </p>
       <div className="row" style={{ marginTop: 20 }}>

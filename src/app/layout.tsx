@@ -1,8 +1,8 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import { Cormorant_Garamond, Figtree } from "next/font/google";
 import { RegisterPwa } from "@/components/pwa/RegisterPwa";
 import { SessionShell } from "@/components/shell/SessionShell";
-import { publicRuntimeConfig } from "@/lib/config";
 import "./globals.css";
 
 const display = Cormorant_Garamond({
@@ -51,25 +51,18 @@ export const viewport: Viewport = {
 };
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const runtime = publicRuntimeConfig();
   return (
     <html lang="en" className={`${display.variable} ${body.variable}`}>
       <body>
+        <Script id="atelier-js-motion" strategy="beforeInteractive">
+          {`(function(){try{if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches){document.documentElement.classList.add('js-motion');}}catch(e){}})();`}
+        </Script>
         <a className="skip-link" href="#main">
           Skip to content
         </a>
-        <SessionShell
-          auth={{
-            adapter: runtime.auth.adapter,
-            labeled: runtime.auth.labeled,
-            ready: runtime.auth.ready
-          }}
-        >
-          {children}
-        </SessionShell>
+        <SessionShell>{children}</SessionShell>
         <RegisterPwa />
       </body>
     </html>

@@ -27,7 +27,6 @@ export function Reveal({
       node.classList.add("is-visible");
       return;
     }
-    node.classList.add("motion-pending");
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {

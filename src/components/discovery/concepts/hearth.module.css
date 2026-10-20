@@ -4,6 +4,7 @@
     radial-gradient(70cqi 40cqb at 12% 88%, color-mix(in srgb, var(--c-accent) 14%, transparent), transparent 55%),
     var(--c-bg);
   color: var(--c-text);
+  isolation: isolate;
   font-family: var(--font-hearth), "Outfit", "Segoe UI", sans-serif;
   padding: clamp(16px, 3cqi, 24px);
   position: relative;
@@ -196,7 +197,7 @@
   margin: 0 0 12px;
 }
 
-@container concept (max-width: 520px) {
+@container concept (max-width: 720px) {
   .top {
     flex-direction: column;
     align-items: flex-start;

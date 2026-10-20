@@ -63,15 +63,14 @@
 .innerNav {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 16px;
-  margin: 8px 0 22px;
-  padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--d-gold) 22%, transparent);
-  border-radius: 20px;
-  background: color-mix(in srgb, var(--d-smoked) 42%, rgba(8, 12, 11, 0.78));
+  margin: 8px 0 16px;
+  padding: 6px 8px;
+  border: 1px solid color-mix(in srgb, var(--d-gold) 18%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--d-smoked) 36%, rgba(8, 12, 11, 0.72));
   box-shadow: inset 0 1px 0 rgba(243, 240, 231, 0.08);
-  backdrop-filter: blur(18px);
 }
 
 .brandLockup {
@@ -472,6 +471,8 @@
   min-height: 720px;
   box-shadow: 0 28px 70px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(226, 201, 136, 0.14);
   transition: box-shadow 320ms ease, opacity 320ms ease;
+  container-type: inline-size;
+  container-name: preview;
 }
 
 .previewShell[data-mode="mobile"] {
@@ -486,7 +487,7 @@
   max-height: 860px;
   background: #080c0b;
   container-type: inline-size;
-  container-name: preview;
+  container-name: concept;
   min-width: 0;
 }
 
@@ -510,6 +511,15 @@
   padding: 8px;
   border-radius: 24px;
   border: 1px solid transparent;
+  container-type: inline-size;
+}
+.comparePanel .previewShell {
+  min-height: 0;
+  padding: 8px;
+}
+.comparePanel .device {
+  min-height: 420px;
+  max-height: 560px;
 }
 
 .comparePanel[data-active="true"] {
