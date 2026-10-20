@@ -7,6 +7,7 @@ import {
   previewInstanceId,
   type PreviewActionContext
 } from "@/lib/discovery";
+import { FULL_LOGO } from "@/lib/brand/fullLogo";
 import { ConceptStage } from "./ConceptStage";
 import styles from "./DiscoveryStudio.module.css";
 
@@ -27,10 +28,10 @@ export function Entrance({
       <div className={styles.heroCopy}>
         <img
           className={styles.crest}
-          src="/brand/logo.webp"
+          src={FULL_LOGO.src}
           alt="Aethelios Atelier"
-          width={72}
-          height={48}
+          width={FULL_LOGO.width}
+          height={FULL_LOGO.height}
         />
         <p className={styles.kicker}>Aethelios Atelier · Discover</p>
         <h1 id="discover-hero" className={styles.heading} data-discovery-heading tabIndex={-1}>

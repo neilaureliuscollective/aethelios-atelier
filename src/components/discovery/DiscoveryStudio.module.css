@@ -175,9 +175,10 @@
 }
 
 .crest {
-  width: 72px;
+  width: min(132px, 42vw);
   height: auto;
   margin: 0 0 18px;
+  background: transparent;
   filter: drop-shadow(0 10px 18px rgba(18, 26, 23, 0.12));
 }
 

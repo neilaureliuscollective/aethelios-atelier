@@ -2,7 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { PNG } from "pngjs";
 
-const source = process.argv[2] ?? "/home/ubuntu/.cursor/projects/workspace/assets/7be19e35-5f88-4830-b0b9-b157430aec0f.png";
+const source =
+  process.argv[2] ??
+  path.resolve("public/brand/original/logo.png");
 const dest = process.argv[3] ?? path.resolve("public/brand/atelier-lockup.png");
 
 const png = PNG.sync.read(fs.readFileSync(source));

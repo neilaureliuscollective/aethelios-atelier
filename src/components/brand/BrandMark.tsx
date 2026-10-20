@@ -1,4 +1,5 @@
 import { AppLink } from "@/components/ui/AppLink";
+import { FULL_LOGO, FULL_LOGO_ASPECT } from "@/lib/brand/fullLogo";
 
 type Props = {
   size?: number;
@@ -18,20 +19,20 @@ export function BrandMark({
   lockupSrc
 }: Props) {
   const usingLockup = Boolean(lockupSrc);
-  const src = lockupSrc ?? (variant === "wordmark" ? "/brand/logo.webp" : "/brand/icon.webp");
+  const src = lockupSrc ?? (variant === "wordmark" ? FULL_LOGO.src : "/brand/icon.webp");
   const lockup = usingLockup || variant === "wordmark";
   const lockupHeight = Math.max(48, size);
-  const lockupWidth = Math.round(lockupHeight * (1192 / 1160));
+  const lockupWidth = Math.round(lockupHeight * FULL_LOGO_ASPECT);
   const inner = (
     <>
       <img
         className={lockup ? "brand-lockup" : "brand-mark"}
         src={src}
         alt={withWordmark ? "" : "Aethelios Atelier"}
-        width={usingLockup ? lockupWidth : lockup ? Math.round(size * 1.5) : size}
-        height={usingLockup ? lockupHeight : size}
+        width={lockup ? lockupWidth : size}
+        height={lockup ? lockupHeight : size}
         style={
-          usingLockup
+          lockup
             ? { width: "auto", height: lockupHeight, maxWidth: "min(220px, 42vw)", background: "transparent" }
             : undefined
         }

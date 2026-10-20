@@ -1,5 +1,6 @@
 import { AppLink } from "@/components/ui/AppLink";
 import { HeroShowcase } from "@/components/marketing/HeroShowcase";
+import { FULL_LOGO } from "@/lib/brand/fullLogo";
 
 export function CinematicHero() {
   return (
@@ -25,6 +26,16 @@ export function CinematicHero() {
       <div className="cinematic-shade" aria-hidden="true" />
       <div className="cinematic-shell">
         <div className="hero-copy cinematic-copy">
+          <figure className="hero-mark">
+            <img
+              src={FULL_LOGO.src}
+              alt="Aethelios Atelier"
+              width={FULL_LOGO.width}
+              height={FULL_LOGO.height}
+              fetchPriority="high"
+              decoding="async"
+            />
+          </figure>
           <p className="kicker">Digital experiences · bespoke solutions</p>
           <h1 id="home-hero">
             Your vision.

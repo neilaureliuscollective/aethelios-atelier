@@ -4,6 +4,7 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { BrandMark } from "@/components/brand/BrandMark";
 import { AppLink } from "@/components/ui/AppLink";
+import { FULL_LOGO } from "@/lib/brand/fullLogo";
 import type { User } from "@/lib/types";
 
 const links = [
@@ -44,7 +45,7 @@ export function SiteHeader({ user }: { user: User | null }) {
           withWordmark={false}
           size={companion ? 104 : 48}
           priority
-          lockupSrc={companion ? "/brand/atelier-lockup.png" : undefined}
+          lockupSrc={companion ? FULL_LOGO.lockupSrc : undefined}
         />
         {companion ? (
           user ? (

@@ -3,6 +3,7 @@ import { CinematicHero } from "@/components/marketing/CinematicHero";
 import { PossibilitiesStage } from "@/components/marketing/PossibilitiesStage";
 import { ServiceShowcase } from "@/components/marketing/ServiceShowcase";
 import { Reveal } from "@/components/motion/Reveal";
+import { FULL_LOGO } from "@/lib/brand/fullLogo";
 
 export default function HomePage() {
   return (
@@ -82,10 +83,10 @@ export default function HomePage() {
           </div>
           <figure className="founder-emblem">
             <img
-              src="/brand/logo.webp"
+              src={FULL_LOGO.src}
               alt="Aethelios Atelier"
-              width={1536}
-              height={1024}
+              width={FULL_LOGO.width}
+              height={FULL_LOGO.height}
               loading="lazy"
               decoding="async"
             />

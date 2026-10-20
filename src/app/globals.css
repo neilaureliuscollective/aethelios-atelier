@@ -624,11 +624,21 @@ h3 { font-size: 28px; }
 .hero-mark, .founder-emblem {
   display: flex;
   justify-content: center;
+  margin: 0;
 }
 .hero-mark img, .founder-emblem img {
   width: min(520px, 100%);
   height: auto;
+  background: transparent;
   filter: drop-shadow(0 30px 50px rgba(0, 0, 0, 0.45));
+}
+.cinematic-copy .hero-mark {
+  justify-content: flex-start;
+  margin: 0 0 22px;
+}
+.cinematic-copy .hero-mark img {
+  width: min(320px, 72%);
+  filter: drop-shadow(0 18px 36px rgba(8, 12, 11, 0.55));
 }
 .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
 .hero-composition { position: relative; }
@@ -1285,6 +1295,7 @@ a.chip {
 }
 
 @media (max-width: 720px) {
+  .cinematic-copy .hero-mark img { width: min(220px, 64%); }
   .cinematic-copy .hero-actions { display: grid; grid-template-columns: 1fr; }
   .cinematic-copy .hero-actions .btn { width: 100%; }
   h1 { font-size: 40px; }

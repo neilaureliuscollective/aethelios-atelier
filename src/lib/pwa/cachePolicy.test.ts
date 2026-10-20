@@ -56,7 +56,7 @@ describe("offline cache policy", () => {
       })
     ).toBe(false);
     expect(ATELIER_CACHE_PREFIX).toBe("atelier-static-");
-    expect(ATELIER_CACHE_NAME).toBe("atelier-static-v6");
+    expect(ATELIER_CACHE_NAME).toBe("atelier-static-v7");
     expect(
       shouldCacheResponse({
         method: "GET",
