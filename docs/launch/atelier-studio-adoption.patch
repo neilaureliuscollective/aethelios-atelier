@@ -1,0 +1,2520 @@
+diff --git a/.gitignore b/.gitignore
+index 6d3d8ae..559cc1d 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -6,6 +6,7 @@ out
+ .data
+ .data-cofounder
+ .data-atelier-visual
++.data-adopt-verify
+ .vercel
+ .env
+ .env.local
+diff --git a/docs/launch/HOSTED_ACTIVATION.md b/docs/launch/HOSTED_ACTIVATION.md
+new file mode 100644
+index 0000000..3a4d42c
+--- /dev/null
++++ b/docs/launch/HOSTED_ACTIVATION.md
+@@ -0,0 +1,24 @@
++# Hosted-activation checklist
++
++This is the next stage after local code-complete verification. Nothing here was activated by this agent.
++
++| Integration | Status | What “verified” requires |
++| --- | --- | --- |
++| One real hosted sign-in provider (Google or Resend via existing Auth.js) | **Blocked** | Provider credentials, `ATELIER_AUTH_ADAPTER=authjs`, `AUTH_SECRET`, founder allowlist. Simulated identities are not this row. |
++| Correct callback origin | **Blocked** | Hosted `ATELIER_PUBLIC_ORIGIN` matching the deployed Auth.js callback URL. Local `/account` is not this row. |
++| Durable dedicated Postgres | **Blocked / not run** | Isolated Atelier `DATABASE_URL`. Local sqlite and memory tests are not this row. Do not reuse the Aethelios production database. |
++| Artifact / export storage | **Blocked** | Private blob reads authorized by session ownership. An unguessable URL is not authorization. |
++| Two-account isolation on the hosted origin | **Not run** | Two real provider accounts: confirm, open the adopted draft, export, then prove the second account cannot read preview, metadata, or export bytes. |
++| One approved provider-backed creative request | **Blocked** | Spend approval, `ATELIER_OPENAI_ENABLED=true`, `OPENAI_API_KEY`. Fixture / fail-closed local generation is not this row. |
++
++## Explicitly not acceptance
++
++- Simulated identities
++- Local SQLite or memory adapters
++- Fixtures
++- A successful production build
++- A READY Vercel deployment without the rows above
++
++## Do not do from this PR
++
++Create or configure credentials, expand permissions, activate paid AI, spend money, migrate live databases, change pricing, enable billing, push to `main`, merge, deploy, or publish.
+diff --git a/docs/launch/LAUNCH_READINESS.md b/docs/launch/LAUNCH_READINESS.md
+index d38f6c1..8bfdcfd 100644
+--- a/docs/launch/LAUNCH_READINESS.md
++++ b/docs/launch/LAUNCH_READINESS.md
+@@ -1,73 +1,64 @@
+ # Atelier launch-readiness report
+ 
+ Branch: `cursor/atelier-premium-launch-readiness-da63`  
+-Exact commit: `32c88c1c26edbd823b86ffba524ffcba24bc9a3b`  
+-Base: `429f939b555f5e4d11bc95e2cc56afb11f167c98` (`main`)  
+-Recovery patch: `docs/launch/atelier-launch-readiness.patch`
++Inspected incoming head: `6f5dcedf906e26715c4d351227cb9614772dca7c`  
++This pass continues that branch. It does not reset to `main`.
+ 
+ This is **code-complete evidence for a local candidate**, not configured launch acceptance.
+ 
+-## What improved
++## Source reconciliation
+ 
+-- Concurrent first visits now converge on one initial workspace via `user_initial_business` uniqueness plus `runInTransaction`.
+-- Guest Discovery/brief work is claimed once, idempotently, for the signed-in account. Private content stays out of callback URLs. Return paths are allowlisted.
+-- Discovery requires an explicit business-context review before the concept studio. Signed-in customers confirm the business and exact Discovery revision before Studio adopts it. Existing business names are not silently replaced.
+-- Public metadata, robots, sitemap, and a customer-facing `error.tsx` were added. The service worker now treats `/companion` as personalized (cache `atelier-static-v9`).
+-- Pricing remains inquiry-led. Official brand assets and the ivory / emerald-glass / gold system were not reskinned.
++See `docs/launch/SOURCE_RECONCILIATION.md`.
+ 
+-## What you can test immediately
++- `REHEARSAL.md` was supplied and copied to `docs/launch/REHEARSAL.md`.
++- `atelier-integrated-source.patch` is still the exact missing source. The approved immersive Direction → Refine → Collection / BrandKit implementation was **not** reconstructed from the rehearsal write-up.
+ 
+-Local candidate (`pnpm install && pnpm build && pnpm start`, simulated identities):
++## What this pass added
+ 
+-1. Open `/` → `/discover` → confirm business → use a direction → Continue to your workspace.
+-2. Sign in as `owner.local@atelier.invalid` (labeled simulator). Confirm the business. Open Studio.
+-3. Sign in as `owner-two.local@atelier.invalid` in another profile. Confirm the two workspaces stay isolated.
+-4. Reload, sign out/in, and retry the same guest claim — it must not duplicate.
++- Confirmation now requires the signed-in owner and a server-side guest claim. Client/localStorage IDs must match the claimed snapshot.
++- A failed or missing guest claim blocks Discovery adoption.
++- Confirmation idempotently creates or resolves one editable Studio draft, persists the adoption, and navigates to that exact draft.
++- Confirm and Studio begin in a genuine checking state.
++- Guest-claim inserts use `ON CONFLICT` / `INSERT OR IGNORE`. Guest-brief adoption retries the whole transaction instead of querying after a failed unique insert.
+ 
+-## Code-complete evidence
++## Preserved from PR #18
+ 
+-| Item | Result |
++Provisioning uniqueness, guest claiming, safe return destinations, confirmation conflict rules, inquiry-led pricing, official assets, Auth.js/simulated boundary, PWA `atelier-static-v9`, ivory / emerald-glass / gold chrome, and the existing companion Studio compositions / CAS / export pipeline.
++
++## Test results by adapter / auth / provider
++
++| Layer | Result |
+ | --- | --- |
+-| Typecheck | Pass |
+-| Lint | Pass (one unused-arg warning removed) |
+-| `pnpm test` | 235 passed, 15 skipped (Postgres not configured) |
+-| `pnpm build` | Pass (Next.js 15.5.28) |
+-| `scripts/api-flow.mjs` | 50/50 |
+-| `scripts/companion-api.mjs` | 32/32 on `:3000` |
+-| `scripts/launch-journey-api.mjs` | 10/10 |
+-| `scripts/discovery-browser.mjs` | 0 failed |
+-| Fonts | Figtree body / Cormorant Garamond headings via `next/font` Google (legitimate). Not Times. |
+-| HTTP fetch (not Lighthouse) | `/` 39ms / 62KB; `/project` `private, no-store` |
+-
+-Identities used: **simulated** `owner.local@atelier.invalid` and `owner-two.local@atelier.invalid`. Persistence: **sqlite_local**. Live OpenAI: **off**. Auth.js providers: **not configured**.
++| Memory unit/integration (`pnpm test` without Postgres URL) | 241 passed |
++| SQLite local (running app, simulated auth) | `launch-journey-api.mjs` 16/16; `companion-api.mjs` 32/32 |
++| Isolated disposable PostgreSQL 16 (`atelier_launch_test` on 127.0.0.1) | New claim/adopt/rollback tests: 2 passed. Pre-existing generation-slot tests can race schema init (`pg_type_typname_nsp_index`); not treated as this pass’s acceptance. |
++| Simulated auth | Used throughout local proof (`owner.local@atelier.invalid`, `owner-two.local@atelier.invalid`) |
++| Real Auth.js / Google / Resend | Not run — credentials not configured |
++| Provider / live OpenAI | Fail-closed. Not run. |
++
++Skipped without `ATELIER_LOCAL_POSTGRES_URL` in the default `pnpm test` run: 17 tests across `postgres.integration.test.ts`, `postgres.multiprocess.test.ts`, and `postgres.worker.test.ts`.
++
++## Local commands actually run
++
++- `pnpm typecheck` — pass
++- `pnpm lint` — pass
++- `pnpm test` — 241 passed, 17 skipped
++- `ATELIER_LOCAL_POSTGRES_URL=postgres://…127.0.0.1…/atelier_launch_test pnpm exec vitest run src/lib/cofounder/postgres.integration.test.ts -t "claims guest work|rolls back a failed PostgreSQL"` — 2 passed
++- `pnpm build` — pass (Next.js 15.5.28)
++- `pnpm start` on a fresh `.data-adopt-verify` sqlite directory
++- `node scripts/launch-journey-api.mjs` — 16/16
++- `node scripts/companion-api.mjs` — 32/32
++- `node scripts/studio-adoption-capture.mjs` — confirm → matching draft → edit → save → reopen in a fresh page → second account 404
++
++## Browser / file proof
++
++- Confirmed Lumen direction and adopted draft `studio_c7359a56-adc8-4f05-925f-3ae2312cf891`
++- Matching Studio rendered “Considered sourcing”; after save/reopen the same composition showed “Considered sourcing · reserved”
++- Second account (`owner-two.local@atelier.invalid`) received 404 for that draft id and saw “not in this workspace”
++- Companion API already proves export hash binding, later edits do not change a stored export, and the second owner cannot download the file
+ 
+ ## Configured launch acceptance
+ 
+-| Item | Status | Missing |
+-| --- | --- | --- |
+-| Chosen sign-in provider (Google / Resend) | Blocked | `AUTH_GOOGLE_*` / `AUTH_RESEND_*`, `ATELIER_AUTH_ADAPTER=authjs` |
+-| Email delivery and callbacks | Blocked | Resend from-address + hosted callback URLs |
+-| Sessions / logout on staging | Not run | Hosted Auth.js + `AUTH_SECRET` |
+-| Persistent hosted database | Blocked | Dedicated Atelier Postgres; do not reuse Aethelios production |
+-| Private export retrieval on staging | Not run | Hosted storage + auth |
+-| Approved live AI path | Blocked | Spend approval, `ATELIER_OPENAI_ENABLED=true`, `OPENAI_API_KEY` |
+-| Production domain / OG absolute URLs | Blocked | `ATELIER_PUBLIC_ORIGIN` on the real domain |
+-| Billing / published prices | Blocked | Intentionally inactive; do not invent amounts |
+-| Physical phones / hardware keyboards | Not run | CSS viewports 320–1440 verified locally |
+-
+-## Remaining launch blockers
+-
+-1. Real Auth.js credentials and founder email list.
+-2. Dedicated hosted Postgres and the non-destructive duplicate review in `RECONCILIATION.md`.
+-3. Authorized OpenAI spend if Talk/Studio generation must be live.
+-4. Production domain assignment.
+-5. The supplied `atelier-integrated-source.patch` / `REHEARSAL.md` / `99a7524` continuity commits were **not in this environment**. See `MISSING_SOURCE.md`.
+-
+-## Smallest next activation steps
+-
+-1. Approve a dedicated Atelier Postgres project and run the detection queries only.
+-2. Set Auth.js secrets on a staging Vercel project (`docs/AUTH.md`).
+-3. Walk Google and/or Resend sign-in, logout, and a private export on that staging URL.
+-4. Only then consider live AI and a production domain.
++See `docs/launch/HOSTED_ACTIVATION.md`. Hosted sign-in, callback origin, durable Postgres, artifact storage, two real accounts, and one approved provider request remain blocked or not run.
+ 
+ Do not merge to `main` or deploy from this agent without a separate approval.
+diff --git a/docs/launch/MISSING_SOURCE.md b/docs/launch/MISSING_SOURCE.md
+index 485eb82..440f7c2 100644
+--- a/docs/launch/MISSING_SOURCE.md
++++ b/docs/launch/MISSING_SOURCE.md
+@@ -1,18 +1,18 @@
+ # Missing supplied source
+ 
+-This environment started from remote `main` at `429f939b555f5e4d11bc95e2cc56afb11f167c98`.
++This environment started from remote `main` at `429f939b555f5e4d11bc95e2cc56afb11f167c98` and continues PR #18 on `cursor/atelier-premium-launch-readiness-da63`.
+ 
+ The prompt referenced materials that were **not present** in this checkout:
+ 
+ | Item | Status |
+ | --- | --- |
+-| `atelier-integrated-source.patch` | Not found in the workspace, `/tmp`, or agent attachments |
+-| `REHEARSAL.md` | Not found |
++| `atelier-integrated-source.patch` | Still not found in the workspace, `/tmp`, or agent attachments. Public search does not recover it. |
++| `REHEARSAL.md` | Now supplied. Copied to `docs/launch/REHEARSAL.md`. Historical evidence only. |
+ | Local branch `codex/atelier-premium-continuity` | Not present |
+-| Application checkpoint `99a7524` | Not a valid object in this repository |
++| Application checkpoint `99a7524d60b13f2c6a6579a5cea2913e08c71d27` | Not a valid object in this repository |
+ | Evidence checkpoint `e7c7c27` | Not a valid object |
+ | Film commit `43de68c` | Not a valid object |
+ 
+ GitHub `main` already contains the merged cinematic studio, Discovery elevation, owner journey, pricing, Auth.js, and companion Talk/Studio work. Those systems were preserved rather than replaced.
+ 
+-No weaker Studio or logo substitutes were invented. Official assets remain in `public/brand/original/` and the v7 install set.
++No weaker Studio or logo substitutes were invented. Official assets remain in `public/brand/original/` and the v7 install set. The missing patch is the exact source for the approved immersive Direction → Refine → Collection implementation.
+diff --git a/docs/launch/RECONCILIATION.md b/docs/launch/RECONCILIATION.md
+index daee8e3..bc3297a 100644
+--- a/docs/launch/RECONCILIATION.md
++++ b/docs/launch/RECONCILIATION.md
+@@ -54,6 +54,17 @@ HAVING COUNT(*) > 1;
+ 
+ Keep the earliest project per guest draft. Do not delete the extra row until Neil reviews it. The unique index `projects_guest_draft_idx` must be created only after duplicates are resolved.
+ 
++## Studio direction adoptions
++
++```sql
++SELECT business_id, source_selection_id, source_revision, direction_id, COUNT(*)
++FROM studio_direction_adoptions
++GROUP BY 1, 2, 3, 4
++HAVING COUNT(*) > 1;
++```
++
++The primary key already prevents duplicates. Extra Studio drafts that are not referenced by `studio_direction_adoptions.draft_id` are leftover editable work and must not be deleted automatically.
++
+ ## Rollback
+ 
+ Dropping `user_initial_business` / `guest_work_claims` / `business_confirmations` returns the uniqueness gate to application logic only. Existing businesses and projects remain.
+diff --git a/docs/launch/REHEARSAL.md b/docs/launch/REHEARSAL.md
+new file mode 100644
+index 0000000..009190e
+--- /dev/null
++++ b/docs/launch/REHEARSAL.md
+@@ -0,0 +1,36 @@
++# AETHELIOS RESERVE — prefilm rehearsal
++
++This is a browser rehearsal of the actual Atelier application, not a film, deployed site, operating store, live provider run or production acceptance. Application source is recorded in results.json. The name is **AETHELIOS RESERVE** throughout Discovery and the saved business profile. No Legacy Reserve substitution was used.
++
++## Repeatable click path
++
++1. Open the public `/` homepage. Click its **Explore your direction** CTA, then Discovery's **Explore your direction**.
++2. Enter **AETHELIOS RESERVE**. Choose **Not sure yet** for business type, **Present the work more clearly**, and enter: “Full brand and existing-identity extension: supplier-backed catalogs, sourcing coordination, managed commerce. Planning only.” Choose Calm and a quality, then **Open the studio**.
++3. Click **Compare two**, refine the headline to **Considered sourcing** and the palette to Ivory Hall, then **Use Lumen**. Click **Continue in Studio**, follow the sign-in link and choose the clearly labeled local simulated owner.
++4. In Business, explicitly save the name **AETHELIOS RESERVE**, the planning-only services and the note that official logo originals are unavailable. Return to Studio. Choose **Direction → Continue existing identity → Lock and save direction**.
++5. In Refine/Text, use headline **Considered sourcing** and concise body **AETHELIOS RESERVE · Planning study**. In Image, retain the full planning intent as direction, with official-logo unavailability stated. Select Direction board, then **New draft**. Switch between Direction board, Square social and Website banner; use **Export** for each. Export saves the corresponding editable revision first.
++6. Click header **Simulated owner → Sign out**. Reopen the exact saved Studio URL including its query, click sign-in and choose the local owner. Confirm saved identity/copy, then **Image → Composition exports · download only → Download exported revision** for each file.
++
++The automated run also includes a separate negative/recovery exercise before step 5: the longer 87-character service body exceeds the direction-board text area. The interface reports overflow rather than silently clipping. The operator explicitly replaces it with the short body above, saves and reopens. This is an authoring constraint, not an unexplained smooth-path success. The full business intent remains in Discovery, Business and the saved image direction.
++
++## Evidence and visual limits
++
++All primary captures are normal viewport screenshots at 1440×900, 884×900 and 390×844. Supplemental homepage and Collection captures use 1920×1080. Three artifact PNGs use native dimensions. Results distinguish authenticated fetch/pixel checks from actual browser-download-button files retained under downloads/.
++
++The selected art uses Atelier's disclosed curated architecture studies. These are **not AETHELIOS RESERVE product/catalog assets**, supplier inventory or evidence of an operating commerce service. Exact lettering remains an editable text layer; no official Reserve logo was invented.
++
++The supplied originals remain blocked independently of browser success. Library prepared both originals, but the supported download GET returned HTTP403 from the environment proxy for each: `libfile_9a9a792423948191ab1e6d6755bca344` (3030.png) and `libfile_518437ba28c08191baf694d497144b21` (3029.png). No bytes were obtained and expected hashes could not be verified. No alternate ZIP retry or substitute logo was used. See asset-transfer-audit.json. The merged public Atelier logo is a separate asset and is not the Reserve identity.
++
++Font inspection confirms fallback rendering locally: homepage headline Liberation Serif and body/eyebrow Noto Sans; requested Cormorant/Figtree faces did not load. See font-audit.json. The compositor uses portable explicit canvas fonts. Production typography and the original Reserve-logo path are not accepted by this rehearsal.
++
++Local SQLite and explicitly simulated authentication only. No video, deployment, push, hosted database change, credential setup, paid operation or live AI call occurred. Hosted authentication/Postgres/provider behavior remains unverified.
++
++## Recorded outcome
++
++Application source: `99a7524d60b13f2c6a6579a5cea2913e08c71d27`. **56 main checks passed, 0 failed**; **2 cinematic viewport checks passed, 0 failed**. No browser console/hydration errors. Three decoded preview/export comparisons had maximum channel difference0. Three retained-file hashes matched before/after authentication, and all three actual UI download files matched their retained hashes. The saved BrandKit (including retained references) and palette were identical after signing back in; no logo layer or official identity asset was fabricated.
++
++The final9 format screenshots were recaptured after Export completed, using the same saved copy and identity, to exclude transient disabled/exporting controls. The supplementary script re-saved those formats, preserving previous exported revisions. Main results retain the original verified revision IDs and downloaded filenames.
++
++Manual review covered the real homepage, mobile Discovery controls, desktop board, phone announcement, fold banner and1920Collection. Captures show the exact Reserve name and readable short copy; cinematic Collection displays all three real compositions. Original-logo and production-font limitations above remain blockers for an original-identity/production-visual rehearsal.
++
++Package: 36 PNG files, including3native exports and3actual browser-downloaded copies, with SHA256/source manifest. Root's unit suite reports261passed/15skipped; typecheck passed. These local results do not confer launch acceptance.
+diff --git a/docs/launch/SOURCE_RECONCILIATION.md b/docs/launch/SOURCE_RECONCILIATION.md
+new file mode 100644
+index 0000000..4033bef
+--- /dev/null
++++ b/docs/launch/SOURCE_RECONCILIATION.md
+@@ -0,0 +1,43 @@
++# Source reconciliation manifest
++
++Exact working branch: `cursor/atelier-premium-launch-readiness-da63`  
++Inspected incoming head: `6f5dcedf906e26715c4d351227cb9614772dca7c`  
++This pass continues that branch. It does not reset to `main` and does not replace the application.
++
++## Supplied attachments
++
++| Item | Status | What was done |
++| --- | --- | --- |
++| `REHEARSAL.md` | Present at `/home/ubuntu/.cursor/projects/workspace/uploads/REHEARSAL.md_e898.txt` | Copied to `docs/launch/REHEARSAL.md`. Used as historical evidence of the Direction → Refine → Collection rehearsal against application source `99a7524d60b13f2c6a6579a5cea2913e08c71d27`. `e7c7c27` remains later rehearsal evidence only. Neither SHA exists in this repository. |
++| `atelier-integrated-source.patch` | **Still missing** | Searched the workspace, `/tmp`, agent uploads, and public GitHub. The file is not a repository, has no base SHA, and cannot be applied. No weaker immersive Studio was invented to replace it. |
++
++## Retained from PR #18 / this branch
++
++- First-customer provisioning (`user_initial_business` + transactional `ensureForUser`)
++- Guest claiming (`guest_work_claims`) and safe return destinations
++- Explicit business / direction confirmation
++- Inquiry-led pricing
++- Official brand assets and the ivory / emerald-glass / gold system
++- Auth.js / simulated-identity boundary, PWA cache `atelier-static-v9`, personalized `/companion` exclusion
++- Existing companion Studio compositions, CAS saves, retained images, and shared preview/export rendering
++- Layout tokens `square_announcement` / `portrait_social` / `story_portrait` / `website_banner` (Square social and Website banner already exist in this Studio)
++
++## Retained from the rehearsal notes (evidence only)
++
++The rehearsal describes Direction → Refine → Collection, BrandKit, Direction board, Continue in Studio, saved-versus-working comparison, and official Reserve-logo handling. Those application files are in the missing patch, not in this checkout. This pass does **not** reconstruct them from the write-up.
++
++## Added in this pass (unblocked work)
++
++- Confirmation now requires a signed-in owner and a server-side guest claim before a Discovery direction can be adopted
++- The claimed payload is the source of truth; client/localStorage IDs must match it
++- A failed guest claim blocks adoption
++- Confirmation idempotently creates or resolves one editable Studio draft and returns its id
++- Studio / confirm screens start in a genuine checking state
++- Guest-claim inserts use `ON CONFLICT` / `INSERT OR IGNORE` so PostgreSQL never continues a failed unique-insert transaction
++- Guest-brief adoption retries the whole transaction instead of catching unique and re-querying inside the aborted transaction
++
++## Still blocked
++
++1. Applying `atelier-integrated-source.patch` — exact missing source
++2. Restoring BrandKit / Direction board / Collection from that patch
++3. Hosted Auth.js, dedicated Postgres, artifact storage, and provider-backed generation
+diff --git a/docs/launch/STAGING_CHECKLIST.md b/docs/launch/STAGING_CHECKLIST.md
+index 9e938be..a6f31b0 100644
+--- a/docs/launch/STAGING_CHECKLIST.md
++++ b/docs/launch/STAGING_CHECKLIST.md
+@@ -22,7 +22,8 @@ New tables and indexes (already created by the sqlite/postgres adapters on boot)
+ 
+ - `user_initial_business`
+ - `guest_work_claims`
+-- `business_confirmations`
++- `business_confirmations` (now includes `studio_draft_id`)
++- `studio_direction_adoptions`
+ - unique index `projects_guest_draft_idx` on `adopted_from_guest_id`
+ 
+ For a hosted database that already has duplicate guest-draft or owner-business rows, run the detection queries in `docs/launch/RECONCILIATION.md` **before** applying the unique index. Do not delete customer rows.
+@@ -37,7 +38,7 @@ For a hosted database that already has duplicate guest-draft or owner-business r
+ ## Rollback
+ 
+ - Application: redeploy the previous git SHA. The new tables are unused if the old build does not read them.
+-- Uniqueness gate only: drop `user_initial_business` / `guest_work_claims` / `business_confirmations` and `projects_guest_draft_idx` after confirming no new writes depend on them.
++- Uniqueness gate only: drop `user_initial_business` / `guest_work_claims` / `business_confirmations` / `studio_direction_adoptions` and `projects_guest_draft_idx` after confirming no new writes depend on them.
+ - Do not drop `businesses`, `projects`, Studio revisions, or export blobs.
+ 
+ ## What this environment must not do
+diff --git a/scripts/launch-journey-api.mjs b/scripts/launch-journey-api.mjs
+index f1978a7..e800788 100644
+--- a/scripts/launch-journey-api.mjs
++++ b/scripts/launch-journey-api.mjs
+@@ -40,7 +40,17 @@ const guestWorkId = `dsel_${crypto.randomUUID()}`;
+ const claimed = await req("/api/companion/guest-claim", {
+   method: "POST",
+   cookie: owner,
+-  body: { guestWorkId, kind: "discovery", destination: "/companion/confirm", payload: { selectedDirectionId: "lumen" } }
++  body: {
++    guestWorkId,
++    kind: "discovery",
++    destination: "/companion/confirm",
++    payload: {
++      selectionId: guestWorkId,
++      localRevision: 1,
++      selectedDirectionId: "lumen",
++      businessName: "Northridge Sitting Room"
++    }
++  }
+ });
+ check("owner claims discovery", claimed.status === 200 && claimed.json.claim?.guestWorkId === guestWorkId);
+ 
+@@ -78,7 +88,50 @@ const confirmed = await req("/api/companion/confirm", {
+     directionId: "lumen"
+   }
+ });
+-check("owner confirmation saved", confirmed.status === 200 && confirmed.json.confirmation?.businessName === "Northridge Sitting Room");
++check(
++  "owner confirmation saved",
++  confirmed.status === 200 && confirmed.json.confirmation?.businessName === "Northridge Sitting Room"
++);
++check("confirmation creates a matching studio draft", Boolean(confirmed.json.draft?.id) && confirmed.json.confirmation?.studioDraftId === confirmed.json.draft.id);
++
++const again = await req("/api/companion/confirm", {
++  method: "POST",
++  cookie: owner,
++  body: {
++    businessId: ws.json.business.id,
++    businessName: "Northridge Sitting Room",
++    businessContext: "A quiet sitting room.",
++    sourceSelectionId: guestWorkId,
++    sourceRevision: 1,
++    directionId: "lumen"
++  }
++});
++check("repeat confirmation resolves the same draft", again.status === 200 && again.json.draft?.id === confirmed.json.draft.id);
++
++const exact = await req(
++  `/api/companion/studio?businessId=${ws.json.business.id}&draftId=${confirmed.json.draft.id}`,
++  { cookie: owner }
++);
++check("owner can read the adopted draft", exact.status === 200 && exact.json.draft?.id === confirmed.json.draft.id);
++
++const stolenDraft = await req(
++  `/api/companion/studio?businessId=${ws.json.business.id}&draftId=${confirmed.json.draft.id}`,
++  { cookie: other }
++);
++check("other cannot read owner draft by id", stolenDraft.status === 403);
++
++const otherSelection = `dsel_${crypto.randomUUID()}`;
++const otherClaimed = await req("/api/companion/guest-claim", {
++  method: "POST",
++  cookie: owner,
++  body: {
++    guestWorkId: otherSelection,
++    kind: "discovery",
++    destination: "/companion/confirm",
++    payload: { selectionId: otherSelection, localRevision: 2, selectedDirectionId: "hearth" }
++  }
++});
++check("owner can claim a second direction", otherClaimed.status === 200);
+ 
+ const conflict = await req("/api/companion/confirm", {
+   method: "POST",
+@@ -87,7 +140,7 @@ const conflict = await req("/api/companion/confirm", {
+     businessId: ws.json.business.id,
+     businessName: "Northridge Sitting Room",
+     businessContext: "A quiet sitting room.",
+-    sourceSelectionId: "dsel_other",
++    sourceSelectionId: otherSelection,
+     sourceRevision: 2,
+     directionId: "hearth"
+   }
+@@ -105,6 +158,21 @@ const otherConfirm = await req("/api/companion/confirm", {
+ });
+ check("other cannot confirm owner business", otherConfirm.status === 403);
+ 
++const unclaimed = await req("/api/companion/confirm", {
++  method: "POST",
++  cookie: owner,
++  body: {
++    businessId: ws.json.business.id,
++    businessName: "Northridge Sitting Room",
++    businessContext: "A quiet sitting room.",
++    sourceSelectionId: `dsel_${crypto.randomUUID()}`,
++    sourceRevision: 9,
++    directionId: "hearth",
++    replaceConfirmedDirection: true
++  }
++});
++check("unclaimed selection cannot be adopted", unclaimed.status === 403);
++
+ const badNext = await req("/api/session/start", {
+   method: "POST",
+   body: { provider: "google", callbackUrl: "https://evil.example" }
+diff --git a/scripts/studio-adoption-capture.mjs b/scripts/studio-adoption-capture.mjs
+new file mode 100644
+index 0000000..fbc063e
+--- /dev/null
++++ b/scripts/studio-adoption-capture.mjs
+@@ -0,0 +1,174 @@
++#!/usr/bin/env node
++/** Browser proof: confirm → matching Studio draft → edit → save → reopen. */
++import fs from "node:fs";
++import path from "node:path";
++import puppeteer from "puppeteer-core";
++
++const BASE = process.env.ATELIER_BASE ?? "http://127.0.0.1:3000";
++const OUT = "/opt/cursor/artifacts";
++fs.mkdirSync(OUT, { recursive: true });
++
++const selection = {
++  selectionId: `dsel_${crypto.randomUUID()}`,
++  localRevision: 1,
++  catalogVersion: 1,
++  templateVersion: 1,
++  businessName: "AETHELIOS RESERVE",
++  businessType: "not_sure",
++  audience: "Planning study for supplier-backed catalogs.",
++  desiredQualities: ["refined"],
++  intent: "clearer_presence",
++  intentNote: "Full brand and existing-identity extension. Planning only.",
++  customerFeeling: "calm",
++  selectedDirectionId: "lumen",
++  visualPreferences: { paletteId: "ivory_hall", visualDirectionId: "glass", headline: "Considered sourcing" },
++  serviceInterest: "unspecified",
++  likesNote: "",
++  changeNote: "",
++  visitorNotes: "",
++  exclusions: "",
++  createdAt: new Date().toISOString(),
++  updatedAt: new Date().toISOString()
++};
++
++const browser = await puppeteer.launch({
++  executablePath: "/usr/bin/google-chrome-stable",
++  headless: true,
++  args: ["--no-sandbox", "--disable-gpu", "--hide-scrollbars"]
++});
++
++async function shot(page, width, name, height = width <= 390 ? 844 : 1100) {
++  await page.setViewport({ width, height, deviceScaleFactor: 1 });
++  await new Promise((resolve) => setTimeout(resolve, 300));
++  const file = path.join(OUT, `adopt_${name}_${width}w.png`);
++  await page.screenshot({ path: file, fullPage: true });
++  console.log("wrote", file);
++}
++
++async function signIn(page, email) {
++  const result = await page.evaluate(async (emailArg) => {
++    const res = await fetch("/api/session/sign-in", {
++      method: "POST",
++      headers: { "content-type": "application/json" },
++      body: JSON.stringify({ email: emailArg })
++    });
++    return { status: res.status, ok: res.ok };
++  }, email);
++  if (!result.ok) throw new Error(`sign-in ${email} ${result.status}`);
++  await page.reload({ waitUntil: "networkidle0" });
++}
++
++const page = await browser.newPage();
++await page.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]);
++await page.goto(`${BASE}/account`, { waitUntil: "networkidle0" });
++await signIn(page, "owner.local@atelier.invalid");
++
++await page.evaluate((next) => {
++  window.sessionStorage.setItem(
++    "aethelios.atelier.discovery.handoff.v1",
++    JSON.stringify({ kind: "discovery_handoff", selection: next })
++  );
++  window.sessionStorage.setItem(
++    "aethelios.atelier.guestIntent.v1",
++    JSON.stringify({
++      version: 1,
++      kind: "guest_intent",
++      guestWorkId: next.selectionId,
++      destination: "/companion/confirm",
++      selectionId: next.selectionId,
++      localRevision: next.localRevision,
++      updatedAt: new Date().toISOString()
++    })
++  );
++}, selection);
++
++await page.goto(`${BASE}/companion/confirm`, { waitUntil: "networkidle0" });
++await page.waitForFunction(() => /Lumen|Checking/i.test(document.body.innerText), { timeout: 8000 });
++await page.waitForFunction(() => !/Checking authorization/i.test(document.body.innerText), { timeout: 8000 }).catch(() => {});
++await page.waitForFunction(() => /Lumen/i.test(document.body.innerText), { timeout: 8000 });
++await shot(page, 1440, "confirm_direction");
++await shot(page, 390, "confirm_direction");
++
++const nameInput = await page.$("input");
++if (nameInput) {
++  await nameInput.click({ clickCount: 3 });
++  await nameInput.type("AETHELIOS RESERVE");
++}
++await page.evaluate(() => {
++  const button = [...document.querySelectorAll("button")].find((node) => /Confirm and continue/i.test(node.textContent || ""));
++  button?.click();
++});
++await page.waitForFunction(() => /Replace the previous direction|Opening the matching Studio|Brand Studio|Considered sourcing/i.test(document.body.innerText), {
++  timeout: 12000
++});
++const needsReplace = await page.evaluate(() => /Replace the previous direction/i.test(document.body.innerText));
++if (needsReplace) {
++  await page.evaluate(() => {
++    const button = [...document.querySelectorAll("button")].find((node) => /Replace the previous direction/i.test(node.textContent || ""));
++    button?.click();
++  });
++}
++await page.waitForFunction(() => /Opening the matching Studio|Brand Studio|Considered sourcing/i.test(document.body.innerText), {
++  timeout: 12000
++});
++await page.waitForFunction(() => !/Checking this workspace|Resolving authorization/i.test(document.body.innerText), {
++  timeout: 10000
++}).catch(() => {});
++await shot(page, 1440, "studio_matching");
++await shot(page, 390, "studio_matching");
++await shot(page, 884, "studio_matching");
++
++const draftId = await page.evaluate(() => new URL(window.location.href).searchParams.get("draftId"));
++if (!draftId) throw new Error("confirmation did not navigate to an exact Studio draft");
++
++const headlineEl = await page.$("#headline");
++if (!headlineEl) throw new Error("Studio headline field was not available");
++await headlineEl.click({ clickCount: 3 });
++await headlineEl.type("Considered sourcing · reserved");
++await page.evaluate(() => {
++  const button = [...document.querySelectorAll("button")].find((node) => /Save layers/i.test(node.textContent || ""));
++  button?.click();
++});
++await page.waitForFunction(() => /Saved/i.test(document.body.innerText), { timeout: 8000 }).catch(() => {});
++await shot(page, 1440, "studio_edited");
++await shot(page, 390, "studio_edited");
++
++await page.evaluate(async () => {
++  await fetch("/api/session/sign-out", { method: "POST" });
++});
++
++const fresh = await browser.newPage();
++await fresh.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]);
++await fresh.goto(`${BASE}/account`, { waitUntil: "networkidle0" });
++await signIn(fresh, "owner.local@atelier.invalid");
++await fresh.goto(`${BASE}/companion/studio?draftId=${encodeURIComponent(draftId)}`, { waitUntil: "networkidle0" });
++await fresh.waitForFunction(() => /Considered sourcing/i.test(document.body.innerText), { timeout: 10000 });
++await shot(fresh, 1440, "studio_reopened");
++
++const other = await browser.newPage();
++await other.goto(`${BASE}/account`, { waitUntil: "networkidle0" });
++await signIn(other, "owner-two.local@atelier.invalid");
++const isolation = await other.evaluate(async (id) => {
++  const workspace = await fetch("/api/companion/workspace").then((res) => res.json());
++  const stolen = await fetch(`/api/companion/studio?businessId=${workspace.business.id}&draftId=${encodeURIComponent(id)}`);
++  const foreign = await fetch(`/api/companion/studio?draftId=${encodeURIComponent(id)}`);
++  return {
++    otherBusiness: workspace.business?.id ?? null,
++    stolenStatus: stolen.status,
++    foreignStatus: foreign.status
++  };
++}, draftId);
++console.log("isolation", JSON.stringify(isolation));
++if (isolation.stolenStatus === 200 || isolation.foreignStatus === 200) {
++  throw new Error("second account obtained the adopted Studio draft");
++}
++await other.goto(`${BASE}/companion/studio?draftId=${encodeURIComponent(draftId)}`, { waitUntil: "networkidle0" });
++await shot(other, 1440, "studio_foreign_blocked");
++
++fs.writeFileSync(
++  path.join(OUT, "adopt_journey.json"),
++  JSON.stringify({ draftId, selectionId: selection.selectionId, isolation }, null, 2)
++);
++
++await browser.close();
++console.log("draft", draftId);
+diff --git a/src/app/api/companion/confirm/route.ts b/src/app/api/companion/confirm/route.ts
+index f433a05..bc2ec61 100644
+--- a/src/app/api/companion/confirm/route.ts
++++ b/src/app/api/companion/confirm/route.ts
+@@ -19,7 +19,7 @@ export async function POST(request: Request) {
+   try {
+     const body = bodySchema.parse(await readJson(request));
+     const { auth, store, context } = await requireCompanionWrite(body.businessId);
+-    const confirmation = await new BusinessAdoption(store).confirm(context.business.id, auth.user, {
++    const adopted = await new BusinessAdoption(store).confirm(context.business.id, auth.user, {
+       businessName: body.businessName,
+       businessContext: body.businessContext ?? "",
+       sourceSelectionId: body.sourceSelectionId,
+@@ -27,7 +27,12 @@ export async function POST(request: Request) {
+       directionId: body.directionId,
+       replaceConfirmedDirection: body.replaceConfirmedDirection
+     });
+-    return json({ ok: true, confirmation });
++    return json({
++      ok: true,
++      confirmation: adopted.confirmation,
++      draft: adopted.draft,
++      studioHref: adopted.draft ? `/companion/studio?draftId=${encodeURIComponent(adopted.draft.id)}` : "/companion/studio"
++    });
+   } catch (error) {
+     return handleError(error);
+   }
+diff --git a/src/components/cofounder/CompanionShell.tsx b/src/components/cofounder/CompanionShell.tsx
+index 714fc83..e7ff1f5 100644
+--- a/src/components/cofounder/CompanionShell.tsx
++++ b/src/components/cofounder/CompanionShell.tsx
+@@ -21,13 +21,19 @@ export function CompanionShell({
+   const pathname = usePathname();
+   const { user, loading } = useSession();
+   const [businessName, setBusinessName] = useState("");
+-  const [studioGate, setStudioGate] = useState<"ready" | "confirm">("ready");
++  const [studioGate, setStudioGate] = useState<"checking" | "ready" | "confirm">(
++    pathname.startsWith("/companion/studio") ? "checking" : "ready"
++  );
+ 
+   useEffect(() => {
+     if (!user) return;
+-    void api<{ business: { name: string }; confirmation: { sourceSelectionId: string | null } | null }>(
+-      "/api/companion/workspace"
+-    )
++    if (pathname.startsWith("/companion/studio")) {
++      setStudioGate("checking");
++    }
++    void api<{
++      business: { name: string };
++      confirmation: { sourceSelectionId: string | null; studioDraftId?: string | null } | null;
++    }>("/api/companion/workspace")
+       .then((data) => {
+         setBusinessName(data.business.name);
+         const intent = readGuestIntent();
+@@ -41,7 +47,12 @@ export function CompanionShell({
+           setStudioGate("ready");
+         }
+       })
+-      .catch(() => setBusinessName(""));
++      .catch(() => {
++        setBusinessName("");
++        if (pathname.startsWith("/companion/studio")) {
++          setStudioGate("ready");
++        }
++      });
+   }, [user, pathname]);
+ 
+   if (loading) {
+@@ -73,6 +84,20 @@ export function CompanionShell({
+     );
+   }
+ 
++  if (studioGate === "checking") {
++    return (
++      <section className={`container ${styles.shell}`}>
++        <div className={`surface-glass ${styles.gate}`}>
++          <p className={styles.meta}>Studio</p>
++          <h1>Checking this workspace</h1>
++          <p className="lede">
++            Resolving the signed-in owner and any confirmed Discovery draft before a composition is shown.
++          </p>
++        </div>
++      </section>
++    );
++  }
++
+   if (studioGate === "confirm") {
+     return (
+       <section className={`container ${styles.shell}`}>
+diff --git a/src/components/cofounder/ConfirmClient.tsx b/src/components/cofounder/ConfirmClient.tsx
+index 6695807..d1f5904 100644
+--- a/src/components/cofounder/ConfirmClient.tsx
++++ b/src/components/cofounder/ConfirmClient.tsx
+@@ -1,6 +1,8 @@
+ "use client";
+ 
+ import { useEffect, useState } from "react";
++import { useRouter } from "next/navigation";
++import type { Route } from "next";
+ import { CompanionShell } from "@/components/cofounder/CompanionShell";
+ import { useSession } from "@/components/shell/SessionShell";
+ import { AppLink } from "@/components/ui/AppLink";
+@@ -8,7 +10,7 @@ import { ApiError, api } from "@/lib/client/api";
+ import { actionErrorMessage } from "@/lib/client/asyncAction";
+ import { DIRECTIONS, parseSelection, readDiscoveryHandoff, type DiscoverySelection } from "@/lib/discovery";
+ import { clearGuestIntent, readGuestIntent } from "@/lib/guest/intent";
+-import type { Business, BusinessConfirmation } from "@/lib/cofounder/types";
++import type { Business, BusinessConfirmation, StudioDraft } from "@/lib/cofounder/types";
+ import styles from "./companion.module.css";
+ 
+ function selectionFromDevice(): DiscoverySelection | null {
+@@ -26,6 +28,8 @@ function selectionFromDevice(): DiscoverySelection | null {
+ 
+ export function ConfirmClient() {
+   const { user } = useSession();
++  const router = useRouter();
++  const [phase, setPhase] = useState<"checking" | "ready" | "blocked">("checking");
+   const [business, setBusiness] = useState<Business | null>(null);
+   const [confirmation, setConfirmation] = useState<BusinessConfirmation | null>(null);
+   const [selection, setSelection] = useState<DiscoverySelection | null>(null);
+@@ -36,33 +40,47 @@ export function ConfirmClient() {
+   const [conflict, setConflict] = useState<BusinessConfirmation | null>(null);
+   const [pending, setPending] = useState(false);
+   const [saved, setSaved] = useState(false);
++  const [draft, setDraft] = useState<StudioDraft | null>(null);
++  const [claimState, setClaimState] = useState<"idle" | "claimed" | "failed">("idle");
+ 
+   useEffect(() => {
+     const next = selectionFromDevice();
+     setSelection(next);
++    if (!user) {
++      setPhase("ready");
++      return;
++    }
++
+     const intent = readGuestIntent();
+-    if (next && user) {
+-      void api("/api/companion/guest-claim", {
+-        method: "POST",
+-        body: JSON.stringify({
+-          guestWorkId: next.selectionId,
+-          kind: "discovery",
+-          destination: intent?.destination ?? "/companion/confirm",
+-          payload: {
+-            selectionId: next.selectionId,
+-            localRevision: next.localRevision,
+-            selectedDirectionId: next.selectedDirectionId
+-          }
++    const claim = next
++      ? api("/api/companion/guest-claim", {
++          method: "POST",
++          body: JSON.stringify({
++            guestWorkId: next.selectionId,
++            kind: "discovery",
++            destination: intent?.destination ?? "/companion/confirm",
++            payload: next
++          })
+         })
+-      }).catch((err) => setError(actionErrorMessage(err, "This Discovery direction could not be claimed.")));
+-    }
+-    if (!user) return;
+-    void api<{ business: Business; confirmation: BusinessConfirmation | null; rawProfile: { fields: { name: { value: string }; audience: { value: string } } } }>(
+-      "/api/companion/workspace"
+-    )
++          .then(() => setClaimState("claimed"))
++          .catch((err) => {
++            setClaimState("failed");
++            setError(actionErrorMessage(err, "This Discovery direction could not be claimed."));
++            throw err;
++          })
++      : Promise.resolve(setClaimState("idle"));
++
++    const workspace = api<{
++      business: Business;
++      confirmation: BusinessConfirmation | null;
++      rawProfile: { fields: { name: { value: string }; audience: { value: string } } };
++    }>("/api/companion/workspace")
+       .then((data) => {
+         setBusiness(data.business);
+         setConfirmation(data.confirmation);
++        if (data.confirmation?.studioDraftId) {
++          setDraft({ id: data.confirmation.studioDraftId } as StudioDraft);
++        }
+         const existingName = data.confirmation?.businessName || data.rawProfile.fields.name.value || data.business.name;
+         setBusinessName(existingName === "Your business" && next?.businessName ? next.businessName : existingName);
+         setBusinessContext(
+@@ -70,17 +88,35 @@ export function ConfirmClient() {
+             data.rawProfile.fields.audience.value ||
+             [next?.audience, next?.intentNote].filter(Boolean).join(" ").trim()
+         );
+-      })
+-      .catch((err) => setError(actionErrorMessage(err, "The workspace could not open.")));
++      });
++
++    void Promise.allSettled([claim, workspace]).then(([claimResult, workspaceResult]) => {
++      if (workspaceResult.status === "rejected") {
++        setError(actionErrorMessage(workspaceResult.reason, "The workspace could not open."));
++        setPhase("blocked");
++        return;
++      }
++      if (next && claimResult.status === "rejected") {
++        setPhase("blocked");
++        return;
++      }
++      setPhase("ready");
++    });
+   }, [user]);
+ 
+   async function submit(replace = false) {
+-    if (pending || !business) return;
++    if (pending || !business || phase !== "ready") return;
++    if (selection && claimState !== "claimed") return;
+     setPending(true);
+     setError("");
+     setStatus("");
+     try {
+-      const result = await api<{ ok: true; confirmation: BusinessConfirmation }>("/api/companion/confirm", {
++      const result = await api<{
++        ok: true;
++        confirmation: BusinessConfirmation;
++        draft: StudioDraft | null;
++        studioHref?: string;
++      }>("/api/companion/confirm", {
+         method: "POST",
+         body: JSON.stringify({
+           businessId: business.id,
+@@ -93,10 +129,19 @@ export function ConfirmClient() {
+         })
+       });
+       setConfirmation(result.confirmation);
++      setDraft(result.draft);
+       setConflict(null);
+       setSaved(true);
+-      setStatus("Business and direction confirmed. You can open Studio with this exact selection.");
++      setStatus(
++        result.draft
++          ? "Business and direction confirmed. Opening the matching Studio draft."
++          : "Business confirmed. You can open Studio when a Discovery direction is claimed."
++      );
+       clearGuestIntent();
++      if (result.studioHref && result.draft) {
++        router.push(result.studioHref as Route);
++        return;
++      }
+     } catch (err) {
+       const conflictCurrent = err instanceof ApiError ? (err.currentBrief as BusinessConfirmation | undefined) : null;
+       if (conflictCurrent) {
+@@ -111,6 +156,19 @@ export function ConfirmClient() {
+   }
+ 
+   const direction = selection ? DIRECTIONS[selection.selectedDirectionId] : null;
++  const canSubmit =
++    phase === "ready" && Boolean(business) && !pending && (!selection || claimState === "claimed");
++
++  if (phase === "checking") {
++    return (
++      <CompanionShell
++        title="Confirm this business"
++        lede="Checking the signed-in owner, claimed Discovery snapshot, and target workspace before anything is adopted."
++      >
++        <p className="notice">Checking authorization and any claimed Discovery direction…</p>
++      </CompanionShell>
++    );
++  }
+ 
+   return (
+     <CompanionShell
+@@ -119,6 +177,12 @@ export function ConfirmClient() {
+     >
+       {error ? <p className="notice notice-warn">{error}</p> : null}
+       {status ? <p className="notice">{status}</p> : null}
++      {phase === "blocked" && selection ? (
++        <p className="notice notice-warn">
++          A failed guest claim stops adoption. Sign in as the owner of this Discovery direction, or start a new
++          selection.
++        </p>
++      ) : null}
+       <div className={styles.grid}>
+         <article className={`${styles.glassCard} on-glass`}>
+           <p className={styles.label}>Business</p>
+@@ -140,11 +204,11 @@ export function ConfirmClient() {
+             decisions are not invented here.
+           </p>
+           <div className={styles.actions}>
+-            <button className="btn btn-gold" type="button" disabled={pending || !business} onClick={() => void submit(false)}>
++            <button className="btn btn-gold" type="button" disabled={!canSubmit} onClick={() => void submit(false)}>
+               {pending ? "Saving…" : saved ? "Confirmed" : "Confirm and continue"}
+             </button>
+             {conflict ? (
+-              <button className="btn btn-ghost" type="button" disabled={pending} onClick={() => void submit(true)}>
++              <button className="btn btn-ghost" type="button" disabled={!canSubmit} onClick={() => void submit(true)}>
+                 Replace the previous direction
+               </button>
+             ) : null}
+@@ -171,10 +235,15 @@ export function ConfirmClient() {
+           {confirmation ? (
+             <p className={styles.meta} style={{ marginTop: 16 }}>
+               Last confirmed {new Date(confirmation.confirmedAt).toLocaleString()}
+-              {confirmation.sourceRevision != null ? ` · revision ${confirmation.sourceRevision}` : ""}.
++              {confirmation.sourceRevision != null ? ` · revision ${confirmation.sourceRevision}` : ""}
++              {confirmation.studioDraftId ? ` · draft ${confirmation.studioDraftId.slice(0, 12)}` : ""}.
+             </p>
+           ) : null}
+-          {saved ? (
++          {saved && draft ? (
++            <AppLink className="btn btn-gold" href={`/companion/studio?draftId=${encodeURIComponent(draft.id)}`}>
++              Open the matching Studio draft
++            </AppLink>
++          ) : saved ? (
+             <AppLink className="btn btn-gold" href="/companion/studio">
+               Open Studio
+             </AppLink>
+diff --git a/src/components/cofounder/StudioClient.tsx b/src/components/cofounder/StudioClient.tsx
+index acee20b..eaedfe6 100644
+--- a/src/components/cofounder/StudioClient.tsx
++++ b/src/components/cofounder/StudioClient.tsx
+@@ -31,6 +31,7 @@ const LAYOUTS = studioLayouts();
+ export function StudioClient() {
+   const { user, generation } = useSession();
+   const search = useSearchParams();
++  const [phase, setPhase] = useState<"checking" | "ready" | "error">("checking");
+   const [businessId, setBusinessId] = useState<string>();
+   const [profile, setProfile] = useState<Pick<BusinessProfile, "fields"> | null>(null);
+   const [drafts, setDrafts] = useState<StudioDraft[]>([]);
+@@ -78,9 +79,11 @@ export function StudioClient() {
+   }
+ 
+   async function refresh(gen = generation) {
++    setPhase("checking");
+     const workspace = await api<{
+       business: { id: string; name: string };
+       rawProfile?: BusinessProfile;
++      confirmation?: { studioDraftId?: string | null } | null;
+     }>("/api/companion/workspace");
+     const data = await api<{ drafts: StudioDraft[]; assets?: StudioAsset[] }>(
+       `/api/companion/studio?businessId=${encodeURIComponent(workspace.business.id)}`
+@@ -97,16 +100,14 @@ export function StudioClient() {
+     setDrafts(data.drafts);
+     setWorkItems(work.items);
+     setAssets(data.assets ?? today.today.pendingAssets);
+-    const requestedDraft = search.get("draftId");
++    const requestedDraft = search.get("draftId") || workspace.confirmation?.studioDraftId || null;
+     const requestedWork = search.get("workItemId");
+     if (!requestedDraft && !requestedWork) {
+       if (current) {
+         const latest = data.drafts.find((item) => item.id === current.id);
+         if (latest && latest.updatedAt !== current.updatedAt) hydrate(latest);
+-      } else if (data.drafts.length) {
+-        const latest = [...data.drafts].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+-        if (latest) hydrate(latest);
+       }
++      setPhase("ready");
+       return;
+     }
+     const resolved = resolveStudioOpen(
+@@ -120,6 +121,7 @@ export function StudioClient() {
+       }
+       setError("");
+       setRecovery("");
++      setPhase("ready");
+       return;
+     }
+     if (resolved.kind === "create_from_work") {
+@@ -132,18 +134,25 @@ export function StudioClient() {
+         headline: copy.headline,
+         body: copy.body
+       });
++      setPhase("ready");
+       return;
+     }
+     if (resolved.kind === "error") {
+       setError(resolved.message);
+       setRecovery(resolved.recovery);
+       hydrate(null);
++      setPhase("error");
++      return;
+     }
++    setPhase("ready");
+   }
+ 
+   useEffect(() => {
+     if (!user) return;
+-    void refresh().catch((err) => setError(actionErrorMessage(err, "Studio could not load.")));
++    void refresh().catch((err) => {
++      setError(actionErrorMessage(err, "Studio could not load."));
++      setPhase("error");
++    });
+     // eslint-disable-next-line react-hooks/exhaustive-deps
+   }, [generation, user?.id, search.get("workItemId"), search.get("draftId")]);
+ 
+@@ -441,6 +450,18 @@ export function StudioClient() {
+     ? assets.filter((item) => item.draftId === selected.id && item.status === "ready" && item.blobId)
+     : [];
+ 
++  if (phase === "checking") {
++    return (
++      <CompanionShell
++        wide
++        title="Brand Studio"
++        lede="Checking the signed-in owner and the confirmed composition before any draft is shown."
++      >
++        <p className="notice">Resolving authorization and the exact Studio draft…</p>
++      </CompanionShell>
++    );
++  }
++
+   return (
+     <CompanionShell
+       wide
+diff --git a/src/lib/cofounder/confirmation.ts b/src/lib/cofounder/confirmation.ts
+index 1a42d8b..9670b1d 100644
+--- a/src/lib/cofounder/confirmation.ts
++++ b/src/lib/cofounder/confirmation.ts
+@@ -1,8 +1,12 @@
+ import { isPlaceholderBusinessName } from "@/lib/cofounder/provision";
+-import type { BusinessConfirmation } from "@/lib/cofounder/types";
++import { CompanionStudio } from "@/lib/cofounder/studio";
++import type { BusinessConfirmation, StudioDraft, StudioDirectionAdoption } from "@/lib/cofounder/types";
+ import { CompanionWorkspace } from "@/lib/cofounder/workspace";
+-import { ConflictError, ForbiddenError } from "@/lib/domain/errors";
++import { ConflictError, ForbiddenError, UniqueConstraintError } from "@/lib/domain/errors";
++import { GuestWorkService } from "@/lib/guest/claim";
++import { parseClaimedDiscovery, type ClaimedDiscoverySnapshot } from "@/lib/guest/snapshot";
+ import type { PersistenceAdapter } from "@/lib/persistence/adapter";
++import { runWithUniqueRetry } from "@/lib/persistence/unique";
+ import type { User } from "@/lib/types";
+ 
+ export type ConfirmationInput = {
+@@ -14,6 +18,12 @@ export type ConfirmationInput = {
+   replaceConfirmedDirection?: boolean;
+ };
+ 
++export type ConfirmationResult = {
++  confirmation: BusinessConfirmation;
++  draft: StudioDraft | null;
++  snapshot: ClaimedDiscoverySnapshot | null;
++};
++
+ export function resolveConfirmedBusinessName(input: {
+   submittedName: string;
+   existingName: string;
+@@ -31,27 +41,141 @@ export function resolveConfirmedBusinessName(input: {
+   return { name: submitted || existing || "Your business", retainedExisting: false };
+ }
+ 
++function companionId(prefix: string) {
++  return `${prefix}_${crypto.randomUUID()}`;
++}
++
+ export class BusinessAdoption {
+   constructor(
+     private readonly store: PersistenceAdapter,
+-    private readonly workspace = new CompanionWorkspace(store)
++    private readonly workspace = new CompanionWorkspace(store),
++    private readonly guests = new GuestWorkService(store),
++    private readonly studio = new CompanionStudio(store)
+   ) {}
+ 
+   async read(businessId: string, user: User) {
+     const context = await this.workspace.requireMembership(businessId, user);
+     const confirmation = await this.store.companion.getBusinessConfirmation(businessId);
+-    return { context, confirmation };
++    const draft = confirmation?.studioDraftId
++      ? await this.store.companion.getStudioDraft(confirmation.studioDraftId)
++      : null;
++    return { context, confirmation, draft: draft && draft.businessId === businessId ? draft : null };
+   }
+ 
+-  async confirm(businessId: string, user: User, input: ConfirmationInput) {
++  async confirm(businessId: string, user: User, input: ConfirmationInput): Promise<ConfirmationResult> {
+     const context = await this.workspace.requireMutable(businessId, user);
++    const snapshot = await this.resolveClaimedSnapshot(user, input);
+     const existing = await this.store.companion.getBusinessConfirmation(businessId);
++    this.assertRenewedConfirmation(existing, snapshot, input.replaceConfirmedDirection);
++
++    const resolved = resolveConfirmedBusinessName({
++      submittedName: input.businessName,
++      existingName: context.business.name,
++      displayName: user.displayName
++    });
++
++    return runWithUniqueRetry(
++      () =>
++        this.store.runInTransaction(async () => {
++          const current = await this.store.companion.getBusinessConfirmation(businessId);
++          this.assertRenewedConfirmation(current, snapshot, input.replaceConfirmedDirection);
++
++          let draft: StudioDraft | null = null;
++          if (snapshot) {
++            draft = await this.resolveOrCreateDraft(businessId, user, snapshot);
++          }
++
++          const stamp = new Date().toISOString();
++          const confirmation: BusinessConfirmation = {
++            businessId,
++            ownerId: user.id,
++            businessName: resolved.name,
++            businessContext: input.businessContext.trim().slice(0, 2000),
++            sourceSelectionId: snapshot?.selectionId ?? current?.sourceSelectionId ?? null,
++            sourceRevision: snapshot?.localRevision ?? current?.sourceRevision ?? null,
++            directionId: snapshot?.selectedDirectionId ?? current?.directionId ?? null,
++            studioDraftId: draft?.id ?? current?.studioDraftId ?? null,
++            confirmedAt: stamp,
++            confirmedBy: user.id
++          };
++
++          await this.store.companion.upsertBusinessConfirmation(confirmation);
++          const nameField = context.profile.fields.name;
++          const shouldWriteName =
++            !nameField.value.trim() ||
++            isPlaceholderBusinessName(nameField.value, user.displayName) ||
++            !resolved.retainedExisting;
++          await this.workspace.updateProfile(businessId, user, {
++            fields: {
++              ...context.profile.fields,
++              name: shouldWriteName
++                ? {
++                    ...nameField,
++                    value: resolved.name,
++                    kind: "confirmed",
++                    source: "owner_confirmed",
++                    updatedAt: stamp
++                  }
++                : nameField,
++              audience: input.businessContext.trim()
++                ? {
++                    ...context.profile.fields.audience,
++                    value: context.profile.fields.audience.value.trim() || input.businessContext.trim().slice(0, 4000),
++                    kind: context.profile.fields.audience.value.trim()
++                      ? context.profile.fields.audience.kind
++                      : "confirmed",
++                    source: context.profile.fields.audience.value.trim()
++                      ? context.profile.fields.audience.source
++                      : "owner_confirmed",
++                    updatedAt: stamp
++                  }
++                : context.profile.fields.audience
++            }
++          });
++          return { confirmation, draft, snapshot };
++        }),
++      {
++        onExhausted: () => {
++          throw new UniqueConstraintError("The Studio draft could not be adopted uniquely.");
++        }
++      }
++    );
++  }
++
++  private async resolveClaimedSnapshot(user: User, input: ConfirmationInput) {
++    const requestedId = input.sourceSelectionId?.trim() || "";
++    if (!requestedId && input.sourceRevision == null && !input.directionId) {
++      return null;
++    }
++    if (!requestedId) {
++      throw new ForbiddenError("A claimed Discovery selection is required to adopt a direction into Studio.");
++    }
++    const claim = await this.guests.requireOwnedClaim(user, requestedId);
++    const snapshot = parseClaimedDiscovery(claim);
++    if (snapshot.selectionId !== requestedId && snapshot.guestWorkId !== requestedId) {
++      throw new ForbiddenError("The submitted selection does not match the claimed Discovery snapshot.");
++    }
++    if (input.sourceRevision != null && input.sourceRevision !== snapshot.localRevision) {
++      throw new ForbiddenError("The submitted revision does not match the claimed Discovery snapshot.");
++    }
++    if (input.directionId && input.directionId !== snapshot.selectedDirectionId) {
++      throw new ForbiddenError("The submitted direction does not match the claimed Discovery snapshot.");
++    }
++    return snapshot;
++  }
++
++  private assertRenewedConfirmation(
++    existing: BusinessConfirmation | null,
++    snapshot: ClaimedDiscoverySnapshot | null,
++    replace?: boolean
++  ) {
+     if (
+       existing?.sourceSelectionId &&
+-      input.sourceSelectionId &&
+-      (existing.sourceSelectionId !== input.sourceSelectionId ||
+-        existing.sourceRevision !== (input.sourceRevision ?? null)) &&
+-      !input.replaceConfirmedDirection
++      snapshot &&
++      (existing.sourceSelectionId !== snapshot.selectionId ||
++        existing.sourceRevision !== snapshot.localRevision ||
++        existing.directionId !== snapshot.selectedDirectionId) &&
++      !replace
+     ) {
+       throw new ConflictError(
+         "This workspace already confirmed a different Discovery direction. Keep the current confirmation or replace it explicitly.",
+@@ -59,55 +183,54 @@ export class BusinessAdoption {
+         existing
+       );
+     }
++  }
+ 
+-    const resolved = resolveConfirmedBusinessName({
+-      submittedName: input.businessName,
+-      existingName: context.business.name,
+-      displayName: user.displayName
+-    });
+-    const stamp = new Date().toISOString();
+-    const confirmation: BusinessConfirmation = {
++  private async resolveOrCreateDraft(
++    businessId: string,
++    user: User,
++    snapshot: ClaimedDiscoverySnapshot
++  ): Promise<StudioDraft> {
++    const existing = await this.store.companion.getStudioDirectionAdoption(
++      businessId,
++      snapshot.selectionId,
++      snapshot.localRevision,
++      snapshot.selectedDirectionId
++    );
++    if (existing) {
++      if (existing.ownerId !== user.id && user.role !== "founder") {
++        throw new ForbiddenError("This Discovery direction already belongs to another account.");
++      }
++      const draft = await this.store.companion.getStudioDraft(existing.draftId);
++      if (draft && draft.businessId === businessId) return draft;
++      throw new UniqueConstraintError("The adopted Studio draft is still resolving.");
++    }
++
++    const reserved: StudioDirectionAdoption = {
+       businessId,
++      sourceSelectionId: snapshot.selectionId,
++      sourceRevision: snapshot.localRevision,
++      directionId: snapshot.selectedDirectionId,
++      draftId: companionId("studio"),
+       ownerId: user.id,
+-      businessName: resolved.name,
+-      businessContext: input.businessContext.trim().slice(0, 2000),
+-      sourceSelectionId: input.sourceSelectionId ?? existing?.sourceSelectionId ?? null,
+-      sourceRevision: input.sourceRevision ?? existing?.sourceRevision ?? null,
+-      directionId: input.directionId ?? existing?.directionId ?? null,
+-      confirmedAt: stamp,
+-      confirmedBy: user.id
++      snapshotJson: JSON.stringify(snapshot).slice(0, 20_000),
++      createdAt: new Date().toISOString()
+     };
++    const written = await this.store.companion.insertStudioDirectionAdoption(reserved);
++    if (!written.inserted) {
++      if (written.adoption.ownerId !== user.id && user.role !== "founder") {
++        throw new ForbiddenError("This Discovery direction already belongs to another account.");
++      }
++      const raced = await this.store.companion.getStudioDraft(written.adoption.draftId);
++      if (raced && raced.businessId === businessId) return raced;
++      throw new UniqueConstraintError("The adopted Studio draft is still resolving.");
++    }
+ 
+-    return this.store.runInTransaction(async () => {
+-      await this.store.companion.upsertBusinessConfirmation(confirmation);
+-      const nameField = context.profile.fields.name;
+-      const shouldWriteName =
+-        !nameField.value.trim() || isPlaceholderBusinessName(nameField.value, user.displayName) || !resolved.retainedExisting;
+-      await this.workspace.updateProfile(businessId, user, {
+-        fields: {
+-          ...context.profile.fields,
+-          name: shouldWriteName
+-            ? {
+-                ...nameField,
+-                value: resolved.name,
+-                kind: "confirmed",
+-                source: "owner_confirmed",
+-                updatedAt: stamp
+-              }
+-            : nameField,
+-          audience: input.businessContext.trim()
+-            ? {
+-                ...context.profile.fields.audience,
+-                value: context.profile.fields.audience.value.trim() || input.businessContext.trim().slice(0, 4000),
+-                kind: context.profile.fields.audience.value.trim() ? context.profile.fields.audience.kind : "confirmed",
+-                source: context.profile.fields.audience.value.trim() ? context.profile.fields.audience.source : "owner_confirmed",
+-                updatedAt: stamp
+-              }
+-            : context.profile.fields.audience
+-        }
+-      });
+-      return confirmation;
++    const created = await this.studio.createFromConfirmedSnapshot(businessId, user, reserved.draftId, {
++      headline: snapshot.headline,
++      body: snapshot.body,
++      direction: snapshot.selectedDirectionId
+     });
++    return created.draft;
+   }
+ }
+ 
+diff --git a/src/lib/cofounder/postgres.integration.test.ts b/src/lib/cofounder/postgres.integration.test.ts
+index d9438b6..d8b01d2 100644
+--- a/src/lib/cofounder/postgres.integration.test.ts
++++ b/src/lib/cofounder/postgres.integration.test.ts
+@@ -1,8 +1,10 @@
+ import { afterEach, describe, expect, it } from "vitest";
+ import { seedSimulatedUsers } from "@/lib/auth/identities";
++import { BusinessAdoption } from "@/lib/cofounder/confirmation";
+ import { CompanionStudio } from "@/lib/cofounder/studio";
+ import { bypassProcessLockForTests, CompanionUsage } from "@/lib/cofounder/usage";
+ import { CompanionWorkspace } from "@/lib/cofounder/workspace";
++import { GuestWorkService } from "@/lib/guest/claim";
+ import { encodeSolidPng } from "@/lib/cofounder/png";
+ import { ConflictError, ForbiddenError, LimitError } from "@/lib/domain/errors";
+ import { PostgresPersistence } from "@/lib/persistence/postgres";
+@@ -378,4 +380,86 @@ describe.skipIf(!isolated)("PostgreSQL companion integration", () => {
+     expect((await storeA.companion.getJobByIdempotency(ctx.business.id, "pg-finalize-keep"))?.status).toBe("completed");
+     expect((await storeA.companion.getUsageByOperation(ctx.business.id, "pg-finalize-keep"))?.status).toBe("settled");
+   }, 60_000);
++
++  it("claims guest work and adopts one Studio draft under concurrent PostgreSQL transactions", async () => {
++    const { storeA, storeB, owner, ctx } = await openStores();
++    const other = (await storeA.getUserByEmail("owner-two.local@atelier.invalid")) as User;
++    const guestsA = new GuestWorkService(storeA);
++    const guestsB = new GuestWorkService(storeB);
++    const [claimA, claimB] = await Promise.all([
++      guestsA.claim(owner, {
++        guestWorkId: "dsel_pg",
++        kind: "discovery",
++        payload: { selectionId: "dsel_pg", localRevision: 2, selectedDirectionId: "lumen", businessName: "Northridge" }
++      }),
++      guestsB.claim(owner, {
++        guestWorkId: "dsel_pg",
++        kind: "discovery",
++        payload: { selectionId: "dsel_pg", localRevision: 2, selectedDirectionId: "lumen", businessName: "Northridge" }
++      })
++    ]);
++    expect(claimA.createdAt).toBe(claimB.createdAt);
++    await expect(
++      guestsB.claim(other, {
++        guestWorkId: "dsel_pg",
++        kind: "discovery",
++        payload: { selectionId: "dsel_pg", localRevision: 2, selectedDirectionId: "hearth" }
++      })
++    ).rejects.toBeInstanceOf(ForbiddenError);
++
++    const adoptA = new BusinessAdoption(storeA);
++    const adoptB = new BusinessAdoption(storeB);
++    const [first, second] = await Promise.all([
++      adoptA.confirm(ctx.business.id, owner, {
++        businessName: "Northridge",
++        businessContext: "A quiet sitting room.",
++        sourceSelectionId: "dsel_pg",
++        sourceRevision: 2,
++        directionId: "lumen"
++      }),
++      adoptB.confirm(ctx.business.id, owner, {
++        businessName: "Northridge",
++        businessContext: "A quiet sitting room.",
++        sourceSelectionId: "dsel_pg",
++        sourceRevision: 2,
++        directionId: "lumen"
++      })
++    ]);
++    expect(first.draft?.id).toBe(second.draft?.id);
++    expect(await storeA.companion.listStudioDrafts(ctx.business.id)).toHaveLength(1);
++    await expect(
++      adoptB.confirm(ctx.business.id, other, {
++        businessName: "Stolen",
++        businessContext: "no",
++        sourceSelectionId: "dsel_pg",
++        sourceRevision: 2,
++        directionId: "lumen"
++      })
++    ).rejects.toBeInstanceOf(ForbiddenError);
++  }, 60_000);
++
++  it("rolls back a failed PostgreSQL confirmation without leaving an adopted draft", async () => {
++    const { storeA, owner, ctx } = await openStores();
++    const guests = new GuestWorkService(storeA);
++    await guests.claim(owner, {
++      guestWorkId: "dsel_pg_fail",
++      kind: "discovery",
++      payload: { selectionId: "dsel_pg_fail", localRevision: 1, selectedDirectionId: "hearth" }
++    });
++    await expect(
++      storeA.runInTransaction(async () => {
++        await new BusinessAdoption(storeA).confirm(ctx.business.id, owner, {
++          businessName: "Should roll back",
++          businessContext: "no",
++          sourceSelectionId: "dsel_pg_fail",
++          sourceRevision: 1,
++          directionId: "hearth"
++        });
++        throw new Error("injected pg confirmation failure");
++      })
++    ).rejects.toThrow("injected pg confirmation failure");
++    expect(await storeA.companion.getBusinessConfirmation(ctx.business.id)).toBeNull();
++    expect(await storeA.companion.listStudioDrafts(ctx.business.id)).toHaveLength(0);
++    expect(await storeA.companion.getGuestWorkClaim("dsel_pg_fail")).toBeTruthy();
++  }, 60_000);
+ });
+diff --git a/src/lib/cofounder/provision.test.ts b/src/lib/cofounder/provision.test.ts
+index 6948fbe..5373b45 100644
+--- a/src/lib/cofounder/provision.test.ts
++++ b/src/lib/cofounder/provision.test.ts
+@@ -118,6 +118,33 @@ describe("guest work claims", () => {
+     await expect(service.readForUser(other, "dsel_one")).rejects.toBeInstanceOf(ForbiddenError);
+   });
+ 
++  it("converges concurrent claims on one owner without a post-conflict select in a failed transaction", async () => {
++    const { store, owner, other } = await setup();
++    const service = new GuestWorkService(store);
++    const [a, b] = await Promise.all([
++      service.claim(owner, {
++        guestWorkId: "dsel_race",
++        kind: "discovery",
++        payload: { selectionId: "dsel_race", localRevision: 1, selectedDirectionId: "lumen" }
++      }),
++      service.claim(owner, {
++        guestWorkId: "dsel_race",
++        kind: "discovery",
++        payload: { selectionId: "dsel_race", localRevision: 1, selectedDirectionId: "lumen" }
++      })
++    ]);
++    expect(a.ownerId).toBe(owner.id);
++    expect(b.guestWorkId).toBe(a.guestWorkId);
++    expect(b.createdAt).toBe(a.createdAt);
++    await expect(
++      service.claim(other, {
++        guestWorkId: "dsel_race",
++        kind: "discovery",
++        payload: { selectionId: "dsel_race", localRevision: 1, selectedDirectionId: "hearth" }
++      })
++    ).rejects.toBeInstanceOf(ForbiddenError);
++  });
++
+   it("adopts a guest brief once and refuses a second account", async () => {
+     const { store, owner, other } = await setup();
+     const projects = new ProjectService(store);
+@@ -168,6 +195,17 @@ describe("business confirmation", () => {
+   it("persists a confirmation and refuses a silent direction change", async () => {
+     const { store, owner, other, workspace } = await setup();
+     const context = await workspace.ensureForUser(owner);
++    const guests = new GuestWorkService(store);
++    await guests.claim(owner, {
++      guestWorkId: "dsel_a",
++      kind: "discovery",
++      payload: { selectionId: "dsel_a", localRevision: 1, selectedDirectionId: "lumen", businessName: "Northridge" }
++    });
++    await guests.claim(owner, {
++      guestWorkId: "dsel_b",
++      kind: "discovery",
++      payload: { selectionId: "dsel_b", localRevision: 2, selectedDirectionId: "hearth", businessName: "Northridge" }
++    });
+     const adoption = new BusinessAdoption(store);
+     const first = await adoption.confirm(context.business.id, owner, {
+       businessName: "Northridge",
+@@ -176,7 +214,9 @@ describe("business confirmation", () => {
+       sourceRevision: 1,
+       directionId: "lumen"
+     });
+-    expect(first.businessName).toBe("Northridge");
++    expect(first.confirmation.businessName).toBe("Northridge");
++    expect(first.draft?.id).toBeTruthy();
++    expect(first.draft?.layers.some((layer) => layer.text?.includes("Lumen"))).toBe(true);
+     await expect(
+       adoption.confirm(context.business.id, owner, {
+         businessName: "Northridge",
+@@ -194,7 +234,117 @@ describe("business confirmation", () => {
+       directionId: "hearth",
+       replaceConfirmedDirection: true
+     });
+-    expect(replaced.sourceSelectionId).toBe("dsel_b");
++    expect(replaced.confirmation.sourceSelectionId).toBe("dsel_b");
++    expect(replaced.draft?.id).toBeTruthy();
++    expect(replaced.draft?.id).not.toBe(first.draft?.id);
++    expect(await store.companion.getStudioDraft(first.draft!.id)).toBeTruthy();
+     await expect(adoption.read(context.business.id, other)).rejects.toBeInstanceOf(ForbiddenError);
+   });
++
++  it("refuses adoption when the Discovery snapshot was never claimed", async () => {
++    const { store, owner, workspace } = await setup();
++    const context = await workspace.ensureForUser(owner);
++    await expect(
++      new BusinessAdoption(store).confirm(context.business.id, owner, {
++        businessName: "Northridge",
++        businessContext: "A quiet sitting room.",
++        sourceSelectionId: "dsel_missing",
++        sourceRevision: 1,
++        directionId: "lumen"
++      })
++    ).rejects.toBeInstanceOf(ForbiddenError);
++    expect(await store.companion.getBusinessConfirmation(context.business.id)).toBeNull();
++    expect(await store.companion.listStudioDrafts(context.business.id)).toHaveLength(0);
++  });
++
++  it("rejects a client-supplied revision that does not match the claimed snapshot", async () => {
++    const { store, owner, workspace } = await setup();
++    const context = await workspace.ensureForUser(owner);
++    await new GuestWorkService(store).claim(owner, {
++      guestWorkId: "dsel_stale",
++      kind: "discovery",
++      payload: { selectionId: "dsel_stale", localRevision: 3, selectedDirectionId: "lumen" }
++    });
++    await expect(
++      new BusinessAdoption(store).confirm(context.business.id, owner, {
++        businessName: "Northridge",
++        businessContext: "A quiet sitting room.",
++        sourceSelectionId: "dsel_stale",
++        sourceRevision: 1,
++        directionId: "lumen"
++      })
++    ).rejects.toBeInstanceOf(ForbiddenError);
++  });
++
++  it("adopts one Studio draft concurrently and rolls back an injected failure", async () => {
++    const { store, owner, other, workspace } = await setup();
++    const context = await workspace.ensureForUser(owner);
++    const guests = new GuestWorkService(store);
++    await guests.claim(owner, {
++      guestWorkId: "dsel_adopt",
++      kind: "discovery",
++      payload: {
++        selectionId: "dsel_adopt",
++        localRevision: 4,
++        selectedDirectionId: "signal",
++        businessName: "Northridge",
++        audience: "Returning guests",
++        visualPreferences: { headline: "A clear mark" }
++      }
++    });
++    const adoption = new BusinessAdoption(store);
++    const [first, second] = await Promise.all([
++      adoption.confirm(context.business.id, owner, {
++        businessName: "Northridge",
++        businessContext: "Returning guests.",
++        sourceSelectionId: "dsel_adopt",
++        sourceRevision: 4,
++        directionId: "signal"
++      }),
++      adoption.confirm(context.business.id, owner, {
++        businessName: "Northridge",
++        businessContext: "Returning guests.",
++        sourceSelectionId: "dsel_adopt",
++        sourceRevision: 4,
++        directionId: "signal"
++      })
++    ]);
++    expect(first.draft?.id).toBe(second.draft?.id);
++    expect(await store.companion.listStudioDrafts(context.business.id)).toHaveLength(1);
++    expect(first.draft?.layers.find((layer) => layer.kind === "headline")?.text).toBe("A clear mark");
++
++    const otherContext = await workspace.ensureForUser(other);
++    await expect(
++      adoption.confirm(otherContext.business.id, other, {
++        businessName: "Stolen",
++        businessContext: "no",
++        sourceSelectionId: "dsel_adopt",
++        sourceRevision: 4,
++        directionId: "signal"
++      })
++    ).rejects.toBeInstanceOf(ForbiddenError);
++    expect(await store.companion.listStudioDrafts(otherContext.business.id)).toHaveLength(0);
++
++    await expect(
++      store.runInTransaction(async () => {
++        await guests.claim(owner, {
++          guestWorkId: "dsel_fail",
++          kind: "discovery",
++          payload: { selectionId: "dsel_fail", localRevision: 1, selectedDirectionId: "hearth" }
++        });
++        await adoption.confirm(context.business.id, owner, {
++          businessName: "Should roll back",
++          businessContext: "no",
++          sourceSelectionId: "dsel_fail",
++          sourceRevision: 1,
++          directionId: "hearth",
++          replaceConfirmedDirection: true
++        });
++        throw new Error("injected confirmation failure");
++      })
++    ).rejects.toThrow("injected confirmation failure");
++    expect(await store.companion.getGuestWorkClaim("dsel_fail")).toBeNull();
++    expect((await store.companion.getBusinessConfirmation(context.business.id))?.sourceSelectionId).toBe("dsel_adopt");
++    expect(await store.companion.listStudioDrafts(context.business.id)).toHaveLength(1);
++  });
+ });
+diff --git a/src/lib/cofounder/studio.ts b/src/lib/cofounder/studio.ts
+index 7dfa326..2db6b97 100644
+--- a/src/lib/cofounder/studio.ts
++++ b/src/lib/cofounder/studio.ts
+@@ -212,6 +212,55 @@ export class CompanionStudio {
+     return { draft, workItem, direction: input.direction ?? "" };
+   }
+ 
++  async createFromConfirmedSnapshot(
++    businessId: string,
++    user: User,
++    draftId: string,
++    input: {
++      headline: string;
++      body?: string;
++      direction?: string;
++      layout?: StudioLayoutId;
++    }
++  ) {
++    const context = await this.workspace.requireMutable(businessId, user);
++    const existing = await this.store.companion.getStudioDraft(draftId);
++    if (existing) {
++      if (existing.businessId !== businessId) {
++        throw new ForbiddenError("That Studio draft belongs to another workspace.");
++      }
++      return { draft: existing, workItem: await this.work.get(businessId, user, existing.workItemId), direction: input.direction ?? "" };
++    }
++    const selectedBody = input.body ?? "";
++    const workItem = await this.work.saveDraft(businessId, user, {
++      title: `Studio: ${input.headline}`.slice(0, 160),
++      body: selectedBody,
++      kind: "announcement",
++      workItemId: undefined
++    });
++    const logo = context.profile.brandAssets.find((asset) => asset.kind === "logo");
++    const layers = defaultLayers({
++      headline: input.headline,
++      body: selectedBody,
++      layout: input.layout,
++      logoDocumentId: logo?.documentId,
++      logoAssetId: logo?.assetId
++    });
++    const stamp = now();
++    const draft: StudioDraft = {
++      id: draftId,
++      businessId,
++      workItemId: workItem.id,
++      layout: input.layout ?? "square_announcement",
++      layers,
++      saveRevision: 1,
++      createdAt: stamp,
++      updatedAt: stamp
++    };
++    await this.store.companion.addStudioDraft(draft);
++    return { draft, workItem, direction: input.direction ?? "" };
++  }
++
+   async updateDraft(
+     businessId: string,
+     user: User,
+diff --git a/src/lib/cofounder/types.ts b/src/lib/cofounder/types.ts
+index c46df9a..35d228d 100644
+--- a/src/lib/cofounder/types.ts
++++ b/src/lib/cofounder/types.ts
+@@ -112,10 +112,22 @@ export type BusinessConfirmation = {
+   sourceSelectionId: string | null;
+   sourceRevision: number | null;
+   directionId: string | null;
++  studioDraftId: string | null;
+   confirmedAt: string;
+   confirmedBy: string;
+ };
+ 
++export type StudioDirectionAdoption = {
++  businessId: string;
++  sourceSelectionId: string;
++  sourceRevision: number;
++  directionId: string;
++  draftId: string;
++  ownerId: string;
++  snapshotJson: string;
++  createdAt: string;
++};
++
+ export type BusinessMember = {
+   businessId: string;
+   userId: string;
+diff --git a/src/lib/domain/projects.ts b/src/lib/domain/projects.ts
+index 2cdffd6..998e614 100644
+--- a/src/lib/domain/projects.ts
++++ b/src/lib/domain/projects.ts
+@@ -2,7 +2,7 @@ import "server-only";
+ import { briefTitle, createEmptyBrief, normalizeBrief } from "@/lib/brief";
+ import { CONSENT_TEXT, DELIVERY_APPROVAL_TEXT, PROPOSAL_AGREEMENT_TEXT } from "@/lib/copy";
+ import { ConflictError, ForbiddenError, NotFoundError } from "@/lib/domain/errors";
+-import { isUniqueViolation } from "@/lib/persistence/unique";
++import { runWithUniqueRetry } from "@/lib/persistence/unique";
+ import { GuestWorkService } from "@/lib/guest/claim";
+ import { buildDeliveryHandoff } from "@/lib/domain/handoff";
+ import { toClientView } from "@/lib/domain/next-step";
+@@ -95,39 +95,40 @@ export class ProjectService {
+     if (draft.kind !== "guest_draft") {
+       throw new ForbiddenError("Only labeled guest drafts can be adopted.");
+     }
+-    return this.store.runInTransaction(async () => {
+-      const existing = await this.store.getProjectByOwnerAndGuestDraft(owner.id, draft.draftId);
+-      if (existing) return existing;
+-      const claimed = await this.store.getProjectByGuestDraft(draft.draftId);
+-      if (claimed && claimed.ownerId !== owner.id) {
+-        throw new ForbiddenError("This guest work already belongs to another account.");
+-      }
+-      await new GuestWorkService(this.store).claim(owner, {
+-        guestWorkId: draft.draftId,
+-        kind: "brief",
+-        destination: "/account/adopt"
+-      });
+-      try {
+-        const project = await this.createProject(owner, draft.brief, draft.draftId);
+-        for (const message of draft.messages) {
+-          await this.store.addMessage({
+-            id: createId("msg"),
+-            projectId: project.id,
+-            authorKind: message.authorKind,
+-            body: message.body,
+-            liveAi: false,
+-            createdAt: message.createdAt,
+-            metadata: { importedFromGuest: true, originalId: message.id }
++    return runWithUniqueRetry(
++      () =>
++        this.store.runInTransaction(async () => {
++          const existing = await this.store.getProjectByOwnerAndGuestDraft(owner.id, draft.draftId);
++          if (existing) return existing;
++          const claimed = await this.store.getProjectByGuestDraft(draft.draftId);
++          if (claimed && claimed.ownerId !== owner.id) {
++            throw new ForbiddenError("This guest work already belongs to another account.");
++          }
++          await new GuestWorkService(this.store).claim(owner, {
++            guestWorkId: draft.draftId,
++            kind: "brief",
++            destination: "/account/adopt"
+           });
++          const project = await this.createProject(owner, draft.brief, draft.draftId);
++          for (const message of draft.messages) {
++            await this.store.addMessage({
++              id: createId("msg"),
++              projectId: project.id,
++              authorKind: message.authorKind,
++              body: message.body,
++              liveAi: false,
++              createdAt: message.createdAt,
++              metadata: { importedFromGuest: true, originalId: message.id }
++            });
++          }
++          return project;
++        }),
++      {
++        onExhausted: () => {
++          throw new ForbiddenError("This guest work already belongs to another account.");
+         }
+-        return project;
+-      } catch (error) {
+-        if (!isUniqueViolation(error)) throw error;
+-        const again = await this.store.getProjectByOwnerAndGuestDraft(owner.id, draft.draftId);
+-        if (again) return again;
+-        throw new ForbiddenError("This guest work already belongs to another account.");
+       }
+-    });
++    );
+   }
+ 
+   async listForOwner(user: User) {
+diff --git a/src/lib/guest/claim.ts b/src/lib/guest/claim.ts
+index e101267..783f3ca 100644
+--- a/src/lib/guest/claim.ts
++++ b/src/lib/guest/claim.ts
+@@ -1,7 +1,6 @@
+ import { safeCallbackUrl } from "@/lib/auth/callbackUrl";
+ import type { GuestWorkClaim, GuestWorkKind } from "@/lib/cofounder/types";
+ import { ForbiddenError } from "@/lib/domain/errors";
+-import { isUniqueViolation } from "@/lib/persistence/unique";
+ import type { PersistenceAdapter } from "@/lib/persistence/adapter";
+ import type { User } from "@/lib/types";
+ 
+@@ -40,24 +39,22 @@ export class GuestWorkService {
+     };
+ 
+     return this.store.runInTransaction(async () => {
+-      const existing = await this.store.companion.getGuestWorkClaim(guestWorkId);
+-      if (existing) {
+-        if (existing.ownerId !== user.id) {
+-          throw new ForbiddenError("This guest work already belongs to another account.");
+-        }
+-        return existing;
+-      }
+-      try {
+-        return await this.store.companion.insertGuestWorkClaim(next);
+-      } catch (error) {
+-        if (!isUniqueViolation(error)) throw error;
+-        const raced = await this.store.companion.getGuestWorkClaim(guestWorkId);
+-        if (raced && raced.ownerId === user.id) return raced;
++      const stored = await this.store.companion.insertGuestWorkClaim(next);
++      if (stored.ownerId !== user.id) {
+         throw new ForbiddenError("This guest work already belongs to another account.");
+       }
++      return stored;
+     });
+   }
+ 
++  async requireOwnedClaim(user: User, guestWorkId: string) {
++    const claim = await this.readForUser(user, guestWorkId);
++    if (!claim) {
++      throw new ForbiddenError("This Discovery direction has not been claimed for the signed-in account.");
++    }
++    return claim;
++  }
++
+   async readForUser(user: User, guestWorkId: string) {
+     const claim = await this.store.companion.getGuestWorkClaim(sanitizeGuestWorkId(guestWorkId));
+     if (!claim) return null;
+diff --git a/src/lib/guest/snapshot.test.ts b/src/lib/guest/snapshot.test.ts
+new file mode 100644
+index 0000000..b696f10
+--- /dev/null
++++ b/src/lib/guest/snapshot.test.ts
+@@ -0,0 +1,50 @@
++import { describe, expect, it } from "vitest";
++import { parseClaimedDiscovery } from "@/lib/guest/snapshot";
++import { ForbiddenError } from "@/lib/domain/errors";
++
++describe("claimed Discovery snapshot", () => {
++  it("reads the stored claim payload rather than inventing a direction", () => {
++    const snapshot = parseClaimedDiscovery({
++      guestWorkId: "dsel_one",
++      ownerId: "usr_owner",
++      kind: "discovery",
++      destination: "/companion/confirm",
++      payloadJson: JSON.stringify({
++        selectionId: "dsel_one",
++        localRevision: 2,
++        selectedDirectionId: "lumen",
++        businessName: "Northridge",
++        audience: "Returning guests",
++        visualPreferences: { headline: "Considered sourcing" }
++      }),
++      createdAt: "2026-10-20T00:00:00.000Z"
++    });
++    expect(snapshot.selectedDirectionId).toBe("lumen");
++    expect(snapshot.localRevision).toBe(2);
++    expect(snapshot.headline).toBe("Considered sourcing");
++    expect(snapshot.body).toContain("Returning guests");
++  });
++
++  it("rejects an incomplete or non-discovery claim", () => {
++    expect(() =>
++      parseClaimedDiscovery({
++        guestWorkId: "dsel_one",
++        ownerId: "usr_owner",
++        kind: "brief",
++        destination: "/account/adopt",
++        payloadJson: "{}",
++        createdAt: "2026-10-20T00:00:00.000Z"
++      })
++    ).toThrow(ForbiddenError);
++    expect(() =>
++      parseClaimedDiscovery({
++        guestWorkId: "dsel_one",
++        ownerId: "usr_owner",
++        kind: "discovery",
++        destination: "/companion/confirm",
++        payloadJson: JSON.stringify({ selectedDirectionId: "lumen" }),
++        createdAt: "2026-10-20T00:00:00.000Z"
++      })
++    ).toThrow(ForbiddenError);
++  });
++});
+diff --git a/src/lib/guest/snapshot.ts b/src/lib/guest/snapshot.ts
+new file mode 100644
+index 0000000..32edef1
+--- /dev/null
++++ b/src/lib/guest/snapshot.ts
+@@ -0,0 +1,67 @@
++import { DIRECTIONS } from "@/lib/discovery/catalog";
++import { DIRECTION_IDS, type DirectionId } from "@/lib/discovery/types";
++import type { GuestWorkClaim } from "@/lib/cofounder/types";
++import { ForbiddenError } from "@/lib/domain/errors";
++
++export type ClaimedDiscoverySnapshot = {
++  guestWorkId: string;
++  selectionId: string;
++  localRevision: number;
++  selectedDirectionId: DirectionId;
++  businessName: string;
++  audience: string;
++  intentNote: string;
++  headline: string;
++  body: string;
++};
++
++function asRecord(value: unknown): Record<string, unknown> {
++  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
++}
++
++function asText(value: unknown) {
++  return typeof value === "string" ? value.trim() : "";
++}
++
++export function parseClaimedDiscovery(claim: GuestWorkClaim): ClaimedDiscoverySnapshot {
++  if (claim.kind !== "discovery") {
++    throw new ForbiddenError("Only a claimed Discovery snapshot can be adopted into Studio.");
++  }
++  let payload: unknown = {};
++  try {
++    payload = JSON.parse(claim.payloadJson || "{}");
++  } catch {
++    payload = {};
++  }
++  const record = asRecord(payload);
++  const visual = asRecord(record.visualPreferences);
++  const selectionId = asText(record.selectionId) || claim.guestWorkId;
++  const localRevision = Number(record.localRevision ?? record.sourceRevision ?? Number.NaN);
++  const selectedDirectionId = asText(record.selectedDirectionId) || asText(record.directionId);
++  if (!DIRECTION_IDS.includes(selectedDirectionId as DirectionId)) {
++    throw new ForbiddenError("The claimed Discovery snapshot is missing a valid direction.");
++  }
++  if (!Number.isInteger(localRevision) || localRevision < 0) {
++    throw new ForbiddenError("The claimed Discovery snapshot is missing an exact revision.");
++  }
++  const direction = DIRECTIONS[selectedDirectionId as DirectionId];
++  const businessName = asText(record.businessName);
++  const audience = asText(record.audience);
++  const intentNote = asText(record.intentNote);
++  const headline =
++    asText(visual.headline) ||
++    asText(record.headline) ||
++    `${direction.name} · ${businessName || "Untitled"}`;
++  const body = [audience, intentNote].filter(Boolean).join(" ").trim() || direction.feeling;
++  return {
++    guestWorkId: claim.guestWorkId,
++    selectionId,
++    localRevision,
++    selectedDirectionId: selectedDirectionId as DirectionId,
++    businessName,
++    audience,
++    intentNote,
++    headline: headline.slice(0, 160),
++    body: body.slice(0, 800)
++  };
++}
+diff --git a/src/lib/persistence/companionMaps.ts b/src/lib/persistence/companionMaps.ts
+index ddcf8a8..b08398b 100644
+--- a/src/lib/persistence/companionMaps.ts
++++ b/src/lib/persistence/companionMaps.ts
+@@ -16,6 +16,7 @@ import type {
+   PlanId,
+   CompositionRevision,
+   StudioAsset,
++  StudioDirectionAdoption,
+   StudioDraft,
+   UsageEvent,
+   WorkItem
+@@ -50,11 +51,25 @@ export function mapConfirmation(row: Row): BusinessConfirmation {
+     sourceSelectionId: asOptionalString(row.source_selection_id) ?? null,
+     sourceRevision: row.source_revision == null ? null : asNumber(row.source_revision),
+     directionId: asOptionalString(row.direction_id) ?? null,
++    studioDraftId: asOptionalString(row.studio_draft_id) ?? null,
+     confirmedAt: asString(row.confirmed_at),
+     confirmedBy: asString(row.confirmed_by)
+   };
+ }
+ 
++export function mapStudioAdoption(row: Row): StudioDirectionAdoption {
++  return {
++    businessId: asString(row.business_id),
++    sourceSelectionId: asString(row.source_selection_id),
++    sourceRevision: asNumber(row.source_revision),
++    directionId: asString(row.direction_id),
++    draftId: asString(row.draft_id),
++    ownerId: asString(row.owner_id),
++    snapshotJson: asString(row.snapshot_json),
++    createdAt: asString(row.created_at)
++  };
++}
++
+ export function mapBusiness(row: Row): Business {
+   return {
+     id: asString(row.id),
+diff --git a/src/lib/persistence/companionMemory.ts b/src/lib/persistence/companionMemory.ts
+index b26d502..deb5922 100644
+--- a/src/lib/persistence/companionMemory.ts
++++ b/src/lib/persistence/companionMemory.ts
+@@ -1,6 +1,5 @@
+ import { emptyProfile, normalizeProfile } from "@/lib/cofounder/profile";
+ import { usageCountsTowardBudget } from "@/lib/cofounder/types";
+-import { UniqueConstraintError } from "@/lib/domain/errors";
+ import type {
+   Business,
+   BusinessConfirmation,
+@@ -15,6 +14,7 @@ import type {
+   MemoryProposal,
+   CompositionRevision,
+   StudioAsset,
++  StudioDirectionAdoption,
+   StudioDraft,
+   UsageEvent,
+   UsageKind,
+@@ -39,6 +39,7 @@ export class MemoryCompanionStore implements CompanionStore {
+   private messages = new Map<string, CompanionMessage[]>();
+   private work = new Map<string, WorkItem>();
+   private drafts = new Map<string, StudioDraft>();
++  private adoptions = new Map<string, StudioDirectionAdoption>();
+   private assets = new Map<string, StudioAsset>();
+   private usage: UsageEvent[] = [];
+   private jobs = new Map<string, GenerationJob>();
+@@ -52,7 +53,10 @@ export class MemoryCompanionStore implements CompanionStore {
+       guestClaims: new Map(this.guestClaims),
+       confirmations: new Map(this.confirmations),
+       members: new Map(this.members),
+-      profiles: new Map(this.profiles)
++      profiles: new Map(this.profiles),
++      work: new Map(this.work),
++      drafts: new Map(this.drafts),
++      adoptions: new Map(this.adoptions)
+     };
+   }
+ 
+@@ -63,6 +67,9 @@ export class MemoryCompanionStore implements CompanionStore {
+     this.confirmations = new Map(snapshot.confirmations);
+     this.members = new Map(snapshot.members);
+     this.profiles = new Map(snapshot.profiles);
++    this.work = new Map(snapshot.work);
++    this.drafts = new Map(snapshot.drafts);
++    this.adoptions = new Map(snapshot.adoptions);
+   }
+ 
+   reset() {
+@@ -78,6 +85,7 @@ export class MemoryCompanionStore implements CompanionStore {
+     this.messages.clear();
+     this.work.clear();
+     this.drafts.clear();
++    this.adoptions.clear();
+     this.assets.clear();
+     this.usage = [];
+     this.jobs.clear();
+@@ -129,9 +137,7 @@ export class MemoryCompanionStore implements CompanionStore {
+ 
+   insertGuestWorkClaim(claim: GuestWorkClaim) {
+     const existing = this.guestClaims.get(claim.guestWorkId);
+-    if (existing) {
+-      throw new UniqueConstraintError("This guest work has already been claimed.");
+-    }
++    if (existing) return clone(existing);
+     this.guestClaims.set(claim.guestWorkId, clone(claim));
+     return clone(claim);
+   }
+@@ -146,6 +152,40 @@ export class MemoryCompanionStore implements CompanionStore {
+     return clone(confirmation);
+   }
+ 
++  private adoptionKey(
++    businessId: string,
++    sourceSelectionId: string,
++    sourceRevision: number,
++    directionId: string
++  ) {
++    return `${businessId}:${sourceSelectionId}:${sourceRevision}:${directionId}`;
++  }
++
++  getStudioDirectionAdoption(
++    businessId: string,
++    sourceSelectionId: string,
++    sourceRevision: number,
++    directionId: string
++  ) {
++    const item = this.adoptions.get(this.adoptionKey(businessId, sourceSelectionId, sourceRevision, directionId));
++    return item ? clone(item) : null;
++  }
++
++  insertStudioDirectionAdoption(adoption: StudioDirectionAdoption) {
++    const key = this.adoptionKey(
++      adoption.businessId,
++      adoption.sourceSelectionId,
++      adoption.sourceRevision,
++      adoption.directionId
++    );
++    const existing = this.adoptions.get(key);
++    if (existing) {
++      return { inserted: false, adoption: clone(existing) };
++    }
++    this.adoptions.set(key, clone(adoption));
++    return { inserted: true, adoption: clone(adoption) };
++  }
++
+   addMember(member: BusinessMember) {
+     this.members.set(`${member.businessId}:${member.userId}`, clone(member));
+     return clone(member);
+diff --git a/src/lib/persistence/companionPostgres.ts b/src/lib/persistence/companionPostgres.ts
+index e32093a..c49e91a 100644
+--- a/src/lib/persistence/companionPostgres.ts
++++ b/src/lib/persistence/companionPostgres.ts
+@@ -15,12 +15,12 @@ import type {
+   MemoryProposal,
+   CompositionRevision,
+   StudioAsset,
++  StudioDirectionAdoption,
+   StudioDraft,
+   UsageEvent,
+   UsageKind,
+   WorkItem
+ } from "@/lib/cofounder/types";
+-import { throwIfUnique } from "@/lib/persistence/unique";
+ import {
+   mapBlob,
+   mapBusiness,
+@@ -34,6 +34,7 @@ import {
+   mapMemory,
+   mapProfile,
+   mapCompositionRevision,
++  mapStudioAdoption,
+   mapStudioAsset,
+   mapStudioDraft,
+   mapUsage,
+@@ -62,6 +63,7 @@ export class PostgresCompanionStore implements CompanionStore {
+     await this.client().unsafe("ALTER TABLE studio_drafts ADD COLUMN IF NOT EXISTS save_revision INTEGER NOT NULL DEFAULT 1");
+     await this.client().unsafe("ALTER TABLE usage_events ADD COLUMN IF NOT EXISTS attempt INTEGER NOT NULL DEFAULT 1");
+     await this.client().unsafe("ALTER TABLE generation_jobs ADD COLUMN IF NOT EXISTS attempt INTEGER NOT NULL DEFAULT 1");
++    await this.client().unsafe("ALTER TABLE business_confirmations ADD COLUMN IF NOT EXISTS studio_draft_id TEXT");
+   }
+ 
+   async lockUsageBudget(businessId: string, kind: UsageKind, periodKey: string) {
+@@ -162,15 +164,16 @@ export class PostgresCompanionStore implements CompanionStore {
+   }
+ 
+   async insertGuestWorkClaim(claim: GuestWorkClaim) {
+-    try {
+-      await this.client()`
+-        INSERT INTO guest_work_claims(guest_work_id,owner_id,kind,destination,payload_json,created_at)
+-        VALUES (${claim.guestWorkId}, ${claim.ownerId}, ${claim.kind}, ${claim.destination}, ${claim.payloadJson}, ${claim.createdAt})
+-      `;
+-      return claim;
+-    } catch (error) {
+-      throwIfUnique(error, "This guest work has already been claimed.");
++    await this.client()`
++      INSERT INTO guest_work_claims(guest_work_id,owner_id,kind,destination,payload_json,created_at)
++      VALUES (${claim.guestWorkId}, ${claim.ownerId}, ${claim.kind}, ${claim.destination}, ${claim.payloadJson}, ${claim.createdAt})
++      ON CONFLICT (guest_work_id) DO NOTHING
++    `;
++    const stored = await this.getGuestWorkClaim(claim.guestWorkId);
++    if (!stored) {
++      throw new Error("The guest work claim could not be stored.");
+     }
++    return stored;
+   }
+ 
+   async getBusinessConfirmation(businessId: string) {
+@@ -181,11 +184,11 @@ export class PostgresCompanionStore implements CompanionStore {
+   async upsertBusinessConfirmation(confirmation: BusinessConfirmation) {
+     await this.client()`
+       INSERT INTO business_confirmations(
+-        business_id,owner_id,business_name,business_context,source_selection_id,source_revision,direction_id,confirmed_at,confirmed_by
++        business_id,owner_id,business_name,business_context,source_selection_id,source_revision,direction_id,studio_draft_id,confirmed_at,confirmed_by
+       ) VALUES (
+         ${confirmation.businessId}, ${confirmation.ownerId}, ${confirmation.businessName}, ${confirmation.businessContext},
+         ${confirmation.sourceSelectionId}, ${confirmation.sourceRevision}, ${confirmation.directionId},
+-        ${confirmation.confirmedAt}, ${confirmation.confirmedBy}
++        ${confirmation.studioDraftId}, ${confirmation.confirmedAt}, ${confirmation.confirmedBy}
+       )
+       ON CONFLICT (business_id) DO UPDATE SET
+         owner_id = excluded.owner_id,
+@@ -194,12 +197,51 @@ export class PostgresCompanionStore implements CompanionStore {
+         source_selection_id = excluded.source_selection_id,
+         source_revision = excluded.source_revision,
+         direction_id = excluded.direction_id,
++        studio_draft_id = excluded.studio_draft_id,
+         confirmed_at = excluded.confirmed_at,
+         confirmed_by = excluded.confirmed_by
+     `;
+     return confirmation;
+   }
+ 
++  async getStudioDirectionAdoption(
++    businessId: string,
++    sourceSelectionId: string,
++    sourceRevision: number,
++    directionId: string
++  ) {
++    const rows = await this.client()`
++      SELECT * FROM studio_direction_adoptions
++      WHERE business_id = ${businessId}
++        AND source_selection_id = ${sourceSelectionId}
++        AND source_revision = ${sourceRevision}
++        AND direction_id = ${directionId}
++    `;
++    return rows[0] ? mapStudioAdoption(rows[0] as Row) : null;
++  }
++
++  async insertStudioDirectionAdoption(adoption: StudioDirectionAdoption) {
++    await this.client()`
++      INSERT INTO studio_direction_adoptions(
++        business_id,source_selection_id,source_revision,direction_id,draft_id,owner_id,snapshot_json,created_at
++      ) VALUES (
++        ${adoption.businessId}, ${adoption.sourceSelectionId}, ${adoption.sourceRevision}, ${adoption.directionId},
++        ${adoption.draftId}, ${adoption.ownerId}, ${adoption.snapshotJson}, ${adoption.createdAt}
++      )
++      ON CONFLICT (business_id, source_selection_id, source_revision, direction_id) DO NOTHING
++    `;
++    const stored = await this.getStudioDirectionAdoption(
++      adoption.businessId,
++      adoption.sourceSelectionId,
++      adoption.sourceRevision,
++      adoption.directionId
++    );
++    if (!stored) {
++      throw new Error("The Studio adoption could not be stored.");
++    }
++    return { inserted: stored.draftId === adoption.draftId, adoption: stored };
++  }
++
+   async addMember(member: BusinessMember) {
+     await this.client()`
+       INSERT INTO business_members(business_id,user_id,role,created_at)
+diff --git a/src/lib/persistence/companionSqlite.ts b/src/lib/persistence/companionSqlite.ts
+index 0ea53d4..d14727e 100644
+--- a/src/lib/persistence/companionSqlite.ts
++++ b/src/lib/persistence/companionSqlite.ts
+@@ -15,12 +15,12 @@ import type {
+   MemoryProposal,
+   CompositionRevision,
+   StudioAsset,
++  StudioDirectionAdoption,
+   StudioDraft,
+   UsageEvent,
+   UsageKind,
+   WorkItem
+ } from "@/lib/cofounder/types";
+-import { throwIfUnique } from "@/lib/persistence/unique";
+ import {
+   mapBlob,
+   mapBusiness,
+@@ -34,6 +34,7 @@ import {
+   mapMemory,
+   mapProfile,
+   mapCompositionRevision,
++  mapStudioAdoption,
+   mapStudioAsset,
+   mapStudioDraft,
+   mapUsage,
+@@ -51,6 +52,7 @@ export class SqliteCompanionStore implements CompanionStore {
+     this.ensureOutputHashColumns();
+     this.ensureDraftRevisionColumn();
+     this.ensureJobAttemptColumn();
++    this.ensureConfirmationDraftColumn();
+   }
+ 
+   private ensureProjectBusinessColumn() {
+@@ -104,6 +106,13 @@ export class SqliteCompanionStore implements CompanionStore {
+     }
+   }
+ 
++  private ensureConfirmationDraftColumn() {
++    const columns = this.db.prepare("PRAGMA table_info(business_confirmations)").all() as Array<{ name: string }>;
++    if (!columns.some((column) => column.name === "studio_draft_id")) {
++      this.db.exec("ALTER TABLE business_confirmations ADD COLUMN studio_draft_id TEXT");
++    }
++  }
++
+   lockUsageBudget() {
+     /* BEGIN IMMEDIATE already serializes this sqlite connection. */
+   }
+@@ -204,16 +213,17 @@ export class SqliteCompanionStore implements CompanionStore {
+   }
+ 
+   insertGuestWorkClaim(claim: GuestWorkClaim) {
+-    try {
+-      this.db
+-        .prepare(
+-          "INSERT INTO guest_work_claims(guest_work_id,owner_id,kind,destination,payload_json,created_at) VALUES(?,?,?,?,?,?)"
+-        )
+-        .run(claim.guestWorkId, claim.ownerId, claim.kind, claim.destination, claim.payloadJson, claim.createdAt);
+-      return claim;
+-    } catch (error) {
+-      throwIfUnique(error, "This guest work has already been claimed.");
++    this.db
++      .prepare(
++        `INSERT OR IGNORE INTO guest_work_claims(guest_work_id,owner_id,kind,destination,payload_json,created_at)
++         VALUES(?,?,?,?,?,?)`
++      )
++      .run(claim.guestWorkId, claim.ownerId, claim.kind, claim.destination, claim.payloadJson, claim.createdAt);
++    const stored = this.getGuestWorkClaim(claim.guestWorkId);
++    if (!stored) {
++      throw new Error("The guest work claim could not be stored.");
+     }
++    return stored;
+   }
+ 
+   getBusinessConfirmation(businessId: string) {
+@@ -227,8 +237,8 @@ export class SqliteCompanionStore implements CompanionStore {
+     this.db
+       .prepare(
+         `INSERT INTO business_confirmations(
+-          business_id,owner_id,business_name,business_context,source_selection_id,source_revision,direction_id,confirmed_at,confirmed_by
+-        ) VALUES(?,?,?,?,?,?,?,?,?)
++          business_id,owner_id,business_name,business_context,source_selection_id,source_revision,direction_id,studio_draft_id,confirmed_at,confirmed_by
++        ) VALUES(?,?,?,?,?,?,?,?,?,?)
+         ON CONFLICT(business_id) DO UPDATE SET
+           owner_id=excluded.owner_id,
+           business_name=excluded.business_name,
+@@ -236,6 +246,7 @@ export class SqliteCompanionStore implements CompanionStore {
+           source_selection_id=excluded.source_selection_id,
+           source_revision=excluded.source_revision,
+           direction_id=excluded.direction_id,
++          studio_draft_id=excluded.studio_draft_id,
+           confirmed_at=excluded.confirmed_at,
+           confirmed_by=excluded.confirmed_by`
+       )
+@@ -247,12 +258,57 @@ export class SqliteCompanionStore implements CompanionStore {
+         confirmation.sourceSelectionId,
+         confirmation.sourceRevision,
+         confirmation.directionId,
++        confirmation.studioDraftId,
+         confirmation.confirmedAt,
+         confirmation.confirmedBy
+       );
+     return confirmation;
+   }
+ 
++  getStudioDirectionAdoption(
++    businessId: string,
++    sourceSelectionId: string,
++    sourceRevision: number,
++    directionId: string
++  ) {
++    const row = this.db
++      .prepare(
++        `SELECT * FROM studio_direction_adoptions
++         WHERE business_id = ? AND source_selection_id = ? AND source_revision = ? AND direction_id = ?`
++      )
++      .get(businessId, sourceSelectionId, sourceRevision, directionId) as Row | undefined;
++    return row ? mapStudioAdoption(row) : null;
++  }
++
++  insertStudioDirectionAdoption(adoption: StudioDirectionAdoption) {
++    this.db
++      .prepare(
++        `INSERT OR IGNORE INTO studio_direction_adoptions(
++          business_id,source_selection_id,source_revision,direction_id,draft_id,owner_id,snapshot_json,created_at
++        ) VALUES(?,?,?,?,?,?,?,?)`
++      )
++      .run(
++        adoption.businessId,
++        adoption.sourceSelectionId,
++        adoption.sourceRevision,
++        adoption.directionId,
++        adoption.draftId,
++        adoption.ownerId,
++        adoption.snapshotJson,
++        adoption.createdAt
++      );
++    const stored = this.getStudioDirectionAdoption(
++      adoption.businessId,
++      adoption.sourceSelectionId,
++      adoption.sourceRevision,
++      adoption.directionId
++    );
++    if (!stored) {
++      throw new Error("The Studio adoption could not be stored.");
++    }
++    return { inserted: stored.draftId === adoption.draftId, adoption: stored };
++  }
++
+   addMember(member: BusinessMember) {
+     this.db
+       .prepare(
+diff --git a/src/lib/persistence/companionStore.ts b/src/lib/persistence/companionStore.ts
+index 49b62e7..df7fa7e 100644
+--- a/src/lib/persistence/companionStore.ts
++++ b/src/lib/persistence/companionStore.ts
+@@ -12,6 +12,7 @@ import type {
+   MemoryProposal,
+   CompositionRevision,
+   StudioAsset,
++  StudioDirectionAdoption,
+   StudioDraft,
+   UsageEvent,
+   UsageKind,
+@@ -36,6 +37,17 @@ export type CompanionStore = {
+   insertGuestWorkClaim(claim: GuestWorkClaim): GuestWorkClaim | Promise<GuestWorkClaim>;
+   getBusinessConfirmation(businessId: string): BusinessConfirmation | null | Promise<BusinessConfirmation | null>;
+   upsertBusinessConfirmation(confirmation: BusinessConfirmation): BusinessConfirmation | Promise<BusinessConfirmation>;
++  getStudioDirectionAdoption(
++    businessId: string,
++    sourceSelectionId: string,
++    sourceRevision: number,
++    directionId: string
++  ): StudioDirectionAdoption | null | Promise<StudioDirectionAdoption | null>;
++  insertStudioDirectionAdoption(
++    adoption: StudioDirectionAdoption
++  ):
++    | { inserted: boolean; adoption: StudioDirectionAdoption }
++    | Promise<{ inserted: boolean; adoption: StudioDirectionAdoption }>;
+ 
+   addMember(member: BusinessMember): BusinessMember | Promise<BusinessMember>;
+   getMember(businessId: string, userId: string): BusinessMember | null | Promise<BusinessMember | null>;
+@@ -152,9 +164,21 @@ CREATE TABLE IF NOT EXISTS business_confirmations (
+   source_selection_id TEXT,
+   source_revision INTEGER,
+   direction_id TEXT,
++  studio_draft_id TEXT,
+   confirmed_at TEXT NOT NULL,
+   confirmed_by TEXT NOT NULL
+ );
++CREATE TABLE IF NOT EXISTS studio_direction_adoptions (
++  business_id TEXT NOT NULL,
++  source_selection_id TEXT NOT NULL,
++  source_revision INTEGER NOT NULL,
++  direction_id TEXT NOT NULL,
++  draft_id TEXT NOT NULL UNIQUE,
++  owner_id TEXT NOT NULL,
++  snapshot_json TEXT NOT NULL,
++  created_at TEXT NOT NULL,
++  PRIMARY KEY (business_id, source_selection_id, source_revision, direction_id)
++);
+ CREATE TABLE IF NOT EXISTS business_members (
+   business_id TEXT NOT NULL,
+   user_id TEXT NOT NULL,
+@@ -313,6 +337,7 @@ export const COMPANION_RESET_SQL = `
+   DELETE FROM usage_events;
+   DELETE FROM studio_composition_revisions;
+   DELETE FROM studio_assets;
++  DELETE FROM studio_direction_adoptions;
+   DELETE FROM studio_drafts;
+   DELETE FROM work_items;
+   DELETE FROM business_messages;
+diff --git a/src/lib/persistence/postgres.test.ts b/src/lib/persistence/postgres.test.ts
+index 240abf7..1a1ab9e 100644
+--- a/src/lib/persistence/postgres.test.ts
++++ b/src/lib/persistence/postgres.test.ts
+@@ -15,6 +15,8 @@ describe("hosted postgres schema", () => {
+     expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS user_initial_business/);
+     expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS guest_work_claims/);
+     expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS business_confirmations/);
++    expect(sql).toMatch(/studio_draft_id/);
++    expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS studio_direction_adoptions/);
+     expect(sql).toMatch(/projects_guest_draft_idx/);
+     expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS work_items/);
+     expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS studio_assets/);
+diff --git a/src/lib/persistence/schema.postgres.sql b/src/lib/persistence/schema.postgres.sql
+index f65e848..a3e1092 100644
+--- a/src/lib/persistence/schema.postgres.sql
++++ b/src/lib/persistence/schema.postgres.sql
+@@ -227,9 +227,21 @@ CREATE TABLE IF NOT EXISTS business_confirmations (
+   source_selection_id TEXT,
+   source_revision INTEGER,
+   direction_id TEXT,
++  studio_draft_id TEXT,
+   confirmed_at TEXT NOT NULL,
+   confirmed_by TEXT NOT NULL
+ );
++CREATE TABLE IF NOT EXISTS studio_direction_adoptions (
++  business_id TEXT NOT NULL,
++  source_selection_id TEXT NOT NULL,
++  source_revision INTEGER NOT NULL,
++  direction_id TEXT NOT NULL,
++  draft_id TEXT NOT NULL UNIQUE,
++  owner_id TEXT NOT NULL,
++  snapshot_json TEXT NOT NULL,
++  created_at TEXT NOT NULL,
++  PRIMARY KEY (business_id, source_selection_id, source_revision, direction_id)
++);
+ CREATE TABLE IF NOT EXISTS business_members (
+   business_id TEXT NOT NULL,
+   user_id TEXT NOT NULL,
+diff --git a/src/lib/persistence/schema.sql b/src/lib/persistence/schema.sql
+index 2127c6e..2b37b4f 100644
+--- a/src/lib/persistence/schema.sql
++++ b/src/lib/persistence/schema.sql
+@@ -219,9 +219,21 @@ CREATE TABLE IF NOT EXISTS business_confirmations (
+   source_selection_id TEXT,
+   source_revision INTEGER,
+   direction_id TEXT,
++  studio_draft_id TEXT,
+   confirmed_at TEXT NOT NULL,
+   confirmed_by TEXT NOT NULL
+ );
++CREATE TABLE IF NOT EXISTS studio_direction_adoptions (
++  business_id TEXT NOT NULL,
++  source_selection_id TEXT NOT NULL,
++  source_revision INTEGER NOT NULL,
++  direction_id TEXT NOT NULL,
++  draft_id TEXT NOT NULL UNIQUE,
++  owner_id TEXT NOT NULL,
++  snapshot_json TEXT NOT NULL,
++  created_at TEXT NOT NULL,
++  PRIMARY KEY (business_id, source_selection_id, source_revision, direction_id)
++);
+ CREATE TABLE IF NOT EXISTS business_members (
+   business_id TEXT NOT NULL,
+   user_id TEXT NOT NULL,
+diff --git a/src/lib/persistence/unique.ts b/src/lib/persistence/unique.ts
+index 083b622..edea83e 100644
+--- a/src/lib/persistence/unique.ts
++++ b/src/lib/persistence/unique.ts
+@@ -20,3 +20,25 @@ export function throwIfUnique(error: unknown, message: string): never {
+   }
+   throw error;
+ }
++
++export async function runWithUniqueRetry<T>(
++  run: () => Promise<T>,
++  options?: { attempts?: number; onExhausted?: (error: unknown) => never }
++): Promise<T> {
++  const attempts = options?.attempts ?? 4;
++  let last: unknown;
++  for (let attempt = 0; attempt < attempts; attempt += 1) {
++    try {
++      return await run();
++    } catch (error) {
++      last = error;
++      if (!isUniqueViolation(error) || attempt === attempts - 1) {
++        if (isUniqueViolation(error) && options?.onExhausted) {
++          options.onExhausted(error);
++        }
++        throw error;
++      }
++    }
++  }
++  throw last;
++}
