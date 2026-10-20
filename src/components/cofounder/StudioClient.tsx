@@ -18,7 +18,6 @@ import {
   previewScale,
   scaleCompositionPx,
   studioLayouts,
-  STUDIO_LAYOUTS,
   type BrandPalette,
   type CompositionSpec
 } from "@/lib/cofounder/composition";
@@ -29,45 +28,22 @@ import stage from "./studioStage.module.css";
 import { CompositionStudy } from "./CompositionStudy";
 import { isStudioBackgroundAsset, studioAssetKind } from "@/lib/cofounder/studioAssets";
 import {
+  bindSavedExport,
+  exportBelongsToDraft,
   exportDownloadFailedMessage,
   exportSaveFailedMessage,
-  exportSavedStatus,
+  exportStatusForDraft,
   fetchSavedExportBytes,
+  isPriorRevisionExport,
+  isStaleExportRequest,
+  nextExportGeneration,
   triggerBrowserDownload,
   type ExportDeliveryStage,
+  type ExportRequestToken,
   type SavedExportRef
 } from "@/lib/cofounder/exportDelivery";
 
 const LAYOUTS = studioLayouts();
-
-function recoverSavedExport(
-  list: StudioAsset[],
-  draft: StudioDraft | null,
-  biz?: string
-): SavedExportRef | null {
-  if (!draft || !biz) return null;
-  const item = list
-    .filter(
-      (asset) =>
-        asset.draftId === draft.id &&
-        studioAssetKind(asset) === "composition_export" &&
-        asset.status === "ready" &&
-        asset.blobId &&
-        asset.compositionRevisionId
-    )
-    .sort((left, right) => right.revision - left.revision)[0];
-  if (!item?.compositionRevisionId) return null;
-  const size = STUDIO_LAYOUTS[draft.layout] ?? STUDIO_LAYOUTS.direction_board;
-  return {
-    assetId: item.id,
-    assetUrl: assetUrl(biz, item.id),
-    revisionId: item.compositionRevisionId,
-    draftId: draft.id,
-    width: size.width,
-    height: size.height,
-    outputHash: item.outputHash
-  };
-}
 
 export function StudioClient() {
   const { user, generation } = useSession();
@@ -109,6 +85,10 @@ export function StudioClient() {
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const previewBoxRef = useRef<HTMLDivElement | null>(null);
   const [previewWidth, setPreviewWidth] = useState(0);
+  const exportGenerationRef = useRef(0);
+  const draftIdRef = useRef<string | null>(null);
+  const businessIdRef = useRef<string | undefined>(undefined);
+  const ownerIdRef = useRef<string | null>(null);
 
   function hydrate(draft: StudioDraft | null) {
     setCurrent(draft);
@@ -128,6 +108,46 @@ export function StudioClient() {
     setCropY(image?.cropY ?? 50);
     setCropZoom(image?.cropZoom ?? 1);
     setDirty(false);
+    draftIdRef.current = draft?.id ?? null;
+  }
+
+  function currentExportToken(): ExportRequestToken {
+    return {
+      generation: exportGenerationRef.current,
+      ownerId: ownerIdRef.current,
+      businessId: businessIdRef.current ?? null,
+      draftId: draftIdRef.current
+    };
+  }
+
+  function applyBoundExport(next: SavedExportRef | null) {
+    setSavedExport(next);
+  }
+
+  function selectDraft(
+    draft: StudioDraft | null,
+    assetList: StudioAsset[] = assets,
+    biz = businessId,
+    owner = user?.id ?? null
+  ) {
+    const nextBinding = nextExportGeneration(
+      exportGenerationRef.current,
+      { draftId: draftIdRef.current, businessId: businessIdRef.current ?? null, ownerId: ownerIdRef.current },
+      { draftId: draft?.id ?? null, businessId: biz ?? null, ownerId: owner }
+    );
+    exportGenerationRef.current = nextBinding.generation;
+    ownerIdRef.current = owner;
+    businessIdRef.current = biz;
+    if (nextBinding.switched) {
+      setExportStage("idle");
+      setExporting(false);
+    }
+    hydrate(draft);
+    applyBoundExport(bindSavedExport(assetList, draft, biz));
+  }
+
+  function exportRequestStillCurrent(token: ExportRequestToken) {
+    return ownerFence.isCurrent(generation, user?.id ?? null) && !isStaleExportRequest(token, currentExportToken());
   }
 
   async function refresh(gen = generation, restoreDraft = true) {
@@ -147,18 +167,31 @@ export function StudioClient() {
       `/api/companion/today?businessId=${encodeURIComponent(workspace.business.id)}`
     );
     if (!ownerFence.isCurrent(gen, user?.id ?? null)) return;
+    const nextAssets = data.assets ?? today.today.pendingAssets;
+    const workspaceChanged =
+      businessIdRef.current != null && businessIdRef.current !== workspace.business.id;
+    const ownerChanged = ownerIdRef.current != null && ownerIdRef.current !== (user?.id ?? null);
+    if (workspaceChanged || ownerChanged) {
+      exportGenerationRef.current += 1;
+      setExportStage("idle");
+      setExporting(false);
+    }
+    businessIdRef.current = workspace.business.id;
+    ownerIdRef.current = user?.id ?? null;
     setBusinessId(workspace.business.id);
     setProfile(workspace.rawProfile ?? null);
     setDrafts(data.drafts);
     setWorkItems(work.items);
-    setAssets(data.assets ?? today.today.pendingAssets);
-    const nextDraft =
-      (search.get("draftId") && data.drafts.find((item) => item.id === search.get("draftId"))) ||
-      current ||
-      data.drafts[0] ||
-      null;
-    const recovered = recoverSavedExport(data.assets ?? today.today.pendingAssets, nextDraft, workspace.business.id);
-    if (recovered) setSavedExport(recovered);
+    setAssets(nextAssets);
+    const selectedId = draftIdRef.current;
+    const displayedDraft = restoreDraft
+      ? (search.get("draftId") && data.drafts.find((item) => item.id === search.get("draftId"))) ||
+        data.drafts.find((item) => item.id === selectedId) ||
+        current ||
+        data.drafts[0] ||
+        null
+      : data.drafts.find((item) => item.id === selectedId) || current;
+    applyBoundExport(bindSavedExport(nextAssets, displayedDraft, workspace.business.id));
     if (!restoreDraft) {
       setPhase("ready");
       return;
@@ -180,14 +213,15 @@ export function StudioClient() {
     );
     if (resolved.kind === "draft") {
       if (!current || current.id !== resolved.draft.id || current.updatedAt !== resolved.draft.updatedAt) {
+        const switched = current?.id !== resolved.draft.id;
+        if (switched) {
+          exportGenerationRef.current += 1;
+          setExportStage("idle");
+          setExporting(false);
+        }
         hydrate(resolved.draft);
       }
-      const resolvedExport = recoverSavedExport(
-        data.assets ?? today.today.pendingAssets,
-        resolved.draft,
-        workspace.business.id
-      );
-      if (resolvedExport) setSavedExport(resolvedExport);
+      applyBoundExport(bindSavedExport(nextAssets, resolved.draft, workspace.business.id));
       setError("");
       setRecovery("");
       setPhase("ready");
@@ -209,7 +243,7 @@ export function StudioClient() {
     if (resolved.kind === "error") {
       setError(resolved.message);
       setRecovery(resolved.recovery);
-      hydrate(null);
+      selectDraft(null, nextAssets, workspace.business.id);
       setPhase("error");
       return;
     }
@@ -337,8 +371,8 @@ export function StudioClient() {
           workItemId: input?.workItemId
         })
       });
-      hydrate(created.draft);
-      await refresh();
+      selectDraft(created.draft);
+      await refresh(generation, false);
       setStatus(`Studio draft linked to ${input?.workItemId ? "the exact Work item" : "this composition"}.`);
     } catch (err) {
       setError(actionErrorMessage(err, "Studio draft could not be created."));
@@ -376,7 +410,10 @@ export function StudioClient() {
         })
       });
       hydrate(updated.draft);
-      setStatus("Saved. Preview, export, and the stored revision now share this composition.");
+      setStatus(
+        exportStatusForDraft(savedExport, updated.draft, false, businessId) ||
+          "Saved. Preview, export, and the stored revision now share this composition."
+      );
       return updated.draft;
     } catch (err) {
       setError(actionErrorMessage(err, "Layers could not be saved. The draft is still editable."));
@@ -438,6 +475,10 @@ export function StudioClient() {
   }
 
   async function downloadExistingExport(ref: SavedExportRef) {
+    if (!exportBelongsToDraft(ref, { draftId: draftIdRef.current, businessId: businessIdRef.current })) {
+      return;
+    }
+    const token = currentExportToken();
     setExporting(true);
     setExportStage("downloading");
     setError("");
@@ -445,20 +486,23 @@ export function StudioClient() {
     setStatus("The export is saved. Downloading the existing file…");
     try {
       const blob = await fetchSavedExportBytes(ref);
+      if (!exportRequestStillCurrent(token)) return;
       triggerBrowserDownload(blob, `${ref.draftId}.png`);
       setExportStage("saved");
-      setStatus(exportSavedStatus(ref));
+      setStatus(exportStatusForDraft(ref, current, dirty, businessIdRef.current));
     } catch (err) {
+      if (!exportRequestStillCurrent(token)) return;
       setExportStage("download_failed");
       setError(exportSaveFailedMessage(err, exportDownloadFailedMessage()));
       setRecovery("The composition was not changed. Download again to retry the existing file.");
     } finally {
-      setExporting(false);
+      if (exportRequestStillCurrent(token)) setExporting(false);
     }
   }
 
   async function exportDraft() {
     if (!selected || !composition || exporting) return;
+    const token = currentExportToken();
     setExporting(true);
     setError("");
     setRecovery("");
@@ -468,10 +512,12 @@ export function StudioClient() {
     try {
       const saved = dirty ? await saveLayers() : selected;
       if (!saved) return;
+      if (!exportRequestStillCurrent(token)) return;
       let composedPngBase64: string;
       try {
         composedPngBase64 = await composePng(composition);
       } catch (err) {
+        if (!exportRequestStillCurrent(token)) return;
         setExportStage("idle");
         setError(
           exportSaveFailedMessage(
@@ -483,6 +529,7 @@ export function StudioClient() {
         setStatus("");
         return;
       }
+      if (!exportRequestStillCurrent(token)) return;
       setExportStage("saving");
       setStatus("Saving the exact revision…");
       const result = await api<{
@@ -505,6 +552,7 @@ export function StudioClient() {
           expectedUpdatedAt: saved.updatedAt
         })
       });
+      if (!exportRequestStillCurrent(token)) return;
       if (!result.exported.assetUrl || !result.exported.asset?.id || !result.exported.revision?.id) {
         throw new Error("The export was saved without a complete download reference. Reload Work and use Download exported revision.");
       }
@@ -513,14 +561,18 @@ export function StudioClient() {
         assetUrl: result.exported.assetUrl,
         revisionId: result.exported.revision.id,
         draftId: saved.id,
+        businessId: businessIdRef.current,
+        draftUpdatedAt: saved.updatedAt,
+        exportedAt: new Date().toISOString(),
         width: result.exported.dimensions.width,
         height: result.exported.dimensions.height,
         outputHash: result.exported.asset.outputHash
       };
-      setSavedExport(persisted);
+      applyBoundExport(persisted);
       setExportStage("saved");
       setStatus(`Export saved ${persisted.width}×${persisted.height}. Preparing download…`);
     } catch (err) {
+      if (!exportRequestStillCurrent(token)) return;
       setExportStage("idle");
       setError(
         exportSaveFailedMessage(err, "Export failed. The draft is still editable and was not marked exported.")
@@ -529,23 +581,26 @@ export function StudioClient() {
       setStatus("");
       return;
     } finally {
-      if (!persisted) setExporting(false);
+      if (!persisted && exportRequestStillCurrent(token)) setExporting(false);
     }
     if (!persisted) return;
     try {
+      if (!exportRequestStillCurrent(token)) return;
       setExportStage("downloading");
       const blob = await fetchSavedExportBytes(persisted);
+      if (!exportRequestStillCurrent(token)) return;
       triggerBrowserDownload(blob, `${persisted.draftId}.png`);
       setExportStage("saved");
-      setStatus(exportSavedStatus(persisted));
-      await refresh();
+      setStatus(exportStatusForDraft(persisted, current, dirty, businessIdRef.current));
+      await refresh(generation, false);
     } catch (err) {
+      if (!exportRequestStillCurrent(token)) return;
       setExportStage("download_failed");
       setError(exportSaveFailedMessage(err, exportDownloadFailedMessage()));
       setRecovery("The export is saved. Download again to retry the existing file. A duplicate export was not created.");
-      await refresh();
+      await refresh(generation, false);
     } finally {
-      setExporting(false);
+      if (exportRequestStillCurrent(token)) setExporting(false);
     }
   }
 
@@ -596,10 +651,18 @@ export function StudioClient() {
   async function uploadLogo(file: File) {
     if (uploadingLogo || saving || exporting) return;
     const previousLogo = { logoDocumentId, logoAssetId };
+    const mime = file.type || "application/octet-stream";
     setUploadingLogo(true);
     setError("");
     setRecovery("");
     setStatus("Uploading the original logo…");
+    if (!mime.startsWith("image/")) {
+      setError("Logo must be an image file.");
+      setRecovery("Retry the same file. The current artwork was not replaced.");
+      setStatus("");
+      setUploadingLogo(false);
+      return;
+    }
     try {
       const bytesBase64 = await file.arrayBuffer().then((buffer) => {
         const bytes = new Uint8Array(buffer);
@@ -614,7 +677,7 @@ export function StudioClient() {
         body: JSON.stringify({
           businessId,
           title: file.name,
-          mime: file.type || "image/png",
+          mime,
           bytesBase64,
           kind: "logo"
         })
@@ -663,9 +726,13 @@ export function StudioClient() {
             ? exportStage === "downloading"
               ? "Downloading"
               : "Exporting"
-            : exportStage === "download_failed"
+            : exportStage === "download_failed" &&
+                exportBelongsToDraft(savedExport, { draftId: selected?.id, businessId })
               ? "Download failed"
-              : savedExport && !dirty
+              : exportBelongsToDraft(savedExport, { draftId: selected?.id, businessId }) &&
+                  isPriorRevisionExport(savedExport, selected, dirty)
+              ? "Earlier export"
+              : exportBelongsToDraft(savedExport, { draftId: selected?.id, businessId }) && !dirty
               ? "Export saved"
               : selected
                 ? "Saved"
@@ -770,8 +837,20 @@ export function StudioClient() {
           </div></div>
           <div className={stage.toolDock} aria-label="Select an element">{["Content", "Image", "Brand", "Layout"].map((name) => <button key={name} type="button" aria-pressed={panel === name && mode === "refine"} onClick={() => focusPanel(name)}>{name === "Content" ? "Aa · Text" : name === "Image" ? "◈ · Image" : name === "Brand" ? "◇ · Logo" : "▣ · Format"}</button>)}</div>
           <div className={stage.collection} data-expanded={mode === "collection"} aria-label="Coordinated artifact previews">{collection.map((item) => <button key={item.format} type="button" className={stage.study} aria-pressed={layout === item.format} disabled={kept.includes("Layout") || saving || exporting} onClick={() => { markDirty(setLayout)(item.format); setMode("refine"); }}><span className={stage.studyCanvas}><CompositionStudy spec={item.spec} label={`${item.label} live collection preview`} /></span><span>{item.label}<small>{layout === item.format ? "On stage" : "Open & edit"}</small></span></button>)}</div>
-          <div className={stage.stageActions}><button className="btn btn-gold" type="button" onClick={() => void saveLayers()} disabled={!selected || saving}>{saving ? "Saving…" : dirty ? "Save layers" : "Saved"}</button><button className="btn btn-emerald-glass" type="button" onClick={() => void exportDraft()} disabled={!selected || exporting}>{exporting ? exportStage === "downloading" ? "Downloading…" : exportStage === "saving" ? "Saving export…" : "Exporting…" : "Export"}</button>{savedExport ? <button className="btn btn-ghost" type="button" onClick={() => void downloadExistingExport(savedExport)} disabled={exporting}>{exportStage === "download_failed" ? "Download again" : "Download saved export"}</button> : null}<button className={stage.compare} type="button" disabled={!current || !dirty} onClick={() => { hydrate(current); setStatus("Restored the last saved composition."); }}>Reset edits</button></div>
-          <p className={styles.meta} role="status">{status}</p>
+          <div className={stage.stageActions}><button className="btn btn-gold" type="button" onClick={() => void saveLayers()} disabled={!selected || saving}>{saving ? "Saving…" : dirty ? "Save layers" : "Saved"}</button><button className="btn btn-emerald-glass" type="button" onClick={() => void exportDraft()} disabled={!selected || exporting}>{exporting ? exportStage === "downloading" ? "Downloading…" : exportStage === "saving" ? "Saving export…" : "Exporting…" : "Export"}</button>{exportBelongsToDraft(savedExport, { draftId: selected?.id, businessId }) ? <button className="btn btn-ghost" type="button" data-download-saved-export={savedExport.draftId} onClick={() => void downloadExistingExport(savedExport)} disabled={exporting}>{exportStage === "download_failed" ? "Download again" : "Download saved export"}</button> : null}<button className={stage.compare} type="button" disabled={!current || !dirty} onClick={() => { hydrate(current); setStatus("Restored the last saved composition."); }}>Reset edits</button></div>
+          <p
+            className={styles.meta}
+            role="status"
+            data-export-stage={exportStage}
+            data-export-bound-draft={exportBelongsToDraft(savedExport, { draftId: selected?.id, businessId }) ? savedExport.draftId : ""}
+            data-export-revision={exportBelongsToDraft(savedExport, { draftId: selected?.id, businessId }) ? savedExport.revisionId : ""}
+            data-export-prior-revision={
+              exportBelongsToDraft(savedExport, { draftId: selected?.id, businessId }) &&
+              isPriorRevisionExport(savedExport, selected, dirty)
+                ? "true"
+                : "false"
+            }
+          >{status}</p>
           {error ? <p className="notice notice-warn">{error}</p> : null}
           {recovery ? <p className={styles.meta}>{recovery}</p> : null}
         </section>
@@ -788,12 +867,23 @@ export function StudioClient() {
             <select
               id="studio-draft"
               className={styles.select}
+              data-studio-draft-id={selected?.id ?? ""}
               value={selected?.id ?? ""}
               onChange={(event) => {
                 const next = drafts.find((item) => item.id === event.target.value) ?? null;
-                hydrate(next);
+                selectDraft(next);
                 setError("");
                 setRecovery("");
+                setStatus(
+                  next
+                    ? exportStatusForDraft(
+                        bindSavedExport(assets, next, businessId),
+                        next,
+                        false,
+                        businessId
+                      )
+                    : ""
+                );
               }}
             >
               <option value="">No composition selected</option>

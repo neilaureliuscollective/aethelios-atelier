@@ -4,7 +4,7 @@ Branch: `cursor/atelier-premium-launch-readiness-da63`
 Inspected incoming head: `a8aabc60d0b91c17bbe1d117443ea4e67a2584f6`  
 Artwork-delivery application commit: `5d48e88f391017291d62630a662b34298b36354d`  
 Prior visual-continuity application commit: `a5f109a9ba7270c4c47a9fcbf1a096276aa6a4ac`  
-This pass continues that branch. It does not reset to `main`.
+This pass continues that branch. It does not reset to `main`. Exact-draft export recovery and strict local acceptance are the finishing phase; see `docs/launch/HOSTED_REHEARSAL.md` for the remaining authorized hosted rehearsal.
 
 This is **code-complete evidence for a local candidate**, not configured launch acceptance.
 
@@ -50,9 +50,9 @@ Owner-canvas-bound export SHA-256: `ab6b8492d0d565cba5fdaf31a9b92993e0f6fb74b0a8
 
 | Layer | Result |
 | --- | --- |
-| Memory unit/integration (`pnpm test` without Postgres URL) | 280 passed, 19 Postgres tests skipped |
-| SQLite local (running app, simulated auth) | `launch-journey-api.mjs` 16/16 and `visual-identity-journey.mjs` 21/21 against a fresh `.data-visual` directory |
-| Isolated disposable PostgreSQL 16 (`atelier_visual_continuity_test` on 127.0.0.1) | `postgres.integration.test.ts` + `postgres.multiprocess.test.ts`: 18 passed, including concurrent empty-schema init, guest revisions, and claim/adopt/rollback |
+| Memory unit/integration (`pnpm test` without Postgres URL) | 298 passed, 20 Postgres tests skipped |
+| SQLite local (running app, simulated auth) | Strict `artwork-delivery-capture.mjs` on production `next start :3030` / `.data-export-bind`. Prior `launch-journey-api.mjs` 16/16 and `visual-identity-journey.mjs` 21/21 were not re-run in this finishing phase |
+| Isolated disposable PostgreSQL 16 (`atelier_export_recovery_test` on 127.0.0.1) | `postgres.integration.test.ts` + `postgres.multiprocess.test.ts`: 19 passed, including selection-owner race across two connections and concurrent empty-schema init |
 | Simulated auth | `owner.local@atelier.invalid`, `owner-two.local@atelier.invalid` |
 | Real Auth.js / Google / Resend | Not run — credentials not configured |
 | Provider / live OpenAI | Fail-closed. Not run. |
@@ -61,10 +61,10 @@ Owner-canvas-bound export SHA-256: `ab6b8492d0d565cba5fdaf31a9b92993e0f6fb74b0a8
 
 - `pnpm typecheck` — pass
 - `pnpm lint` — pass
-- `pnpm test` — 280 passed, 19 skipped
-- Isolated Postgres suite — 18 passed
+- `pnpm test` — 298 passed, 20 skipped
+- Isolated Postgres suite — 19 passed
 - `pnpm build` — production build of this head
-- Visual identity API and browser journeys (see artifacts)
+- Strict artwork-delivery browser acceptance (see `docs/launch/ARTWORK_DELIVERY.md`)
 
 ## Recovery patch
 
@@ -72,7 +72,7 @@ Owner-canvas-bound export SHA-256: `ab6b8492d0d565cba5fdaf31a9b92993e0f6fb74b0a8
 
 ## Configured launch acceptance
 
-See `docs/launch/ARTWORK_DELIVERY.md` for this pass and `docs/launch/HOSTED_ACTIVATION.md` for remaining gates.
+See `docs/launch/ARTWORK_DELIVERY.md` for this pass, `docs/launch/HOSTED_REHEARSAL.md` for the four-status hosted checklist, and `docs/launch/HOSTED_ACTIVATION.md` for remaining gates.
 
 GitHub Actions `check` remains **blocked** by account billing / spending limit. A never-started Actions job is not a passing test suite. Vercel preview is not launch acceptance.
 

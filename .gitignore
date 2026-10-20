@@ -9,6 +9,7 @@ out
 .data-adopt-verify
 .data-visual
 .data-delivery
+.data-export-bind
 .vercel
 .env
 .env.local

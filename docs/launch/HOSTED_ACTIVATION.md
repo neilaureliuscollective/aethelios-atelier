@@ -2,7 +2,7 @@
 
 This is the next stage after local code-complete verification. Nothing here was activated by this agent.
 
-Local artwork delivery on this branch is complete: selection ownership is atomic, saved export is distinct from download, and two real UI exports were re-downloaded. That does **not** satisfy any row below. The server binds owner-rendered bytes to a revision; it does not independently re-rasterize every pixel.
+The four-status rehearsal table (implemented / configured-not-verified / verified-hosted / missing-or-blocked) lives in `docs/launch/HOSTED_REHEARSAL.md`. Local exact-draft export binding and strict UI acceptance on this branch do **not** satisfy any row below. The server binds owner-rendered bytes to a revision; it does not independently re-rasterize every pixel.
 
 | Integration | Status | What “verified” requires |
 | --- | --- | --- |

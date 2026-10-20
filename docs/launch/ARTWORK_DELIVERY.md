@@ -1,6 +1,11 @@
 # Artwork delivery, recovery, and ownership
 
-Application commit: `5d48e88f391017291d62630a662b34298b36354d`. This is local evidence, not hosted launch acceptance. Simulated identities are not Auth.js verification.
+Artwork-delivery application commit: `5d48e88f391017291d62630a662b34298b36354d`.  
+Exact-draft export-binding pass continues that work. This is local evidence, not hosted launch acceptance. Simulated identities are not Auth.js verification.
+
+## Exact-draft export binding
+
+`savedExport` is rebound on every draft, workspace, and owner change. Selecting an unexported draft clears the previous draft’s download control and status. A request started for draft A cannot write status or bytes onto draft B. When the same draft is edited after export, the UI labels the stored file as an earlier revision instead of implying the current edits were exported. Download-again retries the existing artifact.
 
 ## Preserved from earlier PR #18 passes
 
@@ -24,17 +29,19 @@ What is verified: the client-rendered PNG is bound to a composition revision, st
 
 ## Upload recovery
 
-A failed logo upload keeps the existing logo, composition, and direction. The file input is cleared so the same file can be retried. Same-origin workspace images load without CORS tainting. Foreign hosts require CORS; a tainted canvas surfaces a meaningful export error.
+A failed logo upload keeps the existing logo, composition, and direction. Empty `file.type` is no longer sent as `image/png`. The file input is cleared so the same file can be retried. Same-origin workspace images load without CORS tainting. Foreign hosts require CORS; a tainted canvas surfaces a meaningful export error.
 
-## Two real UI exports
+## Strict local UI acceptance (this pass)
 
-Production `next start` on port 3030, sqlite `.data-delivery`, simulated auth.
+Production `next start` on port 3030, sqlite `.data-export-bind`, simulated auth. Preview/export raster tolerance is **2**. Real Export control, real browser downloads, no API fallback counted as UI-download evidence.
 
-| Identity | Draft | Revision | SHA-256 | Bytes | Samples |
-| --- | --- | --- | --- | --- | --- |
-| Lumen House / ivory / Glass evening | `studio_aa3352ae-c55d-466a-9b93-a28df91f4dce` | `crev_3eecac66-29f9-4757-baab-9a8033983a98` | `e47ae6ab71393b5dda4e9ba53c764c3ac9e51a6ff2de2f4bc40b79691649308c` | 709926 | 11734 |
-| Hearth Room / linen / Linen gathering | `studio_702cb606-bc32-4faf-a4a6-a3c5411e67a3` | `crev_72e47e26-be7d-4bbd-8c6b-6643545094d6` | `bcbd8852b908d9637da28d0c4806cd415b4b9c109637f94752e48477d9922ede` | 1270052 | 22687 |
+| Identity | Layout | Draft | Revision | SHA-256 | Bytes | Samples | Preview Δ |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Lumen House / ivory / Glass reserved | direction_board 1600×1200 | `studio_b68f14a4-876c-4e5f-97bf-c827d4128dca` | `crev_5b5514c1-baa3-441a-8cb1-ce50f3dc1367` | `2b96cf119c36319555fa80047179828c544bfa3faa27264600452626e8eef22c` | 664221 | 10904 | 0 |
+| Hearth Room / linen / Linen reserved | square_announcement 1080×1080 | `studio_c157fc1c-45df-44be-9929-b3ea64a865ec` | `crev_d5804854-5c3a-4bf9-8714-4e7e3b20431b` | `017c4ab36775849a991b820d73bfd83cf37801de4d36a9966297a5aa03730176` | 1304184 | 25818 | 0 |
 
-Both files are 1600×1200 direction boards with visible photography, typography, and palette swatches — not solid PNGs. Output hash equals the downloaded SHA-256. Sign-out / sign-in / Download saved export returned the same Lumen bytes. Revision two draft `studio_a2db9c93-d387-4556-938d-a19cd276792b` did not replace the first draft or its export. Second account received **403** on the first account’s export URL.
+A→B→A: unexported draft `studio_26fdf3a9-2124-4427-b654-5696ec98a700` never bound Lumen’s export. Failed download left one artifact; Download again returned the same SHA-256. Signed-out GET: **401** `{ok:false,error:"unauthenticated"}`. Second account: **403** `{ok:false,error:"forbidden"}`. Missing asset: **404** `{ok:false,error:"not_found"}`. Reopen UI download matched. Revision two draft `studio_1f78f004-252f-4307-a638-9086468523ad` did not replace the first export.
 
-Artifacts: `/opt/cursor/artifacts/exports/lumen-export.png`, `hearth-export.png`, `artwork-delivery.json`.
+Found during later same-draft edit: headline `Glass reserved later` overflowed the direction-board preview (`Preview unavailable`). The earlier export stayed labeled and downloadable. That is an authoring constraint, not a new visual build.
+
+Artifacts: `/opt/cursor/artifacts/exports/export_bind_lumen_direction_board.png`, `export_bind_hearth_square_social.png`, `export_bind_artwork-delivery.json`.
