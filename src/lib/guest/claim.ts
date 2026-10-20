@@ -1,7 +1,6 @@
 import { safeCallbackUrl } from "@/lib/auth/callbackUrl";
 import type { GuestWorkClaim, GuestWorkKind } from "@/lib/cofounder/types";
 import { ForbiddenError } from "@/lib/domain/errors";
-import { isUniqueViolation } from "@/lib/persistence/unique";
 import type { PersistenceAdapter } from "@/lib/persistence/adapter";
 import type { User } from "@/lib/types";
 
@@ -40,22 +39,20 @@ export class GuestWorkService {
     };
 
     return this.store.runInTransaction(async () => {
-      const existing = await this.store.companion.getGuestWorkClaim(guestWorkId);
-      if (existing) {
-        if (existing.ownerId !== user.id) {
-          throw new ForbiddenError("This guest work already belongs to another account.");
-        }
-        return existing;
-      }
-      try {
-        return await this.store.companion.insertGuestWorkClaim(next);
-      } catch (error) {
-        if (!isUniqueViolation(error)) throw error;
-        const raced = await this.store.companion.getGuestWorkClaim(guestWorkId);
-        if (raced && raced.ownerId === user.id) return raced;
+      const stored = await this.store.companion.insertGuestWorkClaim(next);
+      if (stored.ownerId !== user.id) {
         throw new ForbiddenError("This guest work already belongs to another account.");
       }
+      return stored;
     });
+  }
+
+  async requireOwnedClaim(user: User, guestWorkId: string) {
+    const claim = await this.readForUser(user, guestWorkId);
+    if (!claim) {
+      throw new ForbiddenError("This Discovery direction has not been claimed for the signed-in account.");
+    }
+    return claim;
   }
 
   async readForUser(user: User, guestWorkId: string) {

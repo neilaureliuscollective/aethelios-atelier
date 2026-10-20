@@ -112,8 +112,20 @@ export type BusinessConfirmation = {
   sourceSelectionId: string | null;
   sourceRevision: number | null;
   directionId: string | null;
+  studioDraftId: string | null;
   confirmedAt: string;
   confirmedBy: string;
+};
+
+export type StudioDirectionAdoption = {
+  businessId: string;
+  sourceSelectionId: string;
+  sourceRevision: number;
+  directionId: string;
+  draftId: string;
+  ownerId: string;
+  snapshotJson: string;
+  createdAt: string;
 };
 
 export type BusinessMember = {

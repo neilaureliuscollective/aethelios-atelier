@@ -1,6 +1,5 @@
 import { emptyProfile, normalizeProfile } from "@/lib/cofounder/profile";
 import { usageCountsTowardBudget } from "@/lib/cofounder/types";
-import { UniqueConstraintError } from "@/lib/domain/errors";
 import type {
   Business,
   BusinessConfirmation,
@@ -15,6 +14,7 @@ import type {
   MemoryProposal,
   CompositionRevision,
   StudioAsset,
+  StudioDirectionAdoption,
   StudioDraft,
   UsageEvent,
   UsageKind,
@@ -39,6 +39,7 @@ export class MemoryCompanionStore implements CompanionStore {
   private messages = new Map<string, CompanionMessage[]>();
   private work = new Map<string, WorkItem>();
   private drafts = new Map<string, StudioDraft>();
+  private adoptions = new Map<string, StudioDirectionAdoption>();
   private assets = new Map<string, StudioAsset>();
   private usage: UsageEvent[] = [];
   private jobs = new Map<string, GenerationJob>();
@@ -52,7 +53,10 @@ export class MemoryCompanionStore implements CompanionStore {
       guestClaims: new Map(this.guestClaims),
       confirmations: new Map(this.confirmations),
       members: new Map(this.members),
-      profiles: new Map(this.profiles)
+      profiles: new Map(this.profiles),
+      work: new Map(this.work),
+      drafts: new Map(this.drafts),
+      adoptions: new Map(this.adoptions)
     };
   }
 
@@ -63,6 +67,9 @@ export class MemoryCompanionStore implements CompanionStore {
     this.confirmations = new Map(snapshot.confirmations);
     this.members = new Map(snapshot.members);
     this.profiles = new Map(snapshot.profiles);
+    this.work = new Map(snapshot.work);
+    this.drafts = new Map(snapshot.drafts);
+    this.adoptions = new Map(snapshot.adoptions);
   }
 
   reset() {
@@ -78,6 +85,7 @@ export class MemoryCompanionStore implements CompanionStore {
     this.messages.clear();
     this.work.clear();
     this.drafts.clear();
+    this.adoptions.clear();
     this.assets.clear();
     this.usage = [];
     this.jobs.clear();
@@ -129,9 +137,7 @@ export class MemoryCompanionStore implements CompanionStore {
 
   insertGuestWorkClaim(claim: GuestWorkClaim) {
     const existing = this.guestClaims.get(claim.guestWorkId);
-    if (existing) {
-      throw new UniqueConstraintError("This guest work has already been claimed.");
-    }
+    if (existing) return clone(existing);
     this.guestClaims.set(claim.guestWorkId, clone(claim));
     return clone(claim);
   }
@@ -144,6 +150,40 @@ export class MemoryCompanionStore implements CompanionStore {
   upsertBusinessConfirmation(confirmation: BusinessConfirmation) {
     this.confirmations.set(confirmation.businessId, clone(confirmation));
     return clone(confirmation);
+  }
+
+  private adoptionKey(
+    businessId: string,
+    sourceSelectionId: string,
+    sourceRevision: number,
+    directionId: string
+  ) {
+    return `${businessId}:${sourceSelectionId}:${sourceRevision}:${directionId}`;
+  }
+
+  getStudioDirectionAdoption(
+    businessId: string,
+    sourceSelectionId: string,
+    sourceRevision: number,
+    directionId: string
+  ) {
+    const item = this.adoptions.get(this.adoptionKey(businessId, sourceSelectionId, sourceRevision, directionId));
+    return item ? clone(item) : null;
+  }
+
+  insertStudioDirectionAdoption(adoption: StudioDirectionAdoption) {
+    const key = this.adoptionKey(
+      adoption.businessId,
+      adoption.sourceSelectionId,
+      adoption.sourceRevision,
+      adoption.directionId
+    );
+    const existing = this.adoptions.get(key);
+    if (existing) {
+      return { inserted: false, adoption: clone(existing) };
+    }
+    this.adoptions.set(key, clone(adoption));
+    return { inserted: true, adoption: clone(adoption) };
   }
 
   addMember(member: BusinessMember) {

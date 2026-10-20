@@ -54,6 +54,17 @@ HAVING COUNT(*) > 1;
 
 Keep the earliest project per guest draft. Do not delete the extra row until Neil reviews it. The unique index `projects_guest_draft_idx` must be created only after duplicates are resolved.
 
+## Studio direction adoptions
+
+```sql
+SELECT business_id, source_selection_id, source_revision, direction_id, COUNT(*)
+FROM studio_direction_adoptions
+GROUP BY 1, 2, 3, 4
+HAVING COUNT(*) > 1;
+```
+
+The primary key already prevents duplicates. Extra Studio drafts that are not referenced by `studio_direction_adoptions.draft_id` are leftover editable work and must not be deleted automatically.
+
 ## Rollback
 
 Dropping `user_initial_business` / `guest_work_claims` / `business_confirmations` returns the uniqueness gate to application logic only. Existing businesses and projects remain.

@@ -19,7 +19,7 @@ export async function POST(request: Request) {
   try {
     const body = bodySchema.parse(await readJson(request));
     const { auth, store, context } = await requireCompanionWrite(body.businessId);
-    const confirmation = await new BusinessAdoption(store).confirm(context.business.id, auth.user, {
+    const adopted = await new BusinessAdoption(store).confirm(context.business.id, auth.user, {
       businessName: body.businessName,
       businessContext: body.businessContext ?? "",
       sourceSelectionId: body.sourceSelectionId,
@@ -27,7 +27,12 @@ export async function POST(request: Request) {
       directionId: body.directionId,
       replaceConfirmedDirection: body.replaceConfirmedDirection
     });
-    return json({ ok: true, confirmation });
+    return json({
+      ok: true,
+      confirmation: adopted.confirmation,
+      draft: adopted.draft,
+      studioHref: adopted.draft ? `/companion/studio?draftId=${encodeURIComponent(adopted.draft.id)}` : "/companion/studio"
+    });
   } catch (error) {
     return handleError(error);
   }

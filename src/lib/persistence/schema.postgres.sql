@@ -227,8 +227,20 @@ CREATE TABLE IF NOT EXISTS business_confirmations (
   source_selection_id TEXT,
   source_revision INTEGER,
   direction_id TEXT,
+  studio_draft_id TEXT,
   confirmed_at TEXT NOT NULL,
   confirmed_by TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS studio_direction_adoptions (
+  business_id TEXT NOT NULL,
+  source_selection_id TEXT NOT NULL,
+  source_revision INTEGER NOT NULL,
+  direction_id TEXT NOT NULL,
+  draft_id TEXT NOT NULL UNIQUE,
+  owner_id TEXT NOT NULL,
+  snapshot_json TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (business_id, source_selection_id, source_revision, direction_id)
 );
 CREATE TABLE IF NOT EXISTS business_members (
   business_id TEXT NOT NULL,

@@ -22,7 +22,8 @@ New tables and indexes (already created by the sqlite/postgres adapters on boot)
 
 - `user_initial_business`
 - `guest_work_claims`
-- `business_confirmations`
+- `business_confirmations` (now includes `studio_draft_id`)
+- `studio_direction_adoptions`
 - unique index `projects_guest_draft_idx` on `adopted_from_guest_id`
 
 For a hosted database that already has duplicate guest-draft or owner-business rows, run the detection queries in `docs/launch/RECONCILIATION.md` **before** applying the unique index. Do not delete customer rows.
@@ -37,7 +38,7 @@ For a hosted database that already has duplicate guest-draft or owner-business r
 ## Rollback
 
 - Application: redeploy the previous git SHA. The new tables are unused if the old build does not read them.
-- Uniqueness gate only: drop `user_initial_business` / `guest_work_claims` / `business_confirmations` and `projects_guest_draft_idx` after confirming no new writes depend on them.
+- Uniqueness gate only: drop `user_initial_business` / `guest_work_claims` / `business_confirmations` / `studio_direction_adoptions` and `projects_guest_draft_idx` after confirming no new writes depend on them.
 - Do not drop `businesses`, `projects`, Studio revisions, or export blobs.
 
 ## What this environment must not do

@@ -6,6 +6,7 @@ out
 .data
 .data-cofounder
 .data-atelier-visual
+.data-adopt-verify
 .vercel
 .env
 .env.local

@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { seedSimulatedUsers } from "@/lib/auth/identities";
+import { BusinessAdoption } from "@/lib/cofounder/confirmation";
 import { CompanionStudio } from "@/lib/cofounder/studio";
 import { bypassProcessLockForTests, CompanionUsage } from "@/lib/cofounder/usage";
 import { CompanionWorkspace } from "@/lib/cofounder/workspace";
+import { GuestWorkService } from "@/lib/guest/claim";
 import { encodeSolidPng } from "@/lib/cofounder/png";
 import { ConflictError, ForbiddenError, LimitError } from "@/lib/domain/errors";
 import { PostgresPersistence } from "@/lib/persistence/postgres";
@@ -377,5 +379,87 @@ describe.skipIf(!isolated)("PostgreSQL companion integration", () => {
     expect((await storeA.companion.getStudioDraft(kept.draft.id))?.selectedAssetId).toBe(completed.asset.id);
     expect((await storeA.companion.getJobByIdempotency(ctx.business.id, "pg-finalize-keep"))?.status).toBe("completed");
     expect((await storeA.companion.getUsageByOperation(ctx.business.id, "pg-finalize-keep"))?.status).toBe("settled");
+  }, 60_000);
+
+  it("claims guest work and adopts one Studio draft under concurrent PostgreSQL transactions", async () => {
+    const { storeA, storeB, owner, ctx } = await openStores();
+    const other = (await storeA.getUserByEmail("owner-two.local@atelier.invalid")) as User;
+    const guestsA = new GuestWorkService(storeA);
+    const guestsB = new GuestWorkService(storeB);
+    const [claimA, claimB] = await Promise.all([
+      guestsA.claim(owner, {
+        guestWorkId: "dsel_pg",
+        kind: "discovery",
+        payload: { selectionId: "dsel_pg", localRevision: 2, selectedDirectionId: "lumen", businessName: "Northridge" }
+      }),
+      guestsB.claim(owner, {
+        guestWorkId: "dsel_pg",
+        kind: "discovery",
+        payload: { selectionId: "dsel_pg", localRevision: 2, selectedDirectionId: "lumen", businessName: "Northridge" }
+      })
+    ]);
+    expect(claimA.createdAt).toBe(claimB.createdAt);
+    await expect(
+      guestsB.claim(other, {
+        guestWorkId: "dsel_pg",
+        kind: "discovery",
+        payload: { selectionId: "dsel_pg", localRevision: 2, selectedDirectionId: "hearth" }
+      })
+    ).rejects.toBeInstanceOf(ForbiddenError);
+
+    const adoptA = new BusinessAdoption(storeA);
+    const adoptB = new BusinessAdoption(storeB);
+    const [first, second] = await Promise.all([
+      adoptA.confirm(ctx.business.id, owner, {
+        businessName: "Northridge",
+        businessContext: "A quiet sitting room.",
+        sourceSelectionId: "dsel_pg",
+        sourceRevision: 2,
+        directionId: "lumen"
+      }),
+      adoptB.confirm(ctx.business.id, owner, {
+        businessName: "Northridge",
+        businessContext: "A quiet sitting room.",
+        sourceSelectionId: "dsel_pg",
+        sourceRevision: 2,
+        directionId: "lumen"
+      })
+    ]);
+    expect(first.draft?.id).toBe(second.draft?.id);
+    expect(await storeA.companion.listStudioDrafts(ctx.business.id)).toHaveLength(1);
+    await expect(
+      adoptB.confirm(ctx.business.id, other, {
+        businessName: "Stolen",
+        businessContext: "no",
+        sourceSelectionId: "dsel_pg",
+        sourceRevision: 2,
+        directionId: "lumen"
+      })
+    ).rejects.toBeInstanceOf(ForbiddenError);
+  }, 60_000);
+
+  it("rolls back a failed PostgreSQL confirmation without leaving an adopted draft", async () => {
+    const { storeA, owner, ctx } = await openStores();
+    const guests = new GuestWorkService(storeA);
+    await guests.claim(owner, {
+      guestWorkId: "dsel_pg_fail",
+      kind: "discovery",
+      payload: { selectionId: "dsel_pg_fail", localRevision: 1, selectedDirectionId: "hearth" }
+    });
+    await expect(
+      storeA.runInTransaction(async () => {
+        await new BusinessAdoption(storeA).confirm(ctx.business.id, owner, {
+          businessName: "Should roll back",
+          businessContext: "no",
+          sourceSelectionId: "dsel_pg_fail",
+          sourceRevision: 1,
+          directionId: "hearth"
+        });
+        throw new Error("injected pg confirmation failure");
+      })
+    ).rejects.toThrow("injected pg confirmation failure");
+    expect(await storeA.companion.getBusinessConfirmation(ctx.business.id)).toBeNull();
+    expect(await storeA.companion.listStudioDrafts(ctx.business.id)).toHaveLength(0);
+    expect(await storeA.companion.getGuestWorkClaim("dsel_pg_fail")).toBeTruthy();
   }, 60_000);
 });

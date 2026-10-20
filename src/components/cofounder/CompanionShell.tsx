@@ -21,13 +21,19 @@ export function CompanionShell({
   const pathname = usePathname();
   const { user, loading } = useSession();
   const [businessName, setBusinessName] = useState("");
-  const [studioGate, setStudioGate] = useState<"ready" | "confirm">("ready");
+  const [studioGate, setStudioGate] = useState<"checking" | "ready" | "confirm">(
+    pathname.startsWith("/companion/studio") ? "checking" : "ready"
+  );
 
   useEffect(() => {
     if (!user) return;
-    void api<{ business: { name: string }; confirmation: { sourceSelectionId: string | null } | null }>(
-      "/api/companion/workspace"
-    )
+    if (pathname.startsWith("/companion/studio")) {
+      setStudioGate("checking");
+    }
+    void api<{
+      business: { name: string };
+      confirmation: { sourceSelectionId: string | null; studioDraftId?: string | null } | null;
+    }>("/api/companion/workspace")
       .then((data) => {
         setBusinessName(data.business.name);
         const intent = readGuestIntent();
@@ -41,7 +47,12 @@ export function CompanionShell({
           setStudioGate("ready");
         }
       })
-      .catch(() => setBusinessName(""));
+      .catch(() => {
+        setBusinessName("");
+        if (pathname.startsWith("/companion/studio")) {
+          setStudioGate("ready");
+        }
+      });
   }, [user, pathname]);
 
   if (loading) {
@@ -68,6 +79,20 @@ export function CompanionShell({
           <a className="btn btn-gold" href={`/account?next=${encodeURIComponent(pathname || "/companion")}`}>
             Sign in
           </a>
+        </div>
+      </section>
+    );
+  }
+
+  if (studioGate === "checking") {
+    return (
+      <section className={`container ${styles.shell}`}>
+        <div className={`surface-glass ${styles.gate}`}>
+          <p className={styles.meta}>Studio</p>
+          <h1>Checking this workspace</h1>
+          <p className="lede">
+            Resolving the signed-in owner and any confirmed Discovery draft before a composition is shown.
+          </p>
         </div>
       </section>
     );

@@ -12,6 +12,7 @@ import type {
   MemoryProposal,
   CompositionRevision,
   StudioAsset,
+  StudioDirectionAdoption,
   StudioDraft,
   UsageEvent,
   UsageKind,
@@ -36,6 +37,17 @@ export type CompanionStore = {
   insertGuestWorkClaim(claim: GuestWorkClaim): GuestWorkClaim | Promise<GuestWorkClaim>;
   getBusinessConfirmation(businessId: string): BusinessConfirmation | null | Promise<BusinessConfirmation | null>;
   upsertBusinessConfirmation(confirmation: BusinessConfirmation): BusinessConfirmation | Promise<BusinessConfirmation>;
+  getStudioDirectionAdoption(
+    businessId: string,
+    sourceSelectionId: string,
+    sourceRevision: number,
+    directionId: string
+  ): StudioDirectionAdoption | null | Promise<StudioDirectionAdoption | null>;
+  insertStudioDirectionAdoption(
+    adoption: StudioDirectionAdoption
+  ):
+    | { inserted: boolean; adoption: StudioDirectionAdoption }
+    | Promise<{ inserted: boolean; adoption: StudioDirectionAdoption }>;
 
   addMember(member: BusinessMember): BusinessMember | Promise<BusinessMember>;
   getMember(businessId: string, userId: string): BusinessMember | null | Promise<BusinessMember | null>;
@@ -152,8 +164,20 @@ CREATE TABLE IF NOT EXISTS business_confirmations (
   source_selection_id TEXT,
   source_revision INTEGER,
   direction_id TEXT,
+  studio_draft_id TEXT,
   confirmed_at TEXT NOT NULL,
   confirmed_by TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS studio_direction_adoptions (
+  business_id TEXT NOT NULL,
+  source_selection_id TEXT NOT NULL,
+  source_revision INTEGER NOT NULL,
+  direction_id TEXT NOT NULL,
+  draft_id TEXT NOT NULL UNIQUE,
+  owner_id TEXT NOT NULL,
+  snapshot_json TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (business_id, source_selection_id, source_revision, direction_id)
 );
 CREATE TABLE IF NOT EXISTS business_members (
   business_id TEXT NOT NULL,
@@ -313,6 +337,7 @@ export const COMPANION_RESET_SQL = `
   DELETE FROM usage_events;
   DELETE FROM studio_composition_revisions;
   DELETE FROM studio_assets;
+  DELETE FROM studio_direction_adoptions;
   DELETE FROM studio_drafts;
   DELETE FROM work_items;
   DELETE FROM business_messages;

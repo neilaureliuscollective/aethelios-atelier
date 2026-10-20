@@ -1,73 +1,64 @@
 # Atelier launch-readiness report
 
 Branch: `cursor/atelier-premium-launch-readiness-da63`  
-Exact commit: `32c88c1c26edbd823b86ffba524ffcba24bc9a3b`  
-Base: `429f939b555f5e4d11bc95e2cc56afb11f167c98` (`main`)  
-Recovery patch: `docs/launch/atelier-launch-readiness.patch`
+Inspected incoming head: `6f5dcedf906e26715c4d351227cb9614772dca7c`  
+This pass continues that branch. It does not reset to `main`.
 
 This is **code-complete evidence for a local candidate**, not configured launch acceptance.
 
-## What improved
+## Source reconciliation
 
-- Concurrent first visits now converge on one initial workspace via `user_initial_business` uniqueness plus `runInTransaction`.
-- Guest Discovery/brief work is claimed once, idempotently, for the signed-in account. Private content stays out of callback URLs. Return paths are allowlisted.
-- Discovery requires an explicit business-context review before the concept studio. Signed-in customers confirm the business and exact Discovery revision before Studio adopts it. Existing business names are not silently replaced.
-- Public metadata, robots, sitemap, and a customer-facing `error.tsx` were added. The service worker now treats `/companion` as personalized (cache `atelier-static-v9`).
-- Pricing remains inquiry-led. Official brand assets and the ivory / emerald-glass / gold system were not reskinned.
+See `docs/launch/SOURCE_RECONCILIATION.md`.
 
-## What you can test immediately
+- `REHEARSAL.md` was supplied and copied to `docs/launch/REHEARSAL.md`.
+- `atelier-integrated-source.patch` is still the exact missing source. The approved immersive Direction → Refine → Collection / BrandKit implementation was **not** reconstructed from the rehearsal write-up.
 
-Local candidate (`pnpm install && pnpm build && pnpm start`, simulated identities):
+## What this pass added
 
-1. Open `/` → `/discover` → confirm business → use a direction → Continue to your workspace.
-2. Sign in as `owner.local@atelier.invalid` (labeled simulator). Confirm the business. Open Studio.
-3. Sign in as `owner-two.local@atelier.invalid` in another profile. Confirm the two workspaces stay isolated.
-4. Reload, sign out/in, and retry the same guest claim — it must not duplicate.
+- Confirmation now requires the signed-in owner and a server-side guest claim. Client/localStorage IDs must match the claimed snapshot.
+- A failed or missing guest claim blocks Discovery adoption.
+- Confirmation idempotently creates or resolves one editable Studio draft, persists the adoption, and navigates to that exact draft.
+- Confirm and Studio begin in a genuine checking state.
+- Guest-claim inserts use `ON CONFLICT` / `INSERT OR IGNORE`. Guest-brief adoption retries the whole transaction instead of querying after a failed unique insert.
 
-## Code-complete evidence
+## Preserved from PR #18
 
-| Item | Result |
+Provisioning uniqueness, guest claiming, safe return destinations, confirmation conflict rules, inquiry-led pricing, official assets, Auth.js/simulated boundary, PWA `atelier-static-v9`, ivory / emerald-glass / gold chrome, and the existing companion Studio compositions / CAS / export pipeline.
+
+## Test results by adapter / auth / provider
+
+| Layer | Result |
 | --- | --- |
-| Typecheck | Pass |
-| Lint | Pass (one unused-arg warning removed) |
-| `pnpm test` | 235 passed, 15 skipped (Postgres not configured) |
-| `pnpm build` | Pass (Next.js 15.5.28) |
-| `scripts/api-flow.mjs` | 50/50 |
-| `scripts/companion-api.mjs` | 32/32 on `:3000` |
-| `scripts/launch-journey-api.mjs` | 10/10 |
-| `scripts/discovery-browser.mjs` | 0 failed |
-| Fonts | Figtree body / Cormorant Garamond headings via `next/font` Google (legitimate). Not Times. |
-| HTTP fetch (not Lighthouse) | `/` 39ms / 62KB; `/project` `private, no-store` |
+| Memory unit/integration (`pnpm test` without Postgres URL) | 241 passed |
+| SQLite local (running app, simulated auth) | `launch-journey-api.mjs` 16/16; `companion-api.mjs` 32/32 |
+| Isolated disposable PostgreSQL 16 (`atelier_launch_test` on 127.0.0.1) | New claim/adopt/rollback tests: 2 passed. Pre-existing generation-slot tests can race schema init (`pg_type_typname_nsp_index`); not treated as this pass’s acceptance. |
+| Simulated auth | Used throughout local proof (`owner.local@atelier.invalid`, `owner-two.local@atelier.invalid`) |
+| Real Auth.js / Google / Resend | Not run — credentials not configured |
+| Provider / live OpenAI | Fail-closed. Not run. |
 
-Identities used: **simulated** `owner.local@atelier.invalid` and `owner-two.local@atelier.invalid`. Persistence: **sqlite_local**. Live OpenAI: **off**. Auth.js providers: **not configured**.
+Skipped without `ATELIER_LOCAL_POSTGRES_URL` in the default `pnpm test` run: 17 tests across `postgres.integration.test.ts`, `postgres.multiprocess.test.ts`, and `postgres.worker.test.ts`.
+
+## Local commands actually run
+
+- `pnpm typecheck` — pass
+- `pnpm lint` — pass
+- `pnpm test` — 241 passed, 17 skipped
+- `ATELIER_LOCAL_POSTGRES_URL=postgres://…127.0.0.1…/atelier_launch_test pnpm exec vitest run src/lib/cofounder/postgres.integration.test.ts -t "claims guest work|rolls back a failed PostgreSQL"` — 2 passed
+- `pnpm build` — pass (Next.js 15.5.28)
+- `pnpm start` on a fresh `.data-adopt-verify` sqlite directory
+- `node scripts/launch-journey-api.mjs` — 16/16
+- `node scripts/companion-api.mjs` — 32/32
+- `node scripts/studio-adoption-capture.mjs` — confirm → matching draft → edit → save → reopen in a fresh page → second account 404
+
+## Browser / file proof
+
+- Confirmed Lumen direction and adopted draft `studio_c7359a56-adc8-4f05-925f-3ae2312cf891`
+- Matching Studio rendered “Considered sourcing”; after save/reopen the same composition showed “Considered sourcing · reserved”
+- Second account (`owner-two.local@atelier.invalid`) received 404 for that draft id and saw “not in this workspace”
+- Companion API already proves export hash binding, later edits do not change a stored export, and the second owner cannot download the file
 
 ## Configured launch acceptance
 
-| Item | Status | Missing |
-| --- | --- | --- |
-| Chosen sign-in provider (Google / Resend) | Blocked | `AUTH_GOOGLE_*` / `AUTH_RESEND_*`, `ATELIER_AUTH_ADAPTER=authjs` |
-| Email delivery and callbacks | Blocked | Resend from-address + hosted callback URLs |
-| Sessions / logout on staging | Not run | Hosted Auth.js + `AUTH_SECRET` |
-| Persistent hosted database | Blocked | Dedicated Atelier Postgres; do not reuse Aethelios production |
-| Private export retrieval on staging | Not run | Hosted storage + auth |
-| Approved live AI path | Blocked | Spend approval, `ATELIER_OPENAI_ENABLED=true`, `OPENAI_API_KEY` |
-| Production domain / OG absolute URLs | Blocked | `ATELIER_PUBLIC_ORIGIN` on the real domain |
-| Billing / published prices | Blocked | Intentionally inactive; do not invent amounts |
-| Physical phones / hardware keyboards | Not run | CSS viewports 320–1440 verified locally |
-
-## Remaining launch blockers
-
-1. Real Auth.js credentials and founder email list.
-2. Dedicated hosted Postgres and the non-destructive duplicate review in `RECONCILIATION.md`.
-3. Authorized OpenAI spend if Talk/Studio generation must be live.
-4. Production domain assignment.
-5. The supplied `atelier-integrated-source.patch` / `REHEARSAL.md` / `99a7524` continuity commits were **not in this environment**. See `MISSING_SOURCE.md`.
-
-## Smallest next activation steps
-
-1. Approve a dedicated Atelier Postgres project and run the detection queries only.
-2. Set Auth.js secrets on a staging Vercel project (`docs/AUTH.md`).
-3. Walk Google and/or Resend sign-in, logout, and a private export on that staging URL.
-4. Only then consider live AI and a production domain.
+See `docs/launch/HOSTED_ACTIVATION.md`. Hosted sign-in, callback origin, durable Postgres, artifact storage, two real accounts, and one approved provider request remain blocked or not run.
 
 Do not merge to `main` or deploy from this agent without a separate approval.

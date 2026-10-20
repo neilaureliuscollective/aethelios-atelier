@@ -40,7 +40,17 @@ const guestWorkId = `dsel_${crypto.randomUUID()}`;
 const claimed = await req("/api/companion/guest-claim", {
   method: "POST",
   cookie: owner,
-  body: { guestWorkId, kind: "discovery", destination: "/companion/confirm", payload: { selectedDirectionId: "lumen" } }
+  body: {
+    guestWorkId,
+    kind: "discovery",
+    destination: "/companion/confirm",
+    payload: {
+      selectionId: guestWorkId,
+      localRevision: 1,
+      selectedDirectionId: "lumen",
+      businessName: "Northridge Sitting Room"
+    }
+  }
 });
 check("owner claims discovery", claimed.status === 200 && claimed.json.claim?.guestWorkId === guestWorkId);
 
@@ -78,7 +88,50 @@ const confirmed = await req("/api/companion/confirm", {
     directionId: "lumen"
   }
 });
-check("owner confirmation saved", confirmed.status === 200 && confirmed.json.confirmation?.businessName === "Northridge Sitting Room");
+check(
+  "owner confirmation saved",
+  confirmed.status === 200 && confirmed.json.confirmation?.businessName === "Northridge Sitting Room"
+);
+check("confirmation creates a matching studio draft", Boolean(confirmed.json.draft?.id) && confirmed.json.confirmation?.studioDraftId === confirmed.json.draft.id);
+
+const again = await req("/api/companion/confirm", {
+  method: "POST",
+  cookie: owner,
+  body: {
+    businessId: ws.json.business.id,
+    businessName: "Northridge Sitting Room",
+    businessContext: "A quiet sitting room.",
+    sourceSelectionId: guestWorkId,
+    sourceRevision: 1,
+    directionId: "lumen"
+  }
+});
+check("repeat confirmation resolves the same draft", again.status === 200 && again.json.draft?.id === confirmed.json.draft.id);
+
+const exact = await req(
+  `/api/companion/studio?businessId=${ws.json.business.id}&draftId=${confirmed.json.draft.id}`,
+  { cookie: owner }
+);
+check("owner can read the adopted draft", exact.status === 200 && exact.json.draft?.id === confirmed.json.draft.id);
+
+const stolenDraft = await req(
+  `/api/companion/studio?businessId=${ws.json.business.id}&draftId=${confirmed.json.draft.id}`,
+  { cookie: other }
+);
+check("other cannot read owner draft by id", stolenDraft.status === 403);
+
+const otherSelection = `dsel_${crypto.randomUUID()}`;
+const otherClaimed = await req("/api/companion/guest-claim", {
+  method: "POST",
+  cookie: owner,
+  body: {
+    guestWorkId: otherSelection,
+    kind: "discovery",
+    destination: "/companion/confirm",
+    payload: { selectionId: otherSelection, localRevision: 2, selectedDirectionId: "hearth" }
+  }
+});
+check("owner can claim a second direction", otherClaimed.status === 200);
 
 const conflict = await req("/api/companion/confirm", {
   method: "POST",
@@ -87,7 +140,7 @@ const conflict = await req("/api/companion/confirm", {
     businessId: ws.json.business.id,
     businessName: "Northridge Sitting Room",
     businessContext: "A quiet sitting room.",
-    sourceSelectionId: "dsel_other",
+    sourceSelectionId: otherSelection,
     sourceRevision: 2,
     directionId: "hearth"
   }
@@ -104,6 +157,21 @@ const otherConfirm = await req("/api/companion/confirm", {
   }
 });
 check("other cannot confirm owner business", otherConfirm.status === 403);
+
+const unclaimed = await req("/api/companion/confirm", {
+  method: "POST",
+  cookie: owner,
+  body: {
+    businessId: ws.json.business.id,
+    businessName: "Northridge Sitting Room",
+    businessContext: "A quiet sitting room.",
+    sourceSelectionId: `dsel_${crypto.randomUUID()}`,
+    sourceRevision: 9,
+    directionId: "hearth",
+    replaceConfirmedDirection: true
+  }
+});
+check("unclaimed selection cannot be adopted", unclaimed.status === 403);
 
 const badNext = await req("/api/session/start", {
   method: "POST",

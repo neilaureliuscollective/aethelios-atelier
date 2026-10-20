@@ -15,12 +15,12 @@ import type {
   MemoryProposal,
   CompositionRevision,
   StudioAsset,
+  StudioDirectionAdoption,
   StudioDraft,
   UsageEvent,
   UsageKind,
   WorkItem
 } from "@/lib/cofounder/types";
-import { throwIfUnique } from "@/lib/persistence/unique";
 import {
   mapBlob,
   mapBusiness,
@@ -34,6 +34,7 @@ import {
   mapMemory,
   mapProfile,
   mapCompositionRevision,
+  mapStudioAdoption,
   mapStudioAsset,
   mapStudioDraft,
   mapUsage,
@@ -51,6 +52,7 @@ export class SqliteCompanionStore implements CompanionStore {
     this.ensureOutputHashColumns();
     this.ensureDraftRevisionColumn();
     this.ensureJobAttemptColumn();
+    this.ensureConfirmationDraftColumn();
   }
 
   private ensureProjectBusinessColumn() {
@@ -101,6 +103,13 @@ export class SqliteCompanionStore implements CompanionStore {
     const columns = this.db.prepare("PRAGMA table_info(studio_drafts)").all() as Array<{ name: string }>;
     if (!columns.some((column) => column.name === "save_revision")) {
       this.db.exec("ALTER TABLE studio_drafts ADD COLUMN save_revision INTEGER NOT NULL DEFAULT 1");
+    }
+  }
+
+  private ensureConfirmationDraftColumn() {
+    const columns = this.db.prepare("PRAGMA table_info(business_confirmations)").all() as Array<{ name: string }>;
+    if (!columns.some((column) => column.name === "studio_draft_id")) {
+      this.db.exec("ALTER TABLE business_confirmations ADD COLUMN studio_draft_id TEXT");
     }
   }
 
@@ -204,16 +213,17 @@ export class SqliteCompanionStore implements CompanionStore {
   }
 
   insertGuestWorkClaim(claim: GuestWorkClaim) {
-    try {
-      this.db
-        .prepare(
-          "INSERT INTO guest_work_claims(guest_work_id,owner_id,kind,destination,payload_json,created_at) VALUES(?,?,?,?,?,?)"
-        )
-        .run(claim.guestWorkId, claim.ownerId, claim.kind, claim.destination, claim.payloadJson, claim.createdAt);
-      return claim;
-    } catch (error) {
-      throwIfUnique(error, "This guest work has already been claimed.");
+    this.db
+      .prepare(
+        `INSERT OR IGNORE INTO guest_work_claims(guest_work_id,owner_id,kind,destination,payload_json,created_at)
+         VALUES(?,?,?,?,?,?)`
+      )
+      .run(claim.guestWorkId, claim.ownerId, claim.kind, claim.destination, claim.payloadJson, claim.createdAt);
+    const stored = this.getGuestWorkClaim(claim.guestWorkId);
+    if (!stored) {
+      throw new Error("The guest work claim could not be stored.");
     }
+    return stored;
   }
 
   getBusinessConfirmation(businessId: string) {
@@ -227,8 +237,8 @@ export class SqliteCompanionStore implements CompanionStore {
     this.db
       .prepare(
         `INSERT INTO business_confirmations(
-          business_id,owner_id,business_name,business_context,source_selection_id,source_revision,direction_id,confirmed_at,confirmed_by
-        ) VALUES(?,?,?,?,?,?,?,?,?)
+          business_id,owner_id,business_name,business_context,source_selection_id,source_revision,direction_id,studio_draft_id,confirmed_at,confirmed_by
+        ) VALUES(?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(business_id) DO UPDATE SET
           owner_id=excluded.owner_id,
           business_name=excluded.business_name,
@@ -236,6 +246,7 @@ export class SqliteCompanionStore implements CompanionStore {
           source_selection_id=excluded.source_selection_id,
           source_revision=excluded.source_revision,
           direction_id=excluded.direction_id,
+          studio_draft_id=excluded.studio_draft_id,
           confirmed_at=excluded.confirmed_at,
           confirmed_by=excluded.confirmed_by`
       )
@@ -247,10 +258,55 @@ export class SqliteCompanionStore implements CompanionStore {
         confirmation.sourceSelectionId,
         confirmation.sourceRevision,
         confirmation.directionId,
+        confirmation.studioDraftId,
         confirmation.confirmedAt,
         confirmation.confirmedBy
       );
     return confirmation;
+  }
+
+  getStudioDirectionAdoption(
+    businessId: string,
+    sourceSelectionId: string,
+    sourceRevision: number,
+    directionId: string
+  ) {
+    const row = this.db
+      .prepare(
+        `SELECT * FROM studio_direction_adoptions
+         WHERE business_id = ? AND source_selection_id = ? AND source_revision = ? AND direction_id = ?`
+      )
+      .get(businessId, sourceSelectionId, sourceRevision, directionId) as Row | undefined;
+    return row ? mapStudioAdoption(row) : null;
+  }
+
+  insertStudioDirectionAdoption(adoption: StudioDirectionAdoption) {
+    this.db
+      .prepare(
+        `INSERT OR IGNORE INTO studio_direction_adoptions(
+          business_id,source_selection_id,source_revision,direction_id,draft_id,owner_id,snapshot_json,created_at
+        ) VALUES(?,?,?,?,?,?,?,?)`
+      )
+      .run(
+        adoption.businessId,
+        adoption.sourceSelectionId,
+        adoption.sourceRevision,
+        adoption.directionId,
+        adoption.draftId,
+        adoption.ownerId,
+        adoption.snapshotJson,
+        adoption.createdAt
+      );
+    const stored = this.getStudioDirectionAdoption(
+      adoption.businessId,
+      adoption.sourceSelectionId,
+      adoption.sourceRevision,
+      adoption.directionId
+    );
+    if (!stored) {
+      throw new Error("The Studio adoption could not be stored.");
+    }
+    return { inserted: stored.draftId === adoption.draftId, adoption: stored };
   }
 
   addMember(member: BusinessMember) {

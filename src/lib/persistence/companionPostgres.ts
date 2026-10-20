@@ -15,12 +15,12 @@ import type {
   MemoryProposal,
   CompositionRevision,
   StudioAsset,
+  StudioDirectionAdoption,
   StudioDraft,
   UsageEvent,
   UsageKind,
   WorkItem
 } from "@/lib/cofounder/types";
-import { throwIfUnique } from "@/lib/persistence/unique";
 import {
   mapBlob,
   mapBusiness,
@@ -34,6 +34,7 @@ import {
   mapMemory,
   mapProfile,
   mapCompositionRevision,
+  mapStudioAdoption,
   mapStudioAsset,
   mapStudioDraft,
   mapUsage,
@@ -62,6 +63,7 @@ export class PostgresCompanionStore implements CompanionStore {
     await this.client().unsafe("ALTER TABLE studio_drafts ADD COLUMN IF NOT EXISTS save_revision INTEGER NOT NULL DEFAULT 1");
     await this.client().unsafe("ALTER TABLE usage_events ADD COLUMN IF NOT EXISTS attempt INTEGER NOT NULL DEFAULT 1");
     await this.client().unsafe("ALTER TABLE generation_jobs ADD COLUMN IF NOT EXISTS attempt INTEGER NOT NULL DEFAULT 1");
+    await this.client().unsafe("ALTER TABLE business_confirmations ADD COLUMN IF NOT EXISTS studio_draft_id TEXT");
   }
 
   async lockUsageBudget(businessId: string, kind: UsageKind, periodKey: string) {
@@ -162,15 +164,16 @@ export class PostgresCompanionStore implements CompanionStore {
   }
 
   async insertGuestWorkClaim(claim: GuestWorkClaim) {
-    try {
-      await this.client()`
-        INSERT INTO guest_work_claims(guest_work_id,owner_id,kind,destination,payload_json,created_at)
-        VALUES (${claim.guestWorkId}, ${claim.ownerId}, ${claim.kind}, ${claim.destination}, ${claim.payloadJson}, ${claim.createdAt})
-      `;
-      return claim;
-    } catch (error) {
-      throwIfUnique(error, "This guest work has already been claimed.");
+    await this.client()`
+      INSERT INTO guest_work_claims(guest_work_id,owner_id,kind,destination,payload_json,created_at)
+      VALUES (${claim.guestWorkId}, ${claim.ownerId}, ${claim.kind}, ${claim.destination}, ${claim.payloadJson}, ${claim.createdAt})
+      ON CONFLICT (guest_work_id) DO NOTHING
+    `;
+    const stored = await this.getGuestWorkClaim(claim.guestWorkId);
+    if (!stored) {
+      throw new Error("The guest work claim could not be stored.");
     }
+    return stored;
   }
 
   async getBusinessConfirmation(businessId: string) {
@@ -181,11 +184,11 @@ export class PostgresCompanionStore implements CompanionStore {
   async upsertBusinessConfirmation(confirmation: BusinessConfirmation) {
     await this.client()`
       INSERT INTO business_confirmations(
-        business_id,owner_id,business_name,business_context,source_selection_id,source_revision,direction_id,confirmed_at,confirmed_by
+        business_id,owner_id,business_name,business_context,source_selection_id,source_revision,direction_id,studio_draft_id,confirmed_at,confirmed_by
       ) VALUES (
         ${confirmation.businessId}, ${confirmation.ownerId}, ${confirmation.businessName}, ${confirmation.businessContext},
         ${confirmation.sourceSelectionId}, ${confirmation.sourceRevision}, ${confirmation.directionId},
-        ${confirmation.confirmedAt}, ${confirmation.confirmedBy}
+        ${confirmation.studioDraftId}, ${confirmation.confirmedAt}, ${confirmation.confirmedBy}
       )
       ON CONFLICT (business_id) DO UPDATE SET
         owner_id = excluded.owner_id,
@@ -194,10 +197,49 @@ export class PostgresCompanionStore implements CompanionStore {
         source_selection_id = excluded.source_selection_id,
         source_revision = excluded.source_revision,
         direction_id = excluded.direction_id,
+        studio_draft_id = excluded.studio_draft_id,
         confirmed_at = excluded.confirmed_at,
         confirmed_by = excluded.confirmed_by
     `;
     return confirmation;
+  }
+
+  async getStudioDirectionAdoption(
+    businessId: string,
+    sourceSelectionId: string,
+    sourceRevision: number,
+    directionId: string
+  ) {
+    const rows = await this.client()`
+      SELECT * FROM studio_direction_adoptions
+      WHERE business_id = ${businessId}
+        AND source_selection_id = ${sourceSelectionId}
+        AND source_revision = ${sourceRevision}
+        AND direction_id = ${directionId}
+    `;
+    return rows[0] ? mapStudioAdoption(rows[0] as Row) : null;
+  }
+
+  async insertStudioDirectionAdoption(adoption: StudioDirectionAdoption) {
+    await this.client()`
+      INSERT INTO studio_direction_adoptions(
+        business_id,source_selection_id,source_revision,direction_id,draft_id,owner_id,snapshot_json,created_at
+      ) VALUES (
+        ${adoption.businessId}, ${adoption.sourceSelectionId}, ${adoption.sourceRevision}, ${adoption.directionId},
+        ${adoption.draftId}, ${adoption.ownerId}, ${adoption.snapshotJson}, ${adoption.createdAt}
+      )
+      ON CONFLICT (business_id, source_selection_id, source_revision, direction_id) DO NOTHING
+    `;
+    const stored = await this.getStudioDirectionAdoption(
+      adoption.businessId,
+      adoption.sourceSelectionId,
+      adoption.sourceRevision,
+      adoption.directionId
+    );
+    if (!stored) {
+      throw new Error("The Studio adoption could not be stored.");
+    }
+    return { inserted: stored.draftId === adoption.draftId, adoption: stored };
   }
 
   async addMember(member: BusinessMember) {

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import type { Route } from "next";
 import { CompanionShell } from "@/components/cofounder/CompanionShell";
 import { useSession } from "@/components/shell/SessionShell";
 import { AppLink } from "@/components/ui/AppLink";
@@ -8,7 +10,7 @@ import { ApiError, api } from "@/lib/client/api";
 import { actionErrorMessage } from "@/lib/client/asyncAction";
 import { DIRECTIONS, parseSelection, readDiscoveryHandoff, type DiscoverySelection } from "@/lib/discovery";
 import { clearGuestIntent, readGuestIntent } from "@/lib/guest/intent";
-import type { Business, BusinessConfirmation } from "@/lib/cofounder/types";
+import type { Business, BusinessConfirmation, StudioDraft } from "@/lib/cofounder/types";
 import styles from "./companion.module.css";
 
 function selectionFromDevice(): DiscoverySelection | null {
@@ -26,6 +28,8 @@ function selectionFromDevice(): DiscoverySelection | null {
 
 export function ConfirmClient() {
   const { user } = useSession();
+  const router = useRouter();
+  const [phase, setPhase] = useState<"checking" | "ready" | "blocked">("checking");
   const [business, setBusiness] = useState<Business | null>(null);
   const [confirmation, setConfirmation] = useState<BusinessConfirmation | null>(null);
   const [selection, setSelection] = useState<DiscoverySelection | null>(null);
@@ -36,33 +40,47 @@ export function ConfirmClient() {
   const [conflict, setConflict] = useState<BusinessConfirmation | null>(null);
   const [pending, setPending] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [draft, setDraft] = useState<StudioDraft | null>(null);
+  const [claimState, setClaimState] = useState<"idle" | "claimed" | "failed">("idle");
 
   useEffect(() => {
     const next = selectionFromDevice();
     setSelection(next);
-    const intent = readGuestIntent();
-    if (next && user) {
-      void api("/api/companion/guest-claim", {
-        method: "POST",
-        body: JSON.stringify({
-          guestWorkId: next.selectionId,
-          kind: "discovery",
-          destination: intent?.destination ?? "/companion/confirm",
-          payload: {
-            selectionId: next.selectionId,
-            localRevision: next.localRevision,
-            selectedDirectionId: next.selectedDirectionId
-          }
-        })
-      }).catch((err) => setError(actionErrorMessage(err, "This Discovery direction could not be claimed.")));
+    if (!user) {
+      setPhase("ready");
+      return;
     }
-    if (!user) return;
-    void api<{ business: Business; confirmation: BusinessConfirmation | null; rawProfile: { fields: { name: { value: string }; audience: { value: string } } } }>(
-      "/api/companion/workspace"
-    )
+
+    const intent = readGuestIntent();
+    const claim = next
+      ? api("/api/companion/guest-claim", {
+          method: "POST",
+          body: JSON.stringify({
+            guestWorkId: next.selectionId,
+            kind: "discovery",
+            destination: intent?.destination ?? "/companion/confirm",
+            payload: next
+          })
+        })
+          .then(() => setClaimState("claimed"))
+          .catch((err) => {
+            setClaimState("failed");
+            setError(actionErrorMessage(err, "This Discovery direction could not be claimed."));
+            throw err;
+          })
+      : Promise.resolve(setClaimState("idle"));
+
+    const workspace = api<{
+      business: Business;
+      confirmation: BusinessConfirmation | null;
+      rawProfile: { fields: { name: { value: string }; audience: { value: string } } };
+    }>("/api/companion/workspace")
       .then((data) => {
         setBusiness(data.business);
         setConfirmation(data.confirmation);
+        if (data.confirmation?.studioDraftId) {
+          setDraft({ id: data.confirmation.studioDraftId } as StudioDraft);
+        }
         const existingName = data.confirmation?.businessName || data.rawProfile.fields.name.value || data.business.name;
         setBusinessName(existingName === "Your business" && next?.businessName ? next.businessName : existingName);
         setBusinessContext(
@@ -70,17 +88,35 @@ export function ConfirmClient() {
             data.rawProfile.fields.audience.value ||
             [next?.audience, next?.intentNote].filter(Boolean).join(" ").trim()
         );
-      })
-      .catch((err) => setError(actionErrorMessage(err, "The workspace could not open.")));
+      });
+
+    void Promise.allSettled([claim, workspace]).then(([claimResult, workspaceResult]) => {
+      if (workspaceResult.status === "rejected") {
+        setError(actionErrorMessage(workspaceResult.reason, "The workspace could not open."));
+        setPhase("blocked");
+        return;
+      }
+      if (next && claimResult.status === "rejected") {
+        setPhase("blocked");
+        return;
+      }
+      setPhase("ready");
+    });
   }, [user]);
 
   async function submit(replace = false) {
-    if (pending || !business) return;
+    if (pending || !business || phase !== "ready") return;
+    if (selection && claimState !== "claimed") return;
     setPending(true);
     setError("");
     setStatus("");
     try {
-      const result = await api<{ ok: true; confirmation: BusinessConfirmation }>("/api/companion/confirm", {
+      const result = await api<{
+        ok: true;
+        confirmation: BusinessConfirmation;
+        draft: StudioDraft | null;
+        studioHref?: string;
+      }>("/api/companion/confirm", {
         method: "POST",
         body: JSON.stringify({
           businessId: business.id,
@@ -93,10 +129,19 @@ export function ConfirmClient() {
         })
       });
       setConfirmation(result.confirmation);
+      setDraft(result.draft);
       setConflict(null);
       setSaved(true);
-      setStatus("Business and direction confirmed. You can open Studio with this exact selection.");
+      setStatus(
+        result.draft
+          ? "Business and direction confirmed. Opening the matching Studio draft."
+          : "Business confirmed. You can open Studio when a Discovery direction is claimed."
+      );
       clearGuestIntent();
+      if (result.studioHref && result.draft) {
+        router.push(result.studioHref as Route);
+        return;
+      }
     } catch (err) {
       const conflictCurrent = err instanceof ApiError ? (err.currentBrief as BusinessConfirmation | undefined) : null;
       if (conflictCurrent) {
@@ -111,6 +156,19 @@ export function ConfirmClient() {
   }
 
   const direction = selection ? DIRECTIONS[selection.selectedDirectionId] : null;
+  const canSubmit =
+    phase === "ready" && Boolean(business) && !pending && (!selection || claimState === "claimed");
+
+  if (phase === "checking") {
+    return (
+      <CompanionShell
+        title="Confirm this business"
+        lede="Checking the signed-in owner, claimed Discovery snapshot, and target workspace before anything is adopted."
+      >
+        <p className="notice">Checking authorization and any claimed Discovery direction…</p>
+      </CompanionShell>
+    );
+  }
 
   return (
     <CompanionShell
@@ -119,6 +177,12 @@ export function ConfirmClient() {
     >
       {error ? <p className="notice notice-warn">{error}</p> : null}
       {status ? <p className="notice">{status}</p> : null}
+      {phase === "blocked" && selection ? (
+        <p className="notice notice-warn">
+          A failed guest claim stops adoption. Sign in as the owner of this Discovery direction, or start a new
+          selection.
+        </p>
+      ) : null}
       <div className={styles.grid}>
         <article className={`${styles.glassCard} on-glass`}>
           <p className={styles.label}>Business</p>
@@ -140,11 +204,11 @@ export function ConfirmClient() {
             decisions are not invented here.
           </p>
           <div className={styles.actions}>
-            <button className="btn btn-gold" type="button" disabled={pending || !business} onClick={() => void submit(false)}>
+            <button className="btn btn-gold" type="button" disabled={!canSubmit} onClick={() => void submit(false)}>
               {pending ? "Saving…" : saved ? "Confirmed" : "Confirm and continue"}
             </button>
             {conflict ? (
-              <button className="btn btn-ghost" type="button" disabled={pending} onClick={() => void submit(true)}>
+              <button className="btn btn-ghost" type="button" disabled={!canSubmit} onClick={() => void submit(true)}>
                 Replace the previous direction
               </button>
             ) : null}
@@ -171,10 +235,15 @@ export function ConfirmClient() {
           {confirmation ? (
             <p className={styles.meta} style={{ marginTop: 16 }}>
               Last confirmed {new Date(confirmation.confirmedAt).toLocaleString()}
-              {confirmation.sourceRevision != null ? ` · revision ${confirmation.sourceRevision}` : ""}.
+              {confirmation.sourceRevision != null ? ` · revision ${confirmation.sourceRevision}` : ""}
+              {confirmation.studioDraftId ? ` · draft ${confirmation.studioDraftId.slice(0, 12)}` : ""}.
             </p>
           ) : null}
-          {saved ? (
+          {saved && draft ? (
+            <AppLink className="btn btn-gold" href={`/companion/studio?draftId=${encodeURIComponent(draft.id)}`}>
+              Open the matching Studio draft
+            </AppLink>
+          ) : saved ? (
             <AppLink className="btn btn-gold" href="/companion/studio">
               Open Studio
             </AppLink>

@@ -118,6 +118,33 @@ describe("guest work claims", () => {
     await expect(service.readForUser(other, "dsel_one")).rejects.toBeInstanceOf(ForbiddenError);
   });
 
+  it("converges concurrent claims on one owner without a post-conflict select in a failed transaction", async () => {
+    const { store, owner, other } = await setup();
+    const service = new GuestWorkService(store);
+    const [a, b] = await Promise.all([
+      service.claim(owner, {
+        guestWorkId: "dsel_race",
+        kind: "discovery",
+        payload: { selectionId: "dsel_race", localRevision: 1, selectedDirectionId: "lumen" }
+      }),
+      service.claim(owner, {
+        guestWorkId: "dsel_race",
+        kind: "discovery",
+        payload: { selectionId: "dsel_race", localRevision: 1, selectedDirectionId: "lumen" }
+      })
+    ]);
+    expect(a.ownerId).toBe(owner.id);
+    expect(b.guestWorkId).toBe(a.guestWorkId);
+    expect(b.createdAt).toBe(a.createdAt);
+    await expect(
+      service.claim(other, {
+        guestWorkId: "dsel_race",
+        kind: "discovery",
+        payload: { selectionId: "dsel_race", localRevision: 1, selectedDirectionId: "hearth" }
+      })
+    ).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
   it("adopts a guest brief once and refuses a second account", async () => {
     const { store, owner, other } = await setup();
     const projects = new ProjectService(store);
@@ -168,6 +195,17 @@ describe("business confirmation", () => {
   it("persists a confirmation and refuses a silent direction change", async () => {
     const { store, owner, other, workspace } = await setup();
     const context = await workspace.ensureForUser(owner);
+    const guests = new GuestWorkService(store);
+    await guests.claim(owner, {
+      guestWorkId: "dsel_a",
+      kind: "discovery",
+      payload: { selectionId: "dsel_a", localRevision: 1, selectedDirectionId: "lumen", businessName: "Northridge" }
+    });
+    await guests.claim(owner, {
+      guestWorkId: "dsel_b",
+      kind: "discovery",
+      payload: { selectionId: "dsel_b", localRevision: 2, selectedDirectionId: "hearth", businessName: "Northridge" }
+    });
     const adoption = new BusinessAdoption(store);
     const first = await adoption.confirm(context.business.id, owner, {
       businessName: "Northridge",
@@ -176,7 +214,9 @@ describe("business confirmation", () => {
       sourceRevision: 1,
       directionId: "lumen"
     });
-    expect(first.businessName).toBe("Northridge");
+    expect(first.confirmation.businessName).toBe("Northridge");
+    expect(first.draft?.id).toBeTruthy();
+    expect(first.draft?.layers.some((layer) => layer.text?.includes("Lumen"))).toBe(true);
     await expect(
       adoption.confirm(context.business.id, owner, {
         businessName: "Northridge",
@@ -194,7 +234,117 @@ describe("business confirmation", () => {
       directionId: "hearth",
       replaceConfirmedDirection: true
     });
-    expect(replaced.sourceSelectionId).toBe("dsel_b");
+    expect(replaced.confirmation.sourceSelectionId).toBe("dsel_b");
+    expect(replaced.draft?.id).toBeTruthy();
+    expect(replaced.draft?.id).not.toBe(first.draft?.id);
+    expect(await store.companion.getStudioDraft(first.draft!.id)).toBeTruthy();
     await expect(adoption.read(context.business.id, other)).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it("refuses adoption when the Discovery snapshot was never claimed", async () => {
+    const { store, owner, workspace } = await setup();
+    const context = await workspace.ensureForUser(owner);
+    await expect(
+      new BusinessAdoption(store).confirm(context.business.id, owner, {
+        businessName: "Northridge",
+        businessContext: "A quiet sitting room.",
+        sourceSelectionId: "dsel_missing",
+        sourceRevision: 1,
+        directionId: "lumen"
+      })
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    expect(await store.companion.getBusinessConfirmation(context.business.id)).toBeNull();
+    expect(await store.companion.listStudioDrafts(context.business.id)).toHaveLength(0);
+  });
+
+  it("rejects a client-supplied revision that does not match the claimed snapshot", async () => {
+    const { store, owner, workspace } = await setup();
+    const context = await workspace.ensureForUser(owner);
+    await new GuestWorkService(store).claim(owner, {
+      guestWorkId: "dsel_stale",
+      kind: "discovery",
+      payload: { selectionId: "dsel_stale", localRevision: 3, selectedDirectionId: "lumen" }
+    });
+    await expect(
+      new BusinessAdoption(store).confirm(context.business.id, owner, {
+        businessName: "Northridge",
+        businessContext: "A quiet sitting room.",
+        sourceSelectionId: "dsel_stale",
+        sourceRevision: 1,
+        directionId: "lumen"
+      })
+    ).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it("adopts one Studio draft concurrently and rolls back an injected failure", async () => {
+    const { store, owner, other, workspace } = await setup();
+    const context = await workspace.ensureForUser(owner);
+    const guests = new GuestWorkService(store);
+    await guests.claim(owner, {
+      guestWorkId: "dsel_adopt",
+      kind: "discovery",
+      payload: {
+        selectionId: "dsel_adopt",
+        localRevision: 4,
+        selectedDirectionId: "signal",
+        businessName: "Northridge",
+        audience: "Returning guests",
+        visualPreferences: { headline: "A clear mark" }
+      }
+    });
+    const adoption = new BusinessAdoption(store);
+    const [first, second] = await Promise.all([
+      adoption.confirm(context.business.id, owner, {
+        businessName: "Northridge",
+        businessContext: "Returning guests.",
+        sourceSelectionId: "dsel_adopt",
+        sourceRevision: 4,
+        directionId: "signal"
+      }),
+      adoption.confirm(context.business.id, owner, {
+        businessName: "Northridge",
+        businessContext: "Returning guests.",
+        sourceSelectionId: "dsel_adopt",
+        sourceRevision: 4,
+        directionId: "signal"
+      })
+    ]);
+    expect(first.draft?.id).toBe(second.draft?.id);
+    expect(await store.companion.listStudioDrafts(context.business.id)).toHaveLength(1);
+    expect(first.draft?.layers.find((layer) => layer.kind === "headline")?.text).toBe("A clear mark");
+
+    const otherContext = await workspace.ensureForUser(other);
+    await expect(
+      adoption.confirm(otherContext.business.id, other, {
+        businessName: "Stolen",
+        businessContext: "no",
+        sourceSelectionId: "dsel_adopt",
+        sourceRevision: 4,
+        directionId: "signal"
+      })
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    expect(await store.companion.listStudioDrafts(otherContext.business.id)).toHaveLength(0);
+
+    await expect(
+      store.runInTransaction(async () => {
+        await guests.claim(owner, {
+          guestWorkId: "dsel_fail",
+          kind: "discovery",
+          payload: { selectionId: "dsel_fail", localRevision: 1, selectedDirectionId: "hearth" }
+        });
+        await adoption.confirm(context.business.id, owner, {
+          businessName: "Should roll back",
+          businessContext: "no",
+          sourceSelectionId: "dsel_fail",
+          sourceRevision: 1,
+          directionId: "hearth",
+          replaceConfirmedDirection: true
+        });
+        throw new Error("injected confirmation failure");
+      })
+    ).rejects.toThrow("injected confirmation failure");
+    expect(await store.companion.getGuestWorkClaim("dsel_fail")).toBeNull();
+    expect((await store.companion.getBusinessConfirmation(context.business.id))?.sourceSelectionId).toBe("dsel_adopt");
+    expect(await store.companion.listStudioDrafts(context.business.id)).toHaveLength(1);
   });
 });

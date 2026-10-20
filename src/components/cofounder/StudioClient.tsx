@@ -31,6 +31,7 @@ const LAYOUTS = studioLayouts();
 export function StudioClient() {
   const { user, generation } = useSession();
   const search = useSearchParams();
+  const [phase, setPhase] = useState<"checking" | "ready" | "error">("checking");
   const [businessId, setBusinessId] = useState<string>();
   const [profile, setProfile] = useState<Pick<BusinessProfile, "fields"> | null>(null);
   const [drafts, setDrafts] = useState<StudioDraft[]>([]);
@@ -78,9 +79,11 @@ export function StudioClient() {
   }
 
   async function refresh(gen = generation) {
+    setPhase("checking");
     const workspace = await api<{
       business: { id: string; name: string };
       rawProfile?: BusinessProfile;
+      confirmation?: { studioDraftId?: string | null } | null;
     }>("/api/companion/workspace");
     const data = await api<{ drafts: StudioDraft[]; assets?: StudioAsset[] }>(
       `/api/companion/studio?businessId=${encodeURIComponent(workspace.business.id)}`
@@ -97,16 +100,14 @@ export function StudioClient() {
     setDrafts(data.drafts);
     setWorkItems(work.items);
     setAssets(data.assets ?? today.today.pendingAssets);
-    const requestedDraft = search.get("draftId");
+    const requestedDraft = search.get("draftId") || workspace.confirmation?.studioDraftId || null;
     const requestedWork = search.get("workItemId");
     if (!requestedDraft && !requestedWork) {
       if (current) {
         const latest = data.drafts.find((item) => item.id === current.id);
         if (latest && latest.updatedAt !== current.updatedAt) hydrate(latest);
-      } else if (data.drafts.length) {
-        const latest = [...data.drafts].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
-        if (latest) hydrate(latest);
       }
+      setPhase("ready");
       return;
     }
     const resolved = resolveStudioOpen(
@@ -120,6 +121,7 @@ export function StudioClient() {
       }
       setError("");
       setRecovery("");
+      setPhase("ready");
       return;
     }
     if (resolved.kind === "create_from_work") {
@@ -132,18 +134,25 @@ export function StudioClient() {
         headline: copy.headline,
         body: copy.body
       });
+      setPhase("ready");
       return;
     }
     if (resolved.kind === "error") {
       setError(resolved.message);
       setRecovery(resolved.recovery);
       hydrate(null);
+      setPhase("error");
+      return;
     }
+    setPhase("ready");
   }
 
   useEffect(() => {
     if (!user) return;
-    void refresh().catch((err) => setError(actionErrorMessage(err, "Studio could not load.")));
+    void refresh().catch((err) => {
+      setError(actionErrorMessage(err, "Studio could not load."));
+      setPhase("error");
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [generation, user?.id, search.get("workItemId"), search.get("draftId")]);
 
@@ -440,6 +449,18 @@ export function StudioClient() {
   const readyImages = selected
     ? assets.filter((item) => item.draftId === selected.id && item.status === "ready" && item.blobId)
     : [];
+
+  if (phase === "checking") {
+    return (
+      <CompanionShell
+        wide
+        title="Brand Studio"
+        lede="Checking the signed-in owner and the confirmed composition before any draft is shown."
+      >
+        <p className="notice">Resolving authorization and the exact Studio draft…</p>
+      </CompanionShell>
+    );
+  }
 
   return (
     <CompanionShell

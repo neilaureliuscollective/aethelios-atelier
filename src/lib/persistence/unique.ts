@@ -20,3 +20,25 @@ export function throwIfUnique(error: unknown, message: string): never {
   }
   throw error;
 }
+
+export async function runWithUniqueRetry<T>(
+  run: () => Promise<T>,
+  options?: { attempts?: number; onExhausted?: (error: unknown) => never }
+): Promise<T> {
+  const attempts = options?.attempts ?? 4;
+  let last: unknown;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      return await run();
+    } catch (error) {
+      last = error;
+      if (!isUniqueViolation(error) || attempt === attempts - 1) {
+        if (isUniqueViolation(error) && options?.onExhausted) {
+          options.onExhausted(error);
+        }
+        throw error;
+      }
+    }
+  }
+  throw last;
+}

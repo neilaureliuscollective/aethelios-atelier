@@ -16,6 +16,7 @@ import type {
   PlanId,
   CompositionRevision,
   StudioAsset,
+  StudioDirectionAdoption,
   StudioDraft,
   UsageEvent,
   WorkItem
@@ -50,8 +51,22 @@ export function mapConfirmation(row: Row): BusinessConfirmation {
     sourceSelectionId: asOptionalString(row.source_selection_id) ?? null,
     sourceRevision: row.source_revision == null ? null : asNumber(row.source_revision),
     directionId: asOptionalString(row.direction_id) ?? null,
+    studioDraftId: asOptionalString(row.studio_draft_id) ?? null,
     confirmedAt: asString(row.confirmed_at),
     confirmedBy: asString(row.confirmed_by)
+  };
+}
+
+export function mapStudioAdoption(row: Row): StudioDirectionAdoption {
+  return {
+    businessId: asString(row.business_id),
+    sourceSelectionId: asString(row.source_selection_id),
+    sourceRevision: asNumber(row.source_revision),
+    directionId: asString(row.direction_id),
+    draftId: asString(row.draft_id),
+    ownerId: asString(row.owner_id),
+    snapshotJson: asString(row.snapshot_json),
+    createdAt: asString(row.created_at)
   };
 }
 

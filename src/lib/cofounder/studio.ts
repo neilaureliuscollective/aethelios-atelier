@@ -212,6 +212,55 @@ export class CompanionStudio {
     return { draft, workItem, direction: input.direction ?? "" };
   }
 
+  async createFromConfirmedSnapshot(
+    businessId: string,
+    user: User,
+    draftId: string,
+    input: {
+      headline: string;
+      body?: string;
+      direction?: string;
+      layout?: StudioLayoutId;
+    }
+  ) {
+    const context = await this.workspace.requireMutable(businessId, user);
+    const existing = await this.store.companion.getStudioDraft(draftId);
+    if (existing) {
+      if (existing.businessId !== businessId) {
+        throw new ForbiddenError("That Studio draft belongs to another workspace.");
+      }
+      return { draft: existing, workItem: await this.work.get(businessId, user, existing.workItemId), direction: input.direction ?? "" };
+    }
+    const selectedBody = input.body ?? "";
+    const workItem = await this.work.saveDraft(businessId, user, {
+      title: `Studio: ${input.headline}`.slice(0, 160),
+      body: selectedBody,
+      kind: "announcement",
+      workItemId: undefined
+    });
+    const logo = context.profile.brandAssets.find((asset) => asset.kind === "logo");
+    const layers = defaultLayers({
+      headline: input.headline,
+      body: selectedBody,
+      layout: input.layout,
+      logoDocumentId: logo?.documentId,
+      logoAssetId: logo?.assetId
+    });
+    const stamp = now();
+    const draft: StudioDraft = {
+      id: draftId,
+      businessId,
+      workItemId: workItem.id,
+      layout: input.layout ?? "square_announcement",
+      layers,
+      saveRevision: 1,
+      createdAt: stamp,
+      updatedAt: stamp
+    };
+    await this.store.companion.addStudioDraft(draft);
+    return { draft, workItem, direction: input.direction ?? "" };
+  }
+
   async updateDraft(
     businessId: string,
     user: User,
