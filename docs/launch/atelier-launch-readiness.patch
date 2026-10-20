@@ -1,0 +1,3067 @@
+diff --git a/README.md b/README.md
+index f626642..123ce72 100644
+--- a/README.md
++++ b/README.md
+@@ -60,6 +60,7 @@ node scripts/companion-api.mjs
+ node scripts/companion-browser.mjs
+ node scripts/lifestyle-journey.mjs
+ node scripts/usage-concurrency.mjs
++node scripts/launch-journey-api.mjs
+ ```
+ 
+ ## Configuration
+diff --git a/docs/launch/LAUNCH_READINESS.md b/docs/launch/LAUNCH_READINESS.md
+new file mode 100644
+index 0000000..fe84560
+--- /dev/null
++++ b/docs/launch/LAUNCH_READINESS.md
+@@ -0,0 +1,71 @@
++# Atelier launch-readiness report
++
++Branch: `cursor/atelier-premium-launch-readiness-da63`  
++Base: `429f939b555f5e4d11bc95e2cc56afb11f167c98` (`main`)
++
++This is **code-complete evidence for a local candidate**, not configured launch acceptance.
++
++## What improved
++
++- Concurrent first visits now converge on one initial workspace via `user_initial_business` uniqueness plus `runInTransaction`.
++- Guest Discovery/brief work is claimed once, idempotently, for the signed-in account. Private content stays out of callback URLs. Return paths are allowlisted.
++- Discovery requires an explicit business-context review before the concept studio. Signed-in customers confirm the business and exact Discovery revision before Studio adopts it. Existing business names are not silently replaced.
++- Public metadata, robots, sitemap, and a customer-facing `error.tsx` were added. The service worker now treats `/companion` as personalized (cache `atelier-static-v9`).
++- Pricing remains inquiry-led. Official brand assets and the ivory / emerald-glass / gold system were not reskinned.
++
++## What you can test immediately
++
++Local candidate (`pnpm install && pnpm build && pnpm start`, simulated identities):
++
++1. Open `/` → `/discover` → confirm business → use a direction → Continue to your workspace.
++2. Sign in as `owner.local@atelier.invalid` (labeled simulator). Confirm the business. Open Studio.
++3. Sign in as `owner-two.local@atelier.invalid` in another profile. Confirm the two workspaces stay isolated.
++4. Reload, sign out/in, and retry the same guest claim — it must not duplicate.
++
++## Code-complete evidence
++
++| Item | Result |
++| --- | --- |
++| Typecheck | Pass |
++| Lint | Pass (one unused-arg warning removed) |
++| `pnpm test` | 235 passed, 15 skipped (Postgres not configured) |
++| `pnpm build` | Pass (Next.js 15.5.28) |
++| `scripts/api-flow.mjs` | 50/50 |
++| `scripts/companion-api.mjs` | 32/32 on `:3000` |
++| `scripts/launch-journey-api.mjs` | 10/10 |
++| `scripts/discovery-browser.mjs` | 0 failed |
++| Fonts | Figtree body / Cormorant Garamond headings via `next/font` Google (legitimate). Not Times. |
++| HTTP fetch (not Lighthouse) | `/` 39ms / 62KB; `/project` `private, no-store` |
++
++Identities used: **simulated** `owner.local@atelier.invalid` and `owner-two.local@atelier.invalid`. Persistence: **sqlite_local**. Live OpenAI: **off**. Auth.js providers: **not configured**.
++
++## Configured launch acceptance
++
++| Item | Status | Missing |
++| --- | --- | --- |
++| Chosen sign-in provider (Google / Resend) | Blocked | `AUTH_GOOGLE_*` / `AUTH_RESEND_*`, `ATELIER_AUTH_ADAPTER=authjs` |
++| Email delivery and callbacks | Blocked | Resend from-address + hosted callback URLs |
++| Sessions / logout on staging | Not run | Hosted Auth.js + `AUTH_SECRET` |
++| Persistent hosted database | Blocked | Dedicated Atelier Postgres; do not reuse Aethelios production |
++| Private export retrieval on staging | Not run | Hosted storage + auth |
++| Approved live AI path | Blocked | Spend approval, `ATELIER_OPENAI_ENABLED=true`, `OPENAI_API_KEY` |
++| Production domain / OG absolute URLs | Blocked | `ATELIER_PUBLIC_ORIGIN` on the real domain |
++| Billing / published prices | Blocked | Intentionally inactive; do not invent amounts |
++| Physical phones / hardware keyboards | Not run | CSS viewports 320–1440 verified locally |
++
++## Remaining launch blockers
++
++1. Real Auth.js credentials and founder email list.
++2. Dedicated hosted Postgres and the non-destructive duplicate review in `RECONCILIATION.md`.
++3. Authorized OpenAI spend if Talk/Studio generation must be live.
++4. Production domain assignment.
++5. The supplied `atelier-integrated-source.patch` / `REHEARSAL.md` / `99a7524` continuity commits were **not in this environment**. See `MISSING_SOURCE.md`.
++
++## Smallest next activation steps
++
++1. Approve a dedicated Atelier Postgres project and run the detection queries only.
++2. Set Auth.js secrets on a staging Vercel project (`docs/AUTH.md`).
++3. Walk Google and/or Resend sign-in, logout, and a private export on that staging URL.
++4. Only then consider live AI and a production domain.
++
++Do not merge to `main` or deploy from this agent without a separate approval.
+diff --git a/docs/launch/MISSING_SOURCE.md b/docs/launch/MISSING_SOURCE.md
+new file mode 100644
+index 0000000..485eb82
+--- /dev/null
++++ b/docs/launch/MISSING_SOURCE.md
+@@ -0,0 +1,18 @@
++# Missing supplied source
++
++This environment started from remote `main` at `429f939b555f5e4d11bc95e2cc56afb11f167c98`.
++
++The prompt referenced materials that were **not present** in this checkout:
++
++| Item | Status |
++| --- | --- |
++| `atelier-integrated-source.patch` | Not found in the workspace, `/tmp`, or agent attachments |
++| `REHEARSAL.md` | Not found |
++| Local branch `codex/atelier-premium-continuity` | Not present |
++| Application checkpoint `99a7524` | Not a valid object in this repository |
++| Evidence checkpoint `e7c7c27` | Not a valid object |
++| Film commit `43de68c` | Not a valid object |
++
++GitHub `main` already contains the merged cinematic studio, Discovery elevation, owner journey, pricing, Auth.js, and companion Talk/Studio work. Those systems were preserved rather than replaced.
++
++No weaker Studio or logo substitutes were invented. Official assets remain in `public/brand/original/` and the v7 install set.
+diff --git a/docs/launch/RECONCILIATION.md b/docs/launch/RECONCILIATION.md
+new file mode 100644
+index 0000000..daee8e3
+--- /dev/null
++++ b/docs/launch/RECONCILIATION.md
+@@ -0,0 +1,59 @@
++# Non-destructive reconciliation for duplicate initial workspaces
++
++Concurrent first visits could previously create more than one `businesses` row for the same owner. The code now claims exactly one initial workspace per user in `user_initial_business` (`user_id` primary key) inside `runInTransaction`.
++
++This plan is **read-only until Neil approves a hosted migration**. Do not delete customer rows.
++
++## Detect
++
++```sql
++SELECT owner_id, COUNT(*) AS businesses
++FROM businesses
++GROUP BY owner_id
++HAVING COUNT(*) > 1;
++```
++
++```sql
++SELECT user_id
++FROM user_initial_business
++WHERE business_id NOT IN (SELECT id FROM businesses);
++```
++
++## Choose the survivor
++
++For each owner with more than one owned business, keep the **oldest** `created_at` (then lowest `id`) as the canonical initial workspace. That matches `canonicalOwnedBusiness()`.
++
++Do **not** merge or rewrite Talk, Studio, work items, or exports. Additional owned businesses stay available for intentional multi-business use; they are simply not the auto-provisioned initial row.
++
++## Claim without rewriting
++
++```sql
++INSERT INTO user_initial_business (user_id, business_id, created_at)
++SELECT owner_id, id, created_at
++FROM businesses b
++WHERE NOT EXISTS (
++  SELECT 1 FROM user_initial_business u WHERE u.user_id = b.owner_id
++)
++AND created_at = (
++  SELECT MIN(created_at) FROM businesses b2 WHERE b2.owner_id = b.owner_id
++)
++ON CONFLICT (user_id) DO NOTHING;
++```
++
++Review membership and `projects.business_id` orphans after the claim. Attach orphan projects only by setting `business_id` when it is currently null.
++
++## Guest drafts
++
++```sql
++SELECT adopted_from_guest_id, COUNT(*)
++FROM projects
++WHERE adopted_from_guest_id IS NOT NULL
++GROUP BY adopted_from_guest_id
++HAVING COUNT(*) > 1;
++```
++
++Keep the earliest project per guest draft. Do not delete the extra row until Neil reviews it. The unique index `projects_guest_draft_idx` must be created only after duplicates are resolved.
++
++## Rollback
++
++Dropping `user_initial_business` / `guest_work_claims` / `business_confirmations` returns the uniqueness gate to application logic only. Existing businesses and projects remain.
+diff --git a/docs/launch/STAGING_CHECKLIST.md b/docs/launch/STAGING_CHECKLIST.md
+new file mode 100644
+index 0000000..9e938be
+--- /dev/null
++++ b/docs/launch/STAGING_CHECKLIST.md
+@@ -0,0 +1,48 @@
++# Staging and rollback checklist
++
++Do not migrate a hosted database, create credentials, activate billing, merge to `main`, or deploy without Neil’s separate approval.
++
++## Safe local configuration
++
++Copy `.env.example` to `.env.local`. Keep:
++
++- `ATELIER_PERSISTENCE_ADAPTER=sqlite_local`
++- `ATELIER_AUTH_ADAPTER=simulated`
++- `ATELIER_ALLOW_SIMULATED_AUTH=true`
++- `ATELIER_ISOLATED_LOCAL=true`
++- `ATELIER_OPENAI_ENABLED=false`
++- `ATELIER_BILLING_ENABLED=false`
++- `ATELIER_PRICING_LOCAL_REVIEW=true` only on an isolated machine
++
++Generate `ATELIER_SESSION_SECRET` before any non-development session work.
++
++## Additive schema
++
++New tables and indexes (already created by the sqlite/postgres adapters on boot):
++
++- `user_initial_business`
++- `guest_work_claims`
++- `business_confirmations`
++- unique index `projects_guest_draft_idx` on `adopted_from_guest_id`
++
++For a hosted database that already has duplicate guest-draft or owner-business rows, run the detection queries in `docs/launch/RECONCILIATION.md` **before** applying the unique index. Do not delete customer rows.
++
++## Staging activation (blocked until Neil approves)
++
++1. Dedicated Atelier Postgres (`ATELIER_PERSISTENCE_ADAPTER=postgres` + `DATABASE_URL`). Never the Aethelios production database.
++2. `ATELIER_AUTH_ADAPTER=authjs` with `AUTH_SECRET`, Google and/or Resend, `ATELIER_PUBLIC_ORIGIN`, `ATELIER_FOUNDER_EMAILS`.
++3. Optional live AI: `ATELIER_OPENAI_ENABLED=true` and `OPENAI_API_KEY` after spend approval.
++4. Production domain, then rebuild so `metadataBase` / Open Graph / sitemap use the real origin.
++
++## Rollback
++
++- Application: redeploy the previous git SHA. The new tables are unused if the old build does not read them.
++- Uniqueness gate only: drop `user_initial_business` / `guest_work_claims` / `business_confirmations` and `projects_guest_draft_idx` after confirming no new writes depend on them.
++- Do not drop `businesses`, `projects`, Studio revisions, or export blobs.
++
++## What this environment must not do
++
++- Create Google / Resend / OpenAI / Stripe credentials
++- Enable paid generation
++- Push or merge to `main`
++- Point persistence at a shared production database
+diff --git a/public/sw.js b/public/sw.js
+index c95c41d..3a23990 100644
+--- a/public/sw.js
++++ b/public/sw.js
+@@ -2,7 +2,7 @@
+    Keep in sync with src/lib/pwa/cachePolicy.ts.
+    Cache only the generic offline shell and public brand assets.
+    Never cache personalized HTML, authenticated routes, APIs, or RSC payloads. */
+-const CACHE = "atelier-static-v8";
++const CACHE = "atelier-static-v9";
+ const PREFIX = "atelier-";
+ const PRECACHE = [
+   "/offline",
+@@ -22,7 +22,8 @@ function personalized(pathname) {
+     pathname.startsWith("/workspace") ||
+     pathname.startsWith("/founder") ||
+     pathname.startsWith("/project") ||
+-    pathname.startsWith("/account")
++    pathname.startsWith("/account") ||
++    pathname.startsWith("/companion")
+   );
+ }
+ 
+diff --git a/scripts/discovery-browser.mjs b/scripts/discovery-browser.mjs
+index 8263a1e..8a76042 100644
+--- a/scripts/discovery-browser.mjs
++++ b/scripts/discovery-browser.mjs
+@@ -147,7 +147,9 @@ const quality2 = (await page.$$("button[aria-pressed]"))[1];
+ await quality2?.click();
+ await shot(page, 1440, "discover_qualities");
+ await shot(page, 390, "discover_qualities");
+-check("open studio", await continueBtn(page, "Open the studio"));
++check("review business", await continueBtn(page, "Review the business"));
++await page.waitForSelector("input, textarea");
++check("confirm business", await continueBtn(page, "Confirm and open the studio"));
+ await page.waitForSelector("article");
+ const personalized = await page.evaluate(() => document.body.innerText);
+ check("personalized business name in preview", personalized.includes("Meridian Sitting Room"));
+@@ -279,12 +281,15 @@ for (const direction of ["lumen", "hearth", "signal"]) {
+   check(`${direction} phone layout inside 1440px browser`, Boolean(layout.ok), JSON.stringify(layout));
+   await shot(page, 1440, `discover_phone_${direction}_in_desktop`, 1100, false);
+ }
++await page.waitForSelector("input[name='direction-studio'][value='lumen']");
+ await page.click("input[name='direction-studio'][value='lumen']");
+ await page.click("input[name='preview-studio'][value='desktop']");
+ 
+ async function conceptViewport(direction, width) {
+   await page.setViewport({ width, height: width === 390 ? 844 : 1100, deviceScaleFactor: 1 });
++  await page.waitForSelector(`input[name="direction-studio"][value="${direction}"]`);
+   await page.click(`input[name="direction-studio"][value="${direction}"]`);
++  await page.waitForSelector("input[name='preview-studio'][value='desktop']");
+   await page.click("input[name='preview-studio'][value='desktop']");
+   await new Promise((r) => setTimeout(r, 280));
+   return page.evaluate((directionId) => {
+diff --git a/scripts/launch-capture.mjs b/scripts/launch-capture.mjs
+new file mode 100644
+index 0000000..b4580d7
+--- /dev/null
++++ b/scripts/launch-capture.mjs
+@@ -0,0 +1,111 @@
++import fs from "node:fs";
++import path from "node:path";
++import puppeteer from "puppeteer-core";
++
++const BASE = process.env.ATELIER_BASE ?? "http://127.0.0.1:3000";
++const OUT = "/opt/cursor/artifacts";
++fs.mkdirSync(OUT, { recursive: true });
++
++const WIDTHS = [320, 390, 768, 884, 1440];
++
++const browser = await puppeteer.launch({
++  executablePath: "/usr/bin/google-chrome-stable",
++  headless: true,
++  args: ["--no-sandbox", "--disable-gpu", "--hide-scrollbars"]
++});
++
++async function shot(page, width, name, height = width <= 390 ? 844 : 1100) {
++  await page.setViewport({ width, height, deviceScaleFactor: 1 });
++  await new Promise((r) => setTimeout(r, 250));
++  const file = path.join(OUT, `launch_${name}_${width}w.png`);
++  await page.screenshot({ path: file, fullPage: true });
++  console.log("wrote", file);
++}
++
++async function signIn(page, email) {
++  await page.evaluate(async (emailArg) => {
++    await fetch("/api/session/sign-in", {
++      method: "POST",
++      headers: { "content-type": "application/json" },
++      body: JSON.stringify({ email: emailArg })
++    });
++  }, email);
++  await page.reload({ waitUntil: "networkidle0" });
++}
++
++const page = await browser.newPage();
++await page.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]);
++
++for (const width of WIDTHS) {
++  await page.goto(`${BASE}/`, { waitUntil: "networkidle0" });
++  await shot(page, width, "home");
++}
++
++await page.goto(`${BASE}/pricing`, { waitUntil: "networkidle0" });
++await shot(page, 1440, "pricing");
++await shot(page, 390, "pricing");
++
++await page.goto(`${BASE}/discover`, { waitUntil: "networkidle0" });
++await shot(page, 1440, "discover_enter");
++const explore = await page.evaluateHandle(() =>
++  [...document.querySelectorAll("button")].find((node) => /explore|begin|continue/i.test(node.textContent || ""))
++);
++if (explore) await explore.asElement()?.click();
++await new Promise((r) => setTimeout(r, 400));
++await shot(page, 1440, "discover_intake");
++
++await page.goto(`${BASE}/account`, { waitUntil: "networkidle0" });
++await shot(page, 1440, "account_guest");
++await shot(page, 390, "account_guest");
++
++await signIn(page, "owner.local@atelier.invalid");
++await page.goto(`${BASE}/account`, { waitUntil: "networkidle0" });
++await shot(page, 1440, "account_signed_in");
++
++await page.goto(`${BASE}/companion/confirm`, { waitUntil: "networkidle0" });
++await shot(page, 1440, "confirm");
++await shot(page, 390, "confirm");
++const name = await page.$("input");
++if (name) {
++  await name.click({ clickCount: 3 });
++  await page.keyboard.type("Northridge Sitting Room");
++}
++const confirmBtn = await page.evaluateHandle(() =>
++  [...document.querySelectorAll("button")].find((node) => /Confirm and continue/i.test(node.textContent || ""))
++);
++if (confirmBtn) await confirmBtn.asElement()?.click();
++await page.waitForFunction(() => /Confirmed|Open Studio/i.test(document.body.innerText), { timeout: 8000 }).catch(() => {});
++await shot(page, 1440, "confirm_saved");
++
++await page.goto(`${BASE}/companion/studio`, { waitUntil: "networkidle0" });
++await shot(page, 1440, "studio");
++await shot(page, 390, "studio");
++
++await page.goto(`${BASE}/companion/talk`, { waitUntil: "networkidle0" });
++await shot(page, 1440, "talk");
++
++await page.goto(`${BASE}/companion/work`, { waitUntil: "networkidle0" });
++await shot(page, 1440, "work");
++
++await page.goto(`${BASE}/workspace`, { waitUntil: "networkidle0" });
++await shot(page, 1440, "workspace");
++
++await page.evaluate(async () => {
++  await fetch("/api/session/sign-out", { method: "POST" });
++});
++await signIn(page, "owner-two.local@atelier.invalid");
++await page.goto(`${BASE}/companion`, { waitUntil: "networkidle0" });
++await shot(page, 1440, "owner_two_today");
++
++const fonts = await page.evaluate(async () => {
++  await document.fonts.ready;
++  return {
++    body: getComputedStyle(document.body).fontFamily,
++    heading: getComputedStyle(document.querySelector("h1")).fontFamily,
++    times: /times/i.test(getComputedStyle(document.body).fontFamily)
++  };
++});
++console.log("fonts", JSON.stringify(fonts));
++
++await browser.close();
++console.log("launch capture complete");
+diff --git a/scripts/launch-journey-api.mjs b/scripts/launch-journey-api.mjs
+new file mode 100644
+index 0000000..f1978a7
+--- /dev/null
++++ b/scripts/launch-journey-api.mjs
+@@ -0,0 +1,119 @@
++#!/usr/bin/env node
++/** Local simulated-identity journey: guest claim, confirmation, two-account isolation. */
++const BASE = process.env.ATELIER_BASE ?? "http://127.0.0.1:3000";
++
++async function req(path, { method = "GET", body, cookie } = {}) {
++  const res = await fetch(`${BASE}${path}`, {
++    method,
++    headers: {
++      "content-type": "application/json",
++      ...(cookie ? { cookie } : {})
++    },
++    body: body ? JSON.stringify(body) : undefined
++  });
++  const setCookie =
++    res.headers.getSetCookie?.() ?? (res.headers.get("set-cookie") ? [res.headers.get("set-cookie")] : []);
++  const json = await res.json().catch(() => ({}));
++  return { status: res.status, json, setCookie };
++}
++
++function cookieHeader(setCookie) {
++  return setCookie.map((item) => item.split(";")[0]).join("; ");
++}
++
++async function signIn(email) {
++  const res = await req("/api/session/sign-in", { method: "POST", body: { email } });
++  if (res.status !== 200) throw new Error(`sign-in ${email} ${res.status}`);
++  return cookieHeader(res.setCookie);
++}
++
++const checks = [];
++function check(name, ok, detail) {
++  checks.push({ name, ok: Boolean(ok), detail });
++  console.log(`${ok ? "ok" : "FAIL"} ${name}${detail ? ` ${detail}` : ""}`);
++}
++
++const owner = await signIn("owner.local@atelier.invalid");
++const other = await signIn("owner-two.local@atelier.invalid");
++
++const guestWorkId = `dsel_${crypto.randomUUID()}`;
++const claimed = await req("/api/companion/guest-claim", {
++  method: "POST",
++  cookie: owner,
++  body: { guestWorkId, kind: "discovery", destination: "/companion/confirm", payload: { selectedDirectionId: "lumen" } }
++});
++check("owner claims discovery", claimed.status === 200 && claimed.json.claim?.guestWorkId === guestWorkId);
++
++const retry = await req("/api/companion/guest-claim", {
++  method: "POST",
++  cookie: owner,
++  body: { guestWorkId, kind: "discovery", destination: "/companion/studio" }
++});
++check("claim is idempotent", retry.status === 200 && retry.json.claim?.createdAt === claimed.json.claim.createdAt);
++
++const stolen = await req("/api/companion/guest-claim", {
++  method: "POST",
++  cookie: other,
++  body: { guestWorkId, kind: "discovery", destination: "/companion/confirm" }
++});
++check("other account cannot steal claim", stolen.status === 403);
++
++const ws = await req("/api/companion/workspace", { cookie: owner });
++check("owner workspace", ws.status === 200 && Boolean(ws.json.business?.id));
++const otherWs = await req("/api/companion/workspace", { cookie: other });
++check("other workspace is different", otherWs.status === 200 && otherWs.json.business.id !== ws.json.business.id);
++
++const foreign = await req(`/api/companion/workspace?businessId=${ws.json.business.id}`, { cookie: other });
++check("other cannot read owner business", foreign.status === 403);
++
++const confirmed = await req("/api/companion/confirm", {
++  method: "POST",
++  cookie: owner,
++  body: {
++    businessId: ws.json.business.id,
++    businessName: "Northridge Sitting Room",
++    businessContext: "A quiet sitting room.",
++    sourceSelectionId: guestWorkId,
++    sourceRevision: 1,
++    directionId: "lumen"
++  }
++});
++check("owner confirmation saved", confirmed.status === 200 && confirmed.json.confirmation?.businessName === "Northridge Sitting Room");
++
++const conflict = await req("/api/companion/confirm", {
++  method: "POST",
++  cookie: owner,
++  body: {
++    businessId: ws.json.business.id,
++    businessName: "Northridge Sitting Room",
++    businessContext: "A quiet sitting room.",
++    sourceSelectionId: "dsel_other",
++    sourceRevision: 2,
++    directionId: "hearth"
++  }
++});
++check("stale direction conflicts", conflict.status === 409);
++
++const otherConfirm = await req("/api/companion/confirm", {
++  method: "POST",
++  cookie: other,
++  body: {
++    businessId: ws.json.business.id,
++    businessName: "Stolen",
++    businessContext: "no"
++  }
++});
++check("other cannot confirm owner business", otherConfirm.status === 403);
++
++const badNext = await req("/api/session/start", {
++  method: "POST",
++  body: { provider: "google", callbackUrl: "https://evil.example" }
++});
++check("authjs start stays fail-closed locally", [401, 403, 503].includes(badNext.status));
++
++const failed = checks.filter((item) => !item.ok);
++if (failed.length) {
++  console.error(`failed ${failed.length}/${checks.length}`);
++  process.exit(1);
++}
++console.log(`passed ${checks.length}/${checks.length}`);
+diff --git a/src/app/api/companion/confirm/route.ts b/src/app/api/companion/confirm/route.ts
+new file mode 100644
+index 0000000..f433a05
+--- /dev/null
++++ b/src/app/api/companion/confirm/route.ts
+@@ -0,0 +1,34 @@
++import { z } from "zod";
++import { BusinessAdoption } from "@/lib/cofounder/confirmation";
++import { requireCompanionWrite } from "@/lib/cofounder/http";
++import { handleError, json, readJson } from "@/lib/http";
++
++export const runtime = "nodejs";
++
++const bodySchema = z.object({
++  businessId: z.string().min(1).optional(),
++  businessName: z.string().max(160),
++  businessContext: z.string().max(2000).optional(),
++  sourceSelectionId: z.string().max(80).nullable().optional(),
++  sourceRevision: z.number().int().nonnegative().nullable().optional(),
++  directionId: z.string().max(40).nullable().optional(),
++  replaceConfirmedDirection: z.boolean().optional()
++});
++
++export async function POST(request: Request) {
++  try {
++    const body = bodySchema.parse(await readJson(request));
++    const { auth, store, context } = await requireCompanionWrite(body.businessId);
++    const confirmation = await new BusinessAdoption(store).confirm(context.business.id, auth.user, {
++      businessName: body.businessName,
++      businessContext: body.businessContext ?? "",
++      sourceSelectionId: body.sourceSelectionId,
++      sourceRevision: body.sourceRevision,
++      directionId: body.directionId,
++      replaceConfirmedDirection: body.replaceConfirmedDirection
++    });
++    return json({ ok: true, confirmation });
++  } catch (error) {
++    return handleError(error);
++  }
++}
+diff --git a/src/app/api/companion/guest-claim/route.ts b/src/app/api/companion/guest-claim/route.ts
+new file mode 100644
+index 0000000..e37b53b
+--- /dev/null
++++ b/src/app/api/companion/guest-claim/route.ts
+@@ -0,0 +1,36 @@
++import { z } from "zod";
++import { requireSession } from "@/lib/auth/session";
++import { GuestWorkService, publicGuestClaim } from "@/lib/guest/claim";
++import { handleError, json, readJson } from "@/lib/http";
++import { getStore } from "@/lib/persistence/store";
++
++export const runtime = "nodejs";
++
++const bodySchema = z.object({
++  guestWorkId: z.string().min(1).max(80),
++  kind: z.enum(["discovery", "brief"]),
++  destination: z.string().max(200).optional(),
++  payload: z.unknown().optional()
++});
++
++export async function GET(request: Request) {
++  try {
++    const auth = await requireSession();
++    const guestWorkId = new URL(request.url).searchParams.get("guestWorkId") ?? "";
++    const claim = await new GuestWorkService(await getStore()).readForUser(auth.user, guestWorkId);
++    return json({ ok: true, claim: claim ? publicGuestClaim(claim) : null });
++  } catch (error) {
++    return handleError(error);
++  }
++}
++
++export async function POST(request: Request) {
++  try {
++    const auth = await requireSession();
++    const body = bodySchema.parse(await readJson(request));
++    const claim = await new GuestWorkService(await getStore()).claim(auth.user, body);
++    return json({ ok: true, claim: publicGuestClaim(claim) });
++  } catch (error) {
++    return handleError(error);
++  }
++}
+diff --git a/src/app/api/companion/workspace/route.ts b/src/app/api/companion/workspace/route.ts
+index 7f5a7ed..dbc6488 100644
+--- a/src/app/api/companion/workspace/route.ts
++++ b/src/app/api/companion/workspace/route.ts
+@@ -15,9 +15,11 @@ export async function GET(request: Request) {
+     const { auth, store, workspace, context } = await requireCompanion(requested);
+     const usage = await new CompanionUsage(store).snapshot(context.business.id, auth.user);
+     const businesses = await workspace.listForUser(auth.user);
++    const confirmation = await store.companion.getBusinessConfirmation(context.business.id);
+     return json({
+       ok: true,
+       business: context.business,
++      confirmation,
+       membership: context.membership,
+       profile: clientSafeProfile(context.profile),
+       rawProfile: context.profile,
+diff --git a/src/app/companion/confirm/page.tsx b/src/app/companion/confirm/page.tsx
+new file mode 100644
+index 0000000..f800a05
+--- /dev/null
++++ b/src/app/companion/confirm/page.tsx
+@@ -0,0 +1,20 @@
++import type { Metadata } from "next";
++import { Suspense } from "react";
++import { ConfirmClient } from "@/components/cofounder/ConfirmClient";
++
++export const metadata: Metadata = { title: "Confirm business" };
++
++export default function ConfirmPage() {
++  return (
++    <Suspense
++      fallback={
++        <section className="container section">
++          <p className="kicker">Confirm</p>
++          <h1>Opening the confirmation…</h1>
++        </section>
++      }
++    >
++      <ConfirmClient />
++    </Suspense>
++  );
++}
+diff --git a/src/app/error.tsx b/src/app/error.tsx
+new file mode 100644
+index 0000000..e71adf6
+--- /dev/null
++++ b/src/app/error.tsx
+@@ -0,0 +1,24 @@
++"use client";
++
++import { AppLink } from "@/components/ui/AppLink";
++
++export default function ErrorPage({ reset }: { error: Error; reset: () => void }) {
++  return (
++    <section className="container section">
++      <p className="kicker">Interrupted</p>
++      <h1>This page could not finish loading.</h1>
++      <p className="lede">
++        Nothing was marked saved, submitted, generated, or sent. Your last confirmed work is still
++        where it was. You can try again or return home.
++      </p>
++      <div className="row" style={{ marginTop: 20 }}>
++        <button className="btn btn-gold" type="button" onClick={() => reset()}>
++          Try again
++        </button>
++        <AppLink className="btn btn-ghost" href="/">
++          Return home
++        </AppLink>
++      </div>
++    </section>
++  );
++}
+diff --git a/src/app/layout.tsx b/src/app/layout.tsx
+index 0f66eab..ca377b0 100644
+--- a/src/app/layout.tsx
++++ b/src/app/layout.tsx
+@@ -19,7 +19,18 @@ const body = Figtree({
+   display: "swap"
+ });
+ 
++const publicOrigin = (() => {
++  const value = process.env.ATELIER_PUBLIC_ORIGIN?.trim();
++  if (!value) return undefined;
++  try {
++    return new URL(value);
++  } catch {
++    return undefined;
++  }
++})();
++
+ export const metadata: Metadata = {
++  metadataBase: publicOrigin,
+   title: {
+     default: "Aethelios Atelier",
+     template: "%s · Aethelios Atelier"
+@@ -27,6 +38,23 @@ export const metadata: Metadata = {
+   description:
+     "Founder-led websites and digital infrastructure. Shape a commission with Aethelios; Neil Stutes reviews, scopes, and delivers.",
+   applicationName: "Aethelios Atelier",
++  alternates: publicOrigin ? { canonical: "/" } : undefined,
++  openGraph: {
++    title: "Aethelios Atelier",
++    description:
++      "Founder-led websites and digital infrastructure. Shape a commission with Aethelios; Neil Stutes reviews, scopes, and delivers.",
++    siteName: "Aethelios Atelier",
++    locale: "en_US",
++    type: "website",
++    images: [{ url: "/brand/logo-1024.png", width: 1024, height: 1024, alt: "Aethelios Atelier" }]
++  },
++  twitter: {
++    card: "summary_large_image",
++    title: "Aethelios Atelier",
++    description:
++      "Founder-led websites and digital infrastructure. Shape a commission with Aethelios; Neil Stutes reviews, scopes, and delivers.",
++    images: ["/brand/logo-1024.png"]
++  },
+   manifest: "/manifest.webmanifest",
+   icons: {
+     icon: [
+diff --git a/src/app/robots.ts b/src/app/robots.ts
+new file mode 100644
+index 0000000..7ab1eeb
+--- /dev/null
++++ b/src/app/robots.ts
+@@ -0,0 +1,13 @@
++import type { MetadataRoute } from "next";
++
++export default function robots(): MetadataRoute.Robots {
++  const origin = process.env.ATELIER_PUBLIC_ORIGIN?.trim();
++  return {
++    rules: {
++      userAgent: "*",
++      allow: "/",
++      disallow: ["/api/", "/workspace", "/founder", "/project", "/account", "/companion"]
++    },
++    sitemap: origin ? `${origin.replace(/\/$/, "")}/sitemap.xml` : undefined
++  };
++}
+diff --git a/src/app/sitemap.ts b/src/app/sitemap.ts
+new file mode 100644
+index 0000000..bf953d6
+--- /dev/null
++++ b/src/app/sitemap.ts
+@@ -0,0 +1,12 @@
++import type { MetadataRoute } from "next";
++
++const PUBLIC_PATHS = ["/", "/discover", "/pricing", "/services", "/approach", "/about"];
++
++export default function sitemap(): MetadataRoute.Sitemap {
++  const origin = process.env.ATELIER_PUBLIC_ORIGIN?.trim().replace(/\/$/, "") || "http://127.0.0.1:3000";
++  return PUBLIC_PATHS.map((path) => ({
++    url: `${origin}${path}`,
++    changeFrequency: path === "/" ? "weekly" : "monthly",
++    priority: path === "/" ? 1 : 0.7
++  }));
++}
+diff --git a/src/components/account/AccountClient.tsx b/src/components/account/AccountClient.tsx
+index efc9d6d..7cf73a5 100644
+--- a/src/components/account/AccountClient.tsx
++++ b/src/components/account/AccountClient.tsx
+@@ -7,7 +7,9 @@ import { api } from "@/lib/client/api";
+ import { actionErrorMessage } from "@/lib/client/asyncAction";
+ import { ownerFence } from "@/lib/client/ownerFence";
+ import { clearOwnerScopedData } from "@/lib/client/ownerScope";
++import { safeCallbackUrl } from "@/lib/auth/callbackUrl";
+ import { readGuestDraft } from "@/lib/guest/draft";
++import { readGuestIntent } from "@/lib/guest/intent";
+ import type { User } from "@/lib/types";
+ 
+ type Config = {
+@@ -23,7 +25,8 @@ type Config = {
+ 
+ function nextPath() {
+   const next = new URLSearchParams(window.location.search).get("next");
+-  return next?.startsWith("/") && !next.startsWith("//") ? next : "/account";
++  const intent = readGuestIntent();
++  return safeCallbackUrl(next || intent?.destination || "/account");
+ }
+ 
+ export function AccountClient() {
+@@ -77,7 +80,7 @@ export function AccountClient() {
+           body: JSON.stringify({
+             provider,
+             email: email.trim() || undefined,
+-            callbackUrl: guestDraft ? "/account/adopt" : nextPath()
++            callbackUrl: nextPath() !== "/account" ? nextPath() : guestDraft ? "/account/adopt" : nextPath()
+           })
+         }
+       );
+@@ -151,17 +154,24 @@ export function AccountClient() {
+             Signed in as <strong>{user.displayName}</strong> ({user.email}) · {user.role} · {user.adapter}
+           </p>
+           <div className="row" style={{ marginTop: 16 }}>
+-            {user.role === "founder" ? (
++            {readGuestIntent() ? (
++              <AppLink className="btn btn-gold" href="/companion/confirm">
++                Continue where you left off
++              </AppLink>
++            ) : user.role === "founder" ? (
+               <AppLink className="btn btn-gold" href="/founder">
+                 Founder workspace
+               </AppLink>
+             ) : (
+-              <AppLink className="btn btn-gold" href="/workspace">
+-                Open workspace
++              <AppLink className="btn btn-gold" href="/companion">
++                Open your workspace
+               </AppLink>
+             )}
+-            <AppLink className="btn btn-ghost" href="/companion">
+-              Open companion
++            <AppLink className="btn btn-ghost" href="/workspace">
++              Commissions
++            </AppLink>
++            <AppLink className="btn btn-ghost" href="/companion/studio">
++              Studio
+             </AppLink>
+             <AppLink className="btn btn-ghost" href="/account/adopt">
+               Review guest draft
+diff --git a/src/components/cofounder/CompanionShell.tsx b/src/components/cofounder/CompanionShell.tsx
+index e0a5f95..714fc83 100644
+--- a/src/components/cofounder/CompanionShell.tsx
++++ b/src/components/cofounder/CompanionShell.tsx
+@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
+ import { usePathname } from "next/navigation";
+ import { useSession } from "@/components/shell/SessionShell";
+ import { api } from "@/lib/client/api";
++import { readGuestIntent } from "@/lib/guest/intent";
+ import styles from "./companion.module.css";
+ 
+ export function CompanionShell({
+@@ -20,13 +21,28 @@ export function CompanionShell({
+   const pathname = usePathname();
+   const { user, loading } = useSession();
+   const [businessName, setBusinessName] = useState("");
++  const [studioGate, setStudioGate] = useState<"ready" | "confirm">("ready");
+ 
+   useEffect(() => {
+     if (!user) return;
+-    void api<{ business: { name: string } }>("/api/companion/workspace")
+-      .then((data) => setBusinessName(data.business.name))
++    void api<{ business: { name: string }; confirmation: { sourceSelectionId: string | null } | null }>(
++      "/api/companion/workspace"
++    )
++      .then((data) => {
++        setBusinessName(data.business.name);
++        const intent = readGuestIntent();
++        if (
++          pathname.startsWith("/companion/studio") &&
++          intent?.selectionId &&
++          data.confirmation?.sourceSelectionId !== intent.selectionId
++        ) {
++          setStudioGate("confirm");
++        } else {
++          setStudioGate("ready");
++        }
++      })
+       .catch(() => setBusinessName(""));
+-  }, [user]);
++  }, [user, pathname]);
+ 
+   if (loading) {
+     return (
+@@ -49,7 +65,7 @@ export function CompanionShell({
+           <p className="lede">
+             This is your business workspace — not a public chatbot and not a guest draft.
+           </p>
+-          <a className="btn btn-gold" href="/account?next=/companion">
++          <a className="btn btn-gold" href={`/account?next=${encodeURIComponent(pathname || "/companion")}`}>
+             Sign in
+           </a>
+         </div>
+@@ -57,6 +73,24 @@ export function CompanionShell({
+     );
+   }
+ 
++  if (studioGate === "confirm") {
++    return (
++      <section className={`container ${styles.shell}`}>
++        <div className={`surface-glass ${styles.gate}`}>
++          <p className={styles.meta}>Confirm first</p>
++          <h1>Review the business before Studio</h1>
++          <p className="lede">
++            A Discovery direction is waiting. Confirm the business and that exact selection so Studio
++            cannot silently adopt another tab’s version.
++          </p>
++          <a className="btn btn-gold" href="/companion/confirm">
++            Confirm business and direction
++          </a>
++        </div>
++      </section>
++    );
++  }
++
+   const nextHint = pathname.startsWith("/companion/studio")
+     ? "Save or export this exact composition."
+     : pathname.startsWith("/companion/talk")
+diff --git a/src/components/cofounder/ConfirmClient.tsx b/src/components/cofounder/ConfirmClient.tsx
+new file mode 100644
+index 0000000..6695807
+--- /dev/null
++++ b/src/components/cofounder/ConfirmClient.tsx
+@@ -0,0 +1,190 @@
++"use client";
++
++import { useEffect, useState } from "react";
++import { CompanionShell } from "@/components/cofounder/CompanionShell";
++import { useSession } from "@/components/shell/SessionShell";
++import { AppLink } from "@/components/ui/AppLink";
++import { ApiError, api } from "@/lib/client/api";
++import { actionErrorMessage } from "@/lib/client/asyncAction";
++import { DIRECTIONS, parseSelection, readDiscoveryHandoff, type DiscoverySelection } from "@/lib/discovery";
++import { clearGuestIntent, readGuestIntent } from "@/lib/guest/intent";
++import type { Business, BusinessConfirmation } from "@/lib/cofounder/types";
++import styles from "./companion.module.css";
++
++function selectionFromDevice(): DiscoverySelection | null {
++  const handoff = readDiscoveryHandoff();
++  if (handoff) return handoff;
++  try {
++    const raw = window.localStorage.getItem("aethelios.atelier.discovery.v1");
++    if (!raw) return null;
++    const parsed = JSON.parse(raw) as { confirmed?: unknown };
++    return parseSelection(parsed.confirmed);
++  } catch {
++    return null;
++  }
++}
++
++export function ConfirmClient() {
++  const { user } = useSession();
++  const [business, setBusiness] = useState<Business | null>(null);
++  const [confirmation, setConfirmation] = useState<BusinessConfirmation | null>(null);
++  const [selection, setSelection] = useState<DiscoverySelection | null>(null);
++  const [businessName, setBusinessName] = useState("");
++  const [businessContext, setBusinessContext] = useState("");
++  const [error, setError] = useState("");
++  const [status, setStatus] = useState("");
++  const [conflict, setConflict] = useState<BusinessConfirmation | null>(null);
++  const [pending, setPending] = useState(false);
++  const [saved, setSaved] = useState(false);
++
++  useEffect(() => {
++    const next = selectionFromDevice();
++    setSelection(next);
++    const intent = readGuestIntent();
++    if (next && user) {
++      void api("/api/companion/guest-claim", {
++        method: "POST",
++        body: JSON.stringify({
++          guestWorkId: next.selectionId,
++          kind: "discovery",
++          destination: intent?.destination ?? "/companion/confirm",
++          payload: {
++            selectionId: next.selectionId,
++            localRevision: next.localRevision,
++            selectedDirectionId: next.selectedDirectionId
++          }
++        })
++      }).catch((err) => setError(actionErrorMessage(err, "This Discovery direction could not be claimed.")));
++    }
++    if (!user) return;
++    void api<{ business: Business; confirmation: BusinessConfirmation | null; rawProfile: { fields: { name: { value: string }; audience: { value: string } } } }>(
++      "/api/companion/workspace"
++    )
++      .then((data) => {
++        setBusiness(data.business);
++        setConfirmation(data.confirmation);
++        const existingName = data.confirmation?.businessName || data.rawProfile.fields.name.value || data.business.name;
++        setBusinessName(existingName === "Your business" && next?.businessName ? next.businessName : existingName);
++        setBusinessContext(
++          data.confirmation?.businessContext ||
++            data.rawProfile.fields.audience.value ||
++            [next?.audience, next?.intentNote].filter(Boolean).join(" ").trim()
++        );
++      })
++      .catch((err) => setError(actionErrorMessage(err, "The workspace could not open.")));
++  }, [user]);
++
++  async function submit(replace = false) {
++    if (pending || !business) return;
++    setPending(true);
++    setError("");
++    setStatus("");
++    try {
++      const result = await api<{ ok: true; confirmation: BusinessConfirmation }>("/api/companion/confirm", {
++        method: "POST",
++        body: JSON.stringify({
++          businessId: business.id,
++          businessName,
++          businessContext,
++          sourceSelectionId: selection?.selectionId ?? null,
++          sourceRevision: selection?.localRevision ?? null,
++          directionId: selection?.selectedDirectionId ?? null,
++          replaceConfirmedDirection: replace
++        })
++      });
++      setConfirmation(result.confirmation);
++      setConflict(null);
++      setSaved(true);
++      setStatus("Business and direction confirmed. You can open Studio with this exact selection.");
++      clearGuestIntent();
++    } catch (err) {
++      const conflictCurrent = err instanceof ApiError ? (err.currentBrief as BusinessConfirmation | undefined) : null;
++      if (conflictCurrent) {
++        setConflict(conflictCurrent);
++        setError(actionErrorMessage(err, "A different Discovery direction is already confirmed."));
++      } else {
++        setError(actionErrorMessage(err, "Confirmation did not save."));
++      }
++    } finally {
++      setPending(false);
++    }
++  }
++
++  const direction = selection ? DIRECTIONS[selection.selectedDirectionId] : null;
++
++  return (
++    <CompanionShell
++      title="Confirm this business"
++      lede="Review the business and the Discovery direction before Studio uses them. Existing businesses keep their name unless you change it here."
++    >
++      {error ? <p className="notice notice-warn">{error}</p> : null}
++      {status ? <p className="notice">{status}</p> : null}
++      <div className={styles.grid}>
++        <article className={`${styles.glassCard} on-glass`}>
++          <p className={styles.label}>Business</p>
++          <label className={styles.composer}>
++            <span className={styles.label}>Business name</span>
++            <input className={styles.field} value={businessName} maxLength={160} onChange={(event) => setBusinessName(event.target.value)} />
++          </label>
++          <label className={styles.composer}>
++            <span className={styles.label}>Context Aethelios may use</span>
++            <textarea
++              className={styles.field}
++              value={businessContext}
++              maxLength={2000}
++              onChange={(event) => setBusinessContext(event.target.value)}
++            />
++          </label>
++          <p className={styles.meta}>
++            Confirmed facts stay grounded in what you write. Client names, outcomes, and branding
++            decisions are not invented here.
++          </p>
++          <div className={styles.actions}>
++            <button className="btn btn-gold" type="button" disabled={pending || !business} onClick={() => void submit(false)}>
++              {pending ? "Saving…" : saved ? "Confirmed" : "Confirm and continue"}
++            </button>
++            {conflict ? (
++              <button className="btn btn-ghost" type="button" disabled={pending} onClick={() => void submit(true)}>
++                Replace the previous direction
++              </button>
++            ) : null}
++          </div>
++        </article>
++        <aside className={`${styles.inspector} on-glass`}>
++          <p className={styles.label}>Discovery direction</p>
++          {selection && direction ? (
++            <>
++              <p>
++                <strong>{direction.name}</strong> — {direction.epithet}
++              </p>
++              <p className={styles.meta}>
++                Selection {selection.selectionId} · revision {selection.localRevision}
++              </p>
++              <p>{selection.businessName || "Business name was not specified in Discovery."}</p>
++              <p className={styles.meta}>
++                {selection.audience.trim() || "Audience not specified."}
++              </p>
++            </>
++          ) : (
++            <p className="muted">No Discovery direction is waiting on this device. You can still confirm the business name.</p>
++          )}
++          {confirmation ? (
++            <p className={styles.meta} style={{ marginTop: 16 }}>
++              Last confirmed {new Date(confirmation.confirmedAt).toLocaleString()}
++              {confirmation.sourceRevision != null ? ` · revision ${confirmation.sourceRevision}` : ""}.
++            </p>
++          ) : null}
++          {saved ? (
++            <AppLink className="btn btn-gold" href="/companion/studio">
++              Open Studio
++            </AppLink>
++          ) : (
++            <AppLink className="btn btn-ghost" href="/companion">
++              Return to Today
++            </AppLink>
++          )}
++        </aside>
++      </div>
++    </CompanionShell>
++  );
++}
+diff --git a/src/components/discovery/ConfirmBusiness.tsx b/src/components/discovery/ConfirmBusiness.tsx
+new file mode 100644
+index 0000000..da87d54
+--- /dev/null
++++ b/src/components/discovery/ConfirmBusiness.tsx
+@@ -0,0 +1,97 @@
++"use client";
++
++import { BUSINESS_TYPES, INTENT_COPY, type DiscoveryDraft } from "@/lib/discovery";
++import styles from "./DiscoveryStudio.module.css";
++
++const TYPE_LABELS: Record<(typeof BUSINESS_TYPES)[number], string> = {
++  appointment: "Appointments and bookings",
++  local_service: "Local service",
++  independent: "Independent practice or studio",
++  not_sure: "Not sure yet"
++};
++
++export function ConfirmBusiness({
++  draft,
++  onPatch,
++  onBack,
++  onContinue
++}: {
++  draft: DiscoveryDraft;
++  onPatch: (patch: Partial<DiscoveryDraft>) => void;
++  onBack: () => void;
++  onContinue: () => void;
++}) {
++  return (
++    <section>
++      <p className={styles.kicker}>Confirm the business</p>
++      <h2 className={styles.heading} data-discovery-heading tabIndex={-1}>
++        Review this context before the studio.
++      </h2>
++      <p className={styles.lede}>
++        The concepts will use exactly what you confirm here. Empty fields stay empty — they are not
++        invented. You can still change them later.
++      </p>
++      <div className={styles.solid} style={{ padding: 22, display: "grid", gap: 16 }}>
++        <label className={styles.field}>
++          <span>Business name</span>
++          <input
++            className={styles.input ?? styles.textarea}
++            value={draft.businessName}
++            maxLength={80}
++            onChange={(event) => onPatch({ businessName: event.target.value })}
++          />
++        </label>
++        <label className={styles.field}>
++          <span>What this business is</span>
++          <div className={styles.options} role="radiogroup" aria-label="Business type">
++            {BUSINESS_TYPES.map((id) => (
++              <label className={styles.option} key={id}>
++                <input
++                  type="radio"
++                  name="confirm-type"
++                  checked={draft.businessType === id}
++                  onChange={() => onPatch({ businessType: id })}
++                />
++                <span>
++                  <strong>
++                    {TYPE_LABELS[id]}
++                    {draft.businessType === id ? " · selected" : ""}
++                  </strong>
++                </span>
++              </label>
++            ))}
++          </div>
++        </label>
++        <label className={styles.field}>
++          <span>Written intent</span>
++          <textarea
++            className={styles.textarea}
++            value={draft.intentNote}
++            maxLength={160}
++            onChange={(event) => onPatch({ intentNote: event.target.value })}
++          />
++          <span className={styles.fine}>
++            {draft.intent ? INTENT_COPY[draft.intent].label : "Aim not specified"}
++          </span>
++        </label>
++        <label className={styles.field}>
++          <span>Audience</span>
++          <textarea
++            className={styles.textarea}
++            value={draft.audience}
++            maxLength={280}
++            onChange={(event) => onPatch({ audience: event.target.value })}
++          />
++        </label>
++      </div>
++      <div className={styles.footerNav}>
++        <button className={`${styles.btn} ${styles.btnGhost}`} type="button" onClick={onBack}>
++          Back
++        </button>
++        <button className={`${styles.btn} ${styles.btnGold}`} type="button" onClick={onContinue}>
++          Confirm and open the studio
++        </button>
++      </div>
++    </section>
++  );
++}
+diff --git a/src/components/discovery/DiscoveryStudio.tsx b/src/components/discovery/DiscoveryStudio.tsx
+index ad3b5ff..33098a4 100644
+--- a/src/components/discovery/DiscoveryStudio.tsx
++++ b/src/components/discovery/DiscoveryStudio.tsx
+@@ -48,11 +48,14 @@ import {
+   type PreviewMode,
+   type VisualDirectionId
+ } from "@/lib/discovery";
++import { ConfirmBusiness } from "./ConfirmBusiness";
+ import { ConceptStage } from "./ConceptStage";
+ import { Entrance } from "./Entrance";
+ import { Intake } from "./Intake";
+ import { Qualities } from "./Qualities";
+ import { SelectionSummary } from "./SelectionSummary";
++import { useSession } from "@/components/shell/SessionShell";
++import { writeGuestIntent } from "@/lib/guest/intent";
+ import { resolveSampleVisit } from "./sampleVisit";
+ import styles from "./DiscoveryStudio.module.css";
+ 
+@@ -60,6 +63,7 @@ const PHASES: Array<{ id: DiscoveryPhase; label: string }> = [
+   { id: "enter", label: "Enter" },
+   { id: "intake", label: "Business" },
+   { id: "qualities", label: "Qualities" },
++  { id: "confirm", label: "Confirm" },
+   { id: "studio", label: "Studio" },
+   { id: "compare", label: "Compare" },
+   { id: "review", label: "Review" }
+@@ -173,6 +177,7 @@ const initial: State = {
+ };
+ 
+ export function DiscoveryStudio() {
++  const { user } = useSession();
+   const [state, dispatch] = useReducer(reducer, initial);
+   const [demoOpen, setDemoOpen] = useState(false);
+   const [demo, setDemo] = useState<PreviewActionContext | null>(null);
+@@ -288,6 +293,12 @@ export function DiscoveryStudio() {
+   const confirm = useCallback((directionId: DirectionId = state.draft.activeDirectionId) => {
+     const result = confirmDirection(state.draft, directionId, state.confirmed);
+     writeDiscoveryHandoff(result.selection);
++    writeGuestIntent({
++      guestWorkId: result.selection.selectionId,
++      destination: "/companion/confirm",
++      selectionId: result.selection.selectionId,
++      localRevision: result.selection.localRevision
++    });
+     dispatch({ type: "confirm", draft: result.draft, selection: result.selection });
+   }, [state.draft, state.confirmed]);
+ 
+@@ -356,6 +367,14 @@ export function DiscoveryStudio() {
+             draft={state.draft}
+             onToggle={(id) => dispatch({ type: "draft", draft: toggleQuality(state.draft, id) })}
+             onBack={() => go("intake")}
++            onContinue={() => go("confirm")}
++          />
++        ) : null}
++        {state.phase === "confirm" ? (
++          <ConfirmBusiness
++            draft={state.draft}
++            onPatch={(patch) => dispatch({ type: "patch", patch })}
++            onBack={() => go("qualities")}
+             onContinue={() => go("studio")}
+           />
+         ) : null}
+@@ -387,6 +406,7 @@ export function DiscoveryStudio() {
+             onBack={() => go("studio")}
+             onCopy={() => void copySummary()}
+             onAction={onAction}
++            continueHref={user ? "/companion/confirm" : "/account?next=/companion/confirm"}
+           />
+         ) : null}
+ 
+@@ -1067,7 +1087,8 @@ function ReviewBody({
+   onConfirm,
+   onBack,
+   onCopy,
+-  onAction
++  onAction,
++  continueHref
+ }: {
+   draft: DiscoveryDraft;
+   confirmed: DiscoverySelection | null;
+@@ -1078,6 +1099,7 @@ function ReviewBody({
+   onBack: () => void;
+   onCopy: () => void;
+   onAction: (context: PreviewActionContext) => void;
++  continueHref: string;
+ }) {
+   return (
+     <section className={styles.reviewGrid}>
+@@ -1181,6 +1203,11 @@ function ReviewBody({
+           <button className={`${styles.btn} ${styles.btnGold}`} type="button" onClick={() => onConfirm()}>
+             Use this direction
+           </button>
++          {confirmed ? (
++            <AppLink className={`${styles.btn} ${styles.btnGold}`} href={continueHref}>
++              Continue to your workspace
++            </AppLink>
++          ) : null}
+           <AppLink className={`${styles.btn} ${styles.btnGhost}`} href="/project">
+             Add to your brief
+           </AppLink>
+diff --git a/src/components/discovery/Qualities.tsx b/src/components/discovery/Qualities.tsx
+index b7ad612..1eca974 100644
+--- a/src/components/discovery/Qualities.tsx
++++ b/src/components/discovery/Qualities.tsx
+@@ -62,7 +62,7 @@ export function Qualities({
+           Back
+         </button>
+         <button className={`${styles.btn} ${styles.btnGold}`} type="button" onClick={onContinue}>
+-          Open the studio
++          Review the business
+         </button>
+       </div>
+     </section>
+diff --git a/src/components/shell/SiteHeader.tsx b/src/components/shell/SiteHeader.tsx
+index a3ac9a0..c51205d 100644
+--- a/src/components/shell/SiteHeader.tsx
++++ b/src/components/shell/SiteHeader.tsx
+@@ -20,7 +20,8 @@ const workspaceLinks = [
+   { href: "/companion/talk", label: "Talk" },
+   { href: "/companion/studio", label: "Studio" },
+   { href: "/companion/work", label: "Work" },
+-  { href: "/companion/business", label: "Business" }
++  { href: "/companion/business", label: "Business" },
++  { href: "/companion/confirm", label: "Confirm" }
+ ];
+ 
+ function currentWorkspace(pathname: string, href: string) {
+diff --git a/src/lib/auth/access.test.ts b/src/lib/auth/access.test.ts
+index c3dc344..4693446 100644
+--- a/src/lib/auth/access.test.ts
++++ b/src/lib/auth/access.test.ts
+@@ -55,9 +55,13 @@ describe("Auth.js identity mapping and authorization", () => {
+     expect(resolveRole("client.a@example.com", ["founder.auth@atelier.invalid"])).toBe("client");
+     expect(displayNameFromEmail("client.a@example.com")).toBe("Client A");
+     expect(safeCallbackUrl("/account/adopt")).toBe("/account/adopt");
++    expect(safeCallbackUrl("/companion/confirm")).toBe("/companion/confirm");
++    expect(safeCallbackUrl("/workspace/proj_1")).toBe("/workspace/proj_1");
+     expect(safeCallbackUrl("https://evil.example")).toBe("/account");
+     expect(safeCallbackUrl("//evil.example")).toBe("/account");
+     expect(safeCallbackUrl("/\\evil")).toBe("/account");
++    expect(safeCallbackUrl("/api/session")).toBe("/account");
++    expect(safeCallbackUrl("/unknown-private")).toBe("/account");
+   });
+ 
+   it("keeps two real client accounts isolated and authorizes founder through the existing project API", async () => {
+diff --git a/src/lib/auth/callbackUrl.ts b/src/lib/auth/callbackUrl.ts
+index f4f7da7..062d481 100644
+--- a/src/lib/auth/callbackUrl.ts
++++ b/src/lib/auth/callbackUrl.ts
+@@ -1,3 +1,5 @@
++import { isApprovedReturnPath } from "@/lib/auth/returnRoutes";
++
+ const DEFAULT_CALLBACK = "/account";
+ 
+ export function safeCallbackUrl(value: unknown, fallback = DEFAULT_CALLBACK) {
+@@ -7,5 +9,7 @@ export function safeCallbackUrl(value: unknown, fallback = DEFAULT_CALLBACK) {
+   if (trimmed.startsWith("//")) return fallback;
+   if (trimmed.includes("://")) return fallback;
+   if (trimmed.includes("\\")) return fallback;
+-  return trimmed;
++  const pathOnly = trimmed.split("#")[0] ?? trimmed;
++  if (!isApprovedReturnPath(pathOnly)) return fallback;
++  return pathOnly;
+ }
+diff --git a/src/lib/auth/returnRoutes.ts b/src/lib/auth/returnRoutes.ts
+new file mode 100644
+index 0000000..8c767d1
+--- /dev/null
++++ b/src/lib/auth/returnRoutes.ts
+@@ -0,0 +1,39 @@
++/** Approved same-origin return paths after sign-in. Private payloads never belong here. */
++
++const EXACT = new Set([
++  "/",
++  "/account",
++  "/account/adopt",
++  "/account/continue",
++  "/companion",
++  "/companion/confirm",
++  "/companion/talk",
++  "/companion/studio",
++  "/companion/work",
++  "/companion/business",
++  "/discover",
++  "/project",
++  "/project/new",
++  "/workspace",
++  "/founder",
++  "/pricing",
++  "/services",
++  "/approach",
++  "/about"
++]);
++
++const PREFIXES = [
++  "/workspace/",
++  "/project/",
++  "/founder/",
++  "/discover?"
++];
++
++export function isApprovedReturnPath(pathname: string): boolean {
++  if (EXACT.has(pathname)) return true;
++  return PREFIXES.some((prefix) => pathname.startsWith(prefix));
++}
++
++export function approvedReturnPaths(): string[] {
++  return [...EXACT];
++}
+diff --git a/src/lib/cofounder/confirmation.ts b/src/lib/cofounder/confirmation.ts
+new file mode 100644
+index 0000000..1a42d8b
+--- /dev/null
++++ b/src/lib/cofounder/confirmation.ts
+@@ -0,0 +1,118 @@
++import { isPlaceholderBusinessName } from "@/lib/cofounder/provision";
++import type { BusinessConfirmation } from "@/lib/cofounder/types";
++import { CompanionWorkspace } from "@/lib/cofounder/workspace";
++import { ConflictError, ForbiddenError } from "@/lib/domain/errors";
++import type { PersistenceAdapter } from "@/lib/persistence/adapter";
++import type { User } from "@/lib/types";
++
++export type ConfirmationInput = {
++  businessName: string;
++  businessContext: string;
++  sourceSelectionId?: string | null;
++  sourceRevision?: number | null;
++  directionId?: string | null;
++  replaceConfirmedDirection?: boolean;
++};
++
++export function resolveConfirmedBusinessName(input: {
++  submittedName: string;
++  existingName: string;
++  displayName?: string;
++}): { name: string; retainedExisting: boolean } {
++  const submitted = input.submittedName.trim().slice(0, 160);
++  const existing = input.existingName.trim();
++  const placeholder = isPlaceholderBusinessName(existing, input.displayName);
++  if (!placeholder && submitted && submitted !== existing) {
++    return { name: submitted, retainedExisting: false };
++  }
++  if (!placeholder) {
++    return { name: existing, retainedExisting: true };
++  }
++  return { name: submitted || existing || "Your business", retainedExisting: false };
++}
++
++export class BusinessAdoption {
++  constructor(
++    private readonly store: PersistenceAdapter,
++    private readonly workspace = new CompanionWorkspace(store)
++  ) {}
++
++  async read(businessId: string, user: User) {
++    const context = await this.workspace.requireMembership(businessId, user);
++    const confirmation = await this.store.companion.getBusinessConfirmation(businessId);
++    return { context, confirmation };
++  }
++
++  async confirm(businessId: string, user: User, input: ConfirmationInput) {
++    const context = await this.workspace.requireMutable(businessId, user);
++    const existing = await this.store.companion.getBusinessConfirmation(businessId);
++    if (
++      existing?.sourceSelectionId &&
++      input.sourceSelectionId &&
++      (existing.sourceSelectionId !== input.sourceSelectionId ||
++        existing.sourceRevision !== (input.sourceRevision ?? null)) &&
++      !input.replaceConfirmedDirection
++    ) {
++      throw new ConflictError(
++        "This workspace already confirmed a different Discovery direction. Keep the current confirmation or replace it explicitly.",
++        existing.sourceRevision ?? undefined,
++        existing
++      );
++    }
++
++    const resolved = resolveConfirmedBusinessName({
++      submittedName: input.businessName,
++      existingName: context.business.name,
++      displayName: user.displayName
++    });
++    const stamp = new Date().toISOString();
++    const confirmation: BusinessConfirmation = {
++      businessId,
++      ownerId: user.id,
++      businessName: resolved.name,
++      businessContext: input.businessContext.trim().slice(0, 2000),
++      sourceSelectionId: input.sourceSelectionId ?? existing?.sourceSelectionId ?? null,
++      sourceRevision: input.sourceRevision ?? existing?.sourceRevision ?? null,
++      directionId: input.directionId ?? existing?.directionId ?? null,
++      confirmedAt: stamp,
++      confirmedBy: user.id
++    };
++
++    return this.store.runInTransaction(async () => {
++      await this.store.companion.upsertBusinessConfirmation(confirmation);
++      const nameField = context.profile.fields.name;
++      const shouldWriteName =
++        !nameField.value.trim() || isPlaceholderBusinessName(nameField.value, user.displayName) || !resolved.retainedExisting;
++      await this.workspace.updateProfile(businessId, user, {
++        fields: {
++          ...context.profile.fields,
++          name: shouldWriteName
++            ? {
++                ...nameField,
++                value: resolved.name,
++                kind: "confirmed",
++                source: "owner_confirmed",
++                updatedAt: stamp
++              }
++            : nameField,
++          audience: input.businessContext.trim()
++            ? {
++                ...context.profile.fields.audience,
++                value: context.profile.fields.audience.value.trim() || input.businessContext.trim().slice(0, 4000),
++                kind: context.profile.fields.audience.value.trim() ? context.profile.fields.audience.kind : "confirmed",
++                source: context.profile.fields.audience.value.trim() ? context.profile.fields.audience.source : "owner_confirmed",
++                updatedAt: stamp
++              }
++            : context.profile.fields.audience
++        }
++      });
++      return confirmation;
++    });
++  }
++}
++
++export function assertConfirmationOwner(confirmation: BusinessConfirmation, user: User) {
++  if (confirmation.ownerId !== user.id && user.role !== "founder") {
++    throw new ForbiddenError("This confirmation belongs to another account.");
++  }
++}
+diff --git a/src/lib/cofounder/provision.test.ts b/src/lib/cofounder/provision.test.ts
+new file mode 100644
+index 0000000..6948fbe
+--- /dev/null
++++ b/src/lib/cofounder/provision.test.ts
+@@ -0,0 +1,200 @@
++import { afterEach, beforeEach, describe, expect, it } from "vitest";
++import { seedSimulatedUsers } from "@/lib/auth/identities";
++import { BusinessAdoption, resolveConfirmedBusinessName } from "@/lib/cofounder/confirmation";
++import { CompanionWorkspace } from "@/lib/cofounder/workspace";
++import { ConflictError, ForbiddenError, UniqueConstraintError } from "@/lib/domain/errors";
++import { createEmptyBrief } from "@/lib/brief";
++import { ProjectService } from "@/lib/domain/projects";
++import { GuestWorkService } from "@/lib/guest/claim";
++import { MemoryPersistence } from "@/lib/persistence/memory";
++import type { User } from "@/lib/types";
++
++const originalEnv = { ...process.env };
++
++async function setup() {
++  process.env.ATELIER_PERSISTENCE_ADAPTER = "memory";
++  process.env.ATELIER_AUTH_ADAPTER = "simulated";
++  const store = new MemoryPersistence();
++  await seedSimulatedUsers(store, ["neil.local@atelier.invalid"]);
++  const owner = (await store.getUserByEmail("owner.local@atelier.invalid")) as User;
++  const other = (await store.getUserByEmail("owner-two.local@atelier.invalid")) as User;
++  return { store, owner, other, workspace: new CompanionWorkspace(store) };
++}
++
++describe("initial workspace provisioning", () => {
++  beforeEach(() => {
++    process.env = { ...originalEnv };
++  });
++  afterEach(() => {
++    process.env = { ...originalEnv };
++  });
++
++  it("converges concurrent first visits on one owned workspace", async () => {
++    const { owner, workspace, store } = await setup();
++    const [first, second, third] = await Promise.all([
++      workspace.ensureForUser(owner),
++      workspace.ensureForUser(owner),
++      workspace.ensureForUser(owner)
++    ]);
++    expect(first.business.id).toBe(second.business.id);
++    expect(second.business.id).toBe(third.business.id);
++    const owned = (await store.companion.listBusinessesForUser(owner.id)).filter(
++      (business) => business.ownerId === owner.id
++    );
++    expect(owned).toHaveLength(1);
++    expect(await store.companion.getInitialBusinessId(owner.id)).toBe(first.business.id);
++  });
++
++  it("keeps two accounts on isolated initial workspaces", async () => {
++    const { owner, other, workspace } = await setup();
++    const [a, b] = await Promise.all([workspace.ensureForUser(owner), workspace.ensureForUser(other)]);
++    expect(a.business.id).not.toBe(b.business.id);
++    expect(a.business.ownerId).toBe(owner.id);
++    expect(b.business.ownerId).toBe(other.id);
++  });
++
++  it("rolls back a failed initial create so a retry can provision cleanly", async () => {
++    const { owner, store, workspace } = await setup();
++    await expect(
++      store.runInTransaction(async () => {
++        await store.companion.createBusiness({
++          id: "biz_orphaned",
++          ownerId: owner.id,
++          name: "Should roll back",
++          planId: "atelier",
++          createdAt: "2026-01-01T00:00:00.000Z",
++          updatedAt: "2026-01-01T00:00:00.000Z"
++        });
++        throw new Error("related write failed");
++      })
++    ).rejects.toThrow("related write failed");
++    const after = await workspace.ensureForUser(owner);
++    expect(after.business.id).not.toBe("biz_orphaned");
++    expect(await store.companion.getInitialBusinessId(owner.id)).toBe(after.business.id);
++  });
++
++  it("reconciles a pre-existing owned business onto the uniqueness claim", async () => {
++    const { owner, store, workspace } = await setup();
++    await store.companion.createBusiness({
++      id: "biz_legacy",
++      ownerId: owner.id,
++      name: "Already here",
++      planId: "atelier",
++      createdAt: "2026-01-01T00:00:00.000Z",
++      updatedAt: "2026-01-01T00:00:00.000Z"
++    });
++    await store.companion.addMember({
++      businessId: "biz_legacy",
++      userId: owner.id,
++      role: "owner",
++      createdAt: "2026-01-01T00:00:00.000Z"
++    });
++    const context = await workspace.ensureForUser(owner);
++    expect(context.business.id).toBe("biz_legacy");
++    expect(await store.companion.getInitialBusinessId(owner.id)).toBe("biz_legacy");
++  });
++});
++
++describe("guest work claims", () => {
++  it("claims once per guest id and refuses the other account", async () => {
++    const { store, owner, other } = await setup();
++    const service = new GuestWorkService(store);
++    const first = await service.claim(owner, {
++      guestWorkId: "dsel_one",
++      kind: "discovery",
++      destination: "/companion/confirm",
++      payload: { selectedDirectionId: "lumen" }
++    });
++    const retry = await service.claim(owner, {
++      guestWorkId: "dsel_one",
++      kind: "discovery",
++      destination: "/companion/studio"
++    });
++    expect(retry.ownerId).toBe(first.ownerId);
++    expect(retry.createdAt).toBe(first.createdAt);
++    await expect(
++      service.claim(other, { guestWorkId: "dsel_one", kind: "discovery", destination: "/companion/confirm" })
++    ).rejects.toBeInstanceOf(ForbiddenError);
++    await expect(service.readForUser(other, "dsel_one")).rejects.toBeInstanceOf(ForbiddenError);
++  });
++
++  it("adopts a guest brief once and refuses a second account", async () => {
++    const { store, owner, other } = await setup();
++    const projects = new ProjectService(store);
++    const draft = {
++      version: 1 as const,
++      kind: "guest_draft" as const,
++      labeled: true as const,
++      limitations: [],
++      draftId: "guest_shared",
++      title: "Guest",
++      brief: createEmptyBrief(),
++      messages: [],
++      updatedAt: new Date().toISOString()
++    };
++    const first = await projects.adoptGuestDraft(owner, draft, true);
++    const again = await projects.adoptGuestDraft(owner, draft, true);
++    expect(again.id).toBe(first.id);
++    await expect(projects.adoptGuestDraft(other, draft, true)).rejects.toBeInstanceOf(ForbiddenError);
++    expect(() => store.createProject({ ...first, id: "proj_dup", ownerId: other.id })).toThrow(
++      UniqueConstraintError
++    );
++  });
++});
++
++describe("business confirmation", () => {
++  it("keeps an existing business name unless the owner changes it", () => {
++    const retained = resolveConfirmedBusinessName({
++      submittedName: "Meridian Sitting Room",
++      existingName: "Meridian Sitting Room",
++      displayName: "Owner Local"
++    });
++    expect(retained.retainedExisting).toBe(true);
++    expect(retained.name).toBe("Meridian Sitting Room");
++    const renamed = resolveConfirmedBusinessName({
++      submittedName: "Meridian Atelier",
++      existingName: "Meridian Sitting Room"
++    });
++    expect(renamed.retainedExisting).toBe(false);
++    expect(renamed.name).toBe("Meridian Atelier");
++    const placeholder = resolveConfirmedBusinessName({
++      submittedName: "Northridge",
++      existingName: "Your business"
++    });
++    expect(placeholder.retainedExisting).toBe(false);
++    expect(placeholder.name).toBe("Northridge");
++  });
++
++  it("persists a confirmation and refuses a silent direction change", async () => {
++    const { store, owner, other, workspace } = await setup();
++    const context = await workspace.ensureForUser(owner);
++    const adoption = new BusinessAdoption(store);
++    const first = await adoption.confirm(context.business.id, owner, {
++      businessName: "Northridge",
++      businessContext: "A quiet sitting room.",
++      sourceSelectionId: "dsel_a",
++      sourceRevision: 1,
++      directionId: "lumen"
++    });
++    expect(first.businessName).toBe("Northridge");
++    await expect(
++      adoption.confirm(context.business.id, owner, {
++        businessName: "Northridge",
++        businessContext: "A quiet sitting room.",
++        sourceSelectionId: "dsel_b",
++        sourceRevision: 2,
++        directionId: "hearth"
++      })
++    ).rejects.toBeInstanceOf(ConflictError);
++    const replaced = await adoption.confirm(context.business.id, owner, {
++      businessName: "Northridge",
++      businessContext: "A quiet sitting room.",
++      sourceSelectionId: "dsel_b",
++      sourceRevision: 2,
++      directionId: "hearth",
++      replaceConfirmedDirection: true
++    });
++    expect(replaced.sourceSelectionId).toBe("dsel_b");
++    await expect(adoption.read(context.business.id, other)).rejects.toBeInstanceOf(ForbiddenError);
++  });
++});
+diff --git a/src/lib/cofounder/provision.ts b/src/lib/cofounder/provision.ts
+new file mode 100644
+index 0000000..78a2ebd
+--- /dev/null
++++ b/src/lib/cofounder/provision.ts
+@@ -0,0 +1,23 @@
++const PLACEHOLDER_NAMES = new Set(["your business", "untitled business"]);
++
++export function isPlaceholderBusinessName(name: string, displayName?: string) {
++  const trimmed = name.trim();
++  if (!trimmed) return true;
++  if (PLACEHOLDER_NAMES.has(trimmed.toLowerCase())) return true;
++  if (displayName) {
++    const possessive = `${displayName.trim()}’s business`;
++    const ascii = `${displayName.trim()}'s business`;
++    if (trimmed === possessive || trimmed === ascii) return true;
++  }
++  return false;
++}
++
++export function canonicalOwnedBusiness<T extends { ownerId: string; createdAt: string }>(
++  businesses: T[],
++  ownerId: string
++): T | undefined {
++  return businesses
++    .filter((business) => business.ownerId === ownerId)
++    .slice()
++    .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.createdAt.localeCompare(b.createdAt))[0];
++}
+diff --git a/src/lib/cofounder/types.ts b/src/lib/cofounder/types.ts
+index 623de22..c46df9a 100644
+--- a/src/lib/cofounder/types.ts
++++ b/src/lib/cofounder/types.ts
+@@ -93,6 +93,29 @@ export type Business = {
+   updatedAt: string;
+ };
+ 
++export type GuestWorkKind = "discovery" | "brief";
++
++export type GuestWorkClaim = {
++  guestWorkId: string;
++  ownerId: string;
++  kind: GuestWorkKind;
++  destination: string;
++  payloadJson: string;
++  createdAt: string;
++};
++
++export type BusinessConfirmation = {
++  businessId: string;
++  ownerId: string;
++  businessName: string;
++  businessContext: string;
++  sourceSelectionId: string | null;
++  sourceRevision: number | null;
++  directionId: string | null;
++  confirmedAt: string;
++  confirmedBy: string;
++};
++
+ export type BusinessMember = {
+   businessId: string;
+   userId: string;
+diff --git a/src/lib/cofounder/workspace.ts b/src/lib/cofounder/workspace.ts
+index e13373b..a9b28ec 100644
+--- a/src/lib/cofounder/workspace.ts
++++ b/src/lib/cofounder/workspace.ts
+@@ -1,7 +1,9 @@
+ import { emptyProfile, normalizeProfile } from "@/lib/cofounder/profile";
+ import { resolvePlanId } from "@/lib/cofounder/entitlements";
+ import { isLifestyleOwner, lifestyleProfileFields, LIFESTYLE_PROJECT } from "@/lib/cofounder/lifestyle";
+-import { ForbiddenError, NotFoundError } from "@/lib/domain/errors";
++import { canonicalOwnedBusiness } from "@/lib/cofounder/provision";
++import { ForbiddenError, NotFoundError, UniqueConstraintError } from "@/lib/domain/errors";
++import { isUniqueViolation } from "@/lib/persistence/unique";
+ import { currentClientProposal, isClientVisibleProposal } from "@/lib/domain/proposal";
+ import type { PersistenceAdapter } from "@/lib/persistence/adapter";
+ import type {
+@@ -36,36 +38,65 @@ export class CompanionWorkspace {
+     if (requestedBusinessId) {
+       return this.requireMembership(requestedBusinessId, user);
+     }
+-    const existing = await this.store.companion.listBusinessesForUser(user.id);
+-    const owned = existing.find((business) => business.ownerId === user.id);
+-    if (owned) {
+-      await this.attachOrphanProjects(owned, user);
+-      return this.requireMembership(owned.id, user);
++    for (let attempt = 0; attempt < 4; attempt += 1) {
++      try {
++        return await this.provisionInitialWorkspace(user);
++      } catch (error) {
++        if (!isUniqueViolation(error) || attempt === 3) throw error;
++      }
+     }
+-    const stamp = now();
+-    const lifestyle = isLifestyleOwner(user.email);
+-    const business: Business = {
+-      id: companionId("biz"),
+-      ownerId: user.id,
+-      name: lifestyle ? LIFESTYLE_PROJECT.brandName : user.displayName ? `${user.displayName}’s business` : "Your business",
+-      planId: resolvePlanId(process.env.ATELIER_DEFAULT_PLAN),
+-      createdAt: stamp,
+-      updatedAt: stamp
+-    };
+-    await this.store.companion.createBusiness(business);
+-    await this.store.companion.addMember({
+-      businessId: business.id,
+-      userId: user.id,
+-      role: user.role === "founder" ? "founder" : "owner",
+-      createdAt: stamp
++    throw new UniqueConstraintError("The initial workspace could not be provisioned uniquely.");
++  }
++
++  private async provisionInitialWorkspace(user: User): Promise<AuthorizedBusinessContext> {
++    return this.store.runInTransaction(async () => {
++      const claimedId = await this.store.companion.getInitialBusinessId(user.id);
++      if (claimedId) {
++        const claimed = await this.store.companion.getBusiness(claimedId);
++        if (claimed) {
++          await this.attachOrphanProjects(claimed, user);
++          return this.requireMembership(claimed.id, user);
++        }
++      }
++
++      const existing = await this.store.companion.listBusinessesForUser(user.id);
++      const owned = canonicalOwnedBusiness(existing, user.id);
++      if (owned) {
++        const claim = await this.store.companion.claimInitialBusiness(user.id, owned.id, owned.createdAt);
++        const canonical = (await this.store.companion.getBusiness(claim.businessId)) ?? owned;
++        await this.attachOrphanProjects(canonical, user);
++        return this.requireMembership(canonical.id, user);
++      }
++
++      const stamp = now();
++      const lifestyle = isLifestyleOwner(user.email);
++      const business: Business = {
++        id: companionId("biz"),
++        ownerId: user.id,
++        name: lifestyle ? LIFESTYLE_PROJECT.brandName : user.displayName ? `${user.displayName}’s business` : "Your business",
++        planId: resolvePlanId(process.env.ATELIER_DEFAULT_PLAN),
++        createdAt: stamp,
++        updatedAt: stamp
++      };
++      await this.store.companion.createBusiness(business);
++      await this.store.companion.addMember({
++        businessId: business.id,
++        userId: user.id,
++        role: user.role === "founder" ? "founder" : "owner",
++        createdAt: stamp
++      });
++      const profile = emptyProfile(business.id, stamp);
++      if (lifestyle) {
++        profile.fields = lifestyleProfileFields(stamp);
++      }
++      await this.store.companion.upsertProfile(profile);
++      const claim = await this.store.companion.claimInitialBusiness(user.id, business.id, stamp);
++      if (claim.businessId !== business.id) {
++        throw new UniqueConstraintError("Initial workspace already exists for this account.");
++      }
++      await this.attachOrphanProjects(business, user);
++      return this.requireMembership(business.id, user);
+     });
+-    const profile = emptyProfile(business.id, stamp);
+-    if (lifestyle) {
+-      profile.fields = lifestyleProfileFields(stamp);
+-    }
+-    await this.store.companion.upsertProfile(profile);
+-    await this.attachOrphanProjects(business, user);
+-    return this.requireMembership(business.id, user);
+   }
+ 
+   async requireMembership(businessId: string, user: User): Promise<AuthorizedBusinessContext> {
+diff --git a/src/lib/discovery/discovery.test.ts b/src/lib/discovery/discovery.test.ts
+index 21ab3d5..b13878e 100644
+--- a/src/lib/discovery/discovery.test.ts
++++ b/src/lib/discovery/discovery.test.ts
+@@ -446,6 +446,21 @@ describe("discovery persistence and safety", () => {
+     expect(sanitizeIntakeStep(null)).toEqual({ step: 0, recovered: true });
+   });
+ 
++  it("accepts the business confirmation stage in a saved envelope", () => {
++    const draft = sampleDraft();
++    const recovered = parseEnvelopeWithRecovery({
++      version: 2,
++      kind: "discovery_session",
++      savedAt: "2026-10-20T17:00:00.000Z",
++      draft,
++      confirmed: null,
++      phase: "confirm",
++      intakeStep: 3
++    });
++    expect(recovered?.envelope.phase).toBe("confirm");
++    expect(recovered?.envelope.draft.businessName).toBe("Meridian Sitting Room");
++  });
++
+   it("recovers an invalid intake step while keeping valid answers", () => {
+     const draft = sampleDraft();
+     const recovered = parseEnvelopeWithRecovery({
+diff --git a/src/lib/discovery/types.ts b/src/lib/discovery/types.ts
+index be2222b..bff28a9 100644
+--- a/src/lib/discovery/types.ts
++++ b/src/lib/discovery/types.ts
+@@ -12,6 +12,7 @@ export const DISCOVERY_PHASES = [
+   "enter",
+   "intake",
+   "qualities",
++  "confirm",
+   "studio",
+   "compare",
+   "review"
+diff --git a/src/lib/domain/errors.ts b/src/lib/domain/errors.ts
+index 4a34618..a7cd1e6 100644
+--- a/src/lib/domain/errors.ts
++++ b/src/lib/domain/errors.ts
+@@ -31,6 +31,13 @@ export class ConflictError extends DomainError {
+   }
+ }
+ 
++export class UniqueConstraintError extends ConflictError {
++  constructor(message = "This record already exists.") {
++    super(message);
++    this.name = "UniqueConstraintError";
++  }
++}
++
+ export class UnconfiguredError extends DomainError {
+   constructor(message: string) {
+     super(message, "unconfigured", 503);
+diff --git a/src/lib/domain/projects.ts b/src/lib/domain/projects.ts
+index 81da374..2cdffd6 100644
+--- a/src/lib/domain/projects.ts
++++ b/src/lib/domain/projects.ts
+@@ -2,6 +2,8 @@ import "server-only";
+ import { briefTitle, createEmptyBrief, normalizeBrief } from "@/lib/brief";
+ import { CONSENT_TEXT, DELIVERY_APPROVAL_TEXT, PROPOSAL_AGREEMENT_TEXT } from "@/lib/copy";
+ import { ConflictError, ForbiddenError, NotFoundError } from "@/lib/domain/errors";
++import { isUniqueViolation } from "@/lib/persistence/unique";
++import { GuestWorkService } from "@/lib/guest/claim";
+ import { buildDeliveryHandoff } from "@/lib/domain/handoff";
+ import { toClientView } from "@/lib/domain/next-step";
+ import {
+@@ -93,21 +95,39 @@ export class ProjectService {
+     if (draft.kind !== "guest_draft") {
+       throw new ForbiddenError("Only labeled guest drafts can be adopted.");
+     }
+-    const existing = await this.store.getProjectByOwnerAndGuestDraft(owner.id, draft.draftId);
+-    if (existing) return existing;
+-    const project = await this.createProject(owner, draft.brief, draft.draftId);
+-    for (const message of draft.messages) {
+-      await this.store.addMessage({
+-        id: createId("msg"),
+-        projectId: project.id,
+-        authorKind: message.authorKind,
+-        body: message.body,
+-        liveAi: false,
+-        createdAt: message.createdAt,
+-        metadata: { importedFromGuest: true, originalId: message.id }
++    return this.store.runInTransaction(async () => {
++      const existing = await this.store.getProjectByOwnerAndGuestDraft(owner.id, draft.draftId);
++      if (existing) return existing;
++      const claimed = await this.store.getProjectByGuestDraft(draft.draftId);
++      if (claimed && claimed.ownerId !== owner.id) {
++        throw new ForbiddenError("This guest work already belongs to another account.");
++      }
++      await new GuestWorkService(this.store).claim(owner, {
++        guestWorkId: draft.draftId,
++        kind: "brief",
++        destination: "/account/adopt"
+       });
+-    }
+-    return project;
++      try {
++        const project = await this.createProject(owner, draft.brief, draft.draftId);
++        for (const message of draft.messages) {
++          await this.store.addMessage({
++            id: createId("msg"),
++            projectId: project.id,
++            authorKind: message.authorKind,
++            body: message.body,
++            liveAi: false,
++            createdAt: message.createdAt,
++            metadata: { importedFromGuest: true, originalId: message.id }
++          });
++        }
++        return project;
++      } catch (error) {
++        if (!isUniqueViolation(error)) throw error;
++        const again = await this.store.getProjectByOwnerAndGuestDraft(owner.id, draft.draftId);
++        if (again) return again;
++        throw new ForbiddenError("This guest work already belongs to another account.");
++      }
++    });
+   }
+ 
+   async listForOwner(user: User) {
+diff --git a/src/lib/guest/claim.ts b/src/lib/guest/claim.ts
+new file mode 100644
+index 0000000..e101267
+--- /dev/null
++++ b/src/lib/guest/claim.ts
+@@ -0,0 +1,79 @@
++import { safeCallbackUrl } from "@/lib/auth/callbackUrl";
++import type { GuestWorkClaim, GuestWorkKind } from "@/lib/cofounder/types";
++import { ForbiddenError } from "@/lib/domain/errors";
++import { isUniqueViolation } from "@/lib/persistence/unique";
++import type { PersistenceAdapter } from "@/lib/persistence/adapter";
++import type { User } from "@/lib/types";
++
++export type GuestClaimInput = {
++  guestWorkId: string;
++  kind: GuestWorkKind;
++  destination?: string;
++  payload?: unknown;
++};
++
++function sanitizeGuestWorkId(value: string) {
++  return value.trim().slice(0, 80);
++}
++
++function payloadJson(payload: unknown) {
++  if (payload == null) return "{}";
++  return JSON.stringify(payload).slice(0, 20_000);
++}
++
++export class GuestWorkService {
++  constructor(private readonly store: PersistenceAdapter) {}
++
++  async claim(user: User, input: GuestClaimInput): Promise<GuestWorkClaim> {
++    const guestWorkId = sanitizeGuestWorkId(input.guestWorkId);
++    if (!guestWorkId) {
++      throw new ForbiddenError("A guest work identifier is required.");
++    }
++    const destination = safeCallbackUrl(input.destination, "/companion/confirm");
++    const next: GuestWorkClaim = {
++      guestWorkId,
++      ownerId: user.id,
++      kind: input.kind,
++      destination,
++      payloadJson: payloadJson(input.payload),
++      createdAt: new Date().toISOString()
++    };
++
++    return this.store.runInTransaction(async () => {
++      const existing = await this.store.companion.getGuestWorkClaim(guestWorkId);
++      if (existing) {
++        if (existing.ownerId !== user.id) {
++          throw new ForbiddenError("This guest work already belongs to another account.");
++        }
++        return existing;
++      }
++      try {
++        return await this.store.companion.insertGuestWorkClaim(next);
++      } catch (error) {
++        if (!isUniqueViolation(error)) throw error;
++        const raced = await this.store.companion.getGuestWorkClaim(guestWorkId);
++        if (raced && raced.ownerId === user.id) return raced;
++        throw new ForbiddenError("This guest work already belongs to another account.");
++      }
++    });
++  }
++
++  async readForUser(user: User, guestWorkId: string) {
++    const claim = await this.store.companion.getGuestWorkClaim(sanitizeGuestWorkId(guestWorkId));
++    if (!claim) return null;
++    if (claim.ownerId !== user.id && user.role !== "founder") {
++      throw new ForbiddenError("This guest work already belongs to another account.");
++    }
++    return claim;
++  }
++}
++
++export function publicGuestClaim(claim: GuestWorkClaim) {
++  return {
++    guestWorkId: claim.guestWorkId,
++    ownerId: claim.ownerId,
++    kind: claim.kind,
++    destination: claim.destination,
++    createdAt: claim.createdAt
++  };
++}
+diff --git a/src/lib/guest/intent.test.ts b/src/lib/guest/intent.test.ts
+new file mode 100644
+index 0000000..2ff7f1f
+--- /dev/null
++++ b/src/lib/guest/intent.test.ts
+@@ -0,0 +1,22 @@
++import { describe, expect, it } from "vitest";
++import { parseGuestIntent } from "@/lib/guest/intent";
++
++describe("guest intent", () => {
++  it("keeps destination on the approved allowlist and omits private payloads", () => {
++    const parsed = parseGuestIntent({
++      version: 1,
++      kind: "guest_intent",
++      guestWorkId: "dsel_abc",
++      destination: "/companion/confirm",
++      selectionId: "dsel_abc",
++      localRevision: 2,
++      businessName: "should never be required"
++    });
++    expect(parsed?.destination).toBe("/companion/confirm");
++    expect(parsed?.guestWorkId).toBe("dsel_abc");
++    expect(JSON.stringify(parsed)).not.toContain("should never be required");
++    expect(parseGuestIntent({ version: 1, kind: "guest_intent", guestWorkId: "x", destination: "https://evil" })?.destination).toBe(
++      "/companion/confirm"
++    );
++  });
++});
+diff --git a/src/lib/guest/intent.ts b/src/lib/guest/intent.ts
+new file mode 100644
+index 0000000..3abd4ae
+--- /dev/null
++++ b/src/lib/guest/intent.ts
+@@ -0,0 +1,58 @@
++import { safeCallbackUrl } from "@/lib/auth/callbackUrl";
++
++export const GUEST_INTENT_KEY = "aethelios.atelier.guestIntent.v1";
++
++export type GuestIntent = {
++  version: 1;
++  kind: "guest_intent";
++  guestWorkId: string;
++  destination: string;
++  selectionId?: string;
++  localRevision?: number;
++  updatedAt: string;
++};
++
++export function parseGuestIntent(raw: unknown): GuestIntent | null {
++  if (!raw || typeof raw !== "object") return null;
++  const value = raw as Partial<GuestIntent>;
++  if (value.kind !== "guest_intent" || value.version !== 1) return null;
++  if (typeof value.guestWorkId !== "string" || !value.guestWorkId.trim()) return null;
++  return {
++    version: 1,
++    kind: "guest_intent",
++    guestWorkId: value.guestWorkId.slice(0, 80),
++    destination: safeCallbackUrl(value.destination, "/companion/confirm"),
++    selectionId: typeof value.selectionId === "string" ? value.selectionId.slice(0, 80) : undefined,
++    localRevision: typeof value.localRevision === "number" ? value.localRevision : undefined,
++    updatedAt: typeof value.updatedAt === "string" ? value.updatedAt : new Date().toISOString()
++  };
++}
++
++export function readGuestIntent(): GuestIntent | null {
++  if (typeof window === "undefined") return null;
++  try {
++    const raw = window.sessionStorage.getItem(GUEST_INTENT_KEY);
++    return raw ? parseGuestIntent(JSON.parse(raw)) : null;
++  } catch {
++    return null;
++  }
++}
++
++export function writeGuestIntent(intent: Omit<GuestIntent, "version" | "kind" | "updatedAt">) {
++  if (typeof window === "undefined") return;
++  const next: GuestIntent = {
++    version: 1,
++    kind: "guest_intent",
++    guestWorkId: intent.guestWorkId,
++    destination: safeCallbackUrl(intent.destination, "/companion/confirm"),
++    selectionId: intent.selectionId,
++    localRevision: intent.localRevision,
++    updatedAt: new Date().toISOString()
++  };
++  window.sessionStorage.setItem(GUEST_INTENT_KEY, JSON.stringify(next));
++}
++
++export function clearGuestIntent() {
++  if (typeof window === "undefined") return;
++  window.sessionStorage.removeItem(GUEST_INTENT_KEY);
++}
+diff --git a/src/lib/persistence/adapter.ts b/src/lib/persistence/adapter.ts
+index 7254c0c..11b2914 100644
+--- a/src/lib/persistence/adapter.ts
++++ b/src/lib/persistence/adapter.ts
+@@ -57,6 +57,7 @@ export type PersistenceAdapter = {
+   listProjectsByOwner(ownerId: string): MaybePromise<Project[]>;
+   listSubmittedProjects(): MaybePromise<Project[]>;
+   getProjectByOwnerAndGuestDraft(ownerId: string, guestDraftId: string): MaybePromise<Project | null>;
++  getProjectByGuestDraft(guestDraftId: string): MaybePromise<Project | null>;
+   updateProject(project: Project): MaybePromise<Project>;
+   getSubmissionByIdempotencyKey(key: string): MaybePromise<Submission | null>;
+ 
+diff --git a/src/lib/persistence/companionMaps.ts b/src/lib/persistence/companionMaps.ts
+index 4bfc22a..ddcf8a8 100644
+--- a/src/lib/persistence/companionMaps.ts
++++ b/src/lib/persistence/companionMaps.ts
+@@ -2,9 +2,12 @@ import { normalizeProfile } from "@/lib/cofounder/profile";
+ import { usageEventStatus } from "@/lib/cofounder/types";
+ import type {
+   Business,
++  BusinessConfirmation,
+   BusinessDocument,
+   BusinessMember,
+   BusinessProfile,
++  GuestWorkClaim,
++  GuestWorkKind,
+   CompanionBlob,
+   CompanionConversation,
+   CompanionMessage,
+@@ -27,6 +30,31 @@ function parseJson<T>(value: string, fallback: T): T {
+   }
+ }
+ 
++export function mapGuestClaim(row: Row): GuestWorkClaim {
++  return {
++    guestWorkId: asString(row.guest_work_id),
++    ownerId: asString(row.owner_id),
++    kind: asString(row.kind) as GuestWorkKind,
++    destination: asString(row.destination),
++    payloadJson: asString(row.payload_json),
++    createdAt: asString(row.created_at)
++  };
++}
++
++export function mapConfirmation(row: Row): BusinessConfirmation {
++  return {
++    businessId: asString(row.business_id),
++    ownerId: asString(row.owner_id),
++    businessName: asString(row.business_name),
++    businessContext: asString(row.business_context),
++    sourceSelectionId: asOptionalString(row.source_selection_id) ?? null,
++    sourceRevision: row.source_revision == null ? null : asNumber(row.source_revision),
++    directionId: asOptionalString(row.direction_id) ?? null,
++    confirmedAt: asString(row.confirmed_at),
++    confirmedBy: asString(row.confirmed_by)
++  };
++}
++
+ export function mapBusiness(row: Row): Business {
+   return {
+     id: asString(row.id),
+diff --git a/src/lib/persistence/companionMemory.ts b/src/lib/persistence/companionMemory.ts
+index d94d7ee..b26d502 100644
+--- a/src/lib/persistence/companionMemory.ts
++++ b/src/lib/persistence/companionMemory.ts
+@@ -1,10 +1,13 @@
+ import { emptyProfile, normalizeProfile } from "@/lib/cofounder/profile";
+ import { usageCountsTowardBudget } from "@/lib/cofounder/types";
++import { UniqueConstraintError } from "@/lib/domain/errors";
+ import type {
+   Business,
++  BusinessConfirmation,
+   BusinessDocument,
+   BusinessMember,
+   BusinessProfile,
++  GuestWorkClaim,
+   CompanionBlob,
+   CompanionConversation,
+   CompanionMessage,
+@@ -25,6 +28,9 @@ function clone<T>(value: T): T {
+ 
+ export class MemoryCompanionStore implements CompanionStore {
+   private businesses = new Map<string, Business>();
++  private initialBusiness = new Map<string, string>();
++  private guestClaims = new Map<string, GuestWorkClaim>();
++  private confirmations = new Map<string, BusinessConfirmation>();
+   private members = new Map<string, BusinessMember>();
+   private profiles = new Map<string, BusinessProfile>();
+   private memory = new Map<string, MemoryProposal>();
+@@ -39,8 +45,31 @@ export class MemoryCompanionStore implements CompanionStore {
+   private blobs = new Map<string, CompanionBlob>();
+   private revisions = new Map<string, CompositionRevision>();
+ 
++  snapshot() {
++    return {
++      businesses: new Map(this.businesses),
++      initialBusiness: new Map(this.initialBusiness),
++      guestClaims: new Map(this.guestClaims),
++      confirmations: new Map(this.confirmations),
++      members: new Map(this.members),
++      profiles: new Map(this.profiles)
++    };
++  }
++
++  restore(snapshot: ReturnType<MemoryCompanionStore["snapshot"]>) {
++    this.businesses = new Map(snapshot.businesses);
++    this.initialBusiness = new Map(snapshot.initialBusiness);
++    this.guestClaims = new Map(snapshot.guestClaims);
++    this.confirmations = new Map(snapshot.confirmations);
++    this.members = new Map(snapshot.members);
++    this.profiles = new Map(snapshot.profiles);
++  }
++
+   reset() {
+     this.businesses.clear();
++    this.initialBusiness.clear();
++    this.guestClaims.clear();
++    this.confirmations.clear();
+     this.members.clear();
+     this.profiles.clear();
+     this.memory.clear();
+@@ -80,6 +109,43 @@ export class MemoryCompanionStore implements CompanionStore {
+     return clone(business);
+   }
+ 
++  getInitialBusinessId(userId: string) {
++    return this.initialBusiness.get(userId) ?? null;
++  }
++
++  claimInitialBusiness(userId: string, businessId: string) {
++    const existing = this.initialBusiness.get(userId);
++    if (existing) {
++      return { claimed: false, businessId: existing };
++    }
++    this.initialBusiness.set(userId, businessId);
++    return { claimed: true, businessId };
++  }
++
++  getGuestWorkClaim(guestWorkId: string) {
++    const item = this.guestClaims.get(guestWorkId);
++    return item ? clone(item) : null;
++  }
++
++  insertGuestWorkClaim(claim: GuestWorkClaim) {
++    const existing = this.guestClaims.get(claim.guestWorkId);
++    if (existing) {
++      throw new UniqueConstraintError("This guest work has already been claimed.");
++    }
++    this.guestClaims.set(claim.guestWorkId, clone(claim));
++    return clone(claim);
++  }
++
++  getBusinessConfirmation(businessId: string) {
++    const item = this.confirmations.get(businessId);
++    return item ? clone(item) : null;
++  }
++
++  upsertBusinessConfirmation(confirmation: BusinessConfirmation) {
++    this.confirmations.set(confirmation.businessId, clone(confirmation));
++    return clone(confirmation);
++  }
++
+   addMember(member: BusinessMember) {
+     this.members.set(`${member.businessId}:${member.userId}`, clone(member));
+     return clone(member);
+diff --git a/src/lib/persistence/companionPostgres.ts b/src/lib/persistence/companionPostgres.ts
+index 7311733..e32093a 100644
+--- a/src/lib/persistence/companionPostgres.ts
++++ b/src/lib/persistence/companionPostgres.ts
+@@ -3,9 +3,11 @@ import { emptyProfile } from "@/lib/cofounder/profile";
+ import { usageCountsTowardBudget } from "@/lib/cofounder/types";
+ import type {
+   Business,
++  BusinessConfirmation,
+   BusinessDocument,
+   BusinessMember,
+   BusinessProfile,
++  GuestWorkClaim,
+   CompanionBlob,
+   CompanionConversation,
+   CompanionMessage,
+@@ -18,9 +20,12 @@ import type {
+   UsageKind,
+   WorkItem
+ } from "@/lib/cofounder/types";
++import { throwIfUnique } from "@/lib/persistence/unique";
+ import {
+   mapBlob,
+   mapBusiness,
++  mapConfirmation,
++  mapGuestClaim,
+   mapCompanionMessage,
+   mapConversation,
+   mapDocument,
+@@ -136,6 +141,65 @@ export class PostgresCompanionStore implements CompanionStore {
+     return business;
+   }
+ 
++  async getInitialBusinessId(userId: string) {
++    const rows = await this.client()`SELECT business_id FROM user_initial_business WHERE user_id = ${userId}`;
++    return rows[0] ? String(rows[0].business_id) : null;
++  }
++
++  async claimInitialBusiness(userId: string, businessId: string, createdAt: string) {
++    await this.client()`
++      INSERT INTO user_initial_business(user_id, business_id, created_at)
++      VALUES (${userId}, ${businessId}, ${createdAt})
++      ON CONFLICT (user_id) DO NOTHING
++    `;
++    const existing = await this.getInitialBusinessId(userId);
++    return { claimed: existing === businessId, businessId: existing ?? businessId };
++  }
++
++  async getGuestWorkClaim(guestWorkId: string) {
++    const rows = await this.client()`SELECT * FROM guest_work_claims WHERE guest_work_id = ${guestWorkId}`;
++    return rows[0] ? mapGuestClaim(rows[0] as Row) : null;
++  }
++
++  async insertGuestWorkClaim(claim: GuestWorkClaim) {
++    try {
++      await this.client()`
++        INSERT INTO guest_work_claims(guest_work_id,owner_id,kind,destination,payload_json,created_at)
++        VALUES (${claim.guestWorkId}, ${claim.ownerId}, ${claim.kind}, ${claim.destination}, ${claim.payloadJson}, ${claim.createdAt})
++      `;
++      return claim;
++    } catch (error) {
++      throwIfUnique(error, "This guest work has already been claimed.");
++    }
++  }
++
++  async getBusinessConfirmation(businessId: string) {
++    const rows = await this.client()`SELECT * FROM business_confirmations WHERE business_id = ${businessId}`;
++    return rows[0] ? mapConfirmation(rows[0] as Row) : null;
++  }
++
++  async upsertBusinessConfirmation(confirmation: BusinessConfirmation) {
++    await this.client()`
++      INSERT INTO business_confirmations(
++        business_id,owner_id,business_name,business_context,source_selection_id,source_revision,direction_id,confirmed_at,confirmed_by
++      ) VALUES (
++        ${confirmation.businessId}, ${confirmation.ownerId}, ${confirmation.businessName}, ${confirmation.businessContext},
++        ${confirmation.sourceSelectionId}, ${confirmation.sourceRevision}, ${confirmation.directionId},
++        ${confirmation.confirmedAt}, ${confirmation.confirmedBy}
++      )
++      ON CONFLICT (business_id) DO UPDATE SET
++        owner_id = excluded.owner_id,
++        business_name = excluded.business_name,
++        business_context = excluded.business_context,
++        source_selection_id = excluded.source_selection_id,
++        source_revision = excluded.source_revision,
++        direction_id = excluded.direction_id,
++        confirmed_at = excluded.confirmed_at,
++        confirmed_by = excluded.confirmed_by
++    `;
++    return confirmation;
++  }
++
+   async addMember(member: BusinessMember) {
+     await this.client()`
+       INSERT INTO business_members(business_id,user_id,role,created_at)
+diff --git a/src/lib/persistence/companionSqlite.ts b/src/lib/persistence/companionSqlite.ts
+index 69476c9..0ea53d4 100644
+--- a/src/lib/persistence/companionSqlite.ts
++++ b/src/lib/persistence/companionSqlite.ts
+@@ -3,9 +3,11 @@ import { emptyProfile } from "@/lib/cofounder/profile";
+ import { usageCountsTowardBudget } from "@/lib/cofounder/types";
+ import type {
+   Business,
++  BusinessConfirmation,
+   BusinessDocument,
+   BusinessMember,
+   BusinessProfile,
++  GuestWorkClaim,
+   CompanionBlob,
+   CompanionConversation,
+   CompanionMessage,
+@@ -18,9 +20,12 @@ import type {
+   UsageKind,
+   WorkItem
+ } from "@/lib/cofounder/types";
++import { throwIfUnique } from "@/lib/persistence/unique";
+ import {
+   mapBlob,
+   mapBusiness,
++  mapConfirmation,
++  mapGuestClaim,
+   mapCompanionMessage,
+   mapConversation,
+   mapDocument,
+@@ -174,6 +179,80 @@ export class SqliteCompanionStore implements CompanionStore {
+     return business;
+   }
+ 
++  getInitialBusinessId(userId: string) {
++    const row = this.db.prepare("SELECT business_id FROM user_initial_business WHERE user_id = ?").get(userId) as
++      | { business_id: string }
++      | undefined;
++    return row?.business_id ?? null;
++  }
++
++  claimInitialBusiness(userId: string, businessId: string, createdAt: string) {
++    this.db
++      .prepare(
++        "INSERT OR IGNORE INTO user_initial_business(user_id, business_id, created_at) VALUES(?,?,?)"
++      )
++      .run(userId, businessId, createdAt);
++    const existing = this.getInitialBusinessId(userId);
++    return { claimed: existing === businessId, businessId: existing ?? businessId };
++  }
++
++  getGuestWorkClaim(guestWorkId: string) {
++    const row = this.db.prepare("SELECT * FROM guest_work_claims WHERE guest_work_id = ?").get(guestWorkId) as
++      | Row
++      | undefined;
++    return row ? mapGuestClaim(row) : null;
++  }
++
++  insertGuestWorkClaim(claim: GuestWorkClaim) {
++    try {
++      this.db
++        .prepare(
++          "INSERT INTO guest_work_claims(guest_work_id,owner_id,kind,destination,payload_json,created_at) VALUES(?,?,?,?,?,?)"
++        )
++        .run(claim.guestWorkId, claim.ownerId, claim.kind, claim.destination, claim.payloadJson, claim.createdAt);
++      return claim;
++    } catch (error) {
++      throwIfUnique(error, "This guest work has already been claimed.");
++    }
++  }
++
++  getBusinessConfirmation(businessId: string) {
++    const row = this.db.prepare("SELECT * FROM business_confirmations WHERE business_id = ?").get(businessId) as
++      | Row
++      | undefined;
++    return row ? mapConfirmation(row) : null;
++  }
++
++  upsertBusinessConfirmation(confirmation: BusinessConfirmation) {
++    this.db
++      .prepare(
++        `INSERT INTO business_confirmations(
++          business_id,owner_id,business_name,business_context,source_selection_id,source_revision,direction_id,confirmed_at,confirmed_by
++        ) VALUES(?,?,?,?,?,?,?,?,?)
++        ON CONFLICT(business_id) DO UPDATE SET
++          owner_id=excluded.owner_id,
++          business_name=excluded.business_name,
++          business_context=excluded.business_context,
++          source_selection_id=excluded.source_selection_id,
++          source_revision=excluded.source_revision,
++          direction_id=excluded.direction_id,
++          confirmed_at=excluded.confirmed_at,
++          confirmed_by=excluded.confirmed_by`
++      )
++      .run(
++        confirmation.businessId,
++        confirmation.ownerId,
++        confirmation.businessName,
++        confirmation.businessContext,
++        confirmation.sourceSelectionId,
++        confirmation.sourceRevision,
++        confirmation.directionId,
++        confirmation.confirmedAt,
++        confirmation.confirmedBy
++      );
++    return confirmation;
++  }
++
+   addMember(member: BusinessMember) {
+     this.db
+       .prepare(
+diff --git a/src/lib/persistence/companionStore.ts b/src/lib/persistence/companionStore.ts
+index 3db1584..49b62e7 100644
+--- a/src/lib/persistence/companionStore.ts
++++ b/src/lib/persistence/companionStore.ts
+@@ -1,8 +1,10 @@
+ import type {
+   Business,
++  BusinessConfirmation,
+   BusinessDocument,
+   BusinessMember,
+   BusinessProfile,
++  GuestWorkClaim,
+   CompanionBlob,
+   CompanionConversation,
+   CompanionMessage,
+@@ -24,6 +26,16 @@ export type CompanionStore = {
+   listBusinessesForUser(userId: string): Business[] | Promise<Business[]>;
+   listAllBusinesses(): Business[] | Promise<Business[]>;
+   updateBusiness(business: Business): Business | Promise<Business>;
++  getInitialBusinessId(userId: string): string | null | Promise<string | null>;
++  claimInitialBusiness(
++    userId: string,
++    businessId: string,
++    createdAt: string
++  ): { claimed: boolean; businessId: string } | Promise<{ claimed: boolean; businessId: string }>;
++  getGuestWorkClaim(guestWorkId: string): GuestWorkClaim | null | Promise<GuestWorkClaim | null>;
++  insertGuestWorkClaim(claim: GuestWorkClaim): GuestWorkClaim | Promise<GuestWorkClaim>;
++  getBusinessConfirmation(businessId: string): BusinessConfirmation | null | Promise<BusinessConfirmation | null>;
++  upsertBusinessConfirmation(confirmation: BusinessConfirmation): BusinessConfirmation | Promise<BusinessConfirmation>;
+ 
+   addMember(member: BusinessMember): BusinessMember | Promise<BusinessMember>;
+   getMember(businessId: string, userId: string): BusinessMember | null | Promise<BusinessMember | null>;
+@@ -119,6 +131,30 @@ CREATE TABLE IF NOT EXISTS businesses (
+   created_at TEXT NOT NULL,
+   updated_at TEXT NOT NULL
+ );
++CREATE TABLE IF NOT EXISTS user_initial_business (
++  user_id TEXT PRIMARY KEY,
++  business_id TEXT NOT NULL UNIQUE,
++  created_at TEXT NOT NULL
++);
++CREATE TABLE IF NOT EXISTS guest_work_claims (
++  guest_work_id TEXT PRIMARY KEY,
++  owner_id TEXT NOT NULL,
++  kind TEXT NOT NULL,
++  destination TEXT NOT NULL,
++  payload_json TEXT NOT NULL,
++  created_at TEXT NOT NULL
++);
++CREATE TABLE IF NOT EXISTS business_confirmations (
++  business_id TEXT PRIMARY KEY,
++  owner_id TEXT NOT NULL,
++  business_name TEXT NOT NULL,
++  business_context TEXT NOT NULL,
++  source_selection_id TEXT,
++  source_revision INTEGER,
++  direction_id TEXT,
++  confirmed_at TEXT NOT NULL,
++  confirmed_by TEXT NOT NULL
++);
+ CREATE TABLE IF NOT EXISTS business_members (
+   business_id TEXT NOT NULL,
+   user_id TEXT NOT NULL,
+@@ -284,6 +320,9 @@ export const COMPANION_RESET_SQL = `
+   DELETE FROM business_documents;
+   DELETE FROM business_memory_proposals;
+   DELETE FROM business_profiles;
++  DELETE FROM business_confirmations;
++  DELETE FROM guest_work_claims;
++  DELETE FROM user_initial_business;
+   DELETE FROM business_members;
+   DELETE FROM businesses;
+ `;
+diff --git a/src/lib/persistence/memory.ts b/src/lib/persistence/memory.ts
+index e42376d..05ee004 100644
+--- a/src/lib/persistence/memory.ts
++++ b/src/lib/persistence/memory.ts
+@@ -19,6 +19,7 @@ import type {
+   User,
+   VerificationTokenRecord
+ } from "@/lib/types";
++import { UniqueConstraintError } from "@/lib/domain/errors";
+ import { MemoryCompanionStore } from "@/lib/persistence/companionMemory";
+ import type { PersistenceAdapter } from "@/lib/persistence/adapter";
+ 
+@@ -70,8 +71,14 @@ export class MemoryPersistence implements PersistenceAdapter {
+     this.txChain = next;
+     await previous.catch(() => undefined);
+     this.txDepth += 1;
++    const companionSnap = this.companion.snapshot();
++    const projectSnap = new Map(this.projects);
+     try {
+       return await fn();
++    } catch (error) {
++      this.companion.restore(companionSnap);
++      this.projects = projectSnap;
++      throw error;
+     } finally {
+       this.txDepth -= 1;
+       release();
+@@ -175,6 +182,14 @@ export class MemoryPersistence implements PersistenceAdapter {
+   }
+ 
+   createProject(project: Project) {
++    if (project.adoptedFromGuestId) {
++      const claimed = [...this.projects.values()].find(
++        (item) => item.adoptedFromGuestId === project.adoptedFromGuestId
++      );
++      if (claimed) {
++        throw new UniqueConstraintError("This guest work has already been claimed.");
++      }
++    }
+     this.projects.set(project.id, clone(project));
+     return clone(project);
+   }
+@@ -202,6 +217,11 @@ export class MemoryPersistence implements PersistenceAdapter {
+     return project ? clone(project) : null;
+   }
+ 
++  getProjectByGuestDraft(guestDraftId: string) {
++    const project = [...this.projects.values()].find((item) => item.adoptedFromGuestId === guestDraftId);
++    return project ? clone(project) : null;
++  }
++
+   getSubmissionByIdempotencyKey(key: string) {
+     const submission = [...this.submissions.values()].find((item) => item.idempotencyKey === key);
+     return submission ? clone(submission) : null;
+diff --git a/src/lib/persistence/postgres.test.ts b/src/lib/persistence/postgres.test.ts
+index ab7d963..240abf7 100644
+--- a/src/lib/persistence/postgres.test.ts
++++ b/src/lib/persistence/postgres.test.ts
+@@ -12,6 +12,10 @@ describe("hosted postgres schema", () => {
+     expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS delivery_versions/);
+     expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS delivery_milestones/);
+     expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS businesses/);
++    expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS user_initial_business/);
++    expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS guest_work_claims/);
++    expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS business_confirmations/);
++    expect(sql).toMatch(/projects_guest_draft_idx/);
+     expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS work_items/);
+     expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS studio_assets/);
+     expect(sql).toMatch(/reviewed_version/);
+diff --git a/src/lib/persistence/postgres.ts b/src/lib/persistence/postgres.ts
+index 486db51..dcc2b77 100644
+--- a/src/lib/persistence/postgres.ts
++++ b/src/lib/persistence/postgres.ts
+@@ -45,6 +45,7 @@ import {
+   type Row
+ } from "@/lib/persistence/map";
+ import { PostgresCompanionStore } from "@/lib/persistence/companionPostgres";
++import { throwIfUnique } from "@/lib/persistence/unique";
+ 
+ const txSql = new AsyncLocalStorage<Sql | TransactionSql>();
+ 
+@@ -97,6 +98,9 @@ const SCHEMA_STATEMENTS = [
+     adopted_from_guest_id TEXT,
+     latest_submission_id TEXT
+   )`,
++  `CREATE UNIQUE INDEX IF NOT EXISTS projects_guest_draft_idx
++    ON projects (adopted_from_guest_id)
++    WHERE adopted_from_guest_id IS NOT NULL`,
+   `CREATE TABLE IF NOT EXISTS submissions (
+     id TEXT PRIMARY KEY,
+     project_id TEXT NOT NULL,
+@@ -471,23 +475,27 @@ export class PostgresPersistence implements PersistenceAdapter {
+   }
+ 
+   async createProject(project: Project) {
+-    await this.client()`
+-      INSERT INTO projects(id,owner_id,title,status,brief_json,version,created_at,updated_at,adopted_from_guest_id,latest_submission_id,business_id)
+-      VALUES (
+-        ${project.id},
+-        ${project.ownerId},
+-        ${project.title},
+-        ${project.status},
+-        ${JSON.stringify(project.brief)},
+-        ${project.version},
+-        ${project.createdAt},
+-        ${project.updatedAt},
+-        ${project.adoptedFromGuestId ?? null},
+-        ${project.latestSubmissionId ?? null},
+-        ${project.businessId ?? null}
+-      )
+-    `;
+-    return project;
++    try {
++      await this.client()`
++        INSERT INTO projects(id,owner_id,title,status,brief_json,version,created_at,updated_at,adopted_from_guest_id,latest_submission_id,business_id)
++        VALUES (
++          ${project.id},
++          ${project.ownerId},
++          ${project.title},
++          ${project.status},
++          ${JSON.stringify(project.brief)},
++          ${project.version},
++          ${project.createdAt},
++          ${project.updatedAt},
++          ${project.adoptedFromGuestId ?? null},
++          ${project.latestSubmissionId ?? null},
++          ${project.businessId ?? null}
++        )
++      `;
++      return project;
++    } catch (error) {
++      throwIfUnique(error, "This guest work has already been claimed.");
++    }
+   }
+ 
+   async getProject(id: string) {
+@@ -514,6 +522,12 @@ export class PostgresPersistence implements PersistenceAdapter {
+     return rows[0] ? mapProject(rows[0] as Row) : null;
+   }
+ 
++  async getProjectByGuestDraft(guestDraftId: string) {
++    const rows =
++      await this.client()`SELECT * FROM projects WHERE adopted_from_guest_id = ${guestDraftId} LIMIT 1`;
++    return rows[0] ? mapProject(rows[0] as Row) : null;
++  }
++
+   async getSubmissionByIdempotencyKey(key: string) {
+     const rows = await this.client()`SELECT * FROM submissions WHERE idempotency_key = ${key} LIMIT 1`;
+     return rows[0] ? mapSubmission(rows[0] as Row) : null;
+diff --git a/src/lib/persistence/schema.postgres.sql b/src/lib/persistence/schema.postgres.sql
+index 7d620ef..f65e848 100644
+--- a/src/lib/persistence/schema.postgres.sql
++++ b/src/lib/persistence/schema.postgres.sql
+@@ -29,6 +29,9 @@ CREATE TABLE IF NOT EXISTS projects (
+   adopted_from_guest_id TEXT,
+   latest_submission_id TEXT
+ );
++CREATE UNIQUE INDEX IF NOT EXISTS projects_guest_draft_idx
++  ON projects (adopted_from_guest_id)
++  WHERE adopted_from_guest_id IS NOT NULL;
+ CREATE TABLE IF NOT EXISTS submissions (
+   id TEXT PRIMARY KEY,
+   project_id TEXT NOT NULL,
+@@ -203,6 +206,30 @@ CREATE TABLE IF NOT EXISTS businesses (
+   created_at TEXT NOT NULL,
+   updated_at TEXT NOT NULL
+ );
++CREATE TABLE IF NOT EXISTS user_initial_business (
++  user_id TEXT PRIMARY KEY,
++  business_id TEXT NOT NULL UNIQUE,
++  created_at TEXT NOT NULL
++);
++CREATE TABLE IF NOT EXISTS guest_work_claims (
++  guest_work_id TEXT PRIMARY KEY,
++  owner_id TEXT NOT NULL,
++  kind TEXT NOT NULL,
++  destination TEXT NOT NULL,
++  payload_json TEXT NOT NULL,
++  created_at TEXT NOT NULL
++);
++CREATE TABLE IF NOT EXISTS business_confirmations (
++  business_id TEXT PRIMARY KEY,
++  owner_id TEXT NOT NULL,
++  business_name TEXT NOT NULL,
++  business_context TEXT NOT NULL,
++  source_selection_id TEXT,
++  source_revision INTEGER,
++  direction_id TEXT,
++  confirmed_at TEXT NOT NULL,
++  confirmed_by TEXT NOT NULL
++);
+ CREATE TABLE IF NOT EXISTS business_members (
+   business_id TEXT NOT NULL,
+   user_id TEXT NOT NULL,
+diff --git a/src/lib/persistence/schema.sql b/src/lib/persistence/schema.sql
+index 3837543..2127c6e 100644
+--- a/src/lib/persistence/schema.sql
++++ b/src/lib/persistence/schema.sql
+@@ -30,6 +30,9 @@ CREATE TABLE IF NOT EXISTS projects (
+   adopted_from_guest_id TEXT,
+   latest_submission_id TEXT
+ );
++CREATE UNIQUE INDEX IF NOT EXISTS projects_guest_draft_idx
++  ON projects (adopted_from_guest_id)
++  WHERE adopted_from_guest_id IS NOT NULL;
+ CREATE TABLE IF NOT EXISTS submissions (
+   id TEXT PRIMARY KEY,
+   project_id TEXT NOT NULL,
+@@ -195,6 +198,30 @@ CREATE TABLE IF NOT EXISTS businesses (
+   created_at TEXT NOT NULL,
+   updated_at TEXT NOT NULL
+ );
++CREATE TABLE IF NOT EXISTS user_initial_business (
++  user_id TEXT PRIMARY KEY,
++  business_id TEXT NOT NULL UNIQUE,
++  created_at TEXT NOT NULL
++);
++CREATE TABLE IF NOT EXISTS guest_work_claims (
++  guest_work_id TEXT PRIMARY KEY,
++  owner_id TEXT NOT NULL,
++  kind TEXT NOT NULL,
++  destination TEXT NOT NULL,
++  payload_json TEXT NOT NULL,
++  created_at TEXT NOT NULL
++);
++CREATE TABLE IF NOT EXISTS business_confirmations (
++  business_id TEXT PRIMARY KEY,
++  owner_id TEXT NOT NULL,
++  business_name TEXT NOT NULL,
++  business_context TEXT NOT NULL,
++  source_selection_id TEXT,
++  source_revision INTEGER,
++  direction_id TEXT,
++  confirmed_at TEXT NOT NULL,
++  confirmed_by TEXT NOT NULL
++);
+ CREATE TABLE IF NOT EXISTS business_members (
+   business_id TEXT NOT NULL,
+   user_id TEXT NOT NULL,
+diff --git a/src/lib/persistence/sqlite.ts b/src/lib/persistence/sqlite.ts
+index 38fa236..6f4ec04 100644
+--- a/src/lib/persistence/sqlite.ts
++++ b/src/lib/persistence/sqlite.ts
+@@ -27,6 +27,7 @@ import type {
+ import { normalizeBrief } from "@/lib/brief";
+ import { SqliteCompanionStore } from "@/lib/persistence/companionSqlite";
+ import type { PersistenceAdapter } from "@/lib/persistence/adapter";
++import { throwIfUnique } from "@/lib/persistence/unique";
+ import {
+   mapAuthAccount,
+   mapContentRequest,
+@@ -86,6 +87,9 @@ CREATE TABLE IF NOT EXISTS projects (
+   adopted_from_guest_id TEXT,
+   latest_submission_id TEXT
+ );
++CREATE UNIQUE INDEX IF NOT EXISTS projects_guest_draft_idx
++  ON projects (adopted_from_guest_id)
++  WHERE adopted_from_guest_id IS NOT NULL;
+ CREATE TABLE IF NOT EXISTS submissions (
+   id TEXT PRIMARY KEY,
+   project_id TEXT NOT NULL,
+@@ -264,6 +268,9 @@ export class SqlitePersistence implements PersistenceAdapter {
+     this.db.exec(SCHEMA);
+     this.ensureSubmissionRequestColumns();
+     this.ensureAuthColumns();
++    this.db.exec(
++      "CREATE UNIQUE INDEX IF NOT EXISTS projects_guest_draft_idx ON projects (adopted_from_guest_id) WHERE adopted_from_guest_id IS NOT NULL"
++    );
+     this.companion = new SqliteCompanionStore(this.db);
+   }
+ 
+@@ -483,25 +490,29 @@ export class SqlitePersistence implements PersistenceAdapter {
+   }
+ 
+   createProject(project: Project) {
+-    this.db
+-      .prepare(
+-        `INSERT INTO projects(id,owner_id,title,status,brief_json,version,created_at,updated_at,adopted_from_guest_id,latest_submission_id,business_id)
+-         VALUES(?,?,?,?,?,?,?,?,?,?,?)`
+-      )
+-      .run(
+-        project.id,
+-        project.ownerId,
+-        project.title,
+-        project.status,
+-        JSON.stringify(project.brief),
+-        project.version,
+-        project.createdAt,
+-        project.updatedAt,
+-        project.adoptedFromGuestId ?? null,
+-        project.latestSubmissionId ?? null,
+-        project.businessId ?? null
+-      );
+-    return project;
++    try {
++      this.db
++        .prepare(
++          `INSERT INTO projects(id,owner_id,title,status,brief_json,version,created_at,updated_at,adopted_from_guest_id,latest_submission_id,business_id)
++           VALUES(?,?,?,?,?,?,?,?,?,?,?)`
++        )
++        .run(
++          project.id,
++          project.ownerId,
++          project.title,
++          project.status,
++          JSON.stringify(project.brief),
++          project.version,
++          project.createdAt,
++          project.updatedAt,
++          project.adoptedFromGuestId ?? null,
++          project.latestSubmissionId ?? null,
++          project.businessId ?? null
++        );
++      return project;
++    } catch (error) {
++      throwIfUnique(error, "This guest work has already been claimed.");
++    }
+   }
+ 
+   getProject(id: string) {
+@@ -525,6 +536,13 @@ export class SqlitePersistence implements PersistenceAdapter {
+     return rows.map((row) => this.mapProject(row));
+   }
+ 
++  getProjectByGuestDraft(guestDraftId: string) {
++    const row = this.db
++      .prepare("SELECT * FROM projects WHERE adopted_from_guest_id = ? LIMIT 1")
++      .get(guestDraftId) as Record<string, unknown> | undefined;
++    return row ? this.mapProject(row) : null;
++  }
++
+   getProjectByOwnerAndGuestDraft(ownerId: string, guestDraftId: string) {
+     const row = this.db
+       .prepare("SELECT * FROM projects WHERE owner_id = ? AND adopted_from_guest_id = ? LIMIT 1")
+diff --git a/src/lib/persistence/unique.ts b/src/lib/persistence/unique.ts
+new file mode 100644
+index 0000000..083b622
+--- /dev/null
++++ b/src/lib/persistence/unique.ts
+@@ -0,0 +1,22 @@
++import { UniqueConstraintError } from "@/lib/domain/errors";
++
++export function isUniqueViolation(error: unknown): boolean {
++  if (error instanceof UniqueConstraintError) return true;
++  if (!error || typeof error !== "object") return false;
++  const code = "code" in error ? String((error as { code?: unknown }).code) : "";
++  const message = error instanceof Error ? error.message : String(error);
++  return (
++    code === "23505" ||
++    code === "SQLITE_CONSTRAINT_UNIQUE" ||
++    code === "SQLITE_CONSTRAINT" ||
++    /UNIQUE constraint failed/i.test(message) ||
++    /duplicate key value/i.test(message)
++  );
++}
++
++export function throwIfUnique(error: unknown, message: string): never {
++  if (isUniqueViolation(error)) {
++    throw new UniqueConstraintError(message);
++  }
++  throw error;
++}
+diff --git a/src/lib/pwa/cachePolicy.test.ts b/src/lib/pwa/cachePolicy.test.ts
+index 23dc3c6..3e6ad4a 100644
+--- a/src/lib/pwa/cachePolicy.test.ts
++++ b/src/lib/pwa/cachePolicy.test.ts
+@@ -11,6 +11,7 @@ describe("offline cache policy", () => {
+   it("refuses personalized HTML, APIs, and authenticated routes", () => {
+     expect(isPersonalizedPath("/workspace/abc")).toBe(true);
+     expect(isPersonalizedPath("/api/session")).toBe(true);
++    expect(isPersonalizedPath("/companion/studio")).toBe(true);
+     expect(
+       shouldCacheResponse({
+         method: "GET",
+@@ -56,7 +57,7 @@ describe("offline cache policy", () => {
+       })
+     ).toBe(false);
+     expect(ATELIER_CACHE_PREFIX).toBe("atelier-static-");
+-    expect(ATELIER_CACHE_NAME).toBe("atelier-static-v8");
++    expect(ATELIER_CACHE_NAME).toBe("atelier-static-v9");
+     expect(
+       shouldCacheResponse({
+         method: "GET",
+diff --git a/src/lib/pwa/cachePolicy.ts b/src/lib/pwa/cachePolicy.ts
+index 41e8224..fde489b 100644
+--- a/src/lib/pwa/cachePolicy.ts
++++ b/src/lib/pwa/cachePolicy.ts
+@@ -1,7 +1,7 @@
+ /** Explicit safe allowlist for the Atelier service worker. Keep in sync with public/sw.js. */
+ 
+ export const ATELIER_CACHE_PREFIX = "atelier-static-";
+-export const ATELIER_CACHE_NAME = "atelier-static-v8";
++export const ATELIER_CACHE_NAME = "atelier-static-v9";
+ 
+ const STATIC_EXACT = new Set(["/offline", "/manifest.webmanifest"]);
+ const STATIC_PREFIXES = ["/brand/"];
+@@ -12,7 +12,8 @@ export function isPersonalizedPath(pathname: string) {
+     pathname.startsWith("/workspace") ||
+     pathname.startsWith("/founder") ||
+     pathname.startsWith("/project") ||
+-    pathname.startsWith("/account")
++    pathname.startsWith("/account") ||
++    pathname.startsWith("/companion")
+   );
+ }
+ 

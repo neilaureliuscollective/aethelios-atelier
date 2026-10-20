@@ -1,7 +1,9 @@
 # Atelier launch-readiness report
 
 Branch: `cursor/atelier-premium-launch-readiness-da63`  
-Base: `429f939b555f5e4d11bc95e2cc56afb11f167c98` (`main`)
+Exact commit: `32c88c1c26edbd823b86ffba524ffcba24bc9a3b`  
+Base: `429f939b555f5e4d11bc95e2cc56afb11f167c98` (`main`)  
+Recovery patch: `docs/launch/atelier-launch-readiness.patch`
 
 This is **code-complete evidence for a local candidate**, not configured launch acceptance.
 
