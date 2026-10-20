@@ -114,7 +114,7 @@ const SERVICE_SETS: Record<
       {
         id: "delivery",
         title: "The engagement",
-        detail: "The primary service, named once, with no fabricated case studies."
+        detail: "The primary service, named once, without invented client stories."
       },
       {
         id: "continue",
@@ -241,7 +241,7 @@ export function buildConceptContent(draft: DiscoveryDraft, directionId: Directio
         )
       : headline,
     opening: lifestyle
-      ? "AETHELIOS LIFESTYLE is Neil Stutes’ own product brand — not a fabricated customer story. This page is a website concept, not a live store."
+      ? "AETHELIOS LIFESTYLE is Neil Stutes’ own product brand, shown here as a website concept — not a live store."
       : `${OPENINGS[directionId]} ${intentLine(draft.intent)}`,
     atmosphere: lifestyle
       ? "The concept holds the name, the space for the supplied mark, and room for product photography that has not been provided yet."
@@ -302,7 +302,7 @@ export function buildConceptContent(draft: DiscoveryDraft, directionId: Directio
               "Take the demonstrated next step. A finished commission can later link to an existing booking provider."
           }
         ],
-    actionLabel: lifestyle ? "Continue in Companion" : actionLabel(directionId),
+    actionLabel: lifestyle ? "Continue in Business Studio" : actionLabel(directionId),
     actionHint: lifestyle
       ? "Concept only. Logo, product photography, and labels are still waiting to be supplied."
       : "Demonstration only. Nothing is booked, sent, or charged. The eventual website can connect the booking tool they already use.",

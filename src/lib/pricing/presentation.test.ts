@@ -115,7 +115,12 @@ describe("pricing presentation", () => {
     expect(serialized).not.toMatch(/displayed prices are unpublished|unpublished commercial/i);
     expect(pub.comparison.find((row) => row.id === "unlimited")?.values.atelier).toBe("Not included");
     expect(pub.comparison.find((row) => row.id === "disabled")?.values.connected).toMatch(/not offered/i);
+    expect(pub.comparison.find((row) => row.id === "difference")?.values.connected).toMatch(
+      /not published as a separate inclusion list/i
+    );
+    expect(pub.comparison.find((row) => row.id === "difference")?.values.partnership).toMatch(/quoted setup/i);
     expect(pub.faq.find((item) => item.id === "unlimited")?.answer).toMatch(/nothing here is an unlimited/i);
+    expect(pub.faq.find((item) => item.id === "aethelios")?.answer).toMatch(/not the main Aethelios product/i);
   });
 
   it("keeps cards, comparison, and FAQs in agreement", () => {

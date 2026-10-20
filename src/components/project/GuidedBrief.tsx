@@ -721,7 +721,7 @@ export function GuidedBrief({
     return (
       <section className="container section">
         <p className="kicker">Project brief</p>
-        <h1>Opening the workspace…</h1>
+        <h1>Opening the brief…</h1>
       </section>
     );
   }
@@ -732,7 +732,7 @@ export function GuidedBrief({
         <h1>Commission unavailable</h1>
         <p className="notice notice-warn">{loadError}</p>
         <AppLink className="btn btn-gold" href="/workspace">
-          Open workspace
+          Open Commissions
         </AppLink>
       </section>
     );
@@ -785,7 +785,7 @@ export function GuidedBrief({
           {user && !projectId && !createNew ? (
             <p className="notice" style={{ marginTop: 12 }}>
               This is a device draft. It does not open another commission on this account.{" "}
-              <AppLink href="/workspace">Open workspace</AppLink> or{" "}
+              <AppLink href="/workspace">Open Commissions</AppLink> or{" "}
               <AppLink href="/project/new">start a new project</AppLink>.
             </p>
           ) : null}
@@ -877,14 +877,14 @@ export function GuidedBrief({
               ) : null}
               {visibleFields.map((key, index) => (
                 <div key={key} style={{ marginTop: 18 }}>
-                  <label>
-                    <span className="lbl" id={key === "projectType" ? "project-type-label" : undefined}>
-                      {fieldLabel(key, brief)}
-                    </span>
-                    {key === "projectType" ? (
+                  {key === "projectType" ? (
+                    <>
+                      <p className="lbl" id="project-type-label">
+                        {fieldLabel(key, brief)}
+                      </p>
                       <div className="chips" role="group" aria-labelledby="project-type-label">
                         {brief.projectType.value === HISTORICAL_BOOKING_PROJECT_TYPE ? (
-                          <span className="chip chip-saved" aria-pressed="true">
+                          <span className="chip chip-saved">
                             Saved as booking-connected website
                           </span>
                         ) : null}
@@ -900,15 +900,18 @@ export function GuidedBrief({
                           </button>
                         ))}
                       </div>
-                    ) : (
+                    </>
+                  ) : (
+                    <label>
+                      <span className="lbl">{fieldLabel(key, brief)}</span>
                       <textarea
                         ref={index === 0 ? editorRef : undefined}
                         value={brief[key].value}
                         onChange={(event) => updateField(key, event.target.value)}
                         placeholder={fieldHint(key, brief)}
                       />
-                    )}
-                  </label>
+                    </label>
+                  )}
                 </div>
               ))}
               {historicalProjectTypeNote(brief.projectType.value) ? (

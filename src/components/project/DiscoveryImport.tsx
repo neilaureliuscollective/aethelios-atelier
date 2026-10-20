@@ -13,6 +13,7 @@ import {
   type DiscoverySelection,
   type ImportReviewCapture
 } from "@/lib/discovery";
+import { fieldDecisionLabel } from "@/lib/copy";
 import type { Brief, BriefFieldKey } from "@/lib/types";
 
 export function DiscoveryImport({
@@ -82,7 +83,7 @@ export function DiscoveryImport({
     }
     setCapture(reviewed.capture);
     setOpen(true);
-    setMessage("Choose append, replace, or skip for each proposed field. This is not a submission.");
+    setMessage("Choose whether to add to existing notes, replace existing notes, or leave each field unchanged. This is not a submission.");
     setDecisions(
       Object.fromEntries(
         reviewed.capture.mapping.proposals.map((item) => [item.field, item.conflict ? "skip" : "replace"])
@@ -132,8 +133,8 @@ export function DiscoveryImport({
       </p>
       <p className="muted">
         This commission import adds brief text. To keep the structured palette, typography,
-        layout and imagery references for editable work, <a href="/companion/talk">open Companion
-        and review saving this direction to your business</a>.
+        layout and imagery references for editable work, <a href="/companion/talk">open Business
+        Studio and review saving this direction to your business</a>.
       </p>
       {message ? <p className="notice">{message}</p> : null}
       {staleOpen ? (
@@ -167,7 +168,7 @@ export function DiscoveryImport({
                       disabled={proposal.field === "projectType" && decision === "append"}
                       onChange={() => setDecisions((current) => ({ ...current, [proposal.field]: decision }))}
                     />
-                    <span>{decision}</span>
+                    <span>{fieldDecisionLabel(decision)}</span>
                   </label>
                 ))}
               </div>

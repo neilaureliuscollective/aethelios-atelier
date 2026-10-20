@@ -1107,7 +1107,7 @@ function ReviewBody({
         <ServiceScopeNote interest={draft.serviceInterest} />
         <div className={styles.notice} data-unpublished={unpublished ? "true" : "false"}>
           {unpublished
-            ? "You are looking at the last confirmed selection in the recap. Current exploration has unpublished changes. Use this direction again to refresh the snapshot."
+            ? "You are looking at the last confirmed selection in the recap. Current exploration has unconfirmed changes. Use this direction again to refresh the snapshot."
             : confirmed
               ? "The recap is the last confirmed selection, and it matches the current studio."
               : "Use this direction to freeze a snapshot for review."}

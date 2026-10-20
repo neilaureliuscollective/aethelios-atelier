@@ -43,7 +43,9 @@ export function FounderHome() {
         and the next milestone.
       </p>
       <div className="stack" style={{ marginTop: 20 }}>
-        {queue?.length ? (
+        {queue === null ? (
+          <p className="notice">Loading the review queue…</p>
+        ) : queue.length ? (
           queue.map((item) => (
             <a className="surface-dimensional workspace-card" href={`/founder/${item.id}`} key={item.id}>
               <p className="tiny">{item.status.replaceAll("_", " ")}</p>
@@ -58,7 +60,7 @@ export function FounderHome() {
             </a>
           ))
         ) : (
-          <p className="notice">No submitted commissions in this local store.</p>
+          <p className="notice">No submitted commissions yet.</p>
         )}
       </div>
     </section>
@@ -154,7 +156,7 @@ export function FounderDetail({ id }: { id: string }) {
       <p className="kicker">Founder review</p>
       <h1>{briefTitle(view.project.brief)}</h1>
       <p className="muted">
-        Owner {view.owner.email} · persistence labeled local · private notes stay on this page
+        Owner {view.owner.email} · private notes stay on this page
       </p>
       <div className="row" style={{ marginTop: 16 }}>
         {!view.reviewStartedAt ? (
@@ -254,7 +256,7 @@ export function FounderGuard({ children }: { children: React.ReactNode }) {
     return (
       <section className="container section">
         <h1>Founder authorization required</h1>
-        <p className="lede">This workspace is enforced on the server. Sign in with the simulated founder identity to continue.</p>
+        <p className="lede">This workspace is enforced on the server. Sign in with an authorized founder account to continue.</p>
         <a className="btn btn-gold" href="/account">
           Sign in
         </a>

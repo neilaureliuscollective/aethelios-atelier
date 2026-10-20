@@ -76,7 +76,7 @@ export function CompanionShell({
       <section className={`container ${styles.shell}`}>
         <div className={`surface-glass ${styles.gate}`}>
           <p className={styles.meta}>Aethelios Atelier</p>
-          <h1>Opening your workspace</h1>
+          <h1>Opening Business Studio</h1>
           <p className="lede">Restoring the signed-in business context.</p>
         </div>
       </section>
@@ -87,10 +87,11 @@ export function CompanionShell({
     return (
       <section className={`container ${styles.shell}`}>
         <div className={`surface-glass ${styles.gate}`}>
-          <p className={styles.meta}>Private workspace</p>
+          <p className={styles.meta}>Business Studio</p>
           <h1>Sign in to continue with Aethelios</h1>
           <p className="lede">
-            This is your business workspace — not a public chatbot and not a guest draft.
+            This is Business Studio — the signed-in place for brand and studio work. Commission
+            briefs live under Commissions.
           </p>
           <a className="btn btn-gold" href={signInHref}>
             Sign in

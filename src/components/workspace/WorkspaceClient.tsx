@@ -14,15 +14,17 @@ import type { ClientProjectView, Project } from "@/lib/types";
 
 export function WorkspaceHome() {
   const { user, loading, generation } = useSession();
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [projects, setProjects] = useState<Project[] | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (!user) {
-      setProjects([]);
+      setProjects(null);
       return;
     }
     const gen = generation;
+    setProjects(null);
+    setError("");
     void (async () => {
       try {
         const list = await api<{ projects: Project[] }>("/api/projects");
@@ -30,7 +32,7 @@ export function WorkspaceHome() {
         setProjects(list.projects);
       } catch (err) {
         if (!ownerFence.isCurrent(gen, user.id)) return;
-        setError(actionErrorMessage(err, "Workspace could not be loaded."));
+        setError(actionErrorMessage(err, "Commissions could not be loaded."));
       }
     })();
   }, [generation, user]);
@@ -38,7 +40,7 @@ export function WorkspaceHome() {
   if (loading) {
     return (
       <section className="container section">
-        <p className="kicker">Workspace</p>
+        <p className="kicker">Commissions</p>
         <h1>Loading your commissions…</h1>
       </section>
     );
@@ -47,8 +49,8 @@ export function WorkspaceHome() {
   if (!user) {
     return (
       <section className="container section">
-        <h1>Client workspace</h1>
-        <p className="lede">Sign in to resume saved commissions. Guest drafts stay on the brief page until you adopt them.</p>
+        <h1>Commissions</h1>
+        <p className="lede">Sign in to resume saved commissions. Guest drafts stay on the brief page until you adopt them. Business Studio is a separate signed-in place for brand and studio work.</p>
         <a className="btn btn-gold" href="/account?next=/workspace">
           Sign in
         </a>
@@ -59,14 +61,16 @@ export function WorkspaceHome() {
   return (
     <section className="container section">
       <p className="kicker">Your commissions</p>
-      <h1>Workspace</h1>
-      <p className="muted">Signed in as {user.email}. This list is owned by this account only.</p>
+      <h1>Commissions</h1>
+      <p className="muted">Signed in as {user.email}. This list is owned by this account only. Brand and studio work stay in Business Studio.</p>
       {error ? <p className="notice notice-warn">{error}</p> : null}
       <div className="stack" style={{ marginTop: 20 }}>
-        {projects.length === 0 ? (
+        {projects === null && !error ? (
+          <p className="notice">Loading your commissions…</p>
+        ) : projects && projects.length === 0 ? (
           <p className="notice">No saved commissions yet. Start a brief or adopt a guest draft.</p>
         ) : (
-          projects.map((project) => (
+          (projects ?? []).map((project) => (
             <AppLink className="surface-dimensional workspace-card" href={`/workspace/${project.id}`} key={project.id}>
               <p className="tiny">{project.status.replaceAll("_", " ")}</p>
               <h2 style={{ fontSize: 28 }}>{briefTitle(project.brief)}</h2>
@@ -79,7 +83,7 @@ export function WorkspaceHome() {
             New project
           </AppLink>
           <AppLink className="btn btn-ghost" href="/companion">
-            Open Aethelios companion
+            Open Business Studio
           </AppLink>
           <AppLink className="btn btn-ghost" href="/account/adopt">
             Review guest draft

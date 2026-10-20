@@ -99,10 +99,11 @@ export const AURELIUS_FACTS = [
   "Owners can begin a brief without buying a subscription.",
   "Commission paths currently discussed are branded websites, custom apps and platforms, e-commerce storefronts, and digital infrastructure.",
   "Other custom digital projects — professional workflow tools, study tools, and personal utilities — can be requested through the same commission path when the work is a fit. They do not replace business clients as the central audience.",
-  "Custom apps and platforms may later link to a booking provider the client already uses, but only when that is part of the request. Atelier does not replace that provider.",
+  "Custom apps and platforms may later point to a booking tool the client already uses, when that is part of the request. Atelier does not become that booking product.",
   "Branding is a quality of the work and can also be scoped as its own commission. A rebrand is not required to begin, and a functional tool does not require a new brand.",
   "A smaller project means a smaller complete scope, not lower quality or unlimited work at a discount.",
-  "Plan prices are published in USD on the pricing page. Payments are not collected in Atelier. Neil confirms every proposal.",
-  "Submitted is not the same as under founder review.",
+  "Plan prices are published in USD on the pricing page. An Atelier plan is the monthly studio relationship around the private commission workspace and founder-led support. It is not the main Aethelios product, and selecting a plan does not start a subscription.",
+  "Payments are not collected in Atelier. Neil confirms every proposal. Differences between plans beyond the listed prices are confirmed in that proposal, not sold as allowances here.",
+  "Sending a brief is a request. Neil accepts work only after he reviews it.",
   "Private founder notes and internal prices never belong in client-visible replies."
 ];

@@ -112,7 +112,7 @@ await page.evaluate(() => {
   }
 });
 await page.evaluate(() => {
-  const btn = [...document.querySelectorAll("button")].find((el) => el.textContent.includes("Save unpublished draft"));
+  const btn = [...document.querySelectorAll("button")].find((el) => el.textContent.includes("Save draft"));
   btn?.click();
 });
 await new Promise((r) => setTimeout(r, 900));

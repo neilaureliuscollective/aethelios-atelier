@@ -12,6 +12,7 @@ import {
   type PlanInterestDecision
 } from "@/lib/pricing/context";
 import { PLAN_LABELS, parsePlanId, type PlanId } from "@/lib/pricing/ids";
+import { fieldDecisionLabel } from "@/lib/copy";
 import type { Brief } from "@/lib/types";
 
 export function PlanInterest({
@@ -97,8 +98,8 @@ export function PlanInterest({
         overwrite the brief.
       </p>
       <p className="muted">
-        The note is offered for the constraints field. Keep your existing wording, replace it, or
-        leave the brief unchanged.
+        The note is offered for the constraints field. You can add it to existing notes, replace
+        those notes, or leave them unchanged.
       </p>
       {message ? <p className="notice">{message}</p> : null}
       {!open ? (
@@ -141,7 +142,7 @@ export function PlanInterest({
                   checked={decision === option}
                   onChange={() => setDecision(option)}
                 />
-                <span>{option}</span>
+                <span>{fieldDecisionLabel(option)}</span>
               </label>
             ))}
           </div>

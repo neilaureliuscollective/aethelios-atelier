@@ -112,7 +112,7 @@ describe("discovery selection", () => {
     expect(content.services.some((service) => /invented ingredients, benefits, endorsements/i.test(service.detail))).toBe(
       true
     );
-    expect(content.actionLabel).toBe("Continue in Companion");
+    expect(content.actionLabel).toBe("Continue in Business Studio");
     expect(content.imageCaption).toMatch(/still to be supplied/);
   });
 

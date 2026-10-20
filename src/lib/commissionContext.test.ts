@@ -227,7 +227,7 @@ describe("catalog facts", () => {
     expect(facts).toMatch(/study tools/i);
     expect(facts).toMatch(/personal utilities/i);
     expect(facts).toMatch(/do not replace business clients/i);
-    expect(facts).toMatch(/only when that is part of the request/i);
+    expect(facts).toMatch(/when that is part of the request/i);
     expect(facts).toMatch(/not lower quality or unlimited work at a discount/i);
   });
 });

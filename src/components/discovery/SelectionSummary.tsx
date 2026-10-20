@@ -51,7 +51,7 @@ export function SelectionSummary({
       </p>
       <p className={styles.fine}>
         {unpublished
-          ? "This recap is the last confirmed selection. Current studio edits are unpublished until you use this direction again."
+          ? "This recap is the last confirmed selection. Current studio edits stay unconfirmed until you use this direction again."
           : "This recap is the last confirmed selection, matching the current studio."}
       </p>
       <div className={styles.recapPreview}>
@@ -132,8 +132,8 @@ export function SelectionSummary({
       </div>
       <p className={styles.fine}>
         This sketch stays on this device. The existing account brief has not been checked or changed.
-        A later import can offer append, replace, or skip for each proposed field against the brief
-        that exists then.
+        A later import can offer to add to existing notes, replace existing notes, or leave each
+        field unchanged against the brief that exists then.
       </p>
       <details>
         <summary>Copyable summary</summary>

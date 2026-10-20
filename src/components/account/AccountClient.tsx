@@ -9,6 +9,7 @@ import { ownerFence } from "@/lib/client/ownerFence";
 import { clearOwnerScopedData } from "@/lib/client/ownerScope";
 import { safeCallbackUrl } from "@/lib/auth/callbackUrl";
 import { signInDestination } from "@/lib/auth/continuation";
+import { authSurfaceState, signInProviderSentence } from "@/lib/auth/signInCopy";
 import { readGuestDraft } from "@/lib/guest/draft";
 import { readGuestIntent } from "@/lib/guest/intent";
 import type { User } from "@/lib/types";
@@ -121,26 +122,37 @@ export function AccountClient() {
 
   const simulated = config?.auth.adapter === "simulated";
   const authjs = config?.auth.adapter === "authjs";
+  const surface = authSurfaceState({ config, error });
+  const enabledProviders = config?.auth.providers ?? [];
 
   return (
     <section className="container section">
       <p className="kicker">Account</p>
       <h1>{simulated ? "Identity for this local candidate." : "Your Atelier account."}</h1>
       <p className="lede">
-        {simulated
-          ? "This is a labeled simulated identity adapter. It is not production authentication. Signing in does not adopt a guest draft and does not submit a brief."
-          : "Sign in with Google or an email link. Signing in does not adopt a guest draft and does not submit a brief. You will review any device draft before it belongs to this account."}
+        {user
+          ? "This account is signed in. Signing in did not adopt a guest draft or submit a brief."
+          : surface === "loading"
+            ? "Checking which sign-in options are available."
+            : surface === "unavailable"
+              ? "Sign-in could not be confirmed yet. Providers appear only when they are actually connected."
+              : simulated
+                ? "This is a labeled local test identity. It is not production sign-in. Signing in does not adopt a guest draft and does not submit a brief."
+                : signInProviderSentence(enabledProviders)}
       </p>
-      {!config?.auth.ready ? (
+      {surface === "loading" ? (
+        <p className="notice">Loading sign-in options…</p>
+      ) : surface === "unavailable" ? (
         <p className="notice notice-warn">
           {config?.auth.missing ??
-            "Auth is unconfigured. Simulated identities stay off unless the isolated-local simulator gate is enabled. Auth.js stays off until Google and/or Resend credentials are connected."}
+            error ??
+            "Sign-in is not available here yet. The page will show the providers that are actually connected."}
         </p>
       ) : simulated ? (
-        <p className="notice">Simulated identities are for isolated local testing only.</p>
+        <p className="notice">These labeled identities are for isolated local testing only.</p>
       ) : (
         <p className="notice">
-          Accounts are issued by Auth.js. Founder access is granted only to verified emails listed on the server.
+          Founder access is granted only to verified emails listed on the server.
         </p>
       )}
       {guestDraft ? (
@@ -152,7 +164,9 @@ export function AccountClient() {
       {user ? (
         <article className="surface-dense" style={{ padding: 24, marginTop: 20 }}>
           <p>
-            Signed in as <strong>{user.displayName}</strong> ({user.email}) · {user.role} · {user.adapter}
+            Signed in as <strong>{user.displayName}</strong> ({user.email})
+            {user.role === "founder" ? " · Founder" : ""}
+            {simulated ? " · labeled local test identity" : ""}
           </p>
           <div className="row" style={{ marginTop: 16 }}>
             {readGuestIntent() ? (
@@ -165,7 +179,7 @@ export function AccountClient() {
               </AppLink>
             ) : (
               <AppLink className="btn btn-gold" href="/companion">
-                Open your workspace
+                Open Business Studio
               </AppLink>
             )}
             <AppLink className="btn btn-ghost" href="/workspace">
@@ -195,8 +209,8 @@ export function AccountClient() {
               Use {identity.label} · {identity.email}
             </button>
           ))}
-          {authjs && config?.auth.ready
-            ? config.auth.providers.map((provider) =>
+          {authjs && surface === "ready"
+            ? enabledProviders.map((provider) =>
                 provider.id === "google" ? (
                   <button
                     key="google"

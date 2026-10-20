@@ -8,12 +8,12 @@ import {
   DeviceFrame
 } from "@/components/marketing/DeviceFrame";
 import { SERVICE_CATALOG } from "@/lib/catalog";
-import { SERVICE_CATEGORY_COPY } from "@/lib/serviceCategories";
+import { SERVICE_CATEGORY_COPY, serviceBriefHref } from "@/lib/serviceCategories";
 
 const CARDS = [
   {
     id: "website" as const,
-    href: "/discover?interest=website",
+    href: serviceBriefHref("website"),
     icon: GlobeIcon,
     visual: (
       <DeviceFrame variant="tablet" depth="tile" label="Branded website demonstration">
@@ -23,7 +23,7 @@ const CARDS = [
   },
   {
     id: "custom_apps_platforms" as const,
-    href: "/project?interest=custom_apps_platforms&purpose=business",
+    href: serviceBriefHref("custom_apps_platforms"),
     icon: AppsIcon,
     visual: (
       <DeviceFrame variant="tablet" depth="tile" label="Custom app demonstration">
@@ -33,7 +33,7 @@ const CARDS = [
   },
   {
     id: "ecommerce_storefronts" as const,
-    href: "/discover?interest=ecommerce_storefronts",
+    href: serviceBriefHref("ecommerce_storefronts"),
     icon: StoreIcon,
     visual: (
       <DeviceFrame variant="tablet" depth="tile" label="Storefront demonstration">
@@ -43,7 +43,7 @@ const CARDS = [
   },
   {
     id: "digital_infrastructure" as const,
-    href: "/project?interest=digital_infrastructure&purpose=business",
+    href: serviceBriefHref("digital_infrastructure"),
     icon: NodesIcon,
     visual: (
       <DeviceFrame variant="tablet" depth="tile" label="Infrastructure demonstration">

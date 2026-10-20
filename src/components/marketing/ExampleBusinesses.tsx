@@ -53,7 +53,7 @@ export function NorthridgeSite({ density = "desktop" }: { density?: "desktop" | 
           </li>
           <li>
             <strong>Clear next step</strong>
-            A visitor can enquire without a fabricated booking engine.
+            A visitor can enquire. This example does not add a booking product.
           </li>
         </ul>
       ) : null}

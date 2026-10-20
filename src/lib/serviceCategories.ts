@@ -32,7 +32,7 @@ export const SERVICE_CATEGORY_COPY: Record<
     title: "Custom apps & platforms",
     short: "Purpose-built tools",
     summary:
-      "Web tools, portals, and installable experiences shaped around how the work actually happens. Linking an existing booking provider is only asked when that is part of the request — Atelier does not replace that provider with a scheduling product.",
+      "Web tools, portals, and installable experiences shaped around how the work actually happens. If you already use a booking tool, Atelier can point to it when that is part of the brief. Atelier does not become that booking product.",
     action: "Begin a custom app brief"
   },
   ecommerce_storefronts: {
@@ -75,7 +75,14 @@ export function displayProjectTypeLabel(value: string): string {
 
 export function historicalProjectTypeNote(value: string): string | null {
   if (value !== HISTORICAL_BOOKING_PROJECT_TYPE) return null;
-  return "This brief was saved as a booking-connected website. That category is now listed as Custom apps & platforms. Linking an existing booking tool remains an example within it — it is not a replacement booking engine. The saved type is unchanged until you choose a category.";
+  return "This brief was saved as a booking-connected website. That category is now listed as Custom apps & platforms. If you already use a booking tool, it can stay in the brief as an example — Atelier does not become that booking product. The saved type stays until you choose a category.";
+}
+
+export function serviceBriefHref(id: Exclude<VisibleProjectType, "undecided">): string {
+  if (id === "custom_apps_platforms" || id === "digital_infrastructure") {
+    return `/project?interest=${id}&purpose=business`;
+  }
+  return `/discover?interest=${id}`;
 }
 
 export function asksBookingProvider(

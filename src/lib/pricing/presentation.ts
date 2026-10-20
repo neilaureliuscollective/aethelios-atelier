@@ -1,7 +1,7 @@
 import "server-only";
 import { SERVICE_CATALOG } from "@/lib/catalog";
 import { billingBoundary } from "@/lib/billing/boundary";
-import { SERVICE_CATEGORY_COPY, type VisibleProjectType } from "@/lib/serviceCategories";
+import { SERVICE_CATEGORY_COPY, serviceBriefHref, type VisibleProjectType } from "@/lib/serviceCategories";
 import { planDiscussionHref } from "@/lib/pricing/context";
 import {
   QUOTED_SETUP_LABEL,
@@ -82,26 +82,27 @@ export type PricingPresentation = {
 
 const PLAN_RELATIONSHIP: Record<PlanId, string> = {
   atelier:
-    "The starting ongoing relationship around the private workspace and founder-led digital work.",
-  connected: "A closer ongoing cadence across more of the supported work.",
+    "The starting monthly relationship around your private commission workspace and founder-led support. It is not the main Aethelios product.",
+  connected:
+    "A closer monthly cadence. The listed prices are published; what Connected adds beyond Atelier is confirmed in a proposal.",
   partnership:
     "The closest operating relationship, including founder review of larger changes. Setup is quoted for the specific engagement."
 };
 
 const LOCAL_FOUNDER_DECISIONS: Record<PlanId, string[]> = {
   atelier: [
-    "Which workspace and service inclusions belong on Atelier, if any, is still a founder decision.",
-    "Operational usage budgets are not customer-facing purchased quotas.",
-    "Voice, live AI, integrations, and publication capabilities that exist only as disabled code must not be sold as included."
+    "Workspace and service inclusions for Atelier are still confirmed by Neil.",
+    "Usage budgets are not sold as purchased quotas.",
+    "Voice, live AI, and integrations that are not offered yet must not be sold as included."
   ],
   connected: [
-    "What “Connected” adds beyond Atelier is not an approved public inclusion list.",
+    "What Connected adds beyond Atelier is not published as an inclusion list.",
     "Do not advertise higher Talk, image, or voice budgets as purchased allowances.",
     "Do not imply more websites, coding, revisions, or integrations than Neil has confirmed."
   ],
   partnership: [
     "Partnership setup remains quoted until Neil writes a specific figure.",
-    "“Founder-reviewed larger changes” is a relationship note, not an unlimited-revision promise.",
+    "Founder review of larger changes is a relationship note, not unlimited revisions.",
     "Minimum commitments, cancellation, tax treatment, and billing start dates are not approved."
   ]
 };
@@ -231,6 +232,15 @@ function publicComparison(plans: PlanPresentation[]): ComparisonRow[] {
         connected: "Not offered as available services",
         partnership: "Not offered as available services"
       }
+    },
+    {
+      id: "difference",
+      label: "Approved differences beyond the listed prices",
+      values: {
+        atelier: "Not published as a separate inclusion list",
+        connected: "Not published as a separate inclusion list",
+        partnership: "Quoted setup; remaining inclusions confirmed by Neil"
+      }
     }
   ];
 }
@@ -260,10 +270,7 @@ function commissions(): CommissionPresentation[] {
       title: offer?.title ?? copy.title,
       summary: copy.summary,
       status: offer?.status === "exploratory" ? "exploratory" : "offered",
-      href:
-        id === "custom_apps_platforms" || id === "digital_infrastructure"
-          ? `/project?interest=${id}&purpose=business`
-          : `/discover?interest=${id}`,
+      href: serviceBriefHref(id),
       action: copy.action
     };
   });
@@ -281,7 +288,7 @@ function faq(): PricingFaq[] {
       id: "charges",
       question: "What do setup and monthly charges cover?",
       answer:
-        "Setup is the one-time starting charge for that plan. Monthly is the ongoing service relationship. Custom project commissions are scoped and priced separately. A written proposal confirms deliverables and remaining terms before work begins."
+        "Setup is the one-time starting charge for that plan. Monthly is the ongoing Atelier relationship around the private commission workspace and founder-led support. Custom commissions are scoped and priced separately. A written proposal confirms deliverables and remaining terms before work begins."
     },
     {
       id: "branding",
@@ -293,7 +300,7 @@ function faq(): PricingFaq[] {
       id: "unlimited",
       question: "Does a monthly plan include unlimited websites, coding, or AI?",
       answer:
-        "No. Nothing here is an unlimited website, coding, revision, AI, or integration allowance. Live AI, voice, and integrations are not portrayed as available purchased services."
+        "No. Nothing here is an unlimited website, coding, revision, AI, or integration allowance. Live AI, voice, and integrations are not offered as available purchased services. Beyond the listed prices, differences between plans are confirmed by Neil."
     },
     {
       id: "confirm",
@@ -311,7 +318,13 @@ function faq(): PricingFaq[] {
       id: "workspace",
       question: "What is the private workspace?",
       answer:
-        "Signed-in clients use a private commission workspace to resume briefs, read founder responses, and review proposals. It is not a self-serve product studio and does not require a plan to open a brief."
+        "Signed-in clients use Commissions to resume briefs, read founder responses, and review proposals. Business Studio is the separate signed-in place for brand and studio work. Neither requires a plan to open a brief."
+    },
+    {
+      id: "aethelios",
+      question: "Is an Atelier plan the same as Aethelios?",
+      answer:
+        "No. Aethelios is the in-app guide for this studio. An Atelier plan is the monthly relationship around your private commission workspace and founder-led support. It is not the main Aethelios product, and selecting a plan here does not start a subscription."
     },
     {
       id: "third-party",

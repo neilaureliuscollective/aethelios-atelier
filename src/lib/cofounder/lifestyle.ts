@@ -14,7 +14,7 @@ export const LIFESTYLE_PROJECT = {
   confirmed: {
     name: "AETHELIOS LIFESTYLE",
     owner: "Neil Stutes",
-    relationship: "The founder’s own product brand, not a fabricated customer story."
+    relationship: "The founder’s own product brand, shown as a website concept."
   },
   missingAssets: [
     {

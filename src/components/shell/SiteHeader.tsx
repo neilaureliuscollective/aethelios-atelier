@@ -75,8 +75,8 @@ export function SiteHeader({ user }: { user: User | null }) {
               </AppLink>
             ))}
             {user?.role === "founder" ? <AppLink href="/founder">Founder</AppLink> : null}
-            {user ? <AppLink href="/workspace">Workspace</AppLink> : null}
-            {user ? <AppLink href="/companion">Companion</AppLink> : null}
+            {user ? <AppLink href="/workspace">Commissions</AppLink> : null}
+            {user ? <AppLink href="/companion">Business Studio</AppLink> : null}
           </nav>
         )}
         <div className="header-actions">
@@ -129,9 +129,14 @@ export function SiteHeader({ user }: { user: User | null }) {
           {user ? "Account" : "Sign in"}
         </AppLink>
         {!companion && user ? (
-          <AppLink href="/companion" onClick={() => setOpen(false)}>
-            Companion
-          </AppLink>
+          <>
+            <AppLink href="/workspace" onClick={() => setOpen(false)}>
+              Commissions
+            </AppLink>
+            <AppLink href="/companion" onClick={() => setOpen(false)}>
+              Business Studio
+            </AppLink>
+          </>
         ) : null}
         {user?.role === "founder" ? (
           <AppLink href="/founder" onClick={() => setOpen(false)}>

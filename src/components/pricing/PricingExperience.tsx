@@ -66,9 +66,9 @@ export function PricingExperience({ presentation }: { presentation: PricingPrese
             <li>
               <strong>Ongoing Atelier plans</strong>
               <span>
-                A monthly service relationship around the private workspace and founder-led
-                support. It is separate from a scoped commission. Remaining terms are confirmed in
-                a proposal.
+                A monthly relationship around the private commission workspace and founder-led
+                support. It is separate from a scoped commission and from the main Aethelios
+                product. Remaining terms are confirmed in a proposal.
               </span>
             </li>
           </ol>
@@ -132,9 +132,11 @@ export function PricingExperience({ presentation }: { presentation: PricingPrese
             <h2>A relationship, not a checkout.</h2>
           </div>
           <p className="lede">
-            These plans list a one-time setup charge and a monthly service charge in USD. They do
-            not start a subscription, collect payment, or unlock unlimited websites, coding,
-            revisions, AI, or integrations. Custom commissions are scoped separately.
+            These plans list a one-time setup charge and a monthly service charge in USD. The
+            monthly amount is the ongoing studio relationship. Selecting a plan does not start a
+            subscription, collect payment, or unlock unlimited websites, coding, revisions, AI, or
+            integrations. Custom commissions are scoped separately. Beyond the listed prices,
+            differences between plans are confirmed by Neil.
           </p>
         </div>
         <div className="pricing-plan-grid">
@@ -193,10 +195,10 @@ export function PricingExperience({ presentation }: { presentation: PricingPrese
           <article className="surface-ivory">
             <h3>Ongoing</h3>
             <p className="muted">
-              Ongoing is the monthly service around the private workspace and founder-led support.
-              It is not an Aethelios subscription product, not unlimited custom work, and not
-              activated billing. Custom commissions stay separately scoped. A proposal confirms
-              deliverables before work begins.
+              Ongoing is the monthly Atelier relationship around the private commission workspace
+              and founder-led support. It is not the main Aethelios product, not unlimited custom
+              work, and not a charge collected here. Custom commissions stay separately scoped. A
+              proposal confirms deliverables before work begins.
             </p>
           </article>
         </div>
@@ -208,7 +210,8 @@ export function PricingExperience({ presentation }: { presentation: PricingPrese
           <h2>Published prices, and what a proposal still confirms.</h2>
           <p className="lede">
             Setup and monthly amounts match the plan cards. Remaining deliverables and terms are
-            confirmed in a written proposal. Disabled capabilities are not sold as extras.
+            confirmed in a written proposal. Capabilities that are not offered yet are not sold as
+            extras.
           </p>
         </div>
         <div className="pricing-compare">
@@ -255,7 +258,7 @@ export function PricingExperience({ presentation }: { presentation: PricingPrese
       <section className="container section" id="boundaries">
         <div className="section-head">
           <p className="kicker">Boundaries</p>
-          <h2>Clear limits without invented contract language.</h2>
+          <h2>What stays outside these prices.</h2>
         </div>
         <div className="pricing-boundaries">
           <article className="surface-ivory">
@@ -273,10 +276,10 @@ export function PricingExperience({ presentation }: { presentation: PricingPrese
             </p>
           </article>
           <article className="surface-ivory">
-            <h3>Unconfigured capabilities</h3>
+            <h3>Capabilities not offered yet</h3>
             <p className="muted">
-              Live AI, voice, notifications, and billing exist only as disabled or future
-              boundaries. Code being present is not the same as an available purchased service.
+              Live AI, voice, notifications, and billing are not available to purchase here. Their
+              presence in the product later would be confirmed separately.
             </p>
           </article>
         </div>
@@ -319,7 +322,7 @@ export function PricingExperience({ presentation }: { presentation: PricingPrese
         <div className="founder-band surface-obsidian">
           <div>
             <p className="kicker">Begin</p>
-            <h2>Bring the work into the existing journey.</h2>
+            <h2>Explore first. Agree before anything is built.</h2>
             <p className="lede lede-bright">
               Explore a direction, write a brief, and let Neil review it. Selecting a plan only
               offers a discussion note you can keep, change, or leave behind. Nothing here buys a
