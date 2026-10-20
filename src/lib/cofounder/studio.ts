@@ -23,6 +23,12 @@ function companionId(prefix: string) {
 
 export type ImageProvider = {
   generate(input: { prompt: string; signal?: AbortSignal }): Promise<{ bytes: Uint8Array; mime: string; model: string }>;
+  edit(input: {
+    prompt: string;
+    image: Uint8Array;
+    mime: string;
+    signal?: AbortSignal;
+  }): Promise<{ bytes: Uint8Array; mime: string; model: string }>;
 };
 
 export class UnavailableImageProvider implements ImageProvider {
@@ -31,14 +37,21 @@ export class UnavailableImageProvider implements ImageProvider {
       "Image generation is unavailable. ATELIER_OPENAI_ENABLED and OPENAI_API_KEY must both be set. This is not a completed asset."
     );
   }
+  async edit(): Promise<{ bytes: Uint8Array; mime: string; model: string }> {
+    return this.generate();
+  }
 }
 
 export class OpenAiImageProvider implements ImageProvider {
+  private model() {
+    return process.env.OPENAI_IMAGE_MODEL || "gpt-image-1";
+  }
+
   async generate(input: { prompt: string; signal?: AbortSignal }) {
     const config = loadConfig();
     const OpenAI = (await import("openai")).default;
     const client = new OpenAI({ apiKey: config.openAiKey, timeout: config.openAiTimeoutMs });
-    const model = process.env.OPENAI_IMAGE_MODEL || "gpt-image-1";
+    const model = this.model();
     const result = await client.images.generate(
       {
         model,
@@ -51,7 +64,29 @@ export class OpenAiImageProvider implements ImageProvider {
     if (first?.b64_json) {
       return { bytes: Uint8Array.from(Buffer.from(first.b64_json, "base64")), mime: "image/png", model };
     }
-    throw new Error("Image provider returned no image bytes.");
+    throw new Error("Image provider returned no image bytes. Remote image URLs are not fetched.");
+  }
+
+  async edit(input: { prompt: string; image: Uint8Array; mime: string; signal?: AbortSignal }) {
+    const config = loadConfig();
+    const OpenAI = (await import("openai")).default;
+    const client = new OpenAI({ apiKey: config.openAiKey, timeout: config.openAiTimeoutMs });
+    const model = this.model();
+    const { toFile } = await import("openai");
+    const file = await toFile(Buffer.from(input.image), "source.png", { type: input.mime || "image/png" });
+    const result = await client.images.edit(
+      {
+        model,
+        image: file,
+        prompt: input.prompt
+      },
+      { signal: input.signal }
+    );
+    const first = result.data?.[0];
+    if (first?.b64_json) {
+      return { bytes: Uint8Array.from(Buffer.from(first.b64_json, "base64")), mime: "image/png", model };
+    }
+    throw new Error("Image edit returned no image bytes.");
   }
 }
 
@@ -59,6 +94,18 @@ export class FixtureImageProvider implements ImageProvider {
   constructor(private readonly bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])) {}
   async generate() {
     return { bytes: this.bytes, mime: "image/png", model: "fixture" };
+  }
+  async edit() {
+    return this.generate();
+  }
+}
+
+export class FailingImageProvider implements ImageProvider {
+  async generate(): Promise<{ bytes: Uint8Array; mime: string; model: string }> {
+    throw new Error("provider_down");
+  }
+  async edit(): Promise<{ bytes: Uint8Array; mime: string; model: string }> {
+    throw new Error("provider_down");
   }
 }
 
@@ -161,7 +208,13 @@ export class CompanionStudio {
     businessId: string,
     user: User,
     auth: AuthContext,
-    input: { draftId: string; prompt: string; idempotencyKey: string; signal?: AbortSignal }
+    input: {
+      draftId: string;
+      prompt: string;
+      idempotencyKey: string;
+      sourceAssetId?: string;
+      signal?: AbortSignal;
+    }
   ) {
     await this.workspace.requireMembership(businessId, user);
     const draft = await this.requireDraft(businessId, input.draftId);
@@ -173,20 +226,33 @@ export class CompanionStudio {
         if (asset) return asset;
       }
     }
+    if (existing?.status === "pending") {
+      throw new ForbiddenError("That generation is already in progress. Wait or retry the same request after it finishes.");
+    }
     await this.usage.assertConcurrent(businessId, user, "image");
-    await this.usage.consume(businessId, user, "image", 1, { draftId: draft.id });
-    const job = existing ??
-      (await this.store.companion.addJob({
-        id: companionId("job"),
-        businessId,
-        ownerId: user.id,
-        sessionId: auth.session.id,
-        kind: "image",
-        status: "pending",
-        idempotencyKey: input.idempotencyKey,
-        createdAt: now(),
-        updatedAt: now()
-      }));
+    const job = existing
+      ? await this.store.companion.updateJob({
+          ...existing,
+          status: "pending",
+          sessionId: auth.session.id,
+          updatedAt: now(),
+          error: undefined
+        })
+      : await this.store.companion.addJob({
+          id: companionId("job"),
+          businessId,
+          ownerId: user.id,
+          sessionId: auth.session.id,
+          kind: "image",
+          status: "pending",
+          idempotencyKey: input.idempotencyKey,
+          createdAt: now(),
+          updatedAt: now()
+        });
+    const parent = input.sourceAssetId ? await this.store.companion.getStudioAsset(input.sourceAssetId) : null;
+    if (parent && parent.businessId !== businessId) {
+      throw new ForbiddenError("That source image is not part of this workspace.");
+    }
     const asset: StudioAsset = {
       id: companionId("asset"),
       businessId,
@@ -196,6 +262,7 @@ export class CompanionStudio {
       prompt: input.prompt,
       revision: (await this.store.companion.listStudioAssets(businessId)).filter((item) => item.draftId === draft.id)
         .length + 1,
+      parentId: parent?.id,
       createdAt: now(),
       updatedAt: now()
     };
@@ -205,7 +272,9 @@ export class CompanionStudio {
       if (!session) {
         throw new ForbiddenError("Session expired before generation finished. The pending asset was not marked complete.");
       }
-      const generated = await this.images.generate({ prompt: input.prompt, signal: input.signal });
+      const generated = parent?.blobId
+        ? await this.editFromAsset(parent, input.prompt, input.signal)
+        : await this.images.generate({ prompt: input.prompt, signal: input.signal });
       const latest = await this.store.companion.getJob(job.id);
       if (!latest || latest.status === "invalidated") {
         asset.status = "invalidated";
@@ -231,6 +300,7 @@ export class CompanionStudio {
         selectedAssetId: asset.id,
         updatedAt: now()
       });
+      await this.usage.consume(businessId, user, "image", 1, { draftId: draft.id, assetId: asset.id });
       await this.store.companion.updateJob({
         ...job,
         status: "completed",
@@ -251,6 +321,17 @@ export class CompanionStudio {
       });
       throw error;
     }
+  }
+
+  private async editFromAsset(parent: StudioAsset, prompt: string, signal?: AbortSignal) {
+    if (!parent.blobId || parent.status !== "ready") {
+      throw new ForbiddenError("Only a completed source image can be edited. A pending or failed asset is not used.");
+    }
+    const blob = await this.store.companion.getBlob(parent.blobId);
+    if (!blob || blob.businessId !== parent.businessId) {
+      throw new NotFoundError("Source image bytes were not found in this workspace.");
+    }
+    return this.images.edit({ prompt, image: blob.bytes, mime: blob.mime, signal });
   }
 
   async exportDraft(businessId: string, user: User, draftId: string, format: StudioLayoutId) {
@@ -285,7 +366,12 @@ export class CompanionStudio {
       format,
       dimensions: LAYOUTS[format],
       layers: draft.layers,
-      labeled: "composition_export" as const
+      assetUrl:
+        asset?.status === "ready"
+          ? `/api/companion/assets/${asset.id}?businessId=${encodeURIComponent(businessId)}`
+          : null,
+      labeled: "composition_export" as const,
+      note: "Compose text and original logos as controlled layers. Generated pixels are not a customer portfolio result."
     };
   }
 
@@ -309,6 +395,11 @@ export class CompanionStudio {
     if (input.bytes.byteLength > 2_000_000) {
       throw new ForbiddenError("Logo files are limited to 2 MB.");
     }
+    const { assertDocumentQuota } = await import("@/lib/cofounder/documents");
+    assertDocumentQuota({
+      planId: context.business.planId,
+      currentCount: context.documents.length
+    });
     const blob = await this.store.companion.putBlob({
       id: companionId("blob"),
       businessId,

@@ -74,6 +74,20 @@ export function WorkClient() {
                   {String(item.payload.body ?? item.payload.detail ?? "")}
                 </p>
                 <div className={styles.actions}>
+                  {item.status === "awaiting_review" && item.payload.proposed ? (
+                    <button
+                      className="btn btn-gold btn-compact"
+                      type="button"
+                      onClick={() =>
+                        void api("/api/companion/work", {
+                          method: "PATCH",
+                          body: JSON.stringify({ workItemId: item.id, action: "confirm" })
+                        }).then(() => load())
+                      }
+                    >
+                      Confirm proposed action
+                    </button>
+                  ) : null}
                   {item.kind === "draft" ? (
                     <>
                       <button className="btn btn-ghost btn-compact" type="button" onClick={() => setEditing(item)}>

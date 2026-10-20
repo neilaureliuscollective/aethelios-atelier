@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { requireCompanion } from "@/lib/cofounder/http";
-import { CompanionTalk } from "@/lib/cofounder/talk";
+import { CompanionTalk, type TalkStreamEvent } from "@/lib/cofounder/talk";
 import { handleError, json, readJson } from "@/lib/http";
 
 export const runtime = "nodejs";
@@ -31,7 +31,8 @@ const bodySchema = z.object({
   conversationId: z.string().min(1).optional(),
   projectId: z.string().min(1).optional(),
   message: z.string().min(1).max(8000),
-  idempotencyKey: z.string().min(8).max(80).optional()
+  idempotencyKey: z.string().min(8).max(80).optional(),
+  stream: z.boolean().optional()
 });
 
 export async function POST(request: Request) {
@@ -39,17 +40,57 @@ export async function POST(request: Request) {
     const body = bodySchema.parse(await readJson(request));
     const { auth, store, context } = await requireCompanion(body.businessId);
     const talk = new CompanionTalk(store);
-    const turn = await talk.turn({
-      businessId: context.business.id,
-      user: auth.user,
-      auth,
-      message: body.message,
-      conversationId: body.conversationId,
-      projectId: body.projectId,
-      idempotencyKey: body.idempotencyKey,
-      signal: request.signal
+    const wantsStream =
+      body.stream === true || (request.headers.get("accept") ?? "").includes("text/event-stream");
+    if (!wantsStream) {
+      const turn = await talk.turn({
+        businessId: context.business.id,
+        user: auth.user,
+        auth,
+        message: body.message,
+        conversationId: body.conversationId,
+        projectId: body.projectId,
+        idempotencyKey: body.idempotencyKey,
+        signal: request.signal
+      });
+      return json({ ok: true, ...turn });
+    }
+
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      start(controller) {
+        const send = (event: TalkStreamEvent) => {
+          controller.enqueue(encoder.encode(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`));
+        };
+        void talk
+          .turn({
+            businessId: context.business.id,
+            user: auth.user,
+            auth,
+            message: body.message,
+            conversationId: body.conversationId,
+            projectId: body.projectId,
+            idempotencyKey: body.idempotencyKey,
+            signal: request.signal,
+            onEvent: send
+          })
+          .then(() => controller.close())
+          .catch((error) => {
+            send({
+              type: "error",
+              message: error instanceof Error ? error.message : "Talk failed."
+            });
+            controller.close();
+          });
+      }
     });
-    return json({ ok: true, ...turn });
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache, no-store",
+        Connection: "keep-alive"
+      }
+    });
   } catch (error) {
     return handleError(error);
   }

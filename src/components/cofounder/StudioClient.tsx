@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CompanionShell } from "@/components/cofounder/CompanionShell";
 import { api } from "@/lib/client/api";
 import { actionErrorMessage } from "@/lib/client/asyncAction";
@@ -11,7 +11,9 @@ import styles from "./companion.module.css";
 
 export function StudioClient() {
   const { user, generation } = useSession();
+  const [businessId, setBusinessId] = useState<string>();
   const [drafts, setDrafts] = useState<StudioDraft[]>([]);
+  const [assets, setAssets] = useState<StudioAsset[]>([]);
   const [current, setCurrent] = useState<StudioDraft | null>(null);
   const [headline, setHeadline] = useState("Now booking");
   const [body, setBody] = useState("");
@@ -20,13 +22,26 @@ export function StudioClient() {
   const [error, setError] = useState("");
   const [asset, setAsset] = useState<StudioAsset | null>(null);
   const [workItems, setWorkItems] = useState<WorkItem[]>([]);
+  const [generating, setGenerating] = useState(false);
+  const generateKeyRef = useRef<string | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   async function refresh(gen = generation) {
-    const data = await api<{ drafts: StudioDraft[] }>("/api/companion/studio");
-    const work = await api<{ items: WorkItem[] }>("/api/companion/work?kind=draft");
+    const workspace = await api<{ business: { id: string } }>("/api/companion/workspace");
+    const data = await api<{ drafts: StudioDraft[] }>(
+      `/api/companion/studio?businessId=${encodeURIComponent(workspace.business.id)}`
+    );
+    const work = await api<{ items: WorkItem[] }>(
+      `/api/companion/work?kind=draft&businessId=${encodeURIComponent(workspace.business.id)}`
+    );
+    const today = await api<{ today: { pendingAssets: StudioAsset[] } }>(
+      `/api/companion/today?businessId=${encodeURIComponent(workspace.business.id)}`
+    );
     if (!ownerFence.isCurrent(gen, user?.id ?? null)) return;
+    setBusinessId(workspace.business.id);
     setDrafts(data.drafts);
     setWorkItems(work.items);
+    setAssets(today.today.pendingAssets);
     setCurrent((prev) => data.drafts.find((item) => item.id === prev?.id) ?? data.drafts[0] ?? null);
   }
 
@@ -37,6 +52,12 @@ export function StudioClient() {
   }, [generation, user?.id]);
 
   const selected = current;
+  const assetSrc =
+    asset?.status === "ready" && selected?.selectedAssetId && businessId
+      ? `/api/companion/assets/${selected.selectedAssetId}?businessId=${encodeURIComponent(businessId)}`
+      : selected?.selectedAssetId && businessId
+        ? `/api/companion/assets/${selected.selectedAssetId}?businessId=${encodeURIComponent(businessId)}`
+        : "";
 
   const layerText = useMemo(() => {
     return {
@@ -51,6 +72,7 @@ export function StudioClient() {
       const created = await api<{ draft: StudioDraft }>("/api/companion/studio", {
         method: "POST",
         body: JSON.stringify({
+          businessId,
           headline,
           body,
           direction,
@@ -76,15 +98,16 @@ export function StudioClient() {
     );
     const updated = await api<{ draft: StudioDraft }>("/api/companion/studio", {
       method: "PATCH",
-      body: JSON.stringify({ draftId: selected.id, layers })
+      body: JSON.stringify({ businessId, draftId: selected.id, layers })
     });
     setCurrent(updated.draft);
     setStatus("Layers saved. Generated pixels were not asked to reproduce the logo.");
   }
 
-  async function generate() {
-    if (!selected) return;
+  async function generate(sourceAssetId?: string) {
+    if (!selected || generating) return;
     setError("");
+    setGenerating(true);
     setStatus("Generation pending…");
     setAsset({
       id: "pending",
@@ -96,16 +119,21 @@ export function StudioClient() {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     });
+    const idempotencyKey = generateKeyRef.current ?? crypto.randomUUID();
+    generateKeyRef.current = idempotencyKey;
     try {
       const result = await api<{ asset: StudioAsset }>("/api/companion/studio/generate", {
         method: "POST",
         body: JSON.stringify({
+          businessId,
           draftId: selected.id,
           prompt: `${direction}\nHeadline context: ${headline}. Do not invent customer results.`,
-          idempotencyKey: crypto.randomUUID()
+          idempotencyKey,
+          sourceAssetId
         })
       });
       setAsset(result.asset);
+      generateKeyRef.current = null;
       setStatus(result.asset.status === "ready" ? "Image ready. It is not a portfolio result." : result.asset.error ?? "");
       await refresh();
     } catch (err) {
@@ -114,17 +142,56 @@ export function StudioClient() {
           ? { ...currentAsset, status: "failed", error: actionErrorMessage(err, "Generation failed.") }
           : currentAsset
       );
-      setError(actionErrorMessage(err, "Generation failed. The pending image was not marked complete."));
+      setError(actionErrorMessage(err, "Generation failed. The pending image was not marked complete. Retry uses the same request id."));
+    } finally {
+      setGenerating(false);
     }
   }
 
   async function exportDraft() {
     if (!selected) return;
-    const result = await api<{ exported: { labeled: string } }>("/api/companion/studio/export", {
+    const result = await api<{
+      exported: { labeled: string; dimensions: { width: number; height: number }; assetUrl?: string | null };
+    }>("/api/companion/studio/export", {
       method: "POST",
-      body: JSON.stringify({ draftId: selected.id, format: selected.layout })
+      body: JSON.stringify({ businessId, draftId: selected.id, format: selected.layout })
     });
-    setStatus(`Exported as ${result.exported.labeled}. Saved in Work.`);
+    await composeDownload(result.exported.dimensions, result.exported.assetUrl ?? assetSrc);
+    setStatus(`Exported as ${result.exported.labeled}. Composition downloaded and saved in Work.`);
+  }
+
+  async function composeDownload(dimensions: { width: number; height: number }, imageUrl?: string | null) {
+    const canvas = canvasRef.current ?? document.createElement("canvas");
+    canvas.width = dimensions.width;
+    canvas.height = dimensions.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.fillStyle = "#16120e";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (imageUrl) {
+      try {
+        const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = () => reject(new Error("background"));
+          img.src = imageUrl;
+        });
+        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      } catch {
+        // Controlled layers still export without a generated background.
+      }
+    }
+    ctx.fillStyle = "#f3f0e7";
+    ctx.font = `600 ${Math.round(canvas.width / 16)}px serif`;
+    wrapText(ctx, layerText.headline, canvas.width * 0.08, canvas.height * 0.16, canvas.width * 0.84);
+    ctx.fillStyle = "#a7b6ac";
+    ctx.font = `400 ${Math.round(canvas.width / 36)}px sans-serif`;
+    wrapText(ctx, layerText.body, canvas.width * 0.08, canvas.height * 0.38, canvas.width * 0.84);
+    const href = canvas.toDataURL("image/png");
+    const link = document.createElement("a");
+    link.href = href;
+    link.download = `${selected?.id ?? "atelier-studio"}.png`;
+    link.click();
   }
 
   async function uploadLogo(file: File) {
@@ -139,6 +206,7 @@ export function StudioClient() {
     await api("/api/companion/documents", {
       method: "POST",
       body: JSON.stringify({
+        businessId,
         title: file.name,
         mime: file.type || "image/png",
         bytesBase64,
@@ -153,11 +221,12 @@ export function StudioClient() {
       title="Brand Studio"
       lede="Generate or choose an image, keep headline and logo as controlled layers, and export a practical format. Illustrative imagery is never presented as a customer result."
     >
+      <canvas ref={canvasRef} hidden />
       <div className={styles.grid}>
         <article className={`surface-dimensional ${styles.card}`}>
           <div className={styles.canvas} aria-label="Composition preview">
-            {asset?.status === "ready" && selected?.selectedAssetId ? (
-              <img src={`/api/companion/assets/${selected.selectedAssetId}`} alt="" />
+            {asset?.status === "ready" || (selected?.selectedAssetId && asset?.status !== "failed") ? (
+              assetSrc ? <img src={assetSrc} alt="" /> : null
             ) : null}
             <div className={`${styles.layer} ${styles.layerHeadline}`} style={{ left: "8%", top: "12%", width: "84%" }}>
               {layerText.headline}
@@ -185,8 +254,16 @@ export function StudioClient() {
             <button className="btn btn-ghost" type="button" onClick={() => void saveLayers()} disabled={!selected}>
               Save layers
             </button>
-            <button className="btn btn-ghost" type="button" onClick={() => void generate()} disabled={!selected}>
-              Generate image
+            <button className="btn btn-ghost" type="button" onClick={() => void generate()} disabled={!selected || generating}>
+              {generating ? "Generating…" : "Generate image"}
+            </button>
+            <button
+              className="btn btn-ghost"
+              type="button"
+              onClick={() => void generate(selected?.selectedAssetId)}
+              disabled={!selected?.selectedAssetId || generating}
+            >
+              Edit selected image
             </button>
             <button className="btn btn-emerald" type="button" onClick={() => void exportDraft()} disabled={!selected}>
               Export
@@ -223,8 +300,28 @@ export function StudioClient() {
               {drafts.length} saved Studio revision(s) in this workspace.
             </p>
           ) : null}
+          {assets.length ? (
+            <p className="tiny">{assets.length} pending or failed generation(s) — none shown as complete.</p>
+          ) : null}
         </aside>
       </div>
     </CompanionShell>
   );
+}
+
+function wrapText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number) {
+  const words = text.split(/\s+/);
+  let line = "";
+  let cursor = y;
+  for (const word of words) {
+    const next = line ? `${line} ${word}` : word;
+    if (ctx.measureText(next).width > maxWidth && line) {
+      ctx.fillText(line, x, cursor);
+      line = word;
+      cursor += Math.round(ctx.canvas.width / 22);
+    } else {
+      line = next;
+    }
+  }
+  if (line) ctx.fillText(line, x, cursor);
 }

@@ -123,3 +123,17 @@ export function assertWithinBudget(
   }
   return { ok: true };
 }
+
+export function assertDocumentBudget(
+  used: number,
+  limit: number
+): { ok: true } | { ok: false; message: string } {
+  if (used >= limit) {
+    return {
+      ok: false,
+      message:
+        "This workspace has reached its configured document limit. Delete a source document before uploading another."
+    };
+  }
+  return { ok: true };
+}

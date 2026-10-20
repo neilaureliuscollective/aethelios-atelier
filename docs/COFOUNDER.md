@@ -2,7 +2,7 @@
 
 Standalone feature area for Aethelios Atelier. This is not the main Aethelios Human Ascendance app, not Aethelios Reserve, and not Aurelius.
 
-Base for this V1 branch: `79ec8a51f808677834b6209970cad04178760b9a` (`origin/main` at branch creation).
+Base for this V1 branch: `79ec8a51f808677834b6209970cad04178760b9a` (`origin/main` at branch creation). Isolated worktree: `/home/ubuntu/atelier-cofounder` on `cursor/atelier-digital-cofounder-v1-38aa`.
 
 ## Ownership
 
@@ -24,10 +24,10 @@ Serves port **3010** with `ATELIER_DIST_DIR=.next-cofounder` and `ATELIER_DATA_D
 
 ## Provider path
 
-- Talk: existing Chat Completions tools, plus Responses API when the installed OpenAI SDK exposes `client.responses.create`.
-- Studio images: official Images API (`images.generate`, default model `gpt-image-1` / `OPENAI_IMAGE_MODEL`).
+- Talk: Responses API streaming + function calling when `client.responses.create` exists; otherwise Chat Completions with a multi-turn tool loop. SSE is available from `POST /api/companion/talk` (`stream: true`).
+- Studio images: official Images API `images.generate` and `images.edit` (default model `gpt-image-1` / `OPENAI_IMAGE_MODEL`). Remote image URLs are not fetched.
 - Voice: explicit browser start/stop WebRTC. Server posts the SDP offer to OpenAI (`/v1/realtime/calls`, then `/v1/live/sessions`). Disabled honestly when `ATELIER_OPENAI_ENABLED` + `OPENAI_API_KEY` are not both set.
-- Hosted file search, web search, and Code Interpreter are **not** enabled in V1 (authorization, cost, and account availability). Owner uploads stay in the Atelier database and can be deleted with the document.
+- Hosted file search, web search, and Code Interpreter are **not** enabled in V1 (authorization, cost, and account availability). Owner uploads stay in the Atelier database; text excerpts are read locally and can be deleted with the document.
 
 `OPENAI_API_KEY` remains server-only. No `NEXT_PUBLIC` secrets.
 

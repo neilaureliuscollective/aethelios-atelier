@@ -195,6 +195,18 @@ export class CompanionWorkspace {
     return updated;
   }
 
+  async getDocumentBytes(businessId: string, user: User, documentId: string) {
+    await this.requireMembership(businessId, user);
+    const document = await this.store.companion.getDocument(documentId);
+    if (!document || document.businessId !== businessId || document.status === "deleted") {
+      throw new NotFoundError("Document not found.");
+    }
+    if (!document.blobId) throw new NotFoundError("Document bytes were not stored.");
+    const blob = await this.store.companion.getBlob(document.blobId);
+    if (!blob || blob.businessId !== businessId) throw new NotFoundError("Document bytes were not stored.");
+    return { document, blob };
+  }
+
   async authorizedProjectStatus(businessId: string, user: User, projectId?: string) {
     const context = await this.requireMembership(businessId, user);
     const projects = projectId

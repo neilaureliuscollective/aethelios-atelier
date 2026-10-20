@@ -9,7 +9,8 @@ const bodySchema = z.object({
   businessId: z.string().min(1).optional(),
   draftId: z.string().min(1),
   prompt: z.string().min(1).max(2000),
-  idempotencyKey: z.string().min(8).max(80)
+  idempotencyKey: z.string().min(8).max(80),
+  sourceAssetId: z.string().min(1).optional()
 });
 
 export async function POST(request: Request) {
@@ -20,6 +21,7 @@ export async function POST(request: Request) {
       draftId: body.draftId,
       prompt: body.prompt,
       idempotencyKey: body.idempotencyKey,
+      sourceAssetId: body.sourceAssetId,
       signal: request.signal
     });
     return json({ ok: true, asset });

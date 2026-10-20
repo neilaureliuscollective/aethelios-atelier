@@ -25,6 +25,8 @@ export function BusinessClient() {
   const [profile, setProfile] = useState<BusinessProfile | null>(null);
   const [usage, setUsage] = useState<UsageSnapshot | null>(null);
   const [pending, setPending] = useState<MemoryProposal[]>([]);
+  const [documents, setDocuments] = useState<Array<{ id: string; title: string; status: string }>>([]);
+  const [edits, setEdits] = useState<Record<string, string>>({});
   const [rateLabel, setRateLabel] = useState("Hourly strategy");
   const [rateCents, setRateCents] = useState("15000");
   const [error, setError] = useState("");
@@ -35,11 +37,13 @@ export function BusinessClient() {
       rawProfile: BusinessProfile;
       usage: UsageSnapshot;
       memoryPending: MemoryProposal[];
+      documents: Array<{ id: string; title: string; status: string }>;
     }>("/api/companion/workspace");
     if (!ownerFence.isCurrent(gen, user?.id ?? null)) return;
     setProfile(data.rawProfile);
     setUsage(data.usage);
     setPending(data.memoryPending);
+    setDocuments(data.documents);
   }
 
   useEffect(() => {
@@ -57,7 +61,7 @@ export function BusinessClient() {
         approvedRates: profile.approvedRates
       })
     });
-    setStatus("Confirmed facts saved. Suggestions stay separate until you accept them.");
+    setStatus("Confirmed facts and preferences saved. Suggestions stay separate until you accept them.");
     await load();
   }
 
@@ -76,6 +80,25 @@ export function BusinessClient() {
     setProfile({ ...profile, approvedRates: [...profile.approvedRates, rate] });
   }
 
+  async function uploadDocument(file: File, kind: "logo" | "document") {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    let binary = "";
+    bytes.forEach((value) => {
+      binary += String.fromCharCode(value);
+    });
+    await api("/api/companion/documents", {
+      method: "POST",
+      body: JSON.stringify({
+        title: file.name,
+        mime: file.type || (kind === "logo" ? "image/png" : "text/plain"),
+        bytesBase64: btoa(binary),
+        kind
+      })
+    });
+    setStatus(kind === "logo" ? "Original logo stored." : "Source document stored for this workspace only.");
+    await load();
+  }
+
   return (
     <CompanionShell
       title="Business context"
@@ -89,6 +112,7 @@ export function BusinessClient() {
               <label key={field.key} className={styles.composer}>
                 <span className="tiny">
                   {FIELD_LABELS[field.key] ?? field.key} · {field.kind}
+                  {field.source ? ` · ${field.source}` : ""}
                   {field.updatedAt ? ` · updated ${new Date(field.updatedAt).toLocaleString()}` : ""}
                 </span>
                 <textarea
@@ -99,15 +123,34 @@ export function BusinessClient() {
                       ...profile,
                       fields: {
                         ...profile.fields,
-                        [field.key]: { ...field, value: event.target.value, kind: "confirmed" }
+                        [field.key]: { ...field, value: event.target.value }
                       }
                     })
                   }
                 />
+                <button
+                  className="btn btn-ghost btn-compact"
+                  type="button"
+                  onClick={() =>
+                    setProfile({
+                      ...profile,
+                      fields: {
+                        ...profile.fields,
+                        [field.key]: {
+                          ...field,
+                          kind: field.kind === "preference" ? "confirmed" : "preference",
+                          source: "owner"
+                        }
+                      }
+                    })
+                  }
+                >
+                  Mark as {field.kind === "preference" ? "confirmed fact" : "preference"}
+                </button>
               </label>
             ))}
             <button className="btn btn-gold" type="button" onClick={() => void save()}>
-              Save confirmed profile
+              Save profile
             </button>
             {status ? <p className="notice">{status}</p> : null}
           </article>
@@ -123,15 +166,43 @@ export function BusinessClient() {
             <button className="btn btn-ghost" type="button" onClick={() => addRate()}>
               Add approved rate (cents)
             </button>
-            <p className="tiny" style={{ marginTop: 18 }}>Pending memory</p>
+            <p className="tiny" style={{ marginTop: 18 }}>
+              Source documents
+            </p>
+            {documents.length === 0 ? <p className="muted">No selected source documents yet.</p> : null}
+            {documents.map((doc) => (
+              <p key={doc.id} className="tiny">
+                {doc.title} · {doc.status}
+              </p>
+            ))}
+            <label className="tiny" htmlFor="source-doc">
+              Upload a text source
+            </label>
+            <input
+              id="source-doc"
+              type="file"
+              accept="text/*,.md,.json,.csv"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void uploadDocument(file, "document").catch((err) => setError(actionErrorMessage(err, "Upload failed.")));
+              }}
+            />
+            <p className="tiny" style={{ marginTop: 18 }}>
+              Pending memory
+            </p>
             {pending.length === 0 ? <p className="muted">No suggestions waiting.</p> : null}
             {pending.map((item) => (
               <div key={item.id} className="surface-read" style={{ padding: 12, marginBottom: 8 }}>
                 <p>
                   {item.fieldKey}: {item.proposedValue}
                 </p>
+                <textarea
+                  className={styles.field}
+                  value={edits[item.id] ?? item.proposedValue}
+                  onChange={(event) => setEdits({ ...edits, [item.id]: event.target.value })}
+                />
                 <div className={styles.actions}>
-                  {(["accept", "reject", "delete"] as const).map((action) => (
+                  {(["accept", "edit", "reject", "delete"] as const).map((action) => (
                     <button
                       key={action}
                       className="btn btn-ghost btn-compact"
@@ -139,7 +210,11 @@ export function BusinessClient() {
                       onClick={() =>
                         void api("/api/companion/memory", {
                           method: "POST",
-                          body: JSON.stringify({ proposalId: item.id, action })
+                          body: JSON.stringify({
+                            proposalId: item.id,
+                            action,
+                            editedValue: edits[item.id] ?? item.proposedValue
+                          })
                         }).then(() => load())
                       }
                     >

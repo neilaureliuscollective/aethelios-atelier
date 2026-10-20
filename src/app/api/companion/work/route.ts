@@ -39,14 +39,19 @@ export async function POST(request: Request) {
 
 const archiveSchema = z.object({
   businessId: z.string().min(1).optional(),
-  workItemId: z.string().min(1)
+  workItemId: z.string().min(1),
+  action: z.enum(["archive", "confirm"]).default("archive")
 });
 
 export async function PATCH(request: Request) {
   try {
     const body = archiveSchema.parse(await readJson(request));
     const { auth, store, context } = await requireCompanion(body.businessId);
-    const item = await new CompanionWork(store).archive(context.business.id, auth.user, body.workItemId);
+    const work = new CompanionWork(store);
+    const item =
+      body.action === "confirm"
+        ? await work.confirmAction(context.business.id, auth.user, body.workItemId)
+        : await work.archive(context.business.id, auth.user, body.workItemId);
     return json({ ok: true, item });
   } catch (error) {
     return handleError(error);

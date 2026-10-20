@@ -115,6 +115,71 @@ export class CompanionWork {
     });
   }
 
+  async proposeAction(
+    businessId: string,
+    user: User,
+    input: {
+      tool: string;
+      title: string;
+      preview: string;
+      kind?: WorkKind;
+      args: Record<string, unknown>;
+    }
+  ) {
+    await this.workspace.requireMembership(businessId, user);
+    const item: WorkItem = {
+      id: companionId("act"),
+      businessId,
+      projectId: typeof input.args.projectId === "string" ? input.args.projectId : undefined,
+      kind: input.kind ?? "draft",
+      title: input.title,
+      status: "awaiting_review",
+      payload: {
+        proposed: true,
+        proposedTool: input.tool,
+        preview: input.preview,
+        args: input.args
+      },
+      createdBy: user.id,
+      createdAt: now(),
+      updatedAt: now()
+    };
+    return this.store.companion.addWorkItem(item);
+  }
+
+  async confirmAction(businessId: string, user: User, workItemId: string) {
+    await this.workspace.requireMembership(businessId, user);
+    const item = await this.requireWorkItem(businessId, workItemId);
+    if (item.status !== "awaiting_review" || item.payload.proposed !== true) {
+      throw new ForbiddenError("That item is not a pending action proposal.");
+    }
+    const tool = String(item.payload.proposedTool ?? "");
+    const args = (item.payload.args ?? {}) as Record<string, unknown>;
+    if (tool === "create_or_update_task") {
+      return this.store.companion.updateWorkItem({
+        ...item,
+        kind: "task",
+        title: String(args.title ?? item.title),
+        status: "open",
+        payload: { detail: String(args.detail ?? item.payload.preview ?? ""), confirmedFromProposal: true },
+        updatedAt: now()
+      });
+    }
+    return this.store.companion.updateWorkItem({
+      ...item,
+      kind: item.kind === "task" ? "task" : item.kind === "estimate" ? "estimate" : "draft",
+      title: String(args.title ?? item.title),
+      status: "open",
+      payload: {
+        body: String(args.body ?? item.payload.preview ?? ""),
+        kind: args.kind ?? item.payload.kind ?? "copy",
+        confirmedFromProposal: true
+      },
+      projectId: typeof args.projectId === "string" ? args.projectId : item.projectId,
+      updatedAt: now()
+    });
+  }
+
   async today(businessId: string, user: User): Promise<TodayView> {
     const context = await this.workspace.requireMembership(businessId, user);
     const items = await this.store.companion.listWorkItems(businessId);

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { assertDocumentQuota } from "@/lib/cofounder/documents";
 import { requireCompanion } from "@/lib/cofounder/http";
 import { CompanionStudio } from "@/lib/cofounder/studio";
 import { CompanionWorkspace } from "@/lib/cofounder/workspace";
@@ -30,6 +31,10 @@ export async function POST(request: Request) {
     if (bytes.byteLength > 2_000_000) {
       return json({ ok: false, error: "too_large", message: "Documents are limited to 2 MB." }, 400);
     }
+    assertDocumentQuota({
+      planId: context.business.planId,
+      currentCount: context.documents.length
+    });
     const blob = await store.companion.putBlob({
       id: `blob_${crypto.randomUUID()}`,
       businessId: context.business.id,
