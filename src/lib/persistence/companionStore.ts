@@ -65,8 +65,10 @@ export type CompanionStore = {
   transitionUsageEvent(
     id: string,
     fromStatus: UsageEvent["status"],
-    event: UsageEvent
+    event: UsageEvent,
+    expectedAttempt?: number
   ): UsageEvent | null | Promise<UsageEvent | null>;
+  compareAndSwapJob(job: GenerationJob, expectedAttempt: number): GenerationJob | null | Promise<GenerationJob | null>;
 
   addStudioAsset(asset: StudioAsset): StudioAsset | Promise<StudioAsset>;
   getStudioAsset(id: string): StudioAsset | null | Promise<StudioAsset | null>;
@@ -212,7 +214,8 @@ CREATE TABLE IF NOT EXISTS usage_events (
   metadata_json TEXT,
   operation_id TEXT,
   status TEXT,
-  expires_at TEXT
+  expires_at TEXT,
+  attempt INTEGER NOT NULL DEFAULT 1
 );
 CREATE UNIQUE INDEX IF NOT EXISTS usage_events_operation_idx
   ON usage_events (business_id, operation_id)
@@ -245,6 +248,7 @@ CREATE TABLE IF NOT EXISTS generation_jobs (
   updated_at TEXT NOT NULL,
   result_json TEXT,
   error TEXT,
+  attempt INTEGER NOT NULL DEFAULT 1,
   UNIQUE (business_id, idempotency_key)
 );
 CREATE TABLE IF NOT EXISTS companion_blobs (

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { seedSimulatedUsers } from "@/lib/auth/identities";
 import { CompanionStudio } from "@/lib/cofounder/studio";
-import { CompanionUsage } from "@/lib/cofounder/usage";
+import { bypassProcessLockForTests, CompanionUsage } from "@/lib/cofounder/usage";
 import { CompanionWorkspace } from "@/lib/cofounder/workspace";
 import { encodeSolidPng } from "@/lib/cofounder/png";
 import { ConflictError, ForbiddenError, LimitError } from "@/lib/domain/errors";
@@ -41,6 +41,7 @@ async function openStores() {
 }
 
 describe.skipIf(!isolated)("PostgreSQL companion integration", () => {
+  bypassProcessLockForTests();
   afterEach(() => {
     delete process.env.ATELIER_PLAN_IMAGE_LIMIT;
     delete process.env.ATELIER_MAX_CONCURRENT_GENERATIONS;

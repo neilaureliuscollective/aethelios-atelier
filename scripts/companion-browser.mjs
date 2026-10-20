@@ -199,6 +199,49 @@ check(
 await page.waitForFunction(() => document.body.innerText.includes("Exported"), { timeout: 8000 }).catch(() => null);
 await shot("companion-studio-1440.png");
 await shot("companion-studio-exported-1440.png");
+const originalCapture = await page.evaluate(async (href) => {
+  const response = await fetch(href);
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return {
+    status: response.status,
+    length: bytes.byteLength,
+    hash: Array.from(new Uint8Array(digest)).map((value) => value.toString(16).padStart(2, "0")).join(""),
+    bytes: Array.from(bytes),
+    revisionId: href
+  };
+}, exportedJson.exported?.assetUrl || "");
+const originalRevisionId = exportedJson.exported?.revision?.id || "";
+check(
+  "original export is captured before sign-out",
+  originalCapture.status === 200 && originalCapture.length > 1000 && Boolean(originalRevisionId),
+  JSON.stringify({ length: originalCapture.length, hash: originalCapture.hash, revision: originalRevisionId })
+);
+const retainedUi = await page.evaluate(() => {
+  const apply = document.querySelector("[data-apply-retained]");
+  return { hasList: Boolean(document.querySelector("[data-retained-images]")), applyLabel: apply?.textContent || "", applyId: apply?.getAttribute("data-apply-retained") || "" };
+});
+check("retained-image recovery is visible after export", retainedUi.hasList && Boolean(retainedUi.applyId), JSON.stringify(retainedUi));
+if (retainedUi.applyId) {
+  const applyResponse = page.waitForResponse(
+    (response) => response.url().includes("/api/companion/studio/apply") && response.request().method() === "POST",
+    { timeout: 20000 }
+  );
+  await page.evaluate(() => {
+    const button = document.querySelector("[data-apply-retained]");
+    button?.click();
+  });
+  const appliedHttp = await applyResponse.catch(() => null);
+  const afterApply = await page.evaluate(() => ({
+    applied: Boolean(document.querySelector("[data-retained-applied='true']")),
+    status: document.body.innerText.includes("Retained image applied")
+  }));
+  check(
+    "owner can apply the retained image from Studio",
+    Boolean(appliedHttp?.ok()) && (afterApply.applied || afterApply.status),
+    JSON.stringify({ status: appliedHttp?.status(), ...afterApply })
+  );
+}
 
 await page.evaluate(async () => {
   await fetch("/api/session/sign-out", { method: "POST" });
@@ -238,10 +281,15 @@ const again = await page.evaluate(async (href) => {
 }, downloadHref);
 check(
   "fresh session downloads the same exported PNG",
-  downloaded.status === 200 && downloaded.png && downloaded.length > 1000,
+  downloaded.status === 200 &&
+    downloaded.png &&
+    downloaded.length === originalCapture.length &&
+    downloaded.hash === originalCapture.hash &&
+    downloaded.bytes.every((value, index) => value === originalCapture.bytes[index]),
   JSON.stringify({ status: downloaded.status, length: downloaded.length, hash: downloaded.hash })
 );
-check("reopen is byte-for-byte identical", again.status === 200 && again.hash === downloaded.hash, downloaded.hash);
+check("reopen is byte-for-byte identical", again.status === 200 && again.hash === originalCapture.hash, originalCapture.hash);
+check("fresh session recovers the exact composition revision", Boolean(originalRevisionId) && exportedJson.exported?.revision?.id === originalRevisionId);
 let rasterDelta = Number.POSITIVE_INFINITY;
 let exportRaster = { width: 0, height: 0 };
 try {
@@ -265,6 +313,11 @@ check(
     previewRaster.height === exportRaster.height &&
     rasterDelta <= RASTER_TOLERANCE,
   `delta=${rasterDelta} preview=${previewRaster?.width}x${previewRaster?.height} export=${exportRaster.width}x${exportRaster.height}`
+);
+check(
+  "pixel comparison covers the exported square preview only",
+  previewRaster?.width === 1080 && previewRaster?.height === 1080,
+  "pixel-compared: square_announcement export. dimension-only later: portrait_social, story_portrait, website_banner"
 );
 await shot("companion-work-exported-1440.png");
 globalThis.__atelierExportedAsset = downloadHref;
@@ -338,6 +391,38 @@ for (const format of [
     JSON.stringify(size)
   );
 }
+check(
+  "portrait, story, and banner were dimension-checked only",
+  true,
+  "dimension-only: portrait_social, story_portrait, website_banner"
+);
+
+await page.waitForSelector("#headline");
+await page.click("#headline", { clickCount: 3 });
+await page.keyboard.type("Later draft edit after reopen");
+const laterSave = page.waitForResponse(
+  (response) => response.url().includes("/api/companion/studio") && response.request().method() === "PATCH",
+  { timeout: 20000 }
+);
+await page.evaluate(() => {
+  const button = [...document.querySelectorAll("button")].find((node) => /Save layers/.test(node.textContent || ""));
+  button?.click();
+});
+await laterSave.catch(() => null);
+const afterEdit = await page.evaluate(async (href) => {
+  const response = await fetch(href);
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return {
+    status: response.status,
+    hash: Array.from(new Uint8Array(digest)).map((value) => value.toString(16).padStart(2, "0")).join("")
+  };
+}, globalThis.__atelierExportedAsset);
+check(
+  "later draft edit does not change the exported file",
+  afterEdit.status === 200 && afterEdit.hash === originalCapture.hash,
+  afterEdit.hash
+);
 
 await signIn("owner-two.local@atelier.invalid");
 await page.goto(`${BASE}/companion`, { waitUntil: "networkidle0" });

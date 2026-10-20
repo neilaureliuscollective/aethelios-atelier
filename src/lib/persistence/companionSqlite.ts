@@ -45,6 +45,7 @@ export class SqliteCompanionStore implements CompanionStore {
     this.ensureAssetRevisionColumn();
     this.ensureOutputHashColumns();
     this.ensureDraftRevisionColumn();
+    this.ensureJobAttemptColumn();
   }
 
   private ensureProjectBusinessColumn() {
@@ -60,9 +61,17 @@ export class SqliteCompanionStore implements CompanionStore {
     if (!names.has("operation_id")) this.db.exec("ALTER TABLE usage_events ADD COLUMN operation_id TEXT");
     if (!names.has("status")) this.db.exec("ALTER TABLE usage_events ADD COLUMN status TEXT");
     if (!names.has("expires_at")) this.db.exec("ALTER TABLE usage_events ADD COLUMN expires_at TEXT");
+    if (!names.has("attempt")) this.db.exec("ALTER TABLE usage_events ADD COLUMN attempt INTEGER NOT NULL DEFAULT 1");
     this.db.exec(
       "CREATE UNIQUE INDEX IF NOT EXISTS usage_events_operation_idx ON usage_events (business_id, operation_id) WHERE operation_id IS NOT NULL"
     );
+  }
+
+  private ensureJobAttemptColumn() {
+    const columns = this.db.prepare("PRAGMA table_info(generation_jobs)").all() as Array<{ name: string }>;
+    if (!columns.some((column) => column.name === "attempt")) {
+      this.db.exec("ALTER TABLE generation_jobs ADD COLUMN attempt INTEGER NOT NULL DEFAULT 1");
+    }
   }
 
   private ensureAssetRevisionColumn() {
@@ -101,16 +110,27 @@ export class SqliteCompanionStore implements CompanionStore {
     return Number(row?.total ?? 0);
   }
 
-  transitionUsageEvent(id: string, fromStatus: UsageEvent["status"], event: UsageEvent) {
+  transitionUsageEvent(
+    id: string,
+    fromStatus: UsageEvent["status"],
+    event: UsageEvent,
+    expectedAttempt?: number
+  ) {
     const result = this.db
-      .prepare("UPDATE usage_events SET units=?, metadata_json=?, status=?, expires_at=? WHERE id=? AND status=?")
+      .prepare(
+        expectedAttempt == null
+          ? "UPDATE usage_events SET units=?, metadata_json=?, status=?, expires_at=?, attempt=? WHERE id=? AND status=?"
+          : "UPDATE usage_events SET units=?, metadata_json=?, status=?, expires_at=?, attempt=? WHERE id=? AND status=? AND attempt=?"
+      )
       .run(
         event.units,
         event.metadata ? JSON.stringify(event.metadata) : null,
         event.status ?? null,
         event.expiresAt ?? null,
+        event.attempt ?? 1,
         id,
-        fromStatus ?? null
+        fromStatus ?? null,
+        ...(expectedAttempt == null ? [] : [expectedAttempt])
       );
     return result.changes === 1 ? event : null;
   }
@@ -531,7 +551,7 @@ export class SqliteCompanionStore implements CompanionStore {
   addUsageEvent(event: UsageEvent) {
     this.db
       .prepare(
-        "INSERT INTO usage_events(id,business_id,user_id,kind,units,created_at,metadata_json,operation_id,status,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?)"
+        "INSERT INTO usage_events(id,business_id,user_id,kind,units,created_at,metadata_json,operation_id,status,expires_at,attempt) VALUES(?,?,?,?,?,?,?,?,?,?,?)"
       )
       .run(
         event.id,
@@ -543,19 +563,21 @@ export class SqliteCompanionStore implements CompanionStore {
         event.metadata ? JSON.stringify(event.metadata) : null,
         event.operationId ?? null,
         event.status ?? null,
-        event.expiresAt ?? null
+        event.expiresAt ?? null,
+        event.attempt ?? 1
       );
     return event;
   }
 
   updateUsageEvent(event: UsageEvent) {
     this.db
-      .prepare("UPDATE usage_events SET units=?, metadata_json=?, status=?, expires_at=? WHERE id=?")
+      .prepare("UPDATE usage_events SET units=?, metadata_json=?, status=?, expires_at=?, attempt=? WHERE id=?")
       .run(
         event.units,
         event.metadata ? JSON.stringify(event.metadata) : null,
         event.status ?? null,
         event.expiresAt ?? null,
+        event.attempt ?? 1,
         event.id
       );
     return event;
@@ -649,8 +671,8 @@ export class SqliteCompanionStore implements CompanionStore {
   addJob(job: GenerationJob) {
     this.db
       .prepare(
-        `INSERT INTO generation_jobs(id,business_id,owner_id,session_id,kind,status,idempotency_key,created_at,updated_at,result_json,error)
-         VALUES(?,?,?,?,?,?,?,?,?,?,?)`
+        `INSERT INTO generation_jobs(id,business_id,owner_id,session_id,kind,status,idempotency_key,created_at,updated_at,result_json,error,attempt)
+         VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`
       )
       .run(
         job.id,
@@ -663,7 +685,8 @@ export class SqliteCompanionStore implements CompanionStore {
         job.createdAt,
         job.updatedAt,
         job.resultJson ?? null,
-        job.error ?? null
+        job.error ?? null,
+        job.attempt ?? 1
       );
     return job;
   }
@@ -682,9 +705,35 @@ export class SqliteCompanionStore implements CompanionStore {
 
   updateJob(job: GenerationJob) {
     this.db
-      .prepare("UPDATE generation_jobs SET status=?, session_id=?, updated_at=?, result_json=?, error=? WHERE id=?")
-      .run(job.status, job.sessionId, job.updatedAt, job.resultJson ?? null, job.error ?? null, job.id);
+      .prepare("UPDATE generation_jobs SET status=?, session_id=?, updated_at=?, result_json=?, error=?, attempt=? WHERE id=?")
+      .run(
+        job.status,
+        job.sessionId,
+        job.updatedAt,
+        job.resultJson ?? null,
+        job.error ?? null,
+        job.attempt ?? 1,
+        job.id
+      );
     return job;
+  }
+
+  compareAndSwapJob(job: GenerationJob, expectedAttempt: number) {
+    const result = this.db
+      .prepare(
+        "UPDATE generation_jobs SET status=?, session_id=?, updated_at=?, result_json=?, error=?, attempt=? WHERE id=? AND attempt=?"
+      )
+      .run(
+        job.status,
+        job.sessionId,
+        job.updatedAt,
+        job.resultJson ?? null,
+        job.error ?? null,
+        job.attempt ?? expectedAttempt,
+        job.id,
+        expectedAttempt
+      );
+    return result.changes === 1 ? job : null;
   }
 
   invalidateJobsForSession(sessionId: string) {

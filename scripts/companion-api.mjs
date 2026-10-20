@@ -165,7 +165,7 @@ const generate = await req("/api/companion/studio/generate", {
     businessId,
     draftId: studio.json.draft.id,
     prompt: "quiet table",
-    idempotencyKey: "img-http-1"
+    idempotencyKey: `img-http-${Date.now()}`
   }
 });
 check(
@@ -239,6 +239,51 @@ check(
 const originalBytes = encodeSolidPng(1080, 1350);
 const originalHash = createHash("sha256").update(originalBytes).digest("hex");
 check("export stores the output hash", exported.json.exported?.revision?.outputHash === originalHash);
+const beforeSignOut = await fetch(`${BASE}${exported.json.exported.assetUrl}`, { headers: { cookie: owner } });
+const capturedBytes = Buffer.from(await beforeSignOut.arrayBuffer());
+const capturedHash = createHash("sha256").update(capturedBytes).digest("hex");
+check(
+  "original export is captured before sign-out",
+  beforeSignOut.ok && capturedHash === originalHash && capturedBytes.equals(originalBytes)
+);
+const originalRevisionId = exported.json.exported?.revision?.id;
+
+const cleared = await req("/api/companion/studio", {
+  method: "PATCH",
+  cookie: owner,
+  body: {
+    businessId,
+    draftId: imported.json.draft.id,
+    selectedAssetId: "",
+    expectedUpdatedAt: exported.json.exported?.draft?.updatedAt
+  }
+});
+check("selected image can be cleared without deleting the file", cleared.status === 200 && !cleared.json.draft?.selectedAssetId);
+const applied = await req("/api/companion/studio/apply", {
+  method: "POST",
+  cookie: owner,
+  body: {
+    businessId,
+    draftId: imported.json.draft.id,
+    assetId: exported.json.exported?.asset?.id,
+    expectedSaveRevision: cleared.json.draft?.saveRevision
+  }
+});
+check(
+  "owner can apply the retained image to the current draft",
+  applied.status === 200 && applied.json.draft?.selectedAssetId === exported.json.exported?.asset?.id
+);
+const otherApply = await req("/api/companion/studio/apply", {
+  method: "POST",
+  cookie: other,
+  body: {
+    businessId,
+    draftId: imported.json.draft.id,
+    assetId: exported.json.exported?.asset?.id,
+    expectedSaveRevision: applied.json.draft?.saveRevision
+  }
+});
+check("second owner cannot apply the retained image", otherApply.status === 403);
 
 const ownerAgain = await signIn("owner.local@atelier.invalid");
 const finished = await req("/api/companion/work", { cookie: ownerAgain });
@@ -254,11 +299,11 @@ check(
   "fresh session downloads the exact exported bytes",
   download.ok &&
     download.headers.get("content-type")?.includes("png") &&
-    downloadedHash === originalHash &&
-    downloaded.equals(originalBytes)
+    downloadedHash === capturedHash &&
+    downloaded.equals(capturedBytes)
 );
 const revisionAgain = exportedItem?.payload?.export?.revisionId;
-check("fresh session recovers the exact composition revision", revisionAgain === exported.json.exported?.revision?.id);
+check("fresh session recovers the exact composition revision", revisionAgain === originalRevisionId);
 const later = await req("/api/companion/studio", {
   method: "PATCH",
   cookie: ownerAgain,
@@ -268,7 +313,7 @@ const later = await req("/api/companion/studio", {
     layers: imported.json.draft.layers.map((layer) =>
       layer.kind === "headline" ? { ...layer, text: "Later draft edit" } : layer
     ),
-    expectedUpdatedAt: exported.json.exported?.draft?.updatedAt
+    expectedUpdatedAt: applied.json.draft?.updatedAt ?? exported.json.exported?.draft?.updatedAt
   }
 });
 check("later draft edit is accepted", later.status === 200);

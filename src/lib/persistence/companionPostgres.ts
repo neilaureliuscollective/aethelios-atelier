@@ -55,6 +55,8 @@ export class PostgresCompanionStore implements CompanionStore {
     await this.client().unsafe("ALTER TABLE studio_composition_revisions ADD COLUMN IF NOT EXISTS renderer_version TEXT");
     await this.client().unsafe("ALTER TABLE studio_composition_revisions ADD COLUMN IF NOT EXISTS output_hash TEXT");
     await this.client().unsafe("ALTER TABLE studio_drafts ADD COLUMN IF NOT EXISTS save_revision INTEGER NOT NULL DEFAULT 1");
+    await this.client().unsafe("ALTER TABLE usage_events ADD COLUMN IF NOT EXISTS attempt INTEGER NOT NULL DEFAULT 1");
+    await this.client().unsafe("ALTER TABLE generation_jobs ADD COLUMN IF NOT EXISTS attempt INTEGER NOT NULL DEFAULT 1");
   }
 
   async lockUsageBudget(businessId: string, kind: UsageKind, periodKey: string) {
@@ -67,14 +69,30 @@ export class PostgresCompanionStore implements CompanionStore {
     return Number(rows[0]?.total ?? 0);
   }
 
-  async transitionUsageEvent(id: string, fromStatus: UsageEvent["status"], event: UsageEvent) {
-    const rows = await this.client()`
-      UPDATE usage_events
-      SET units = ${event.units}, metadata_json = ${event.metadata ? JSON.stringify(event.metadata) : null},
-          status = ${event.status ?? null}, expires_at = ${event.expiresAt ?? null}
-      WHERE id = ${id} AND status = ${fromStatus ?? null}
-      RETURNING *
-    `;
+  async transitionUsageEvent(
+    id: string,
+    fromStatus: UsageEvent["status"],
+    event: UsageEvent,
+    expectedAttempt?: number
+  ) {
+    const rows =
+      expectedAttempt == null
+        ? await this.client()`
+            UPDATE usage_events
+            SET units = ${event.units}, metadata_json = ${event.metadata ? JSON.stringify(event.metadata) : null},
+                status = ${event.status ?? null}, expires_at = ${event.expiresAt ?? null},
+                attempt = ${event.attempt ?? 1}
+            WHERE id = ${id} AND status = ${fromStatus ?? null}
+            RETURNING *
+          `
+        : await this.client()`
+            UPDATE usage_events
+            SET units = ${event.units}, metadata_json = ${event.metadata ? JSON.stringify(event.metadata) : null},
+                status = ${event.status ?? null}, expires_at = ${event.expiresAt ?? null},
+                attempt = ${event.attempt ?? expectedAttempt}
+            WHERE id = ${id} AND status = ${fromStatus ?? null} AND attempt = ${expectedAttempt}
+            RETURNING *
+          `;
     return rows[0] ? mapUsage(rows[0] as Row) : null;
   }
 
@@ -383,11 +401,11 @@ export class PostgresCompanionStore implements CompanionStore {
 
   async addUsageEvent(event: UsageEvent) {
     await this.client()`
-      INSERT INTO usage_events(id,business_id,user_id,kind,units,created_at,metadata_json,operation_id,status,expires_at)
+      INSERT INTO usage_events(id,business_id,user_id,kind,units,created_at,metadata_json,operation_id,status,expires_at,attempt)
       VALUES (
         ${event.id}, ${event.businessId}, ${event.userId}, ${event.kind}, ${event.units}, ${event.createdAt},
         ${event.metadata ? JSON.stringify(event.metadata) : null}, ${event.operationId ?? null},
-        ${event.status ?? null}, ${event.expiresAt ?? null}
+        ${event.status ?? null}, ${event.expiresAt ?? null}, ${event.attempt ?? 1}
       )
     `;
     return event;
@@ -397,7 +415,8 @@ export class PostgresCompanionStore implements CompanionStore {
     await this.client()`
       UPDATE usage_events
       SET units = ${event.units}, metadata_json = ${event.metadata ? JSON.stringify(event.metadata) : null},
-          status = ${event.status ?? null}, expires_at = ${event.expiresAt ?? null}
+          status = ${event.status ?? null}, expires_at = ${event.expiresAt ?? null},
+          attempt = ${event.attempt ?? 1}
       WHERE id = ${event.id}
     `;
     return event;
@@ -477,10 +496,11 @@ export class PostgresCompanionStore implements CompanionStore {
 
   async addJob(job: GenerationJob) {
     await this.client()`
-      INSERT INTO generation_jobs(id,business_id,owner_id,session_id,kind,status,idempotency_key,created_at,updated_at,result_json,error)
+      INSERT INTO generation_jobs(id,business_id,owner_id,session_id,kind,status,idempotency_key,created_at,updated_at,result_json,error,attempt)
       VALUES (
         ${job.id}, ${job.businessId}, ${job.ownerId}, ${job.sessionId}, ${job.kind}, ${job.status},
-        ${job.idempotencyKey}, ${job.createdAt}, ${job.updatedAt}, ${job.resultJson ?? null}, ${job.error ?? null}
+        ${job.idempotencyKey}, ${job.createdAt}, ${job.updatedAt}, ${job.resultJson ?? null}, ${job.error ?? null},
+        ${job.attempt ?? 1}
       )
     `;
     return job;
@@ -501,10 +521,23 @@ export class PostgresCompanionStore implements CompanionStore {
     await this.client()`
       UPDATE generation_jobs
       SET status = ${job.status}, session_id = ${job.sessionId}, updated_at = ${job.updatedAt},
-          result_json = ${job.resultJson ?? null}, error = ${job.error ?? null}
+          result_json = ${job.resultJson ?? null}, error = ${job.error ?? null},
+          attempt = ${job.attempt ?? 1}
       WHERE id = ${job.id}
     `;
     return job;
+  }
+
+  async compareAndSwapJob(job: GenerationJob, expectedAttempt: number) {
+    const rows = await this.client()`
+      UPDATE generation_jobs
+      SET status = ${job.status}, session_id = ${job.sessionId}, updated_at = ${job.updatedAt},
+          result_json = ${job.resultJson ?? null}, error = ${job.error ?? null},
+          attempt = ${job.attempt ?? expectedAttempt}
+      WHERE id = ${job.id} AND attempt = ${expectedAttempt}
+      RETURNING *
+    `;
+    return rows[0] ? mapJob(rows[0] as Row) : null;
   }
 
   async invalidateJobsForSession(sessionId: string) {

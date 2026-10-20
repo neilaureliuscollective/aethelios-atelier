@@ -303,5 +303,150 @@ describe("studio draft compare-and-swap", () => {
       "Keep this headline"
     );
     expect((await store.companion.getStudioDraft(created.draft.id))?.selectedAssetId).toBeUndefined();
+    await expect(
+      studio.applyAsset(ctx.business.id, owner, created.draft.id, result.asset.id, {
+        expectedSaveRevision: created.draft.saveRevision
+      })
+    ).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it("lets the owner apply a retained ready image without overwriting newer copy", async () => {
+    const store = new MemoryPersistence();
+    await seedSimulatedUsers(store, ["neil.local@atelier.invalid"]);
+    const owner = (await store.getUserByEmail("owner.local@atelier.invalid")) as User;
+    const other = (await store.getUserByEmail("owner-two.local@atelier.invalid")) as User;
+    const session = {
+      user: owner,
+      session: {
+        id: `sess_${owner.id}_apply`,
+        userId: owner.id,
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 60_000).toISOString()
+      },
+      adapter: "simulated" as const
+    };
+    await store.createSession(session.session);
+    let release!: () => void;
+    const started = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let gate!: () => void;
+    const wait = new Promise<void>((resolve) => {
+      gate = resolve;
+    });
+    const studio = new CompanionStudio(store).withImageProvider({
+      async generate() {
+        release();
+        await wait;
+        const { encodeSolidPng } = await import("@/lib/cofounder/png");
+        return { bytes: encodeSolidPng(32, 32), mime: "image/png", model: "retain" };
+      },
+      async edit() {
+        return this.generate({ prompt: "edit" });
+      }
+    });
+    const ctx = await new CompanionWorkspace(store).ensureForUser(owner);
+    const created = await studio.createFromCopy(ctx.business.id, owner, {
+      headline: "Original headline",
+      layout: "square_announcement"
+    });
+    const pending = studio.generate(ctx.business.id, owner, session, {
+      draftId: created.draft.id,
+      prompt: "retain-me",
+      idempotencyKey: "retain-1"
+    });
+    await started;
+    const edited = await studio.updateDraft(ctx.business.id, owner, created.draft.id, {
+      layout: "portrait_social",
+      layers: created.draft.layers.map((layer) =>
+        layer.kind === "headline" ? { ...layer, text: "Newer saved headline" } : layer
+      ),
+      expectedSaveRevision: created.draft.saveRevision
+    });
+    gate();
+    const late = await pending;
+    expect(late.applied).toBe(false);
+    expect(late.asset.status).toBe("ready");
+    expect(late.asset.blobId).toBeTruthy();
+    const reloaded = await studio.getDraft(ctx.business.id, owner, created.draft.id);
+    expect(reloaded.layers.find((layer) => layer.kind === "headline")?.text).toBe("Newer saved headline");
+    expect(reloaded.layout).toBe("portrait_social");
+    const applied = await studio.applyAsset(ctx.business.id, owner, created.draft.id, late.asset.id, {
+      expectedSaveRevision: reloaded.saveRevision
+    });
+    expect(applied.selectedAssetId).toBe(late.asset.id);
+    expect(applied.layers.find((layer) => layer.kind === "headline")?.text).toBe("Newer saved headline");
+    expect(applied.layout).toBe("portrait_social");
+    await expect(
+      studio.applyAsset(ctx.business.id, owner, created.draft.id, late.asset.id, {
+        expectedSaveRevision: edited.saveRevision
+      })
+    ).rejects.toBeInstanceOf(ConflictError);
+    await expect(
+      studio.applyAsset(ctx.business.id, other, created.draft.id, late.asset.id, {
+        expectedSaveRevision: applied.saveRevision
+      })
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    const { encodeSolidPng } = await import("@/lib/cofounder/png");
+    const exported = await studio.exportDraft(ctx.business.id, owner, created.draft.id, "portrait_social", {
+      composedPngBase64: Buffer.from(encodeSolidPng(1080, 1350)).toString("base64"),
+      expectedSaveRevision: applied.saveRevision
+    });
+    expect(exported.asset?.blobId).toBeTruthy();
+  });
+
+  it("does not let a late first attempt settle or select after retry", async () => {
+    const store = new MemoryPersistence();
+    await seedSimulatedUsers(store, ["neil.local@atelier.invalid"]);
+    const owner = (await store.getUserByEmail("owner.local@atelier.invalid")) as User;
+    const session = {
+      user: owner,
+      session: {
+        id: `sess_${owner.id}_stale`,
+        userId: owner.id,
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 60_000).toISOString()
+      },
+      adapter: "simulated" as const
+    };
+    await store.createSession(session.session);
+    let release!: () => void;
+    const started = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let gate!: () => void;
+    const wait = new Promise<void>((resolve) => {
+      gate = resolve;
+    });
+    const studio = new CompanionStudio(store).withImageProvider({
+      async generate() {
+        release();
+        await wait;
+        const { encodeSolidPng } = await import("@/lib/cofounder/png");
+        return { bytes: encodeSolidPng(32, 32), mime: "image/png", model: "stale" };
+      },
+      async edit() {
+        return this.generate({ prompt: "edit" });
+      }
+    });
+    const ctx = await new CompanionWorkspace(store).ensureForUser(owner);
+    const created = await studio.createFromCopy(ctx.business.id, owner, { headline: "Fence me" });
+    const pending = studio.generate(ctx.business.id, owner, session, {
+      draftId: created.draft.id,
+      prompt: "stale",
+      idempotencyKey: "stale-1"
+    });
+    await started;
+    const jobs = await store.companion.getJobByIdempotency(ctx.business.id, "stale-1");
+    const usage = await store.companion.getUsageByOperation(ctx.business.id, "stale-1");
+    await store.companion.updateJob({ ...jobs!, attempt: 2 });
+    await store.companion.updateUsageEvent({ ...usage!, attempt: 2, status: "held" });
+    gate();
+    const late = await pending;
+    expect(late.applied).toBe(false);
+    expect(late.asset.status).toBe("ready");
+    expect((await store.companion.getStudioDraft(created.draft.id))?.selectedAssetId).not.toBe(late.asset.id);
+    expect((await store.companion.getUsageEvent(usage!.id))?.status).toBe("held");
+    expect((await store.companion.getJobByIdempotency(ctx.business.id, "stale-1"))?.status).toBe("pending");
   });
 });

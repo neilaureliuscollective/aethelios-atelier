@@ -82,7 +82,7 @@ export function StudioClient() {
       business: { id: string; name: string };
       rawProfile?: BusinessProfile;
     }>("/api/companion/workspace");
-    const data = await api<{ drafts: StudioDraft[] }>(
+    const data = await api<{ drafts: StudioDraft[]; assets?: StudioAsset[] }>(
       `/api/companion/studio?businessId=${encodeURIComponent(workspace.business.id)}`
     );
     const work = await api<{ items: WorkItem[] }>(
@@ -96,7 +96,7 @@ export function StudioClient() {
     setProfile(workspace.rawProfile ?? null);
     setDrafts(data.drafts);
     setWorkItems(work.items);
-    setAssets(today.today.pendingAssets);
+    setAssets(data.assets ?? today.today.pendingAssets);
     const requestedDraft = search.get("draftId");
     const requestedWork = search.get("workItemId");
     if (!requestedDraft && !requestedWork) {
@@ -288,8 +288,10 @@ export function StudioClient() {
       });
       setAsset(result.asset);
       generateKeyRef.current = null;
-      if (result.conflict) {
-        setStatus("Image ready as a separate asset. Newer draft edits were kept. Select it explicitly if you want it applied.");
+      if (result.asset.status === "invalidated") {
+        setStatus("Generation was invalidated after sign-out or cancel. No retained image was stored.");
+      } else if (result.conflict) {
+        setStatus("Image ready as a separate asset. Newer draft edits were kept. Apply it below if you want it selected.");
       } else {
         setStatus(result.asset.status === "ready" ? "Image ready. It is not a portfolio result." : result.asset.error ?? "");
       }
@@ -351,6 +353,30 @@ export function StudioClient() {
       setStatus("");
     } finally {
       setExporting(false);
+    }
+  }
+
+  async function applyRetained(assetId: string) {
+    if (!selected || !businessId) return;
+    setError("");
+    setRecovery("");
+    try {
+      const result = await api<{ draft: StudioDraft }>("/api/companion/studio/apply", {
+        method: "POST",
+        body: JSON.stringify({
+          businessId,
+          draftId: selected.id,
+          assetId,
+          expectedSaveRevision: selected.saveRevision,
+          expectedUpdatedAt: selected.updatedAt
+        })
+      });
+      hydrate(result.draft);
+      setStatus("Retained image applied to the current draft. Newer text and layout were kept.");
+      await refresh();
+    } catch (err) {
+      setError(actionErrorMessage(err, "The retained image could not be applied. Newer draft edits were kept."));
+      setRecovery("Reload the newer revision, then apply the image again. The file itself was not deleted.");
     }
   }
 
@@ -567,8 +593,41 @@ export function StudioClient() {
               ))}
             </div>
           ) : null}
-          {assets.length ? (
-            <p className="tiny">{assets.length} pending or failed generation(s) — none shown as complete.</p>
+          {selected ? (
+            <div className={styles.list} style={{ marginTop: 16 }} data-retained-images>
+              <p className="tiny">Retained ready images</p>
+              {assets.filter((item) => item.draftId === selected.id && item.status === "ready" && item.blobId).length === 0 ? (
+                <p className="tiny">No completed image is waiting to be applied. Invalidated or failed generations are not retained.</p>
+              ) : (
+                assets
+                  .filter((item) => item.draftId === selected.id && item.status === "ready" && item.blobId)
+                  .map((item) => {
+                    const applied = selected.selectedAssetId === item.id;
+                    return (
+                      <div key={item.id} className={styles.actions} data-retained-image={item.id} data-retained-applied={applied ? "true" : "false"}>
+                        <p className="tiny">
+                          {applied ? "Applied" : "Unapplied"} · {item.prompt.slice(0, 48) || "Ready image"}
+                        </p>
+                        <button
+                          className="btn btn-ghost"
+                          type="button"
+                          data-apply-retained={item.id}
+                          disabled={applied || saving}
+                          onClick={() => void applyRetained(item.id)}
+                        >
+                          {applied ? "Already applied" : "Apply to draft"}
+                        </button>
+                      </div>
+                    );
+                  })
+              )}
+            </div>
+          ) : null}
+          {assets.filter((item) => item.status === "pending" || item.status === "failed").length ? (
+            <p className="tiny">
+              {assets.filter((item) => item.status === "pending" || item.status === "failed").length} pending or
+              failed generation(s) — those are not retained images.
+            </p>
           ) : null}
         </aside>
       </div>

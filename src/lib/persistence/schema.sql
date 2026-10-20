@@ -298,7 +298,8 @@ CREATE TABLE IF NOT EXISTS usage_events (
   kind TEXT NOT NULL,
   units INTEGER NOT NULL,
   created_at TEXT NOT NULL,
-  metadata_json TEXT
+  metadata_json TEXT,
+  attempt INTEGER NOT NULL DEFAULT 1
 );
 CREATE TABLE IF NOT EXISTS generation_jobs (
   id TEXT PRIMARY KEY,
@@ -312,6 +313,7 @@ CREATE TABLE IF NOT EXISTS generation_jobs (
   updated_at TEXT NOT NULL,
   result_json TEXT,
   error TEXT,
+  attempt INTEGER NOT NULL DEFAULT 1,
   UNIQUE (business_id, idempotency_key)
 );
 CREATE TABLE IF NOT EXISTS companion_blobs (

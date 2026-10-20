@@ -236,10 +236,16 @@ export class MemoryCompanionStore implements CompanionStore {
       .length;
   }
 
-  transitionUsageEvent(id: string, fromStatus: UsageEvent["status"], event: UsageEvent) {
+  transitionUsageEvent(
+    id: string,
+    fromStatus: UsageEvent["status"],
+    event: UsageEvent,
+    expectedAttempt?: number
+  ) {
     const index = this.usage.findIndex((item) => item.id === id);
     const current = index >= 0 ? this.usage[index] : undefined;
     if (!current || current.status !== fromStatus) return null;
+    if (expectedAttempt != null && (current.attempt ?? 1) !== expectedAttempt) return null;
     this.usage[index] = clone(event);
     return clone(event);
   }
@@ -356,6 +362,13 @@ export class MemoryCompanionStore implements CompanionStore {
   }
 
   updateJob(job: GenerationJob) {
+    this.jobs.set(job.id, clone(job));
+    return clone(job);
+  }
+
+  compareAndSwapJob(job: GenerationJob, expectedAttempt: number) {
+    const current = this.jobs.get(job.id);
+    if (!current || (current.attempt ?? 1) !== expectedAttempt) return null;
     this.jobs.set(job.id, clone(job));
     return clone(job);
   }

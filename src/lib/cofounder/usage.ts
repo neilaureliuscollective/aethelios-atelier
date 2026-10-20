@@ -5,7 +5,7 @@ import {
   toUsageSnapshot,
   type PlanLimits
 } from "@/lib/cofounder/entitlements";
-import { LimitError } from "@/lib/domain/errors";
+import { ConflictError, LimitError } from "@/lib/domain/errors";
 import type { PersistenceAdapter } from "@/lib/persistence/adapter";
 import type { UsageEvent, UsageKind, UsageSnapshot } from "@/lib/cofounder/types";
 import type { User } from "@/lib/types";
@@ -17,8 +17,17 @@ function companionId(prefix: string) {
 
 /** Local extra serialization only. Database transactions are the real guarantee. */
 const locks = new Map<string, Promise<unknown>>();
+let processLockBypassed = false;
+
+export function bypassProcessLockForTests() {
+  if (process.env.VITEST !== "true") {
+    throw new Error("bypassProcessLockForTests is only available under Vitest.");
+  }
+  processLockBypassed = true;
+}
 
 export async function withProcessLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  if (processLockBypassed) return fn();
   const previous = locks.get(key) ?? Promise.resolve();
   let release!: (value?: unknown) => void;
   const current = new Promise((resolve) => {
@@ -48,6 +57,30 @@ export function configuredLimitOverrides(): Partial<PlanLimits> {
 }
 
 export const USAGE_HOLD_MS = 15 * 60 * 1000;
+
+export function usageAttempt(event: Pick<UsageEvent, "attempt" | "metadata">) {
+  const meta = Number(event.metadata?.attempt ?? "");
+  if (Number.isFinite(event.attempt) && (event.attempt ?? 0) > 0) return event.attempt as number;
+  if (Number.isFinite(meta) && meta > 0) return meta;
+  return 1;
+}
+
+function sameOperationIdentity(
+  existing: UsageEvent,
+  kind: UsageKind,
+  metadata: Record<string, unknown> | undefined,
+  operationId: string
+) {
+  if (existing.kind !== kind) return false;
+  if (existing.operationId && existing.operationId !== operationId) return false;
+  const existingKey = existing.metadata?.idempotencyKey ?? existing.metadata?.operationId;
+  const nextKey = metadata?.idempotencyKey ?? metadata?.operationId ?? operationId;
+  if (existingKey && nextKey && existingKey !== nextKey) return false;
+  const existingDraft = existing.metadata?.draftId;
+  const nextDraft = metadata?.draftId;
+  if (existingDraft && nextDraft && existingDraft !== nextDraft) return false;
+  return true;
+}
 
 export type UsageReservation = {
   event: UsageEvent;
@@ -97,6 +130,9 @@ export class CompanionUsage {
       await this.store.companion.lockUsageBudget(businessId, kind, periodStartIso());
       await this.store.companion.releaseExpiredHolds(new Date().toISOString());
       const existing = await this.store.companion.getUsageByOperation(businessId, op);
+      if (existing && !sameOperationIdentity(existing, kind, metadata, op)) {
+        throw new ConflictError("That operation id is already bound to a different request.");
+      }
       if (existing?.status === "held" || existing?.status === "settled") {
         return { event: existing, reused: true };
       }
@@ -110,20 +146,34 @@ export class CompanionUsage {
           throw new LimitError("A generation is already in progress for this workspace. Wait for it to finish or retry the same request.");
         }
       }
+      const snapshot = await this.snapshotInTx(businessId, user);
+      const check = assertWithinBudget(snapshot, kind, units);
+      if (!check.ok) throw new LimitError(check.message);
       if (existing?.status === "released") {
+        const nextAttempt = usageAttempt(existing) + 1;
         const reheld: UsageEvent = {
           ...existing,
           status: "held",
           units,
+          attempt: nextAttempt,
           expiresAt: new Date(Date.now() + USAGE_HOLD_MS).toISOString(),
-          metadata: { ...metadata, status: "held", operationId: op, retriedAt: new Date().toISOString() }
+          metadata: {
+            ...existing.metadata,
+            ...metadata,
+            status: "held",
+            operationId: op,
+            attempt: nextAttempt,
+            retriedAt: new Date().toISOString()
+          }
         };
-        const swapped = await this.store.companion.transitionUsageEvent(existing.id, "released", reheld);
+        const swapped = await this.store.companion.transitionUsageEvent(
+          existing.id,
+          "released",
+          reheld,
+          usageAttempt(existing)
+        );
         if (swapped) return { event: swapped };
       }
-      const snapshot = await this.snapshotInTx(businessId, user);
-      const check = assertWithinBudget(snapshot, kind, units);
-      if (!check.ok) throw new LimitError(check.message);
       const event = await this.store.companion.addUsageEvent({
         id: companionId("use"),
         businessId,
@@ -133,8 +183,9 @@ export class CompanionUsage {
         createdAt: new Date().toISOString(),
         status: "held",
         operationId: op,
+        attempt: 1,
         expiresAt: new Date(Date.now() + USAGE_HOLD_MS).toISOString(),
-        metadata: { ...metadata, status: "held", operationId: op }
+        metadata: { ...metadata, status: "held", operationId: op, attempt: 1 }
       });
       return { event };
     })
@@ -143,8 +194,12 @@ export class CompanionUsage {
 
   async settle(reservation: UsageReservation, actualUnits?: number) {
     return this.store.runInTransaction(async () => {
+      const expected = usageAttempt(reservation.event);
       const latest =
         (await this.store.companion.getUsageEvent(reservation.event.id)) ?? reservation.event;
+      if (usageAttempt(latest) !== expected) {
+        return latest;
+      }
       if (latest.status === "settled") return latest;
       if (latest.status === "released") {
         throw new LimitError("That usage hold was already released and cannot be settled.");
@@ -153,13 +208,15 @@ export class CompanionUsage {
       const event: UsageEvent = {
         ...latest,
         units,
+        attempt: expected,
         status: "settled",
         expiresAt: undefined,
-        metadata: { ...latest.metadata, status: "settled", settledAt: new Date().toISOString() }
+        metadata: { ...latest.metadata, status: "settled", attempt: expected, settledAt: new Date().toISOString() }
       };
-      const swapped = await this.store.companion.transitionUsageEvent(latest.id, "held", event);
+      const swapped = await this.store.companion.transitionUsageEvent(latest.id, "held", event, expected);
       if (swapped) return swapped;
       const current = await this.store.companion.getUsageEvent(latest.id);
+      if (current && usageAttempt(current) !== expected) return current;
       if (current?.status === "settled") return current;
       if (current?.status === "released") {
         throw new LimitError("That usage hold was already released and cannot be settled.");
@@ -170,16 +227,19 @@ export class CompanionUsage {
 
   async release(reservation: UsageReservation) {
     return this.store.runInTransaction(async () => {
+      const expected = usageAttempt(reservation.event);
       const latest =
         (await this.store.companion.getUsageEvent(reservation.event.id)) ?? reservation.event;
+      if (usageAttempt(latest) !== expected) return latest;
       if (latest.status === "released" || latest.status === "settled") return latest;
       const event: UsageEvent = {
         ...latest,
+        attempt: expected,
         status: "released",
         expiresAt: undefined,
-        metadata: { ...latest.metadata, status: "released", releasedAt: new Date().toISOString() }
+        metadata: { ...latest.metadata, status: "released", attempt: expected, releasedAt: new Date().toISOString() }
       };
-      const swapped = await this.store.companion.transitionUsageEvent(latest.id, "held", event);
+      const swapped = await this.store.companion.transitionUsageEvent(latest.id, "held", event, expected);
       if (swapped) return swapped;
       const current = await this.store.companion.getUsageEvent(latest.id);
       if (current) return current;

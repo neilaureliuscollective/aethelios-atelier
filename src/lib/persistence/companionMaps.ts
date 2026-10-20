@@ -181,6 +181,7 @@ export function mapUsage(row: Row): UsageEvent {
     metadata,
     operationId: asOptionalString(row.operation_id),
     expiresAt: asOptionalString(row.expires_at),
+    attempt: Number(row.attempt ?? 1) || 1,
     status: usageEventStatus({ status: asOptionalString(row.status) as UsageEvent["status"], metadata })
   };
 }
@@ -217,7 +218,8 @@ export function mapJob(row: Row): GenerationJob {
     createdAt: asString(row.created_at),
     updatedAt: asString(row.updated_at),
     resultJson: asOptionalString(row.result_json),
-    error: asOptionalString(row.error)
+    error: asOptionalString(row.error),
+    attempt: Number(row.attempt ?? 1) || 1
   };
 }
 

@@ -238,6 +238,7 @@ export type UsageEvent = {
   createdAt: string;
   status?: UsageEventStatus;
   operationId?: string;
+  attempt?: number;
   expiresAt?: string;
   metadata?: Record<string, unknown>;
 };
@@ -266,6 +267,7 @@ export type GenerationJob = {
   updatedAt: string;
   resultJson?: string;
   error?: string;
+  attempt?: number;
 };
 
 export type CompanionBlob = {

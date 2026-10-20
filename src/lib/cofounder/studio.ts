@@ -1,6 +1,6 @@
 import { CompanionWorkspace } from "@/lib/cofounder/workspace";
 import { CompanionWork } from "@/lib/cofounder/work";
-import { CompanionUsage } from "@/lib/cofounder/usage";
+import { CompanionUsage, usageAttempt } from "@/lib/cofounder/usage";
 import { buildComposition, defaultLayers, paletteForProfile, studioLayouts, STUDIO_LAYOUTS } from "@/lib/cofounder/composition";
 import { assertExportMatchesRevision, hashPng } from "@/lib/cofounder/png";
 import { selectedWorkText } from "@/lib/cofounder/studioOpen";
@@ -225,6 +225,46 @@ export class CompanionStudio {
     return swapped;
   }
 
+  async applyAsset(
+    businessId: string,
+    user: User,
+    draftId: string,
+    assetId: string,
+    token: { expectedUpdatedAt?: string; expectedSaveRevision?: number }
+  ) {
+    await this.workspace.requireMutable(businessId, user);
+    const draft = await this.requireDraft(businessId, draftId);
+    const asset = await this.store.companion.getStudioAsset(assetId);
+    if (!asset || asset.businessId !== businessId) {
+      throw new ForbiddenError("That image is not part of this workspace.");
+    }
+    if (asset.draftId !== draft.id) {
+      throw new ForbiddenError("That image belongs to a different Studio draft.");
+    }
+    if (asset.status !== "ready" || !asset.blobId) {
+      throw new ForbiddenError(
+        asset.status === "invalidated"
+          ? "That generation was invalidated and its bytes were never stored as a retained image."
+          : "That image is not a completed retained result."
+      );
+    }
+    const blob = await this.store.companion.getBlob(asset.blobId);
+    if (!blob || blob.businessId !== businessId) {
+      throw new ForbiddenError("That image bytes are not available in this workspace.");
+    }
+    return this.updateDraft(businessId, user, draftId, {
+      selectedAssetId: asset.id,
+      expectedUpdatedAt: token.expectedUpdatedAt,
+      expectedSaveRevision: token.expectedSaveRevision
+    });
+  }
+
+  async listDraftAssets(businessId: string, user: User, draftId?: string) {
+    await this.workspace.requireMembership(businessId, user);
+    const assets = await this.store.companion.listStudioAssets(businessId);
+    return assets.filter((asset) => (draftId ? asset.draftId === draftId : true));
+  }
+
   async listDrafts(businessId: string, user: User) {
     await this.workspace.requireMembership(businessId, user);
     return this.store.companion.listStudioDrafts(businessId);
@@ -288,13 +328,15 @@ export class CompanionStudio {
       }
       throw new ForbiddenError("That generation is already in progress. Wait or retry the same request after it finishes.");
     }
+    const attempt = usageAttempt(reservation.event);
     const job = existing
       ? await this.store.companion.updateJob({
           ...existing,
           status: "pending",
           sessionId: auth.session.id,
           updatedAt: now(),
-          error: undefined
+          error: undefined,
+          attempt
         })
       : await this.store.companion.addJob({
           id: companionId("job"),
@@ -305,7 +347,8 @@ export class CompanionStudio {
           status: "pending",
           idempotencyKey: input.idempotencyKey,
           createdAt: now(),
-          updatedAt: now()
+          updatedAt: now(),
+          attempt
         });
     const parent = input.sourceAssetId ? await this.store.companion.getStudioAsset(input.sourceAssetId) : null;
     if (parent && parent.businessId !== businessId) {
@@ -335,6 +378,7 @@ export class CompanionStudio {
         ? await this.editFromAsset(parent, input.prompt, input.signal)
         : await this.images.generate({ prompt: input.prompt, signal: input.signal });
       const latest = await this.store.companion.getJob(job.id);
+      const latestUsage = await this.store.companion.getUsageEvent(reservation.event.id);
       if (!latest || latest.status === "invalidated") {
         asset.status = "invalidated";
         asset.error = "Generation was invalidated after sign-out or account switch.";
@@ -355,6 +399,16 @@ export class CompanionStudio {
       asset.model = generated.model;
       asset.updatedAt = now();
       await this.store.companion.updateStudioAsset(asset);
+      const attemptStillOwns =
+        (latest.attempt ?? 1) === attempt && (!latestUsage || usageAttempt(latestUsage) === attempt);
+      if (!attemptStillOwns) {
+        return {
+          asset,
+          applied: false,
+          draft: (await this.store.companion.getStudioDraft(draft.id)) || draft,
+          conflict: true
+        };
+      }
       const attach = {
         ...draft,
         selectedAssetId: asset.id,
@@ -362,13 +416,25 @@ export class CompanionStudio {
         updatedAt: nextStamp(draft.updatedAt)
       };
       const swapped = await this.store.companion.compareAndSwapStudioDraft(attach, draft.saveRevision ?? 1);
-      await this.usage.settle(reservation);
-      await this.store.companion.updateJob({
-        ...job,
-        status: "completed",
-        updatedAt: now(),
-        resultJson: JSON.stringify({ assetId: asset.id, applied: Boolean(swapped) })
-      });
+      const settled = await this.usage.settle(reservation);
+      if (usageAttempt(settled) !== attempt || settled.status !== "settled") {
+        return {
+          asset,
+          applied: false,
+          draft: (await this.store.companion.getStudioDraft(draft.id)) || draft,
+          conflict: true
+        };
+      }
+      await this.store.companion.compareAndSwapJob(
+        {
+          ...job,
+          attempt,
+          status: "completed",
+          updatedAt: now(),
+          resultJson: JSON.stringify({ assetId: asset.id, applied: Boolean(swapped), attempt })
+        },
+        attempt
+      );
       return {
         asset,
         applied: Boolean(swapped),
@@ -381,12 +447,16 @@ export class CompanionStudio {
       asset.error = error instanceof Error ? error.message : "Image generation failed.";
       asset.updatedAt = now();
       await this.store.companion.updateStudioAsset(asset);
-      await this.store.companion.updateJob({
-        ...job,
-        status: "failed",
-        updatedAt: now(),
-        error: asset.error
-      });
+      await this.store.companion.compareAndSwapJob(
+        {
+          ...job,
+          attempt,
+          status: "failed",
+          updatedAt: now(),
+          error: asset.error
+        },
+        attempt
+      );
       throw error;
     }
   }

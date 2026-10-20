@@ -13,14 +13,14 @@ if (!url || /neon|vercel|supabase|amazonaws|railway|render/i.test(url)) {
   process.exit(2);
 }
 
-const child = spawn(
-  "pnpm",
-  ["exec", "vitest", "run", "src/lib/cofounder/postgres.integration.test.ts"],
-  {
-    stdio: "inherit",
-    env: { ...process.env, ATELIER_LOCAL_POSTGRES_URL: url }
-  }
-);
+const files = [
+  "src/lib/cofounder/postgres.integration.test.ts",
+  "src/lib/cofounder/postgres.multiprocess.test.ts"
+];
+const child = spawn("pnpm", ["exec", "vitest", "run", "--no-file-parallelism", ...files], {
+  stdio: "inherit",
+  env: { ...process.env, ATELIER_LOCAL_POSTGRES_URL: url }
+});
 
 child.on("exit", (code) => {
   process.exit(code ?? 1);
