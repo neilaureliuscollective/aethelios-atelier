@@ -28,7 +28,7 @@ export function Entrance({
       <div className={styles.heroCopy}>
         <img
           className={styles.crest}
-          src={FULL_LOGO.src}
+          src={FULL_LOGO.lockupSrc}
           alt="Aethelios Atelier"
           width={FULL_LOGO.width}
           height={FULL_LOGO.height}

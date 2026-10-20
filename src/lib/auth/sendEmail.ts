@@ -33,7 +33,7 @@ export async function sendAtelierVerificationRequest(params: {
       to: params.identifier,
       subject: `Sign in to Aethelios Atelier`,
       text: `Sign in to Aethelios Atelier on ${host} using this link:\n${params.url}\n\nThis link expires. Signing in does not adopt or submit a guest draft.`,
-      html: `<p>Sign in to Aethelios Atelier using this one-time link:</p><p><a href="${params.url}">Continue to Atelier</a></p><p>Signing in does not adopt or submit a guest draft. If you did not request this, ignore the email.</p>`
+      html: `<div style="font-family:Georgia,serif;background:#080c0b;color:#f3f0e7;padding:32px 28px;max-width:520px"><img src="https://${host}/brand/atelier-lockup.png" alt="Aethelios Atelier" width="148" height="154" style="display:block;width:148px;height:auto;margin:0 0 22px;border:0"/><p style="margin:0 0 16px">Sign in to Aethelios Atelier using this one-time link:</p><p style="margin:0 0 20px"><a href="${params.url}" style="color:#e2c988">Continue to Atelier</a></p><p style="margin:0;color:#a7b6ac;font-size:13px">Signing in does not adopt or submit a guest draft. If you did not request this, ignore the email.</p></div>`
     })
   });
   if (!response.ok) {

@@ -1,10 +1,14 @@
 "use client";
 
+import { BrandMark } from "@/components/brand/BrandMark";
 import { AppLink } from "@/components/ui/AppLink";
 
 export default function ErrorPage({ reset }: { error: Error; reset: () => void }) {
   return (
     <section className="container section">
+      <div className="brand-seal">
+        <BrandMark variant="lockup" withWordmark={false} size={72} />
+      </div>
       <p className="kicker">Interrupted</p>
       <h1>This page could not finish loading.</h1>
       <p className="lede">

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BrandMark } from "@/components/brand/BrandMark";
 import { AppLink } from "@/components/ui/AppLink";
 
 export const metadata: Metadata = { title: "Offline" };
@@ -7,6 +8,9 @@ export default function OfflinePage() {
   return (
     <section className="container section">
       <article className="surface-dense" style={{ padding: 28, maxWidth: 720 }}>
+        <div className="brand-seal">
+          <BrandMark variant="lockup" withWordmark={false} size={72} />
+        </div>
         <p className="kicker">Offline</p>
         <h1>A generic shell is available. Submissions are not.</h1>
         <p className="lede">

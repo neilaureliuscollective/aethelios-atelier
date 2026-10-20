@@ -30,7 +30,7 @@
   --shadow: 0 28px 64px rgba(8, 12, 11, 0.28);
   --radius: 22px;
   --radius-sm: 14px;
-  --header-h: 76px;
+  --header-h: 88px;
   --font-display: var(--font-display-loaded, "Cormorant Garamond"), "Cormorant Garamond", "Palatino Linotype", Palatino, "Iowan Old Style", serif;
   --font-body: var(--font-body-loaded, "Figtree"), "Figtree", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
   --font-lumen: var(--font-display);
@@ -130,7 +130,7 @@ img { max-width: 100%; height: auto; display: block; }
   --atelier-emerald: color-mix(in srgb, var(--deep) 70%, var(--charcoal));
   --atelier-on-glass: var(--ivory);
   --atelier-on-glass-muted: color-mix(in srgb, var(--ivory) 78%, var(--sage));
-  --header-h: 80px;
+  --header-h: 72px;
   --radius: 18px;
   --radius-sm: 12px;
   color-scheme: light;
@@ -204,12 +204,12 @@ img { max-width: 100%; height: auto; display: block; }
 .app-root[data-surface="atelier"] .brand img,
 .app-root[data-surface="atelier"] .brand img.brand-lockup {
   display: block;
-  width: 52px;
-  height: 52px;
-  max-width: 52px;
+  width: auto;
+  height: 40px;
+  max-width: 56px;
   background: transparent;
   object-fit: contain;
-  object-position: center;
+  object-position: left center;
   filter: drop-shadow(0 8px 16px rgba(8, 12, 11, 0.45));
 }
 .app-root[data-surface="atelier"] .brand-copy strong {
@@ -397,10 +397,12 @@ main, .site-header, .site-footer, .sim-banner { position: relative; z-index: 1; 
 }
 .brand img { width: 44px; height: 44px; object-fit: contain; }
 .brand img.brand-lockup {
-  width: 44px;
-  height: 44px;
-  max-width: 44px;
+  width: auto;
+  height: 76px;
+  max-width: min(88px, 28vw);
   background: transparent;
+  object-fit: contain;
+  object-position: left center;
 }
 .brand-copy { display: flex; flex-direction: column; line-height: 1.1; }
 .brand-copy strong {
@@ -634,18 +636,27 @@ h3 { font-size: 28px; }
   margin: 0;
 }
 .hero-mark img, .founder-emblem img {
-  width: min(520px, 100%);
+  width: min(220px, 56%);
   height: auto;
   background: transparent;
-  filter: drop-shadow(0 30px 50px rgba(0, 0, 0, 0.45));
+  filter: drop-shadow(0 22px 36px rgba(0, 0, 0, 0.4));
 }
 .cinematic-copy .hero-mark {
   justify-content: flex-start;
-  margin: 0 0 22px;
+  margin: 0 0 18px;
 }
 .cinematic-copy .hero-mark img {
-  width: min(320px, 72%);
-  filter: drop-shadow(0 18px 36px rgba(8, 12, 11, 0.55));
+  width: min(148px, 38%);
+  filter: drop-shadow(0 14px 28px rgba(8, 12, 11, 0.5));
+}
+.brand-seal {
+  display: flex;
+  justify-content: flex-start;
+  margin: 0 0 18px;
+}
+.brand-seal .brand img.brand-lockup {
+  height: 96px;
+  max-width: min(120px, 42vw);
 }
 .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
 .hero-composition { position: relative; }
@@ -784,7 +795,13 @@ h3 { font-size: 28px; }
   color: var(--sage);
   font-size: 14px;
 }
-.footer-inner { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.footer-inner { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.footer-brand { display: grid; gap: 8px; }
+.footer-brand .brand img.brand-lockup {
+  height: 56px;
+  max-width: 68px;
+}
+.footer-brand p { margin: 0; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
 
 .workspace-shell {
   display: grid;
@@ -1453,7 +1470,7 @@ a.chip {
 }
 
 @media (max-width: 720px) {
-  .cinematic-copy .hero-mark img { width: min(220px, 64%); }
+  .cinematic-copy .hero-mark img { width: min(120px, 42%); }
   .cinematic-copy .hero-actions { display: grid; grid-template-columns: 1fr; }
   .cinematic-copy .hero-actions .btn { width: 100%; }
   h1 { font-size: 40px; }
@@ -1474,21 +1491,21 @@ a.chip {
   .mobile-nav.open { display: block; }
   .brand-copy { display: none; }
   .brand img.brand-lockup {
-    width: 40px;
-    height: 40px;
-    max-width: 40px;
+    width: auto;
+    height: 64px;
+    max-width: min(72px, 26vw);
   }
   .bottom-nav { display: flex; }
   main { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
   .app-root[data-surface="atelier"] main { padding-bottom: 36px; }
   .app-root[data-surface="atelier"] .brand img,
   .app-root[data-surface="atelier"] .brand img.brand-lockup {
-    width: 44px;
-    height: 44px;
-    max-width: 44px;
+    width: auto;
+    height: 36px;
+    max-width: 48px;
   }
   .app-root[data-surface="atelier"] {
-    --header-h: 72px;
+    --header-h: 68px;
   }
   .approach-step { grid-template-columns: 1fr; }
   .recovery-panel { position: relative; top: auto; bottom: auto; }

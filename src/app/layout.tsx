@@ -46,24 +46,24 @@ export const metadata: Metadata = {
     siteName: "Aethelios Atelier",
     locale: "en_US",
     type: "website",
-    images: [{ url: "/brand/logo-1024.png", width: 1024, height: 1024, alt: "Aethelios Atelier" }]
+    images: [{ url: "/brand/og.png", width: 1200, height: 630, alt: "Aethelios Atelier" }]
   },
   twitter: {
     card: "summary_large_image",
     title: "Aethelios Atelier",
     description:
       "Founder-led websites and digital infrastructure. Shape a commission with Aethelios; Neil Stutes reviews, scopes, and delivers.",
-    images: ["/brand/logo-1024.png"]
+    images: ["/brand/og.png"]
   },
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "48x48" },
       { url: "/brand/favicon-32.png", sizes: "32x32", type: "image/png" },
-      { url: "/brand/install/v8/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/brand/install/v8/icon-512.png", sizes: "512x512", type: "image/png" }
+      { url: "/brand/install/v9/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/brand/install/v9/icon-512.png", sizes: "512x512", type: "image/png" }
     ],
-    apple: [{ url: "/brand/install/v8/apple-touch-icon.png", sizes: "180x180" }]
+    apple: [{ url: "/brand/install/v9/apple-touch-icon.png", sizes: "180x180" }]
   },
   appleWebApp: {
     capable: true,

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BrandMark } from "@/components/brand/BrandMark";
 import { AppLink } from "@/components/ui/AppLink";
 
 export const metadata: Metadata = { title: "About" };
@@ -6,6 +7,9 @@ export const metadata: Metadata = { title: "About" };
 export default function AboutPage() {
   return (
     <section className="container section">
+      <div className="brand-seal">
+        <BrandMark variant="lockup" withWordmark={false} size={96} href={null} />
+      </div>
       <p className="kicker">About</p>
       <h1>A studio with one accountable founder.</h1>
       <p className="lede">

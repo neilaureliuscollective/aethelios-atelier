@@ -43,11 +43,11 @@ export function SiteHeader({ user }: { user: User | null }) {
     <header className="site-header">
       <div className="site-header-inner">
         <BrandMark
-          variant="wordmark"
-          withWordmark
-          size={companion ? 52 : 44}
+          variant={companion ? "mark" : "lockup"}
+          withWordmark={false}
+          size={companion ? 40 : 76}
           priority
-          lockupSrc={FULL_LOGO.lockupSrc}
+          lockupSrc={companion ? undefined : FULL_LOGO.lockupSrc}
         />
         {companion ? (
           user ? (

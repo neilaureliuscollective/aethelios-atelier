@@ -10,30 +10,34 @@ function pngHeader(path: string) {
   return { width, height, colorType, bytes };
 }
 
-describe("full hero logo", () => {
-  it("keeps the supplied original and a transparent hero derivative", () => {
+describe("official lockup", () => {
+  it("keeps the supplied original and a transparent lockup derivative", () => {
     const original = pngHeader("public/brand/original/logo.png");
     const hero = pngHeader("public/brand/logo.png");
     const lockup = pngHeader("public/brand/atelier-lockup.png");
-    expect(original.width).toBe(1254);
-    expect(original.height).toBe(1254);
-    expect(original.colorType).toBe(2);
+    const mark = pngHeader("public/brand/mark.png");
+    expect(original.width).toBe(1155);
+    expect(original.height).toBe(1362);
     expect(hero.width).toBe(FULL_LOGO.width);
     expect(hero.height).toBe(FULL_LOGO.height);
     expect(hero.colorType).toBe(6);
     expect(lockup.colorType).toBe(6);
-    expect(FULL_LOGO_ASPECT).toBeCloseTo(995 / 1004, 5);
+    expect(mark.colorType).toBe(6);
+    expect(FULL_LOGO_ASPECT).toBeCloseTo(1155 / 1206, 5);
   });
 
-  it("seats the full lockup as the cinematic hero mark", () => {
+  it("seats the lockup on the quiet premium surfaces", () => {
     const hero = readFileSync("src/components/marketing/CinematicHero.tsx", "utf8");
     const header = readFileSync("src/components/shell/SiteHeader.tsx", "utf8");
+    const footer = readFileSync("src/components/shell/SiteFooter.tsx", "utf8");
     const mark = readFileSync("src/components/brand/BrandMark.tsx", "utf8");
+    const about = readFileSync("src/app/about/page.tsx", "utf8");
     expect(hero).toContain("hero-mark");
-    expect(hero).toContain("FULL_LOGO.src");
+    expect(hero).toContain("FULL_LOGO.lockupSrc");
     expect(header).toContain("FULL_LOGO.lockupSrc");
-    expect(mark).toContain("FULL_LOGO.src");
-    expect(mark).not.toContain("1192 / 1160");
-    expect(mark).not.toContain("FULL_LOGO_ASPECT");
+    expect(footer).toContain('variant="lockup"');
+    expect(about).toContain("brand-seal");
+    expect(mark).toContain("FULL_LOGO.lockupSrc");
+    expect(mark).toContain("FULL_LOGO.markSrc");
   });
 });

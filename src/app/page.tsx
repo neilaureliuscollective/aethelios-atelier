@@ -85,7 +85,7 @@ export default function HomePage() {
           </div>
           <figure className="founder-emblem">
             <img
-              src={FULL_LOGO.src}
+              src={FULL_LOGO.lockupSrc}
               alt="Aethelios Atelier"
               width={FULL_LOGO.width}
               height={FULL_LOGO.height}

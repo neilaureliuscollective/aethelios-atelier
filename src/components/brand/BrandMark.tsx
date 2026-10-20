@@ -1,9 +1,9 @@
 import { AppLink } from "@/components/ui/AppLink";
-import { FULL_LOGO } from "@/lib/brand/fullLogo";
+import { FULL_LOGO, FULL_LOGO_ASPECT, MARK_ASPECT } from "@/lib/brand/fullLogo";
 
 type Props = {
   size?: number;
-  variant?: "icon" | "wordmark";
+  variant?: "icon" | "mark" | "lockup" | "wordmark";
   withWordmark?: boolean;
   href?: string | null;
   priority?: boolean;
@@ -11,29 +11,37 @@ type Props = {
 };
 
 export function BrandMark({
-  size = 40,
-  variant = "icon",
-  withWordmark = true,
+  size = 72,
+  variant = "lockup",
+  withWordmark = false,
   href = "/",
   priority = false,
   lockupSrc
 }: Props) {
-  const usingCrest = Boolean(lockupSrc) || variant === "wordmark";
-  const src = lockupSrc ?? (usingCrest ? FULL_LOGO.src : "/brand/icon.webp");
-  const crestSize = Math.max(36, size);
+  const usingMark = variant === "mark";
+  const usingIcon = variant === "icon";
+  const src = usingIcon
+    ? "/brand/icon.webp"
+    : usingMark
+      ? FULL_LOGO.markSrc
+      : (lockupSrc ?? FULL_LOGO.lockupSrc);
+  const aspect = usingIcon ? 1 : usingMark ? MARK_ASPECT : FULL_LOGO_ASPECT;
+  const height = Math.max(28, size);
+  const width = Math.round(height * aspect);
   const inner = (
     <>
       <img
-        className={usingCrest ? "brand-lockup" : "brand-mark"}
+        className={usingIcon ? "brand-mark" : "brand-lockup"}
         src={src}
         alt={withWordmark ? "" : "Aethelios Atelier"}
-        width={crestSize}
-        height={crestSize}
-        style={
-          usingCrest
-            ? { width: crestSize, height: crestSize, maxWidth: crestSize, background: "transparent" }
-            : undefined
-        }
+        width={width}
+        height={height}
+        style={{
+          width: usingIcon ? height : "auto",
+          height,
+          maxWidth: usingIcon ? height : `min(${Math.max(width, 72)}px, 42vw)`,
+          background: "transparent"
+        }}
         decoding={priority ? "sync" : "async"}
         fetchPriority={priority ? "high" : "low"}
       />
