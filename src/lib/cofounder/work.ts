@@ -1,4 +1,5 @@
 import { CompanionWorkspace } from "@/lib/cofounder/workspace";
+import { previewAssetForWorkItem, selectContinueWork } from "@/lib/cofounder/today";
 import { ForbiddenError, NotFoundError } from "@/lib/domain/errors";
 import type { PersistenceAdapter } from "@/lib/persistence/adapter";
 import type { TodayView, WorkItem, WorkKind, WorkStatus } from "@/lib/cofounder/types";
@@ -184,9 +185,12 @@ export class CompanionWork {
     const context = await this.workspace.requireMembership(businessId, user);
     const items = await this.store.companion.listWorkItems(businessId);
     const assets = await this.store.companion.listStudioAssets(businessId);
+    const drafts = await this.store.companion.listStudioDrafts(businessId);
     const unfinishedDrafts = items.filter(
       (item) => item.kind === "draft" && item.status !== "archived" && item.status !== "done" && item.status !== "exported"
     );
+    const continueItem = selectContinueWork(unfinishedDrafts);
+    const continuePreview = previewAssetForWorkItem(continueItem, drafts, assets);
     const openTasks = items.filter((item) => item.kind === "task" && (item.status === "open" || item.status === "in_progress"));
     const pendingApprovals = [
       ...context.memoryPending,
@@ -204,6 +208,8 @@ export class CompanionWork {
       openTasks,
       pendingApprovals,
       pendingAssets,
+      continueItemId: continueItem?.id,
+      continuePreviewAssetId: continuePreview?.id,
       emptyReason: empty
         ? "Nothing is waiting. Today is built from saved drafts, owner tasks, and pending approvals — not invented insights."
         : undefined

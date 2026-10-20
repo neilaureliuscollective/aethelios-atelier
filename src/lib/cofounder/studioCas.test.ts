@@ -723,7 +723,7 @@ describe("studio draft compare-and-swap", () => {
     expect((await store.companion.getUsageByOperation(ctx.business.id, "finalize-fail"))?.status).toBe("released");
   });
 
-  it("cleans up only the matching pending attempt when finalization throws", async () => {
+  it("cleans up only the matching pending attempt when finalization throws [MemoryPersistence]", async () => {
     const store = new MemoryPersistence();
     await seedSimulatedUsers(store, ["neil.local@atelier.invalid"]);
     const owner = (await store.getUserByEmail("owner.local@atelier.invalid")) as User;

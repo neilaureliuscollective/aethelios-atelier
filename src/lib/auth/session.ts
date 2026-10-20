@@ -4,6 +4,7 @@ import { loadConfig } from "@/lib/config";
 import { AuthenticationError, UnconfiguredError } from "@/lib/domain/errors";
 import { createId } from "@/lib/ids";
 import { displayNameFromEmail, normalizeEmail, resolveRole } from "@/lib/auth/roles";
+import { sessionCookieSecure } from "@/lib/auth/sessionCookie";
 import { getStore } from "@/lib/persistence/store";
 import type { AuthAdapterKind, AuthContext, User } from "@/lib/types";
 
@@ -28,7 +29,7 @@ export function sessionCookieOptions(expires: Date) {
     httpOnly: true,
     sameSite: "lax" as const,
     path: "/",
-    secure: config.nodeEnv === "production" && !/^http:\/\//i.test(config.publicOrigin),
+    secure: sessionCookieSecure({ nodeEnv: config.nodeEnv, publicOrigin: config.publicOrigin }),
     expires
   };
 }

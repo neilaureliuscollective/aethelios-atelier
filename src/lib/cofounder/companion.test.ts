@@ -227,6 +227,73 @@ describe("companion workspace isolation", () => {
     expect(today.emptyReason).toBeUndefined();
   });
 
+  it("binds Today's Continue preview to the continued Work item, not the newest Studio draft", async () => {
+    const { store, owner, workspace, work } = await setup();
+    const ctx = await workspace.ensureForUser(owner);
+    const session = authFor(owner);
+    await store.createSession(session.session);
+    const studio = new CompanionStudio(store).withImageProvider(new FixtureImageProvider());
+    const cedar = await work.saveDraft(ctx.business.id, owner, {
+      title: "Cedar menu",
+      body: "Seasonal cedar boards."
+    });
+    const stone = await work.saveDraft(ctx.business.id, owner, {
+      title: "Stone flyer",
+      body: "Quiet stone gathering."
+    });
+    const cedarStudio = await studio.createFromCopy(ctx.business.id, owner, {
+      headline: "Cedar menu",
+      body: "Seasonal cedar boards.",
+      workItemId: cedar.id
+    });
+    const cedarImage = await studio.generate(ctx.business.id, owner, session, {
+      draftId: cedarStudio.draft.id,
+      prompt: "cedar boards",
+      idempotencyKey: "today-cedar"
+    });
+    const stoneStudio = await studio.createFromCopy(ctx.business.id, owner, {
+      headline: "Stone flyer",
+      body: "Quiet stone gathering.",
+      workItemId: stone.id
+    });
+    const stoneImage = await studio.generate(ctx.business.id, owner, session, {
+      draftId: stoneStudio.draft.id,
+      prompt: "stone gathering",
+      idempotencyKey: "today-stone"
+    });
+    const stoneDraft = await store.companion.getStudioDraft(stoneStudio.draft.id);
+    await store.companion.updateStudioDraft({
+      ...stoneDraft!,
+      updatedAt: new Date(Date.now() + 120_000).toISOString()
+    });
+    await work.saveDraft(ctx.business.id, owner, {
+      title: cedar.title,
+      body: "Seasonal cedar boards, still waiting.",
+      workItemId: cedar.id
+    });
+    const today = await work.today(ctx.business.id, owner);
+    expect(today.continueItemId).toBe(cedar.id);
+    expect(today.continuePreviewAssetId).toBe(cedarImage.asset.id);
+    expect(today.continuePreviewAssetId).not.toBe(stoneImage.asset.id);
+    const newerDraft = [...(await store.companion.listStudioDrafts(ctx.business.id))].sort((a, b) =>
+      b.updatedAt.localeCompare(a.updatedAt)
+    )[0];
+    expect(newerDraft?.id).toBe(stoneStudio.draft.id);
+    expect(newerDraft?.selectedAssetId).toBe(stoneImage.asset.id);
+  });
+
+  it("omits a Continue thumbnail when the selected Work item has no linked Studio image", async () => {
+    const { owner, workspace, work } = await setup();
+    const ctx = await workspace.ensureForUser(owner);
+    const notes = await work.saveDraft(ctx.business.id, owner, {
+      title: "Notes only",
+      body: "No image is linked."
+    });
+    const today = await work.today(ctx.business.id, owner);
+    expect(today.continueItemId).toBe(notes.id);
+    expect(today.continuePreviewAssetId).toBeUndefined();
+  });
+
   it("enforces usage limits and invalidates in-flight work after sign-out", async () => {
     const { store, owner, workspace, usage } = await setup();
     process.env.ATELIER_PLAN_IMAGE_LIMIT = "1";

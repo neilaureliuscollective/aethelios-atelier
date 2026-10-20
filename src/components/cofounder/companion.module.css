@@ -25,7 +25,7 @@
 }
 
 .context strong {
-  color: var(--ivory);
+  color: var(--text);
   font-weight: 650;
 }
 
@@ -34,9 +34,16 @@
   gap: 16px;
   max-width: 34rem;
   padding: 28px;
+  color: var(--atelier-on-glass, var(--ivory));
 }
 
-.gate h1 { margin-bottom: 0; }
+.gate h1 { margin-bottom: 0; color: var(--atelier-on-glass, var(--ivory)); }
+
+.gate .meta,
+.gate :global(.lede),
+.gate :global(.muted) {
+  color: var(--atelier-on-glass-muted, color-mix(in srgb, var(--ivory) 78%, var(--sage)));
+}
 
 .grid {
   display: grid;
@@ -54,11 +61,11 @@
   padding: 22px;
   background:
     linear-gradient(180deg, rgba(243, 240, 231, 0.08), transparent 36%),
-    color-mix(in srgb, #121a17 58%, transparent);
+    color-mix(in srgb, #121a17 70%, #0b4635 30%);
   border: 1px solid var(--atelier-glass-border, color-mix(in srgb, var(--gold-champagne) 20%, transparent));
   border-radius: var(--radius);
   box-shadow:
-    0 20px 40px rgba(3, 6, 5, 0.32),
+    0 20px 40px rgba(18, 26, 23, 0.16),
     inset 0 1px 0 rgba(243, 240, 231, 0.12);
   backdrop-filter: blur(16px) saturate(1.1);
 }
@@ -130,6 +137,43 @@
   color: var(--text-muted);
 }
 
+.pageHead .meta {
+  color: var(--text-muted);
+}
+
+.glassCard,
+.inspector,
+.composerBar,
+.artboard {
+  color: var(--atelier-on-glass, var(--ivory));
+}
+
+.glassCard .label,
+.inspector .label,
+.composerBar .label,
+.artboard .label {
+  color: color-mix(in srgb, var(--ivory) 88%, var(--sage));
+}
+
+.glassCard .meta,
+.inspector .meta,
+.composerBar .meta,
+.artboard .meta,
+.glassCard :global(.muted),
+.inspector :global(.muted),
+.composerBar :global(.muted),
+.artboard :global(.muted) {
+  color: var(--atelier-on-glass-muted, color-mix(in srgb, var(--ivory) 78%, var(--sage)));
+}
+
+.glassCard :global(.btn-ghost),
+.inspector :global(.btn-ghost),
+.composerBar :global(.btn-ghost),
+.artboard :global(.btn-ghost) {
+  color: var(--ivory);
+  border-color: color-mix(in srgb, var(--ivory) 28%, transparent);
+}
+
 .saveState {
   display: inline-flex;
   align-items: center;
@@ -181,7 +225,7 @@
   border-radius: 18px;
   background:
     linear-gradient(180deg, rgba(243, 240, 231, 0.1), transparent 40%),
-    color-mix(in srgb, #121a17 62%, transparent);
+    color-mix(in srgb, #121a17 72%, #0b4635 28%);
   border: 1px solid var(--atelier-glass-border, color-mix(in srgb, var(--gold-champagne) 20%, transparent));
   backdrop-filter: blur(16px);
   box-shadow: inset 0 1px 0 rgba(243, 240, 231, 0.14);

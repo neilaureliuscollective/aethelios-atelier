@@ -33,9 +33,15 @@ export function TodayClient() {
         if (!ownerFence.isCurrent(gen, user.id)) return;
         setBusinessId(workspace.business.id);
         setToday(data.today);
-        const latest = [...studio.drafts].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
-        const ready = (studio.assets ?? []).find((item) => item.id === latest?.selectedAssetId && item.blobId);
-        setPreviewUrl(ready ? assetUrl(workspace.business.id, ready.id) : "");
+        const linked = data.today.continuePreviewAssetId
+          ? (studio.assets ?? []).find(
+              (item) =>
+                item.id === data.today.continuePreviewAssetId &&
+                item.status === "ready" &&
+                Boolean(item.blobId)
+            )
+          : undefined;
+        setPreviewUrl(linked ? assetUrl(workspace.business.id, linked.id) : "");
       } catch (err) {
         if (!ownerFence.isCurrent(gen, user.id)) return;
         setError(actionErrorMessage(err, "Today could not be loaded."));
@@ -44,7 +50,8 @@ export function TodayClient() {
   }, [generation, user]);
 
   const continueItem = today
-    ? [...today.unfinishedDrafts].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]
+    ? today.unfinishedDrafts.find((item) => item.id === today.continueItemId) ??
+      [...today.unfinishedDrafts].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]
     : undefined;
 
   return (
@@ -64,7 +71,9 @@ export function TodayClient() {
                   <div className={styles.continuePreview}>
                     <img src={previewUrl} alt="" />
                   </div>
-                ) : null}
+                ) : (
+                  <p className="muted">No Studio image is linked to this draft yet.</p>
+                )}
                 <h2>{continueItem.title}</h2>
                 <p className={styles.meta}>
                   {continueItem.status.replaceAll("_", " ")}

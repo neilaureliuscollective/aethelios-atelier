@@ -317,6 +317,8 @@ export type TodayView = {
   openTasks: WorkItem[];
   pendingApprovals: Array<MemoryProposal | WorkItem>;
   pendingAssets: StudioAsset[];
+  continueItemId?: string;
+  continuePreviewAssetId?: string;
   emptyReason?: string;
 };
 

@@ -330,4 +330,52 @@ describe.skipIf(!isolated)("PostgreSQL companion integration", () => {
     expect((await storeA.companion.getJob(job!.id))?.status).toBe("pending");
     expect((await storeA.companion.getStudioDraft(created.draft.id))?.selectedAssetId).not.toBe(late.asset.id);
   }, 60_000);
+
+  it("rolls back the PostgreSQL finalization transaction and cleans up only the matching attempt [PostgreSQL]", async () => {
+    process.env.ATELIER_PLAN_IMAGE_LIMIT = "20";
+    process.env.ATELIER_MAX_CONCURRENT_GENERATIONS = "2";
+    const { storeA, owner, authA, ctx } = await openStores();
+    const okStudio = new CompanionStudio(storeA).withImageProvider({
+      async generate() {
+        return { bytes: encodeSolidPng(32, 32), mime: "image/png", model: "pg-keep" };
+      },
+      async edit() {
+        return this.generate({ prompt: "edit" });
+      }
+    });
+    const kept = await okStudio.createFromCopy(ctx.business.id, owner, { headline: "Already complete" });
+    const completed = await okStudio.generate(ctx.business.id, owner, authA, {
+      draftId: kept.draft.id,
+      prompt: "keep-me",
+      idempotencyKey: "pg-finalize-keep"
+    });
+    const failing = new CompanionStudio(storeA)
+      .withImageProvider({
+        async generate() {
+          return { bytes: encodeSolidPng(32, 32), mime: "image/png", model: "pg-dbfail" };
+        },
+        async edit() {
+          return this.generate({ prompt: "edit" });
+        }
+      })
+      .withFinalizeFault(async () => {
+        throw new Error("pg_finalize_down");
+      });
+    const next = await failing.createFromCopy(ctx.business.id, owner, { headline: "Should stay unsaved" });
+    await expect(
+      failing.generate(ctx.business.id, owner, authA, {
+        draftId: next.draft.id,
+        prompt: "dbfail",
+        idempotencyKey: "pg-finalize-db"
+      })
+    ).rejects.toThrow(/pg_finalize_down/);
+    const failedDraft = await storeA.companion.getStudioDraft(next.draft.id);
+    expect(failedDraft?.selectedAssetId).toBeUndefined();
+    expect(failedDraft?.layers.find((layer) => layer.kind === "headline")?.text).toBe("Should stay unsaved");
+    expect((await storeA.companion.getJobByIdempotency(ctx.business.id, "pg-finalize-db"))?.status).toBe("failed");
+    expect((await storeA.companion.getUsageByOperation(ctx.business.id, "pg-finalize-db"))?.status).toBe("released");
+    expect((await storeA.companion.getStudioDraft(kept.draft.id))?.selectedAssetId).toBe(completed.asset.id);
+    expect((await storeA.companion.getJobByIdempotency(ctx.business.id, "pg-finalize-keep"))?.status).toBe("completed");
+    expect((await storeA.companion.getUsageByOperation(ctx.business.id, "pg-finalize-keep"))?.status).toBe("settled");
+  }, 60_000);
 });
