@@ -34,4 +34,10 @@ Unconfigured adapters fail closed and report the missing connection instead of s
 
 See `src/lib/persistence/schema.sql`, `src/lib/persistence/schema.postgres.sql`, `src/lib/persistence/sqlite.ts`, and `src/lib/persistence/postgres.ts`. Additive only. Do not apply to a shared production database. Proposal, decision, delivery-version, feedback, content-request, and milestone tables are versioned records for the client approval workflow.
 
+## Companion / digital co-founder
+
+Additive workspace for a client business: membership-checked profile, Talk, Studio, Work, and Today. Persistence lives in dedicated companion tables on the same Atelier adapters (`src/lib/persistence/companionStore.ts`). Client AI context is built only from authorized confirmed facts, preferences, and the owner’s projects — never founder notes or another client’s records.
+
+See `docs/COFOUNDER.md`.
+
 Hosted deployment steps: `docs/VERCEL.md`.

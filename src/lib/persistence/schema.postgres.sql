@@ -191,3 +191,139 @@ CREATE INDEX IF NOT EXISTS proposals_project_id_idx ON proposals (project_id);
 CREATE INDEX IF NOT EXISTS delivery_versions_project_id_idx ON delivery_versions (project_id);
 CREATE INDEX IF NOT EXISTS content_requests_project_id_idx ON content_requests (project_id);
 CREATE INDEX IF NOT EXISTS delivery_milestones_project_id_idx ON delivery_milestones (project_id);
+
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS business_id TEXT;
+
+CREATE TABLE IF NOT EXISTS businesses (
+  id TEXT PRIMARY KEY,
+  owner_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  plan_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS business_members (
+  business_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  role TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (business_id, user_id)
+);
+CREATE TABLE IF NOT EXISTS business_profiles (
+  business_id TEXT PRIMARY KEY,
+  profile_json TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  updated_by TEXT
+);
+CREATE TABLE IF NOT EXISTS business_memory_proposals (
+  id TEXT PRIMARY KEY,
+  business_id TEXT NOT NULL,
+  field_key TEXT NOT NULL,
+  proposed_value TEXT NOT NULL,
+  rationale TEXT,
+  status TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  resolved_at TEXT,
+  resolved_by TEXT
+);
+CREATE TABLE IF NOT EXISTS business_documents (
+  id TEXT PRIMARY KEY,
+  business_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  mime TEXT NOT NULL,
+  status TEXT NOT NULL,
+  blob_id TEXT,
+  source TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  deleted_at TEXT,
+  provider_file_id TEXT,
+  index_status TEXT
+);
+CREATE TABLE IF NOT EXISTS business_conversations (
+  id TEXT PRIMARY KEY,
+  business_id TEXT NOT NULL,
+  project_id TEXT,
+  title TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS business_messages (
+  id TEXT PRIMARY KEY,
+  conversation_id TEXT NOT NULL,
+  business_id TEXT NOT NULL,
+  project_id TEXT,
+  author_kind TEXT NOT NULL,
+  body TEXT NOT NULL,
+  live_ai INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  metadata_json TEXT
+);
+CREATE TABLE IF NOT EXISTS work_items (
+  id TEXT PRIMARY KEY,
+  business_id TEXT NOT NULL,
+  project_id TEXT,
+  kind TEXT NOT NULL,
+  title TEXT NOT NULL,
+  status TEXT NOT NULL,
+  payload_json TEXT NOT NULL,
+  created_by TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  archived_at TEXT
+);
+CREATE TABLE IF NOT EXISTS studio_drafts (
+  id TEXT PRIMARY KEY,
+  business_id TEXT NOT NULL,
+  work_item_id TEXT NOT NULL,
+  layout TEXT NOT NULL,
+  layers_json TEXT NOT NULL,
+  selected_asset_id TEXT,
+  source_work_item_id TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS studio_assets (
+  id TEXT PRIMARY KEY,
+  business_id TEXT NOT NULL,
+  work_item_id TEXT,
+  draft_id TEXT,
+  status TEXT NOT NULL,
+  prompt TEXT NOT NULL,
+  model TEXT,
+  blob_id TEXT,
+  revision INTEGER NOT NULL,
+  parent_id TEXT,
+  error TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS usage_events (
+  id TEXT PRIMARY KEY,
+  business_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  units INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  metadata_json TEXT
+);
+CREATE TABLE IF NOT EXISTS generation_jobs (
+  id TEXT PRIMARY KEY,
+  business_id TEXT NOT NULL,
+  owner_id TEXT NOT NULL,
+  session_id TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  status TEXT NOT NULL,
+  idempotency_key TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  result_json TEXT,
+  error TEXT,
+  UNIQUE (business_id, idempotency_key)
+);
+CREATE TABLE IF NOT EXISTS companion_blobs (
+  id TEXT PRIMARY KEY,
+  business_id TEXT NOT NULL,
+  mime TEXT NOT NULL,
+  bytes TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);

@@ -76,7 +76,8 @@ export function mapProject(row: Row): Project {
     createdAt: asString(row.created_at),
     updatedAt: asString(row.updated_at),
     adoptedFromGuestId: asOptionalString(row.adopted_from_guest_id),
-    latestSubmissionId: asOptionalString(row.latest_submission_id)
+    latestSubmissionId: asOptionalString(row.latest_submission_id),
+    businessId: asOptionalString(row.business_id)
   };
 }
 

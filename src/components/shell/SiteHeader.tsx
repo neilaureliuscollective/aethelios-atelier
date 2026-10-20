@@ -19,7 +19,9 @@ export function SiteHeader({ user }: { user: User | null }) {
   const compact =
     pathname.startsWith("/project") ||
     pathname.startsWith("/workspace") ||
-    pathname.startsWith("/founder");
+    pathname.startsWith("/founder") ||
+    pathname.startsWith("/discover") ||
+    pathname.startsWith("/companion");
 
   return (
     <header className="site-header">
@@ -33,6 +35,7 @@ export function SiteHeader({ user }: { user: User | null }) {
           ))}
           {user?.role === "founder" ? <AppLink href="/founder">Founder</AppLink> : null}
           {user ? <AppLink href="/workspace">Workspace</AppLink> : null}
+          {user ? <AppLink href="/companion">Companion</AppLink> : null}
         </nav>
         <div className="header-actions">
           {user ? (
@@ -66,6 +69,11 @@ export function SiteHeader({ user }: { user: User | null }) {
         <AppLink href={user ? "/workspace" : "/account"} onClick={() => setOpen(false)}>
           {user ? "Workspace" : "Sign in"}
         </AppLink>
+        {user ? (
+          <AppLink href="/companion" onClick={() => setOpen(false)}>
+            Companion
+          </AppLink>
+        ) : null}
         {user?.role === "founder" ? (
           <AppLink href="/founder" onClick={() => setOpen(false)}>
             Founder

@@ -222,6 +222,12 @@ export function publicRuntimeConfig() {
     pricing: {
       status: "not_finalized" as const,
       note: "Pricing and commercial terms are not finalized. Estimates are nonbinding until Neil confirms a proposal."
+    },
+    companion: {
+      routes: ["/companion", "/companion/talk", "/companion/studio", "/companion/work", "/companion/business"],
+      voiceReady: false,
+      billingActivated: false,
+      note: "Companion entitlements are server-checked. Client flags do not grant access. Commercial prices stay out of this public config until billing is reviewed."
     }
   };
 }
