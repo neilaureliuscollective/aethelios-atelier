@@ -1,7 +1,8 @@
 # Artwork delivery, recovery, and ownership
 
 Artwork-delivery application commit: `5d48e88f391017291d62630a662b34298b36354d`.  
-Exact-draft export-binding application commit: `f78a421a9a902ed6b3d6e60f9138b64ab5a43cd9`. This is local evidence, not hosted launch acceptance. Simulated identities are not Auth.js verification.
+Exact-draft export-binding application commit: `f78a421a9a902ed6b3d6e60f9138b64ab5a43cd9`.  
+The strict capture was re-run on the combined integration head against production `next start :3040` / `.data-integration-rc`. This is local evidence, not hosted launch acceptance. Simulated identities are not Auth.js verification.
 
 ## Exact-draft export binding
 

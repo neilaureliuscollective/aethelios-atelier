@@ -22,8 +22,10 @@ Local `.env.local` on this machine: `ATELIER_AUTH_ADAPTER=simulated`, `ATELIER_P
 | Two-account isolation | Foreign workspace → `403 {ok:false,error:"forbidden"}`; missing asset on own workspace → `404 {ok:false,error:"not_found"}`; signed-out → `401 {ok:false,error:"unauthenticated"}` | Local simulated two-account proof | No | Two real provider accounts on the hosted origin. A 500 is not isolation evidence. |
 | Logout / return | Sign-out invalidates the session; reopen + sign-in recovers the same draft export | Local simulated sign-out / sign-in | No | Hosted provider logout and return to the same origin. |
 | Provider capabilities | Fail-closed OpenAI / voice; no second auth or storage platform | `ATELIER_OPENAI_ENABLED=false`; billing off | No | Spend approval before any paid AI or voice call. Not required to finish this local phase. |
-| GitHub Actions `check` | Workflow exists | — | No | Billing / spending limit. A never-started or two-second failed job is not a passing suite. |
+| GitHub Actions `check` | Workflow exists | — | No | Billing / spending limit. On `f5fe496`, run `39480896036` finished in two seconds with no steps. Annotation: recent account payments failed or the spending limit must be increased. A never-started job is not a passing suite. |
 | Vercel preview | Hosting adapter exists | Preview deploys are not this row | No | A successful deployment is not functional acceptance. |
+| Business website journey | Homepage / Discover / project intake, save, submit, founder proposal, exact-revision acceptance | Local simulated identities and SQLite | No | Repeat the same journey with two real provider accounts on the hosted origin. |
+| Custom workflow journey | Secondary `/custom-projects` route, tailored intake without brand or booking, context-scoped proposal | Local simulated identities and SQLite | No | Repeat with a real provider account. Context must still reach the founder snapshot and proposal seed. |
 
 ## Precise remaining authorized hosted rehearsal
 

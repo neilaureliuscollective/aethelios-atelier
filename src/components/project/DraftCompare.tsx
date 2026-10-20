@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { briefDifferences } from "@/lib/client/briefDiff";
+import { briefDifferences, wordingMatchesMessage } from "@/lib/client/briefDiff";
 import type { Brief } from "@/lib/types";
 
 export function DraftCompare({
@@ -46,7 +46,7 @@ export function DraftCompare({
         </button>
       </div>
       {differences.length === 0 ? (
-        <p className="muted">The wording matches. You can continue from the saved copy.</p>
+        <p className="muted">{wordingMatchesMessage(differences)}</p>
       ) : (
         <div className="recovery-grid">
           {differences.map((item) => (
