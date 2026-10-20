@@ -174,6 +174,7 @@ export type Project = {
   updatedAt: string;
   adoptedFromGuestId?: string;
   latestSubmissionId?: string;
+  businessId?: string;
 };
 
 export const PROPOSAL_STATUSES = [

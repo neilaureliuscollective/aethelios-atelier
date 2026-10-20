@@ -82,7 +82,9 @@ export async function clearSession() {
   const sessionId = jar.get(SESSION_COOKIE)?.value;
   if (sessionId) {
     try {
-      await (await getStore()).deleteSession(sessionId);
+      const store = await getStore();
+      await store.companion.invalidateJobsForSession(sessionId);
+      await store.deleteSession(sessionId);
     } catch {
       // Persistence may be unconfigured during sign-out; still clear the cookie.
     }

@@ -15,6 +15,14 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+Companion feature isolation (independent port and build output):
+
+```bash
+pnpm dev:cofounder
+```
+
+Open [http://localhost:3010/companion](http://localhost:3010/companion).
+
 Simulated identities (labeled, not production auth):
 
 - `owner.local@atelier.invalid` — client
@@ -48,6 +56,8 @@ pnpm build
 node scripts/api-flow.mjs
 node scripts/privacy-browser.mjs
 node scripts/browser-regressions.mjs
+node scripts/companion-api.mjs
+node scripts/companion-browser.mjs
 ```
 
 ## Configuration

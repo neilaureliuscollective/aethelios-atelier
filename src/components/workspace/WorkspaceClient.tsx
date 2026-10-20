@@ -78,6 +78,9 @@ export function WorkspaceHome() {
           <AppLink className="btn btn-gold" href="/project/new">
             New project
           </AppLink>
+          <AppLink className="btn btn-ghost" href="/companion">
+            Open Aethelios companion
+          </AppLink>
           <AppLink className="btn btn-ghost" href="/account/adopt">
             Review guest draft
           </AppLink>

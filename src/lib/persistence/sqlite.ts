@@ -23,6 +23,7 @@ import type {
   User
 } from "@/lib/types";
 import { normalizeBrief } from "@/lib/brief";
+import { SqliteCompanionStore } from "@/lib/persistence/companionSqlite";
 import type { PersistenceAdapter } from "@/lib/persistence/adapter";
 import {
   mapContentRequest,
@@ -226,6 +227,7 @@ function parseJson<T>(value: string): T {
 export class SqlitePersistence implements PersistenceAdapter {
   readonly kind = "sqlite_local" as const;
   readonly labeled = true as const;
+  readonly companion: SqliteCompanionStore;
   private db: DatabaseSync;
 
   constructor(filePath: string) {
@@ -235,6 +237,7 @@ export class SqlitePersistence implements PersistenceAdapter {
     this.db.exec("PRAGMA foreign_keys = ON;");
     this.db.exec(SCHEMA);
     this.ensureSubmissionRequestColumns();
+    this.companion = new SqliteCompanionStore(this.db);
   }
 
   private ensureSubmissionRequestColumns() {
@@ -290,6 +293,14 @@ export class SqlitePersistence implements PersistenceAdapter {
       DELETE FROM sessions;
       DELETE FROM users;
     `);
+    this.companion.reset();
+  }
+
+  listProjectsByBusiness(businessId: string) {
+    const rows = this.db
+      .prepare("SELECT * FROM projects WHERE business_id = ? ORDER BY updated_at DESC")
+      .all(businessId) as Record<string, unknown>[];
+    return rows.map((row) => this.mapProject(row));
   }
 
   upsertUser(user: User) {
@@ -349,8 +360,8 @@ export class SqlitePersistence implements PersistenceAdapter {
   createProject(project: Project) {
     this.db
       .prepare(
-        `INSERT INTO projects(id,owner_id,title,status,brief_json,version,created_at,updated_at,adopted_from_guest_id,latest_submission_id)
-         VALUES(?,?,?,?,?,?,?,?,?,?)`
+        `INSERT INTO projects(id,owner_id,title,status,brief_json,version,created_at,updated_at,adopted_from_guest_id,latest_submission_id,business_id)
+         VALUES(?,?,?,?,?,?,?,?,?,?,?)`
       )
       .run(
         project.id,
@@ -362,7 +373,8 @@ export class SqlitePersistence implements PersistenceAdapter {
         project.createdAt,
         project.updatedAt,
         project.adoptedFromGuestId ?? null,
-        project.latestSubmissionId ?? null
+        project.latestSubmissionId ?? null,
+        project.businessId ?? null
       );
     return project;
   }
@@ -405,7 +417,7 @@ export class SqlitePersistence implements PersistenceAdapter {
   updateProject(project: Project) {
     this.db
       .prepare(
-        `UPDATE projects SET title=?, status=?, brief_json=?, version=?, updated_at=?, adopted_from_guest_id=?, latest_submission_id=?
+        `UPDATE projects SET title=?, status=?, brief_json=?, version=?, updated_at=?, adopted_from_guest_id=?, latest_submission_id=?, business_id=?
          WHERE id=?`
       )
       .run(
@@ -416,6 +428,7 @@ export class SqlitePersistence implements PersistenceAdapter {
         project.updatedAt,
         project.adoptedFromGuestId ?? null,
         project.latestSubmissionId ?? null,
+        project.businessId ?? null,
         project.id
       );
     return project;
@@ -951,7 +964,8 @@ export class SqlitePersistence implements PersistenceAdapter {
       createdAt: String(row.created_at),
       updatedAt: String(row.updated_at),
       adoptedFromGuestId: row.adopted_from_guest_id ? String(row.adopted_from_guest_id) : undefined,
-      latestSubmissionId: row.latest_submission_id ? String(row.latest_submission_id) : undefined
+      latestSubmissionId: row.latest_submission_id ? String(row.latest_submission_id) : undefined,
+      businessId: row.business_id ? String(row.business_id) : undefined
     };
   }
 

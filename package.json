@@ -9,8 +9,11 @@
   },
   "scripts": {
     "dev": "next dev --port 3000",
+    "dev:cofounder": "ATELIER_DIST_DIR=.next-cofounder ATELIER_DATA_DIR=.data-cofounder next dev --port 3010",
     "build": "next build",
+    "build:cofounder": "ATELIER_DIST_DIR=.next-cofounder next build",
     "start": "next start --port 3000",
+    "start:cofounder": "ATELIER_DIST_DIR=.next-cofounder next start --port 3010",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

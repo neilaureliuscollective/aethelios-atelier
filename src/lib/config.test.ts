@@ -30,6 +30,9 @@ describe("fail-closed configuration", () => {
     const pub = publicRuntimeConfig();
     expect(pub.aurelius.ready).toBe(false);
     expect(JSON.stringify(pub)).not.toContain("sk-test");
+    expect(JSON.stringify(pub)).not.toContain("299");
+    expect(JSON.stringify(pub)).not.toContain("249");
+    expect(pub.companion.billingActivated).toBe(false);
   });
 
   it("refuses simulated auth when hosted environment flags are present", () => {
