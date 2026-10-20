@@ -10,6 +10,7 @@ export function SiteFooter() {
           <AppLink href="/services">Services</AppLink>
           <AppLink href="/pricing">Pricing</AppLink>
           <AppLink href="/approach">Approach</AppLink>
+          <AppLink href="/custom-projects">Other projects</AppLink>
           <AppLink href="/project">Begin a brief</AppLink>
         </nav>
         <p>Neil Stutes reviews every commission. Aethelios is a guide, not a substitute.</p>

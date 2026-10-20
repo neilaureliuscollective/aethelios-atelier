@@ -1,7 +1,7 @@
 import { emptyProfile, normalizeProfile } from "@/lib/cofounder/profile";
 import { resolvePlanId } from "@/lib/cofounder/entitlements";
 import { isLifestyleOwner, lifestyleProfileFields, LIFESTYLE_PROJECT } from "@/lib/cofounder/lifestyle";
-import { canonicalOwnedBusiness } from "@/lib/cofounder/provision";
+import { canonicalOwnedBusiness, DEFAULT_WORKSPACE_NAME } from "@/lib/cofounder/provision";
 import { ForbiddenError, NotFoundError, UniqueConstraintError } from "@/lib/domain/errors";
 import { isUniqueViolation } from "@/lib/persistence/unique";
 import { currentClientProposal, isClientVisibleProposal } from "@/lib/domain/proposal";
@@ -73,7 +73,7 @@ export class CompanionWorkspace {
       const business: Business = {
         id: companionId("biz"),
         ownerId: user.id,
-        name: lifestyle ? LIFESTYLE_PROJECT.brandName : user.displayName ? `${user.displayName}’s business` : "Your business",
+        name: lifestyle ? LIFESTYLE_PROJECT.brandName : DEFAULT_WORKSPACE_NAME,
         planId: resolvePlanId(process.env.ATELIER_DEFAULT_PLAN),
         createdAt: stamp,
         updatedAt: stamp

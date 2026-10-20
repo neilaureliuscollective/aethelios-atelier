@@ -1,5 +1,6 @@
 import { AppLink } from "@/components/ui/AppLink";
 import { CinematicHero } from "@/components/marketing/CinematicHero";
+import { CustomProjectsInvite } from "@/components/marketing/CustomProjectsInvite";
 import { PossibilitiesStage } from "@/components/marketing/PossibilitiesStage";
 import { ServiceShowcase } from "@/components/marketing/ServiceShowcase";
 import { Reveal } from "@/components/motion/Reveal";
@@ -36,6 +37,7 @@ export default function HomePage() {
           </p>
         </div>
         <ServiceShowcase />
+        <CustomProjectsInvite />
       </Reveal>
 
       <Reveal as="section" className="container section" delay={2}>

@@ -32,8 +32,8 @@ export const SERVICE_CATEGORY_COPY: Record<
     title: "Custom apps & platforms",
     short: "Purpose-built tools",
     summary:
-      "Web tools, portals, and installable experiences shaped around how the business actually works. Linking an existing booking provider is one example — Atelier does not replace that provider with a scheduling product.",
-    action: "Explore a custom app direction"
+      "Web tools, portals, and installable experiences shaped around how the work actually happens. Linking an existing booking provider is only asked when that is part of the request — Atelier does not replace that provider with a scheduling product.",
+    action: "Begin a custom app brief"
   },
   ecommerce_storefronts: {
     title: "E-commerce & storefronts",
@@ -78,11 +78,13 @@ export function historicalProjectTypeNote(value: string): string | null {
   return "This brief was saved as a booking-connected website. That category is now listed as Custom apps & platforms. Linking an existing booking tool remains an example within it — it is not a replacement booking engine. The saved type is unchanged until you choose a category.";
 }
 
-export function asksBookingProvider(projectType: string): boolean {
-  return (
-    projectType === HISTORICAL_BOOKING_PROJECT_TYPE ||
-    canonicalProjectType(projectType) === "custom_apps_platforms"
-  );
+export function asksBookingProvider(
+  projectType: string,
+  context?: { bookingNeeded?: boolean | null } | null
+): boolean {
+  if (context?.bookingNeeded === true) return true;
+  if (context?.bookingNeeded === false) return false;
+  return projectType === HISTORICAL_BOOKING_PROJECT_TYPE;
 }
 
 export function serviceInterestToStoredProjectType(interest: string): ProjectType | null {

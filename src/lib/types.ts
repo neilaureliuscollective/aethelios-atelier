@@ -45,7 +45,9 @@ export type BriefField = {
   pendingSuggestionId?: string;
 };
 
-export type Brief = Record<BriefFieldKey, BriefField>;
+export type Brief = Record<BriefFieldKey, BriefField> & {
+  context?: import("@/lib/commissionContext").CommissionContext;
+};
 
 export const PROJECT_STATUSES = [
   "draft",

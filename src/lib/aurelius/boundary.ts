@@ -12,7 +12,7 @@ import { loadConfig } from "@/lib/config";
 import { clientSafeProfile } from "@/lib/cofounder/isolation";
 import { ProjectService } from "@/lib/domain/projects";
 import type { PersistenceAdapter } from "@/lib/persistence/adapter";
-import type { Brief, Project, User } from "@/lib/types";
+import { BRIEF_FIELD_KEYS, type Brief, type Project, type User } from "@/lib/types";
 
 const UNAVAILABLE =
   `${INTELLIGENCE_DISPLAY_NAME} is unavailable. No authorized OpenAI configuration is active, so this is not a live AI reply. Continue with the structured brief — your work is saved. Live model calls stay off until separately enabled.`;
@@ -37,16 +37,17 @@ export function unavailableNotice() {
 }
 
 function briefForModel(brief: Brief) {
-  return Object.fromEntries(
-    Object.values(brief).map((field) => [
-      field.key,
+  const fields = Object.fromEntries(
+    BRIEF_FIELD_KEYS.map((key) => [
+      key,
       {
-        value: field.value,
-        provenance: field.provenance,
-        unresolvedQuestion: field.unresolvedQuestion ?? null
+        value: brief[key].value,
+        provenance: brief[key].provenance,
+        unresolvedQuestion: brief[key].unresolvedQuestion ?? null
       }
     ])
   );
+  return brief.context ? { ...fields, context: brief.context } : fields;
 }
 
 export class AureliusBoundary {

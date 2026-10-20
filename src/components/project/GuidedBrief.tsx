@@ -2,7 +2,23 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FIELD_HINTS, FIELD_LABELS, applyClientValue, fieldsForStep, isBookingConnected } from "@/lib/brief";
+import {
+  applyBriefContext,
+  applyClientValue,
+  applyCommissionIntent,
+  fieldHint,
+  fieldLabel,
+  fieldsForStep,
+  isBookingConnected
+} from "@/lib/brief";
+import {
+  PURPOSE_COPY,
+  commissionIntentPresent,
+  isCustomProjectRoute,
+  isFunctionalPurpose,
+  parseCommissionIntent,
+  type CommissionPurpose
+} from "@/lib/commissionContext";
 import {
   COMMISSION_TYPE_OPTIONS,
   HISTORICAL_BOOKING_PROJECT_TYPE,
@@ -46,13 +62,15 @@ import { canCommitSubmitReadback, classifyVerificationFailure } from "@/lib/clie
 import { useSession } from "@/components/shell/SessionShell";
 import type { Brief, BriefFieldKey, ChatMessage, ClientProjectView, Project, Suggestion, User } from "@/lib/types";
 
-const STEPS = [
-  { n: 1, label: "Vision" },
-  { n: 2, label: "Audience" },
-  { n: 3, label: "References" },
-  { n: 4, label: "Scope" },
-  { n: 5, label: "Review" }
-];
+function briefSteps(brief: Brief) {
+  return [
+    { n: 1, label: "Vision" },
+    { n: 2, label: "Audience" },
+    { n: 3, label: isCustomProjectRoute(brief) || isFunctionalPurpose(brief.context?.purpose) ? "Today" : "References" },
+    { n: 4, label: "Scope" },
+    { n: 5, label: "Review" }
+  ] as const;
+}
 
 const TYPE_OPTIONS = COMMISSION_TYPE_OPTIONS;
 
@@ -278,9 +296,11 @@ export function GuidedBrief({
 
       if (!loadIsActive()) return;
       const guest = readGuestDraft() ?? createGuestDraft();
-      writeGuestDraft(guest);
+      const intent = parseCommissionIntent(new URLSearchParams(window.location.search));
+      const nextBrief = commissionIntentPresent(intent) ? applyCommissionIntent(guest.brief, intent) : guest.brief;
+      writeGuestDraft({ ...guest, brief: nextBrief });
       setGuestId(guest.draftId);
-      setGuestBrief(guest.brief);
+      setGuestBrief(nextBrief);
       setProject(null);
       setDraftSnap(null);
       setMessages(
@@ -742,7 +762,7 @@ export function GuidedBrief({
         <nav className="surface-glass step-nav" aria-label="Brief steps">
           <p className="tiny">Your project brief</p>
           <ol>
-            {STEPS.map((item) => (
+            {briefSteps(brief).map((item) => (
               <li key={item.n}>
                 <button
                   type="button"
@@ -773,7 +793,7 @@ export function GuidedBrief({
 
         <section className={`surface-dense brief-stage ${pane === "edit" ? "" : "pane-hidden"}`}>
           <p className="step-progress-mobile tiny">
-            Step {step} of 5 · {STEPS[step - 1]?.label}
+            Step {step} of 5 · {briefSteps(brief)[step - 1]?.label}
           </p>
           {comparing && compareAgainst && draftSnap ? (
             <DraftCompare
@@ -790,27 +810,76 @@ export function GuidedBrief({
             />
           ) : null}
           <p className="kicker">{project ? "Authenticated brief" : "Saved on this device"}</p>
-          <DiscoveryImport
-            brief={brief}
-            revision={project ? (draftSnap?.acknowledgedVersion ?? project.version) : null}
-            ownerId={user?.id ?? null}
-            projectId={project?.id ?? null}
-            blocked={Boolean(comparing)}
-            onApply={applyImportedBrief}
-          />
-          <PlanInterest brief={brief} blocked={Boolean(comparing)} onApply={applyPlanNote} />
+          {!isCustomProjectRoute(brief) ? (
+            <DiscoveryImport
+              brief={brief}
+              revision={project ? (draftSnap?.acknowledgedVersion ?? project.version) : null}
+              ownerId={user?.id ?? null}
+              projectId={project?.id ?? null}
+              blocked={Boolean(comparing)}
+              onApply={applyImportedBrief}
+            />
+          ) : null}
+          {!isFunctionalPurpose(brief.context?.purpose) ? (
+            <PlanInterest brief={brief} blocked={Boolean(comparing)} onApply={applyPlanNote} />
+          ) : null}
           {step < 5 ? (
             <>
-              <h1 className="brief-heading">{FIELD_HINTS[visibleFields[0] ?? "vision"]}</h1>
+              <h1 className="brief-heading">{fieldHint(visibleFields[0] ?? "vision", brief)}</h1>
               <p className="muted">
                 Start with the idea. You can refine details as you go. Answers stay as you move between steps.
+                You do not need to know whether this becomes an app or a website.
                 {INTELLIGENCE_DISPLAY_NAME} being unavailable does not block this brief.
               </p>
+              {step === 1 ? (
+                <div style={{ marginTop: 18 }}>
+                  <p className="lbl" id="commission-purpose-label">
+                    What kind of project is this?
+                  </p>
+                  <div className="chips" role="group" aria-labelledby="commission-purpose-label">
+                    {(Object.keys(PURPOSE_COPY) as CommissionPurpose[]).map((purpose) => (
+                      <button
+                        key={purpose}
+                        className="chip"
+                        type="button"
+                        aria-pressed={brief.context?.purpose === purpose}
+                        onClick={() => {
+                          const next = applyBriefContext(brief, {
+                            purpose,
+                            route:
+                              purpose === "business"
+                                ? "business"
+                                : purpose === "unsure"
+                                  ? brief.context?.route || "custom_project"
+                                  : "custom_project"
+                          });
+                          applyReviewedBrief(next, {
+                            recovery: "Project context was updated locally. Resolve recovery before treating it as saved.",
+                            saved: "Project context updated. Consent again before sending.",
+                            guest: "Project context added to this device draft. It has not been sent."
+                          });
+                        }}
+                      >
+                        {PURPOSE_COPY[purpose].short}
+                      </button>
+                    ))}
+                  </div>
+                  {brief.context?.purpose ? (
+                    <p className="muted" style={{ marginTop: 8 }}>
+                      {PURPOSE_COPY[brief.context.purpose].summary}
+                    </p>
+                  ) : (
+                    <p className="muted" style={{ marginTop: 8 }}>
+                      Unsure is welcome. The questions will stay practical either way.
+                    </p>
+                  )}
+                </div>
+              ) : null}
               {visibleFields.map((key, index) => (
                 <div key={key} style={{ marginTop: 18 }}>
                   <label>
                     <span className="lbl" id={key === "projectType" ? "project-type-label" : undefined}>
-                      {FIELD_LABELS[key]}
+                      {fieldLabel(key, brief)}
                     </span>
                     {key === "projectType" ? (
                       <div className="chips" role="group" aria-labelledby="project-type-label">
@@ -836,7 +905,7 @@ export function GuidedBrief({
                         ref={index === 0 ? editorRef : undefined}
                         value={brief[key].value}
                         onChange={(event) => updateField(key, event.target.value)}
-                        placeholder={FIELD_HINTS[key]}
+                        placeholder={fieldHint(key, brief)}
                       />
                     )}
                   </label>

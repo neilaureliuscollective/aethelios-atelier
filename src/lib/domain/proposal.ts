@@ -1,5 +1,7 @@
 import { offerById } from "@/lib/catalog";
+import { isFunctionalPurpose } from "@/lib/commissionContext";
 import { ForbiddenError } from "@/lib/domain/errors";
+import { asksBookingProvider, canonicalProjectType } from "@/lib/serviceCategories";
 import type {
   Brief,
   DeliveryVersion,
@@ -100,57 +102,260 @@ export function normalizeProposalScope(input: unknown): ProposalScope {
   };
 }
 
+export type ProposalSeedKind =
+  | "website"
+  | "commerce"
+  | "booking_site"
+  | "business_tool"
+  | "professional_tool"
+  | "study"
+  | "personal"
+  | "infrastructure"
+  | "undecided";
+
+export function proposalSeedKind(brief: Brief): ProposalSeedKind {
+  if (asksBookingProvider(brief.projectType.value, brief.context)) return "booking_site";
+  const purpose = brief.context?.purpose;
+  if (purpose === "study") return "study";
+  if (purpose === "personal") return "personal";
+  if (purpose === "professional_workflow") return "professional_tool";
+  const type = canonicalProjectType(brief.projectType.value) ?? brief.projectType.value;
+  if (type === "website") return "website";
+  if (type === "ecommerce_storefronts") return "commerce";
+  if (type === "digital_infrastructure") return "infrastructure";
+  if (type === "custom_apps_platforms") return "business_tool";
+  if (isFunctionalPurpose(purpose)) return "professional_tool";
+  return "undecided";
+}
+
+function seedByKind(kind: ProposalSeedKind, offerIncludes: string[], offerExcludes: string[]): Omit<
+  ProposalScope,
+  "summary" | "price" | "brandDirection"
+> {
+  const review = "Review each published version and either request changes or record agreement to that exact version.";
+  const commonExclusions = [
+    ...offerExcludes,
+    "Unlimited revisions or support as a standing promise",
+    "Autonomous generation or an Aethelios subscription product"
+  ];
+  switch (kind) {
+    case "website":
+      return {
+        deliverables: offerIncludes.length
+          ? offerIncludes
+          : [
+              "A branded marketing website shaped around the business",
+              "Identity treated as a consistent quality of the work"
+            ],
+        includedPages: ["Home", "About", "Contact"],
+        includedFeatures: ["Public customer journey", "Clear enquiry path"],
+        exclusions: commonExclusions,
+        clientResponsibilities: [
+          "Provide brand materials, copy, and photographs when requested.",
+          review
+        ],
+        milestones: websiteMilestones()
+      };
+    case "commerce":
+      return {
+        deliverables: offerIncludes,
+        includedPages: ["Home", "Collection", "Product", "Contact"],
+        includedFeatures: ["Storefront presentation", "Path into existing commerce tools"],
+        exclusions: commonExclusions,
+        clientResponsibilities: [
+          "Provide product facts, images, and the commerce tools already in use.",
+          review
+        ],
+        milestones: websiteMilestones()
+      };
+    case "booking_site":
+      return {
+        deliverables: offerIncludes,
+        includedPages: ["Home", "About", "Booking destination", "Contact"],
+        includedFeatures: ["Link to the booking provider already in use"],
+        exclusions: commonExclusions,
+        clientResponsibilities: [
+          "Provide brand materials, copy, and photographs when requested.",
+          "Confirm the live booking destination if this site should link to one.",
+          review
+        ],
+        milestones: websiteMilestones()
+      };
+    case "business_tool":
+    case "professional_tool":
+      return {
+        deliverables: [
+          "A bounded first version of the requested workflow",
+          "Documented actions, roles if needed, and data assumptions",
+          "Founder review of integration boundaries before work is accepted"
+        ],
+        includedPages: [],
+        includedFeatures: [
+          "Essential actions for the first version",
+          "Inputs and outputs the tool must handle",
+          "Stated assumptions about existing tools and permissions"
+        ],
+        exclusions: [
+          ...commonExclusions,
+          "A replacement booking engine or CRM product",
+          "Automatic access to employer or third-party systems"
+        ],
+        clientResponsibilities: [
+          "Describe the current process and who should be able to see what.",
+          "Name existing tools only if they are already used — Atelier will not invent connections.",
+          review
+        ],
+        milestones: toolMilestones()
+      };
+    case "study":
+      return {
+        deliverables: [
+          "A bounded study organizer for the requested subject",
+          "Ways to keep topics, practice misses, and a simple review together"
+        ],
+        includedPages: [],
+        includedFeatures: [
+          "Topic organization",
+          "Practice or error log",
+          "A simple review interaction"
+        ],
+        exclusions: [
+          ...commonExclusions,
+          "A live tutoring service or school-system integration",
+          "A claim of grades, outcomes, or completed learning"
+        ],
+        clientResponsibilities: [
+          "Share the topics or materials that should appear in a first version.",
+          "Say what “reviewed” means for you.",
+          review
+        ],
+        milestones: toolMilestones()
+      };
+    case "personal":
+      return {
+        deliverables: [
+          "A bounded personal utility for the stated outcome",
+          "The controls needed to add, update, and close items"
+        ],
+        includedPages: [],
+        includedFeatures: ["A useful first version limited to the requested tracker or organizer"],
+        exclusions: [
+          ...commonExclusions,
+          "Health, finance, or legal advice",
+          "Connected accounts that were not requested"
+        ],
+        clientResponsibilities: [
+          "Say what should stay private and what a finished first version looks like.",
+          review
+        ],
+        milestones: toolMilestones()
+      };
+    case "infrastructure":
+      return {
+        deliverables: offerIncludes.length
+          ? offerIncludes
+          : ["A founder conversation about operational needs and the tools already in place"],
+        includedPages: [],
+        includedFeatures: ["Documented integration assumptions", "Reviewed fit — not a packaged platform"],
+        exclusions: commonExclusions,
+        clientResponsibilities: [
+          "Name the tools already in use and the workflow that should connect them.",
+          review
+        ],
+        milestones: toolMilestones()
+      };
+    default:
+      return {
+        deliverables: offerIncludes.length ? offerIncludes : ["A guided brief with no obligation to buy"],
+        includedPages: [],
+        includedFeatures: [],
+        exclusions: commonExclusions,
+        clientResponsibilities: [review],
+        milestones: [
+          {
+            title: "Confirm scope",
+            description: "Agree the proposal version that will be delivered.",
+            timing: "Before work begins"
+          }
+        ]
+      };
+  }
+}
+
+function websiteMilestones() {
+  return [
+    {
+      title: "Confirm scope",
+      description: "Agree the proposal version that will be delivered.",
+      timing: "Before design begins"
+    },
+    {
+      title: "Assemble client content",
+      description: "Collect remaining brand, copy, and destination details.",
+      timing: "Before the first design review"
+    },
+    {
+      title: "Design review",
+      description: "Present a design version for feedback or approval.",
+      timing: "After scope is confirmed"
+    },
+    {
+      title: "Build review",
+      description: "Present a build version for feedback or approval.",
+      timing: "After design is approved"
+    }
+  ];
+}
+
+function toolMilestones() {
+  return [
+    {
+      title: "Confirm scope",
+      description: "Agree the proposal version that will be delivered.",
+      timing: "Before work begins"
+    },
+    {
+      title: "Assemble needed inputs",
+      description: "Collect sample workflows, roles, and any existing-tool facts that were requested.",
+      timing: "Before the first working review"
+    },
+    {
+      title: "Working review",
+      description: "Present a working version for feedback or approval.",
+      timing: "After scope is confirmed"
+    },
+    {
+      title: "Handover",
+      description: "Review the completed first version against the agreed proposal.",
+      timing: "After the working version is approved"
+    }
+  ];
+}
+
 export function seedProposalScope(brief: Brief): ProposalScope {
   const offer = offerById(brief.projectType.value) ?? offerById("undecided");
-  const booking =
-    brief.projectType.value === "booking_connected_website" ||
-    brief.projectType.value === "custom_apps_platforms";
+  const kind = proposalSeedKind(brief);
+  const seeded = seedByKind(kind, offer?.includes ?? [], offer?.excludes ?? []);
   return {
     summary: brief.vision.value.trim(),
-    deliverables: offer?.includes ?? [],
-    includedPages: booking
-      ? ["Home", "About", "Booking destination", "Contact"]
-      : ["Home", "About", "Contact"],
-    includedFeatures: offer?.includes ?? [],
-    exclusions: offer?.excludes ?? [],
-    clientResponsibilities: [
-      "Provide brand materials, copy, and photographs when requested.",
-      "Confirm the live booking destination if this site should link to one.",
-      "Review each published version and either request changes or record agreement to that exact version."
-    ],
-    milestones: [
-      {
-        title: "Confirm scope",
-        description: "Agree the proposal version that will be delivered.",
-        timing: "Before design begins"
-      },
-      {
-        title: "Assemble client content",
-        description: "Collect remaining brand, copy, and destination details.",
-        timing: "Before the first design review"
-      },
-      {
-        title: "Design review",
-        description: "Present a design version for feedback or approval.",
-        timing: "After scope is confirmed"
-      },
-      {
-        title: "Build review",
-        description: "Present a build version for feedback or approval.",
-        timing: "After design is approved"
-      }
-    ],
+    ...seeded,
     price: {
       amount: "",
       currency: "USD",
       terms: DEFAULT_PRICE_TERMS,
       paymentStatus: "not_collected"
     },
-    brandDirection: [brief.references.value, brief.priorities.value]
-      .map((value) => value.trim())
-      .filter(Boolean)
-      .join("\n\n")
+    brandDirection: needsBrandDirection(kind)
+      ? [brief.references.value, brief.priorities.value]
+          .map((value) => value.trim())
+          .filter(Boolean)
+          .join("\n\n")
+      : brief.priorities.value.trim()
   };
+}
+
+function needsBrandDirection(kind: ProposalSeedKind) {
+  return kind === "website" || kind === "commerce" || kind === "booking_site";
 }
 
 export function proposalFingerprint(scope: ProposalScope, version: number, changeSummary: string) {

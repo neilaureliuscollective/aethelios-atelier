@@ -46,9 +46,11 @@ describe("service category compatibility", () => {
     expect(optionPressed("custom_apps_platforms", "custom_apps_platforms")).toBe(true);
   });
 
-  it("asks for a booking provider only inside custom apps or the historical booking type", () => {
+  it("asks for a booking provider only when the historical type or explicit context says so", () => {
     expect(asksBookingProvider(HISTORICAL_BOOKING_PROJECT_TYPE)).toBe(true);
-    expect(asksBookingProvider("custom_apps_platforms")).toBe(true);
+    expect(asksBookingProvider("custom_apps_platforms")).toBe(false);
+    expect(asksBookingProvider("custom_apps_platforms", { bookingNeeded: true })).toBe(true);
+    expect(asksBookingProvider("custom_apps_platforms", { bookingNeeded: false })).toBe(false);
     expect(asksBookingProvider("website")).toBe(false);
     expect(asksBookingProvider("ecommerce_storefronts")).toBe(false);
   });

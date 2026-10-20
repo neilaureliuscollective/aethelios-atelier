@@ -1,4 +1,4 @@
-import { isPlaceholderBusinessName } from "@/lib/cofounder/provision";
+import { DEFAULT_WORKSPACE_NAME, isPlaceholderBusinessName } from "@/lib/cofounder/provision";
 import { CompanionStudio } from "@/lib/cofounder/studio";
 import type { BusinessConfirmation, StudioDraft, StudioDirectionAdoption } from "@/lib/cofounder/types";
 import { CompanionWorkspace } from "@/lib/cofounder/workspace";
@@ -38,7 +38,7 @@ export function resolveConfirmedBusinessName(input: {
   if (!placeholder) {
     return { name: existing, retainedExisting: true };
   }
-  return { name: submitted || existing || "Your business", retainedExisting: false };
+  return { name: submitted || existing || DEFAULT_WORKSPACE_NAME, retainedExisting: false };
 }
 
 function companionId(prefix: string) {
