@@ -3,6 +3,7 @@
 Approved artwork used by the app:
 
 - `public/brand/original/logo.png`
+- `public/brand/original/icon-mark.png`
 - `public/brand/original/icon.png`
 
 These four images are art-direction references only. They contain interface text, so they are **not** used as full-screen backgrounds.

@@ -2,18 +2,18 @@
    Keep in sync with src/lib/pwa/cachePolicy.ts.
    Cache only the generic offline shell and public brand assets.
    Never cache personalized HTML, authenticated routes, APIs, or RSC payloads. */
-const CACHE = "atelier-static-v7";
+const CACHE = "atelier-static-v8";
 const PREFIX = "atelier-";
 const PRECACHE = [
   "/offline",
   "/manifest.webmanifest",
   "/brand/logo.webp",
   "/brand/icon.webp",
-  "/brand/install/v6/icon-192.png",
-  "/brand/install/v6/icon-512.png",
-  "/brand/install/v6/icon-192-maskable.png",
-  "/brand/install/v6/icon-512-maskable.png",
-  "/brand/install/v6/apple-touch-icon.png"
+  "/brand/install/v7/icon-192.png",
+  "/brand/install/v7/icon-512.png",
+  "/brand/install/v7/icon-192-maskable.png",
+  "/brand/install/v7/icon-512-maskable.png",
+  "/brand/install/v7/apple-touch-icon.png"
 ];
 
 function personalized(pathname) {
