@@ -1,7 +1,7 @@
 /** Explicit safe allowlist for the Atelier service worker. Keep in sync with public/sw.js. */
 
 export const ATELIER_CACHE_PREFIX = "atelier-static-";
-export const ATELIER_CACHE_NAME = "atelier-static-v5";
+export const ATELIER_CACHE_NAME = "atelier-static-v6";
 
 const STATIC_EXACT = new Set(["/offline", "/manifest.webmanifest"]);
 const STATIC_PREFIXES = ["/brand/"];

@@ -24,10 +24,8 @@ import {
   createDraft,
   createEnvelope,
   currentGuideView,
-  createSampleExplorationDraft,
   defaultPaletteFor,
   hasUnpublishedChanges,
-  hasVisitorAnswers,
   isServiceInterestId,
   mapSelectionToBriefProposals,
   patchDraft,
@@ -55,6 +53,7 @@ import { Entrance } from "./Entrance";
 import { Intake } from "./Intake";
 import { Qualities } from "./Qualities";
 import { SelectionSummary } from "./SelectionSummary";
+import { resolveSampleVisit } from "./sampleVisit";
 import styles from "./DiscoveryStudio.module.css";
 
 const PHASES: Array<{ id: DiscoveryPhase; label: string }> = [
@@ -263,15 +262,13 @@ export function DiscoveryStudio() {
 
   const go = useCallback((phase: DiscoveryPhase) => dispatch({ type: "phase", phase }), []);
   const openSample = useCallback(() => {
-    if (hasVisitorAnswers(state.draft) || state.confirmed) {
-      dispatch({
-        type: "status",
-        status: "Continuing with the answers already on this visit. Sample content was not applied."
-      });
+    const resolved = resolveSampleVisit(state.draft, state.confirmed);
+    if (!resolved.applied) {
       dispatch({ type: "phase", phase: "studio" });
+      dispatch({ type: "status", status: resolved.status });
       return;
     }
-    dispatch({ type: "sample", draft: createSampleExplorationDraft() });
+    dispatch({ type: "sample", draft: resolved.draft });
   }, [state.draft, state.confirmed]);
   const onAction = useCallback((context: PreviewActionContext) => {
     setDemo(context);
@@ -303,7 +300,15 @@ export function DiscoveryStudio() {
       </div>
       <div className={styles.frame}>
         {state.phase === "enter" ? null : (
-        <div className={styles.innerNav}>
+        <div className={styles.toolbar} data-state={guide.state}>
+          <div className={styles.toolbarMeta}>
+            <span className={styles.badge}>{guide.labeled === "curated" ? "Curated" : "Live model"}</span>
+            <span className={styles.fine} data-state={guide.state}>
+              {state.sampleVisit
+                ? "Sample exploration. Not live model output, and not saved to an account."
+                : "Personalized from your answers. Not live model output."}
+            </span>
+          </div>
           <div className={styles.steps} role="navigation" aria-label="Discovery steps">
             {PHASES.map((item, index) => {
               const currentIndex = PHASES.findIndex((phase) => phase.id === state.phase);
@@ -326,25 +331,16 @@ export function DiscoveryStudio() {
         </div>
         )}
 
-        {state.phase === "enter" ? null : (
-        <div className={styles.guide} data-state={guide.state} aria-live="polite">
-          <div className={styles.chipRow}>
-            <span className={styles.badge}>{guide.labeled === "curated" ? "Curated" : "Live model"}</span>
-            <strong>
-              {state.sampleVisit
-                ? "Sample exploration. Not live model output, and not saved to an account."
-                : "Personalized from your answers. Not live model output."}
-            </strong>
-          </div>
-        </div>
+        {state.status ? (
+          <p className={styles.status} role="status">
+            {state.status}
+          </p>
+        ) : (
+          <p className={styles.status} role="status" />
         )}
 
-        <p className={styles.status} role="status">
-          {state.status}
-        </p>
-
         {state.phase === "enter" ? (
-          <Entrance onExplore={() => go("intake")} onSample={openSample} />
+          <Entrance onExplore={() => go("intake")} onSample={openSample} onAction={onAction} />
         ) : null}
         {state.phase === "intake" ? (
           <Intake
@@ -395,13 +391,8 @@ export function DiscoveryStudio() {
         ) : null}
 
         {state.phase === "enter" ? null : (
-        <section className={styles.glass} style={{ marginTop: 22 }}>
+        <section className={styles.saveDrawer} style={{ marginTop: 22 }}>
           <h2>Save on this device</h2>
-          <p className={styles.fine}>
-            Default is memory only. Opting in stores the current sketch in this browser under a
-            namespaced key. Contact details, credentials, and founder notes are never stored here, and
-            this does not import into a signed-in account.
-          </p>
           <p className={styles.notice}>{state.persistenceMessage}</p>
           <div className={styles.actions}>
             <button
@@ -461,9 +452,16 @@ export function DiscoveryStudio() {
               type="button"
               onClick={() => dispatch({ type: "resetVisit" })}
             >
-              Start over on this screen
-            </button>
+            Start over on this screen
+          </button>
           </div>
+          <details>
+            <summary>How saving works</summary>
+            <p className={styles.fine}>
+              Default is memory only. Opting in stores the current sketch in this browser. Contact
+              details are never stored here, and this does not import into an account.
+            </p>
+          </details>
         </section>
         )}
       </div>
@@ -508,6 +506,22 @@ export function DiscoveryStudio() {
       </dialog>
       ) : null}
     </div>
+  );
+}
+
+function ServiceScopeNote({ interest }: { interest: DiscoveryDraft["serviceInterest"] }) {
+  const copy =
+    interest === "custom_apps_platforms"
+      ? "This preview still illustrates a website direction. A custom app or platform would be scoped separately with Neil — selecting this interest does not create a working app."
+      : interest === "ecommerce_storefronts"
+        ? "This preview still illustrates a website direction. Commerce, inventory, and payments would be scoped separately — this is not a working storefront."
+        : interest === "digital_infrastructure"
+          ? "This preview still illustrates a website direction. Infrastructure and operations would be scoped separately — this is not a running system."
+          : "These previews illustrate a website direction. Neil would still confirm scope, systems, and whether a booking tool should be connected later.";
+  return (
+    <p className={`${styles.fine} ${styles.serviceNote}`} data-service-scope={interest}>
+      {copy}
+    </p>
   );
 }
 
@@ -583,13 +597,10 @@ function NativeRadioRow<T extends string>({
   );
 }
 
-function StudioControls({
+function StudioDock({
   state,
   suggested,
-  unpublished,
-  compact,
   onPatch,
-  onDraft,
   onPreview,
   onConfirm,
   onCompare,
@@ -598,10 +609,7 @@ function StudioControls({
 }: {
   state: State;
   suggested: DirectionId;
-  unpublished: boolean;
-  compact: boolean;
   onPatch: (patch: Partial<DiscoveryDraft>) => void;
-  onDraft: (draft: DiscoveryDraft) => void;
   onPreview: (mode: PreviewMode) => void;
   onConfirm: (directionId?: DirectionId) => void;
   onCompare: () => void;
@@ -609,12 +617,10 @@ function StudioControls({
   onReview: () => void;
 }) {
   const comparing = state.phase === "compare";
-  const radioSuffix = "studio";
   return (
-    <>
-      <div className={styles.stickyPrimary}>
+    <div className={styles.stickyPrimary}>
       <NativeRadioRow
-        name={`direction-${radioSuffix}`}
+        name="direction-studio"
         value={state.draft.activeDirectionId}
         ariaLabel="Concept direction"
         options={DIRECTION_ORDER.map((id) => ({
@@ -627,8 +633,9 @@ function StudioControls({
         Selected: {DIRECTIONS[state.draft.activeDirectionId].name} —{" "}
         {DIRECTIONS[state.draft.activeDirectionId].epithet}
       </p>
+      <ServiceScopeNote interest={state.draft.serviceInterest} />
       <NativeRadioRow
-        name={`preview-${radioSuffix}`}
+        name="preview-studio"
         value={state.previewMode}
         ariaLabel="Preview mode"
         options={[
@@ -654,7 +661,51 @@ function StudioControls({
           Review
         </button>
       </div>
-      </div>
+    </div>
+  );
+}
+
+function StudioControls({
+  state,
+  suggested,
+  unpublished,
+  compact,
+  showDock,
+  onPatch,
+  onDraft,
+  onPreview,
+  onConfirm,
+  onCompare,
+  onStudio,
+  onReview
+}: {
+  state: State;
+  suggested: DirectionId;
+  unpublished: boolean;
+  compact: boolean;
+  showDock: boolean;
+  onPatch: (patch: Partial<DiscoveryDraft>) => void;
+  onDraft: (draft: DiscoveryDraft) => void;
+  onPreview: (mode: PreviewMode) => void;
+  onConfirm: (directionId?: DirectionId) => void;
+  onCompare: () => void;
+  onStudio: () => void;
+  onReview: () => void;
+}) {
+  return (
+    <>
+      {showDock ? (
+        <StudioDock
+          state={state}
+          suggested={suggested}
+          onPatch={onPatch}
+          onPreview={onPreview}
+          onConfirm={onConfirm}
+          onCompare={onCompare}
+          onStudio={onStudio}
+          onReview={onReview}
+        />
+      ) : null}
       {unpublished ? (
         <p className={styles.notice} data-unpublished="true">
           Working changes differ from the last confirmed direction. Use this direction again to update the snapshot.
@@ -665,7 +716,7 @@ function StudioControls({
           <summary>Edit name, palette, and notes</summary>
           <StudioFields
             state={state}
-            radioSuffix={radioSuffix}
+            radioSuffix="studio"
             onPatch={onPatch}
             onDraft={onDraft}
           />
@@ -673,7 +724,7 @@ function StudioControls({
       ) : (
         <StudioFields
           state={state}
-          radioSuffix={radioSuffix}
+          radioSuffix="studio"
           onPatch={onPatch}
           onDraft={onDraft}
         />
@@ -863,6 +914,7 @@ function StudioBody({
     suggested,
     unpublished,
     compact,
+    showDock: !narrow,
     onPatch,
     onDraft,
     onPreview,
@@ -874,6 +926,18 @@ function StudioBody({
 
   return (
     <section className={`${styles.studio} ${comparing ? "" : styles.studioWide}`.trim()}>
+      {narrow ? (
+        <StudioDock
+          state={state}
+          suggested={suggested}
+          onPatch={onPatch}
+          onPreview={onPreview}
+          onConfirm={onConfirm}
+          onCompare={onCompare}
+          onStudio={onStudio}
+          onReview={onReview}
+        />
+      ) : null}
       <div className={styles.previewColumn}>
         {comparing ? (
           <>
@@ -1026,6 +1090,7 @@ function ReviewBody({
           Confirm a snapshot to keep exactly what you chose. Later preview edits do not silently change
           it. Nothing is submitted, and nothing is added to an account.
         </p>
+        <ServiceScopeNote interest={draft.serviceInterest} />
         <div className={styles.notice} data-unpublished={unpublished ? "true" : "false"}>
           {unpublished
             ? "You are looking at the last confirmed selection in the recap. Current exploration has unpublished changes. Use this direction again to refresh the snapshot."

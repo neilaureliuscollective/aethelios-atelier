@@ -9,7 +9,7 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "public" / "brand" / "original" / "icon.png"
-INSTALL_VERSION = "v5"
+INSTALL_VERSION = "v6"
 OBSIDIAN = (8, 12, 11, 255)
 
 

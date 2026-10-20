@@ -51,8 +51,6 @@ export function HearthConcept({
         <section className={styles.story} id={conceptSectionId(instanceId, "opening")}>
           <p className={styles.kicker}>{content.kicker}</p>
           <h2>{content.headline}</h2>
-          <p>{content.opening}</p>
-          <p>{content.atmosphere}</p>
           <div className={styles.stack} id={conceptSectionId(instanceId, "image")}>
             <ScenePlate
               src={plates.primary}
@@ -70,8 +68,11 @@ export function HearthConcept({
             />
           </div>
           <p className={styles.caption}>{content.imageCaption}</p>
+          <p>{content.opening}</p>
+          <p>{content.atmosphere}</p>
         </section>
         <aside className={styles.welcome} id={conceptSectionId(instanceId, "action")}>
+          <p className={styles.kicker}>Visit</p>
           <h3>A place is kept</h3>
           <p>By appointment. Hours stay with the business — this panel only shows how a welcome might feel.</p>
           <div className={styles.hours}>

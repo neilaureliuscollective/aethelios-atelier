@@ -46,6 +46,9 @@ export function SelectionSummary({
     >
       <p className={styles.badge}>Direction prepared on this device</p>
       <h2 id="selection-summary-heading">{heading}</h2>
+      <p className={styles.lede} style={{ marginBottom: 12 }}>
+        {selection.businessName || "Business name not specified"} · {direction.name}
+      </p>
       <p className={styles.fine}>
         {unpublished
           ? "This recap is the last confirmed selection. Current studio edits are unpublished until you use this direction again."

@@ -7,7 +7,7 @@ describe("atelierSurfaceForPath", () => {
     expect(atelierSurfaceForPath("/companion/studio")).toBe("atelier");
     expect(atelierSurfaceForPath("/")).toBe("luminous");
     expect(atelierSurfaceForPath("/services")).toBe("luminous");
-    expect(atelierSurfaceForPath("/discover")).toBe("studio");
+    expect(atelierSurfaceForPath("/discover")).toBe("luminous");
     expect(atelierSurfaceForPath("/account")).toBe("workroom");
   });
 });

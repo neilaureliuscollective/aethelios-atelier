@@ -53,7 +53,7 @@
 
 .opening {
   position: relative;
-  min-height: min(52cqb, 420px);
+  min-height: min(58cqb, 520px);
   display: grid;
   align-content: end;
   padding: clamp(28px, 6cqi, 64px) clamp(16px, 3.2cqi, 28px) clamp(28px, 4cqi, 40px);
@@ -61,14 +61,34 @@
   overflow: hidden;
 }
 
+.heroPlate {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.heroPlate img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 38%;
+  min-height: 220px;
+}
+
 .opening::before {
   content: "";
   position: absolute;
   inset: 0;
+  z-index: 0;
   background:
-    linear-gradient(180deg, transparent 10%, color-mix(in srgb, var(--c-bg) 88%, transparent) 78%),
+    linear-gradient(180deg, color-mix(in srgb, var(--c-bg) 18%, transparent) 8%, color-mix(in srgb, var(--c-bg) 88%, transparent) 78%),
     radial-gradient(70cqi 40cqb at 80% 10%, color-mix(in srgb, var(--c-accent) 18%, transparent), transparent 60%);
   pointer-events: none;
+}
+
+.opening > *:not(.heroPlate) {
+  position: relative;
+  z-index: 1;
 }
 
 .kicker {
