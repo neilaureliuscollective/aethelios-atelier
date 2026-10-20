@@ -54,6 +54,9 @@ export type ProfileField = {
   kind: FactKind;
   source?: string;
   updatedAt?: string;
+  sourceDocumentId?: string;
+  sourcePage?: number;
+  sourceExcerpt?: string;
 };
 
 export type ApprovedRate = {

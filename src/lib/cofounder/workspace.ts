@@ -1,4 +1,6 @@
 import { emptyProfile, normalizeProfile } from "@/lib/cofounder/profile";
+import { extractDocumentPages } from "@/lib/cofounder/documents";
+import { applyConfirmedIntake, draftIntakeChange } from "@/lib/cofounder/intake";
 import { resolvePlanId } from "@/lib/cofounder/entitlements";
 import { ForbiddenError, NotFoundError } from "@/lib/domain/errors";
 import { currentClientProposal, isClientVisibleProposal } from "@/lib/domain/proposal";
@@ -223,6 +225,50 @@ export class CompanionWorkspace {
     const blob = await this.store.companion.getBlob(document.blobId);
     if (!blob || blob.businessId !== businessId) throw new NotFoundError("Document bytes were not stored.");
     return { document, blob };
+  }
+
+  async previewDocument(businessId: string, user: User, documentId: string) {
+    const context = await this.requireMembership(businessId, user);
+    const { document, blob } = await this.getDocumentBytes(businessId, user, documentId);
+    const extracted = extractDocumentPages(document.mime, blob.bytes, document.title);
+    return {
+      document,
+      extracted,
+      profile: context.profile
+    };
+  }
+
+  async confirmDocumentIntake(
+    businessId: string,
+    user: User,
+    input: {
+      documentId: string;
+      fieldKey: string;
+      pageNumber: number;
+      excerpt: string;
+      proposedValue?: string;
+    }
+  ) {
+    const context = await this.requireMutable(businessId, user);
+    const preview = await this.previewDocument(businessId, user, input.documentId);
+    const draft = draftIntakeChange({
+      document: preview.document,
+      profile: context.profile,
+      extracted: preview.extracted,
+      fieldKey: input.fieldKey,
+      pageNumber: input.pageNumber,
+      excerpt: input.excerpt,
+      proposedValue: input.proposedValue
+    });
+    const applied = applyConfirmedIntake(context.profile, draft, user.id);
+    await this.store.companion.upsertProfile(applied.profile);
+    const business = {
+      ...context.business,
+      name: applied.profile.fields.name.value || context.business.name,
+      updatedAt: applied.profile.updatedAt
+    };
+    await this.store.companion.updateBusiness(business);
+    return { draft, ...applied };
   }
 
   async authorizedProjectStatus(businessId: string, user: User, projectId?: string) {

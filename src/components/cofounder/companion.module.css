@@ -169,6 +169,99 @@
   .grid { grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.7fr); }
 }
 
+.intake {
+  display: grid;
+  gap: 18px;
+}
+
+.intakeTitle {
+  margin: 6px 0 8px;
+  font-size: clamp(22px, 3vw, 30px);
+}
+
+.docList {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.docRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid #e4d6b8;
+  background: #fffdf8;
+}
+
+.docRow .actions {
+  flex-shrink: 0;
+}
+
+.preview,
+.review {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid #e4d6b8;
+  background: #fffaf0;
+}
+
+.page {
+  display: grid;
+  gap: 8px;
+}
+
+.pageHead {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.pageText {
+  margin: 0;
+  max-height: 280px;
+  overflow: auto;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid #e4d6b8;
+  background: #fffdf8;
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.compare > div,
+.quote {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #f7f1e6;
+  border: 1px solid #e4d6b8;
+}
+
+.quote {
+  margin: 0;
+  font-style: italic;
+}
+
+@media (max-width: 884px) {
+  .compare { grid-template-columns: 1fr; }
+  .docRow { align-items: flex-start; flex-direction: column; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .messages, .canvasImage, .layer {
     scroll-behavior: auto;

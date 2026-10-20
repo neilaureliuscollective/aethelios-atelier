@@ -6,6 +6,7 @@ import { api } from "@/lib/client/api";
 import { actionErrorMessage } from "@/lib/client/asyncAction";
 import { ownerFence } from "@/lib/client/ownerFence";
 import { useSession } from "@/components/shell/SessionShell";
+import { DocumentIntake, type IntakeDocument } from "@/components/cofounder/DocumentIntake";
 import type { ApprovedRate, BusinessProfile, MemoryProposal, UsageSnapshot } from "@/lib/cofounder/types";
 import styles from "./companion.module.css";
 
@@ -25,7 +26,7 @@ export function BusinessClient() {
   const [profile, setProfile] = useState<BusinessProfile | null>(null);
   const [usage, setUsage] = useState<UsageSnapshot | null>(null);
   const [pending, setPending] = useState<MemoryProposal[]>([]);
-  const [documents, setDocuments] = useState<Array<{ id: string; title: string; status: string }>>([]);
+  const [documents, setDocuments] = useState<IntakeDocument[]>([]);
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [rateLabel, setRateLabel] = useState("Hourly strategy");
   const [rateCents, setRateCents] = useState("15000");
@@ -37,7 +38,7 @@ export function BusinessClient() {
       rawProfile: BusinessProfile;
       usage: UsageSnapshot;
       memoryPending: MemoryProposal[];
-      documents: Array<{ id: string; title: string; status: string }>;
+      documents: IntakeDocument[];
     }>("/api/companion/workspace");
     if (!ownerFence.isCurrent(gen, user?.id ?? null)) return;
     setProfile(data.rawProfile);
@@ -80,25 +81,6 @@ export function BusinessClient() {
     setProfile({ ...profile, approvedRates: [...profile.approvedRates, rate] });
   }
 
-  async function uploadDocument(file: File, kind: "logo" | "document") {
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    let binary = "";
-    bytes.forEach((value) => {
-      binary += String.fromCharCode(value);
-    });
-    await api("/api/companion/documents", {
-      method: "POST",
-      body: JSON.stringify({
-        title: file.name,
-        mime: file.type || (kind === "logo" ? "image/png" : "text/plain"),
-        bytesBase64: btoa(binary),
-        kind
-      })
-    });
-    setStatus(kind === "logo" ? "Original logo stored." : "Source document stored for this workspace only.");
-    await load();
-  }
-
   return (
     <CompanionShell
       title="Business context"
@@ -113,6 +95,7 @@ export function BusinessClient() {
                 <span className="tiny">
                   {FIELD_LABELS[field.key] ?? field.key} · {field.kind}
                   {field.source ? ` · ${field.source}` : ""}
+                  {field.sourcePage ? ` · page ${field.sourcePage}` : ""}
                   {field.updatedAt ? ` · updated ${new Date(field.updatedAt).toLocaleString()}` : ""}
                 </span>
                 <textarea
@@ -167,27 +150,6 @@ export function BusinessClient() {
               Add approved rate (cents)
             </button>
             <p className="tiny" style={{ marginTop: 18 }}>
-              Source documents
-            </p>
-            {documents.length === 0 ? <p className="muted">No selected source documents yet.</p> : null}
-            {documents.map((doc) => (
-              <p key={doc.id} className="tiny">
-                {doc.title} · {doc.status}
-              </p>
-            ))}
-            <label className="tiny" htmlFor="source-doc">
-              Upload a text source
-            </label>
-            <input
-              id="source-doc"
-              type="file"
-              accept="text/*,.md,.json,.csv"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) void uploadDocument(file, "document").catch((err) => setError(actionErrorMessage(err, "Upload failed.")));
-              }}
-            />
-            <p className="tiny" style={{ marginTop: 18 }}>
               Pending memory
             </p>
             {pending.length === 0 ? <p className="muted">No suggestions waiting.</p> : null}
@@ -234,6 +196,7 @@ export function BusinessClient() {
           </aside>
         </div>
       ) : null}
+      <DocumentIntake documents={documents} onChanged={load} />
     </CompanionShell>
   );
 }
