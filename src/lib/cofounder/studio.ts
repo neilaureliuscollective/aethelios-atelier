@@ -1,6 +1,7 @@
 import { CompanionWorkspace } from "@/lib/cofounder/workspace";
 import { CompanionWork } from "@/lib/cofounder/work";
 import { CompanionUsage } from "@/lib/cofounder/usage";
+import { buildComposition, defaultLayers, studioLayouts, STUDIO_LAYOUTS } from "@/lib/cofounder/composition";
 import { aureliusStatus } from "@/lib/aurelius/boundary";
 import { loadConfig } from "@/lib/config";
 import { ForbiddenError, LimitError, NotFoundError } from "@/lib/domain/errors";
@@ -8,10 +9,11 @@ import type { PersistenceAdapter } from "@/lib/persistence/adapter";
 import type {
   StudioAsset,
   StudioDraft,
-  StudioLayer,
   StudioLayoutId
 } from "@/lib/cofounder/types";
 import type { AuthContext, User } from "@/lib/types";
+
+export { studioLayouts, STUDIO_LAYOUTS };
 
 function now() {
   return new Date().toISOString();
@@ -109,15 +111,7 @@ export class FailingImageProvider implements ImageProvider {
   }
 }
 
-const LAYOUTS: Record<StudioLayoutId, { width: number; height: number; label: string }> = {
-  square_announcement: { width: 1080, height: 1080, label: "Square announcement" },
-  story_portrait: { width: 1080, height: 1920, label: "Story / portrait" },
-  website_banner: { width: 1600, height: 900, label: "Website banner" }
-};
-
-export function studioLayouts() {
-  return Object.entries(LAYOUTS).map(([id, value]) => ({ id: id as StudioLayoutId, ...value }));
-}
+const LAYOUTS = STUDIO_LAYOUTS;
 
 export class CompanionStudio {
   constructor(
@@ -145,31 +139,23 @@ export class CompanionStudio {
       workItemId?: string;
     }
   ) {
-    const context = await this.workspace.requireMembership(businessId, user);
+    const context = await this.workspace.requireMutable(businessId, user);
     const source = input.workItemId ? await this.work.get(businessId, user, input.workItemId) : null;
+    const selectedBody = input.body ?? "";
     const workItem = await this.work.saveDraft(businessId, user, {
       title: `Studio: ${input.headline}`.slice(0, 160),
-      body: input.body ?? (typeof source?.payload.body === "string" ? source.payload.body : ""),
+      body: selectedBody,
       kind: "announcement",
       workItemId: undefined
     });
-    const layers: StudioLayer[] = [
-      { id: "headline", kind: "headline", text: input.headline, x: 8, y: 12, width: 84, height: 18 },
-      { id: "body", kind: "body", text: input.body ?? "", x: 8, y: 34, width: 84, height: 28 }
-    ];
     const logo = context.profile.brandAssets.find((asset) => asset.kind === "logo");
-    if (logo) {
-      layers.push({
-        id: "logo",
-        kind: "logo",
-        documentId: logo.documentId,
-        assetId: logo.assetId,
-        x: 8,
-        y: 78,
-        width: 18,
-        height: 14
-      });
-    }
+    const layers = defaultLayers({
+      headline: input.headline,
+      body: selectedBody,
+      layout: input.layout,
+      logoDocumentId: logo?.documentId,
+      logoAssetId: logo?.assetId
+    });
     const draft: StudioDraft = {
       id: companionId("studio"),
       businessId,
@@ -184,12 +170,22 @@ export class CompanionStudio {
     return { draft, workItem, direction: input.direction ?? "" };
   }
 
-  async updateDraft(businessId: string, user: User, draftId: string, patch: Partial<Pick<StudioDraft, "layout" | "layers" | "selectedAssetId">>) {
-    await this.workspace.requireMembership(businessId, user);
+  async updateDraft(
+    businessId: string,
+    user: User,
+    draftId: string,
+    patch: Partial<Pick<StudioDraft, "layout" | "layers" | "selectedAssetId">> & { expectedUpdatedAt?: string }
+  ) {
+    await this.workspace.requireMutable(businessId, user);
     const draft = await this.requireDraft(businessId, draftId);
+    if (patch.expectedUpdatedAt && patch.expectedUpdatedAt !== draft.updatedAt) {
+      throw new ForbiddenError("This Studio draft changed since you last edited it. Reload the newer revision before saving.");
+    }
+    const { expectedUpdatedAt, ...next } = patch;
+    void expectedUpdatedAt;
     return this.store.companion.updateStudioDraft({
       ...draft,
-      ...patch,
+      ...next,
       updatedAt: now()
     });
   }
@@ -216,7 +212,7 @@ export class CompanionStudio {
       signal?: AbortSignal;
     }
   ) {
-    await this.workspace.requireMembership(businessId, user);
+    await this.workspace.requireMutable(businessId, user);
     const draft = await this.requireDraft(businessId, input.draftId);
     const existing = await this.store.companion.getJobByIdempotency(businessId, input.idempotencyKey);
     if (existing?.status === "completed" && existing.resultJson) {
@@ -230,6 +226,10 @@ export class CompanionStudio {
       throw new ForbiddenError("That generation is already in progress. Wait or retry the same request after it finishes.");
     }
     await this.usage.assertConcurrent(businessId, user, "image");
+    const reservation = await this.usage.reserve(businessId, user, "image", 1, {
+      draftId: draft.id,
+      idempotencyKey: input.idempotencyKey
+    });
     const job = existing
       ? await this.store.companion.updateJob({
           ...existing,
@@ -251,6 +251,7 @@ export class CompanionStudio {
         });
     const parent = input.sourceAssetId ? await this.store.companion.getStudioAsset(input.sourceAssetId) : null;
     if (parent && parent.businessId !== businessId) {
+      await this.usage.release(reservation);
       throw new ForbiddenError("That source image is not part of this workspace.");
     }
     const asset: StudioAsset = {
@@ -281,6 +282,7 @@ export class CompanionStudio {
         asset.error = "Generation was invalidated after sign-out or account switch.";
         asset.updatedAt = now();
         await this.store.companion.updateStudioAsset(asset);
+        await this.usage.release(reservation);
         return asset;
       }
       const blob = await this.store.companion.putBlob({
@@ -300,7 +302,7 @@ export class CompanionStudio {
         selectedAssetId: asset.id,
         updatedAt: now()
       });
-      await this.usage.consume(businessId, user, "image", 1, { draftId: draft.id, assetId: asset.id });
+      await this.usage.settle(reservation);
       await this.store.companion.updateJob({
         ...job,
         status: "completed",
@@ -309,6 +311,7 @@ export class CompanionStudio {
       });
       return asset;
     } catch (error) {
+      await this.usage.release(reservation);
       asset.status = "failed";
       asset.error = error instanceof Error ? error.message : "Image generation failed.";
       asset.updatedAt = now();
@@ -334,14 +337,64 @@ export class CompanionStudio {
     return this.images.edit({ prompt, image: blob.bytes, mime: blob.mime, signal });
   }
 
-  async exportDraft(businessId: string, user: User, draftId: string, format: StudioLayoutId) {
-    await this.workspace.requireMembership(businessId, user);
+  async exportDraft(
+    businessId: string,
+    user: User,
+    draftId: string,
+    format: StudioLayoutId,
+    options?: { composedPngBase64?: string; expectedUpdatedAt?: string }
+  ) {
+    await this.workspace.requireMutable(businessId, user);
     const draft = await this.requireDraft(businessId, draftId);
+    if (options?.expectedUpdatedAt && options.expectedUpdatedAt !== draft.updatedAt) {
+      throw new ForbiddenError("This Studio draft changed since you last edited it. Reload the newer revision before exporting.");
+    }
     const asset = draft.selectedAssetId ? await this.store.companion.getStudioAsset(draft.selectedAssetId) : null;
     if (asset && asset.status !== "ready") {
       throw new ForbiddenError("The selected image is not a completed asset. Export the text and logo layers, or retry generation.");
     }
+    const composed = options?.composedPngBase64?.trim() ?? "";
+    if (!composed) {
+      throw new ForbiddenError("Export requires the composed image bytes. The draft was not marked exported.");
+    }
+    let bytes: Uint8Array;
+    try {
+      bytes = Uint8Array.from(Buffer.from(composed, "base64"));
+    } catch {
+      throw new ForbiddenError("The composed image could not be read. The draft was not marked exported.");
+    }
+    if (bytes.byteLength < 32) {
+      throw new ForbiddenError("The composed image is empty. The draft was not marked exported.");
+    }
     const workItem = await this.store.companion.getWorkItem(draft.workItemId);
+    const blob = await this.store.companion.putBlob({
+      id: companionId("blob"),
+      businessId,
+      mime: "image/png",
+      bytes,
+      createdAt: now()
+    });
+    const exportAsset: StudioAsset = {
+      id: companionId("asset"),
+      businessId,
+      workItemId: draft.workItemId,
+      draftId: draft.id,
+      status: "ready",
+      prompt: "composition_export",
+      model: "owner_composition",
+      blobId: blob.id,
+      revision: (await this.store.companion.listStudioAssets(businessId)).filter((item) => item.draftId === draft.id)
+        .length + 1,
+      createdAt: now(),
+      updatedAt: now()
+    };
+    await this.store.companion.addStudioAsset(exportAsset);
+    const composition = buildComposition({
+      layout: format,
+      layers: draft.layers,
+      businessId,
+      backgroundImageUrl: asset?.status === "ready" ? `/api/companion/assets/${asset.id}?businessId=${encodeURIComponent(businessId)}` : null
+    });
     if (workItem) {
       await this.store.companion.updateWorkItem({
         ...workItem,
@@ -352,7 +405,10 @@ export class CompanionStudio {
             format,
             layout: draft.layout,
             layers: draft.layers,
-            assetId: asset?.id ?? null,
+            composition,
+            assetId: exportAsset.id,
+            sourceAssetId: asset?.id ?? null,
+            blobId: blob.id,
             labeled: "composition_export",
             note: "Text and original logos stay as controlled layers. Generated pixels are not a customer portfolio result."
           }
@@ -362,14 +418,12 @@ export class CompanionStudio {
     }
     return {
       draft,
-      asset: asset?.status === "ready" ? asset : null,
+      asset: exportAsset,
       format,
       dimensions: LAYOUTS[format],
       layers: draft.layers,
-      assetUrl:
-        asset?.status === "ready"
-          ? `/api/companion/assets/${asset.id}?businessId=${encodeURIComponent(businessId)}`
-          : null,
+      composition,
+      assetUrl: `/api/companion/assets/${exportAsset.id}?businessId=${encodeURIComponent(businessId)}`,
       labeled: "composition_export" as const,
       note: "Compose text and original logos as controlled layers. Generated pixels are not a customer portfolio result."
     };
@@ -388,7 +442,7 @@ export class CompanionStudio {
   }
 
   async uploadLogo(businessId: string, user: User, input: { title: string; mime: string; bytes: Uint8Array }) {
-    const context = await this.workspace.requireMembership(businessId, user);
+    const context = await this.workspace.requireMutable(businessId, user);
     if (!input.mime.startsWith("image/")) {
       throw new ForbiddenError("Logos must be image files.");
     }

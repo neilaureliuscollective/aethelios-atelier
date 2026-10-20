@@ -16,6 +16,14 @@ function now() {
   return new Date().toISOString();
 }
 
+export function canMutateWorkspace(context: AuthorizedBusinessContext, user: User) {
+  return (
+    context.business.ownerId === user.id ||
+    context.membership.role === "owner" ||
+    context.membership.role === "member"
+  );
+}
+
 function companionId(prefix: string) {
   return `${prefix}_${crypto.randomUUID()}`;
 }
@@ -81,6 +89,19 @@ export class CompanionWorkspace {
     };
   }
 
+  async requireMutable(businessId: string, user: User): Promise<AuthorizedBusinessContext> {
+    const context = await this.requireMembership(businessId, user);
+    this.assertMutable(context, user);
+    return context;
+  }
+
+  assertMutable(context: AuthorizedBusinessContext, user: User) {
+    if (!canMutateWorkspace(context, user)) {
+      throw new ForbiddenError("Founder visibility does not change another client’s workspace or accept their memory.");
+    }
+    return context;
+  }
+
   async listForUser(user: User) {
     if (user.role === "founder") {
       return this.store.companion.listAllBusinesses();
@@ -89,10 +110,7 @@ export class CompanionWorkspace {
   }
 
   async updateProfile(businessId: string, user: User, patch: Partial<BusinessProfile>) {
-    const context = await this.requireMembership(businessId, user);
-    if (context.membership.role === "founder" && context.business.ownerId !== user.id) {
-      throw new ForbiddenError("Founder visibility does not edit another client’s confirmed facts.");
-    }
+    const context = await this.requireMutable(businessId, user);
     const next = normalizeProfile({
       ...context.profile,
       ...patch,
@@ -117,7 +135,7 @@ export class CompanionWorkspace {
     proposedValue: string,
     rationale?: string
   ) {
-    await this.requireMembership(businessId, user);
+    await this.requireMutable(businessId, user);
     const proposal: MemoryProposal = {
       id: companionId("mem"),
       businessId,
@@ -137,7 +155,7 @@ export class CompanionWorkspace {
     action: "accept" | "edit" | "reject" | "delete",
     editedValue?: string
   ) {
-    const context = await this.requireMembership(businessId, user);
+    const context = await this.requireMutable(businessId, user);
     const proposal = await this.store.companion.getMemoryProposal(proposalId);
     if (!proposal || proposal.businessId !== businessId) {
       throw new NotFoundError("Memory proposal not found.");
@@ -181,7 +199,7 @@ export class CompanionWorkspace {
   }
 
   async linkProject(businessId: string, user: User, projectId: string) {
-    await this.requireMembership(businessId, user);
+    await this.requireMutable(businessId, user);
     const project = await this.store.getProject(projectId);
     if (!project) throw new NotFoundError("Project not found.");
     if (project.ownerId !== user.id && user.role !== "founder") {

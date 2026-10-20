@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { CompanionShell } from "@/components/cofounder/CompanionShell";
 import { AppLink } from "@/components/ui/AppLink";
 import { api } from "@/lib/client/api";
@@ -12,16 +13,28 @@ import styles from "./companion.module.css";
 
 export function WorkClient() {
   const { user, generation } = useSession();
+  const search = useSearchParams();
   const [items, setItems] = useState<WorkItem[]>([]);
   const [title, setTitle] = useState("");
   const [detail, setDetail] = useState("");
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<WorkItem | null>(null);
+  const [businessId, setBusinessId] = useState<string>();
 
   async function load(gen = generation) {
-    const data = await api<{ items: WorkItem[] }>("/api/companion/work");
+    const workspace = await api<{ business: { id: string } }>("/api/companion/workspace");
+    const data = await api<{ items: WorkItem[] }>(
+      `/api/companion/work?businessId=${encodeURIComponent(workspace.business.id)}`
+    );
     if (!ownerFence.isCurrent(gen, user?.id ?? null)) return;
-    setItems(data.items.filter((item) => item.status !== "archived"));
+    setBusinessId(workspace.business.id);
+    const visible = data.items.filter((item) => item.status !== "archived");
+    setItems(visible);
+    const requested = search.get("workItemId");
+    if (requested) {
+      const match = visible.find((item) => item.id === requested);
+      if (match) setEditing(match);
+    }
   }
 
   useEffect(() => {
@@ -88,15 +101,23 @@ export function WorkClient() {
                       Confirm proposed action
                     </button>
                   ) : null}
-                  {item.kind === "draft" ? (
+                  {item.kind === "draft" || item.kind === "estimate" ? (
                     <>
                       <button className="btn btn-ghost btn-compact" type="button" onClick={() => setEditing(item)}>
                         Edit
                       </button>
-                      <AppLink className="btn btn-ghost btn-compact" href="/companion/studio">
-                        Carry into Studio
+                      <AppLink className="btn btn-ghost btn-compact" href={`/companion/studio?workItemId=${encodeURIComponent(item.id)}`}>
+                        Open this copy in Studio
                       </AppLink>
                     </>
+                  ) : null}
+                  {item.status === "exported" && typeof item.payload.export === "object" && item.payload.export && "assetId" in item.payload.export && businessId ? (
+                    <a
+                      className="btn btn-emerald btn-compact"
+                      href={`/api/companion/assets/${String((item.payload.export as { assetId?: string }).assetId)}?businessId=${encodeURIComponent(businessId)}`}
+                    >
+                      Download finished file
+                    </a>
                   ) : null}
                   <button
                     className="btn btn-ghost btn-compact"

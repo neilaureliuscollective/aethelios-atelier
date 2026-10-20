@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { requireCompanion } from "@/lib/cofounder/http";
+import { requireCompanionWrite } from "@/lib/cofounder/http";
 import { CompanionVoice, voiceCapability } from "@/lib/cofounder/voice";
 import { handleError, json, readJson } from "@/lib/http";
 
@@ -17,7 +17,7 @@ const bodySchema = z.object({
 export async function POST(request: Request) {
   try {
     const body = bodySchema.parse(await readJson(request));
-    const { auth, store, context } = await requireCompanion(body.businessId);
+    const { auth, store, context } = await requireCompanionWrite(body.businessId);
     const session = await new CompanionVoice(store).createWebRtcSession({
       businessId: context.business.id,
       user: auth.user,

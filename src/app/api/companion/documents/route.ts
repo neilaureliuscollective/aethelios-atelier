@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { assertDocumentQuota } from "@/lib/cofounder/documents";
-import { requireCompanion } from "@/lib/cofounder/http";
+import { requireCompanionWrite } from "@/lib/cofounder/http";
 import { CompanionStudio } from "@/lib/cofounder/studio";
 import { CompanionWorkspace } from "@/lib/cofounder/workspace";
 import { handleError, json, readJson } from "@/lib/http";
@@ -18,7 +18,7 @@ const uploadSchema = z.object({
 export async function POST(request: Request) {
   try {
     const body = uploadSchema.parse(await readJson(request));
-    const { auth, store, context } = await requireCompanion(body.businessId);
+    const { auth, store, context } = await requireCompanionWrite(body.businessId);
     const bytes = Uint8Array.from(Buffer.from(body.bytesBase64, "base64"));
     if (body.kind === "logo") {
       const document = await new CompanionStudio(store).uploadLogo(context.business.id, auth.user, {
@@ -67,8 +67,8 @@ const deleteSchema = z.object({
 export async function PATCH(request: Request) {
   try {
     const body = deleteSchema.parse(await readJson(request));
-    const { auth, store, context } = await requireCompanion(body.businessId);
-    await new CompanionWorkspace(store).requireMembership(context.business.id, auth.user);
+    const { auth, store, context } = await requireCompanionWrite(body.businessId);
+    await new CompanionWorkspace(store).requireMutable(context.business.id, auth.user);
     const document = await store.companion.getDocument(body.documentId);
     if (!document || document.businessId !== context.business.id) {
       return json({ ok: false, error: "not_found", message: "Document not found." }, 404);

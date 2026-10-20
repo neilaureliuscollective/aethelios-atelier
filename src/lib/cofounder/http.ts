@@ -12,3 +12,9 @@ export async function requireCompanion(requestedBusinessId?: string) {
   const context = await workspace.ensureForUser(auth.user, requestedBusinessId);
   return { auth, store, workspace, context };
 }
+
+export async function requireCompanionWrite(requestedBusinessId?: string) {
+  const result = await requireCompanion(requestedBusinessId);
+  const context = await result.workspace.requireMutable(result.context.business.id, result.auth.user);
+  return { ...result, context };
+}

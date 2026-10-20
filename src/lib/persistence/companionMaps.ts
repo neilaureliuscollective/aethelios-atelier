@@ -1,4 +1,5 @@
 import { normalizeProfile } from "@/lib/cofounder/profile";
+import { usageEventStatus } from "@/lib/cofounder/types";
 import type {
   Business,
   BusinessDocument,
@@ -165,6 +166,7 @@ export function mapStudioAsset(row: Row): StudioAsset {
 }
 
 export function mapUsage(row: Row): UsageEvent {
+  const metadata = row.metadata_json ? parseJson<Record<string, unknown>>(asString(row.metadata_json), {}) : undefined;
   return {
     id: asString(row.id),
     businessId: asString(row.business_id),
@@ -172,7 +174,8 @@ export function mapUsage(row: Row): UsageEvent {
     kind: row.kind as UsageEvent["kind"],
     units: asNumber(row.units),
     createdAt: asString(row.created_at),
-    metadata: row.metadata_json ? parseJson(asString(row.metadata_json), undefined) : undefined
+    metadata,
+    status: usageEventStatus({ metadata })
   };
 }
 

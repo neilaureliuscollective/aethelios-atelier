@@ -29,7 +29,7 @@ export class CompanionWork {
       workItemId?: string;
     }
   ) {
-    const context = await this.workspace.requireMembership(businessId, user);
+    const context = await this.workspace.requireMutable(businessId, user);
     if (input.projectId && !context.projects.some((project) => project.id === input.projectId)) {
       throw new ForbiddenError("That project is not part of this business.");
     }
@@ -65,7 +65,7 @@ export class CompanionWork {
     user: User,
     input: { taskId?: string; title: string; detail?: string; status?: WorkStatus; projectId?: string }
   ) {
-    await this.workspace.requireMembership(businessId, user);
+    await this.workspace.requireMutable(businessId, user);
     if (input.taskId) {
       const existing = await this.requireWorkItem(businessId, input.taskId);
       return this.store.companion.updateWorkItem({
@@ -105,7 +105,7 @@ export class CompanionWork {
   }
 
   async archive(businessId: string, user: User, workItemId: string) {
-    await this.workspace.requireMembership(businessId, user);
+    await this.workspace.requireMutable(businessId, user);
     const item = await this.requireWorkItem(businessId, workItemId);
     return this.store.companion.updateWorkItem({
       ...item,
@@ -126,7 +126,7 @@ export class CompanionWork {
       args: Record<string, unknown>;
     }
   ) {
-    await this.workspace.requireMembership(businessId, user);
+    await this.workspace.requireMutable(businessId, user);
     const item: WorkItem = {
       id: companionId("act"),
       businessId,
@@ -148,7 +148,7 @@ export class CompanionWork {
   }
 
   async confirmAction(businessId: string, user: User, workItemId: string) {
-    await this.workspace.requireMembership(businessId, user);
+    await this.workspace.requireMutable(businessId, user);
     const item = await this.requireWorkItem(businessId, workItemId);
     if (item.status !== "awaiting_review" || item.payload.proposed !== true) {
       throw new ForbiddenError("That item is not a pending action proposal.");

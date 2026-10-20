@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { requireCompanion } from "@/lib/cofounder/http";
+import { requireCompanion, requireCompanionWrite } from "@/lib/cofounder/http";
 import { CompanionStudio, studioLayouts } from "@/lib/cofounder/studio";
 import { handleError, json, readJson } from "@/lib/http";
 
@@ -27,14 +27,14 @@ const createSchema = z.object({
   headline: z.string().min(1).max(160),
   body: z.string().max(800).optional(),
   direction: z.string().max(800).optional(),
-  layout: z.enum(["square_announcement", "story_portrait", "website_banner"]).optional(),
+  layout: z.enum(["square_announcement", "portrait_social", "story_portrait", "website_banner"]).optional(),
   workItemId: z.string().min(1).optional()
 });
 
 export async function POST(request: Request) {
   try {
     const body = createSchema.parse(await readJson(request));
-    const { auth, store, context } = await requireCompanion(body.businessId);
+    const { auth, store, context } = await requireCompanionWrite(body.businessId);
     const created = await new CompanionStudio(store).createFromCopy(context.business.id, auth.user, body);
     return json({ ok: true, ...created });
   } catch (error) {
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
 const patchSchema = z.object({
   businessId: z.string().min(1).optional(),
   draftId: z.string().min(1),
-  layout: z.enum(["square_announcement", "story_portrait", "website_banner"]).optional(),
+  layout: z.enum(["square_announcement", "portrait_social", "story_portrait", "website_banner"]).optional(),
   layers: z
     .array(
       z.object({
@@ -61,13 +61,14 @@ const patchSchema = z.object({
       })
     )
     .optional(),
-  selectedAssetId: z.string().optional()
+  selectedAssetId: z.string().optional(),
+  expectedUpdatedAt: z.string().optional()
 });
 
 export async function PATCH(request: Request) {
   try {
     const body = patchSchema.parse(await readJson(request));
-    const { auth, store, context } = await requireCompanion(body.businessId);
+    const { auth, store, context } = await requireCompanionWrite(body.businessId);
     const draft = await new CompanionStudio(store).updateDraft(context.business.id, auth.user, body.draftId, body);
     return json({ ok: true, draft });
   } catch (error) {

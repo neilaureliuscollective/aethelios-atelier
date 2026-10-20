@@ -211,8 +211,12 @@ describe("companion workspace isolation", () => {
     });
     expect(asset.status).toBe("ready");
     expect(asset.blobId).toBeTruthy();
-    const exported = await studio.exportDraft(ctx.business.id, owner, created.draft.id, "square_announcement");
+    const exported = await studio.exportDraft(ctx.business.id, owner, created.draft.id, "square_announcement", {
+      composedPngBase64:
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    });
     expect(exported.labeled).toBe("composition_export");
+    expect(exported.asset?.blobId).toBeTruthy();
     await work.upsertTask(ctx.business.id, owner, {
       title: "Review the exported announcement before posting",
       detail: "External posting is not enabled in V1."

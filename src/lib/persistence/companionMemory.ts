@@ -1,4 +1,5 @@
 import { emptyProfile, normalizeProfile } from "@/lib/cofounder/profile";
+import { usageCountsTowardBudget } from "@/lib/cofounder/types";
 import type {
   Business,
   BusinessDocument,
@@ -240,9 +241,21 @@ export class MemoryCompanionStore implements CompanionStore {
     return clone(event);
   }
 
+  updateUsageEvent(event: UsageEvent) {
+    const index = this.usage.findIndex((item) => item.id === event.id);
+    if (index >= 0) this.usage[index] = clone(event);
+    return clone(event);
+  }
+
   sumUsage(businessId: string, kind: UsageKind, sinceIso: string) {
     return this.usage
-      .filter((event) => event.businessId === businessId && event.kind === kind && event.createdAt >= sinceIso)
+      .filter(
+        (event) =>
+          event.businessId === businessId &&
+          event.kind === kind &&
+          event.createdAt >= sinceIso &&
+          usageCountsTowardBudget(event)
+      )
       .reduce((sum, event) => sum + event.units, 0);
   }
 

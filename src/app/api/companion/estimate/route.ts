@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { requireCompanion } from "@/lib/cofounder/http";
+import { requireCompanionWrite } from "@/lib/cofounder/http";
 import { estimateItemSchema, formatEstimate, prepareEstimate } from "@/lib/cofounder/estimates";
 import { CompanionWork } from "@/lib/cofounder/work";
 import { handleError, json, readJson } from "@/lib/http";
@@ -14,7 +14,7 @@ const bodySchema = z.object({
 export async function POST(request: Request) {
   try {
     const body = bodySchema.parse(await readJson(request));
-    const { auth, store, context } = await requireCompanion(body.businessId);
+    const { auth, store, context } = await requireCompanionWrite(body.businessId);
     const estimate = prepareEstimate(body.items, context.profile.approvedRates);
     if (!estimate.ok) {
       return json({ ok: false, error: "invalid_estimate", message: estimate.error }, 400);

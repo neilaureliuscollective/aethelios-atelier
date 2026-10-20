@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { requireCompanion } from "@/lib/cofounder/http";
+import { requireCompanionWrite } from "@/lib/cofounder/http";
 import { PROFILE_FIELD_KEYS } from "@/lib/cofounder/types";
 import { handleError, json, readJson } from "@/lib/http";
 
@@ -15,7 +15,7 @@ const bodySchema = z.object({
 export async function POST(request: Request) {
   try {
     const body = bodySchema.parse(await readJson(request));
-    const { auth, workspace, context } = await requireCompanion(body.businessId);
+    const { auth, workspace, context } = await requireCompanionWrite(body.businessId);
     const proposal = await workspace.resolveMemory(
       context.business.id,
       auth.user,
@@ -39,7 +39,7 @@ const proposeSchema = z.object({
 export async function PUT(request: Request) {
   try {
     const body = proposeSchema.parse(await readJson(request));
-    const { auth, workspace, context } = await requireCompanion(body.businessId);
+    const { auth, workspace, context } = await requireCompanionWrite(body.businessId);
     const proposal = await workspace.proposeMemory(
       context.business.id,
       auth.user,

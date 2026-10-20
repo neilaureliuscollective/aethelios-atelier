@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { requireCompanion } from "@/lib/cofounder/http";
+import { requireCompanionWrite } from "@/lib/cofounder/http";
 import { CompanionStudio } from "@/lib/cofounder/studio";
 import { handleError, json, readJson } from "@/lib/http";
 
@@ -16,7 +16,7 @@ const bodySchema = z.object({
 export async function POST(request: Request) {
   try {
     const body = bodySchema.parse(await readJson(request));
-    const { auth, store, context } = await requireCompanion(body.businessId);
+    const { auth, store, context } = await requireCompanionWrite(body.businessId);
     const asset = await new CompanionStudio(store).generate(context.business.id, auth.user, auth, {
       draftId: body.draftId,
       prompt: body.prompt,

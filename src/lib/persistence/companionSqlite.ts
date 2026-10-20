@@ -1,5 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { emptyProfile } from "@/lib/cofounder/profile";
+import { usageCountsTowardBudget } from "@/lib/cofounder/types";
 import type {
   Business,
   BusinessDocument,
@@ -28,6 +29,7 @@ import {
   mapProfile,
   mapStudioAsset,
   mapStudioDraft,
+  mapUsage,
   mapWorkItem
 } from "@/lib/persistence/companionMaps";
 import { COMPANION_RESET_SQL, COMPANION_SQL, type CompanionStore } from "@/lib/persistence/companionStore";
@@ -435,11 +437,21 @@ export class SqliteCompanionStore implements CompanionStore {
     return event;
   }
 
+  updateUsageEvent(event: UsageEvent) {
+    this.db
+      .prepare("UPDATE usage_events SET units=?, metadata_json=? WHERE id=?")
+      .run(event.units, event.metadata ? JSON.stringify(event.metadata) : null, event.id);
+    return event;
+  }
+
   sumUsage(businessId: string, kind: UsageKind, sinceIso: string) {
-    const row = this.db
-      .prepare("SELECT COALESCE(SUM(units),0) as total FROM usage_events WHERE business_id=? AND kind=? AND created_at>=?")
-      .get(businessId, kind, sinceIso) as { total: number } | undefined;
-    return Number(row?.total ?? 0);
+    const rows = this.db
+      .prepare("SELECT * FROM usage_events WHERE business_id=? AND kind=? AND created_at>=?")
+      .all(businessId, kind, sinceIso) as Row[];
+    return rows
+      .map(mapUsage)
+      .filter(usageCountsTowardBudget)
+      .reduce((sum, event) => sum + event.units, 0);
   }
 
   countPendingJobs(businessId: string, kind: GenerationJob["kind"]) {
@@ -485,8 +497,8 @@ export class SqliteCompanionStore implements CompanionStore {
 
   updateJob(job: GenerationJob) {
     this.db
-      .prepare("UPDATE generation_jobs SET status=?, updated_at=?, result_json=?, error=? WHERE id=?")
-      .run(job.status, job.updatedAt, job.resultJson ?? null, job.error ?? null, job.id);
+      .prepare("UPDATE generation_jobs SET status=?, session_id=?, updated_at=?, result_json=?, error=? WHERE id=?")
+      .run(job.status, job.sessionId, job.updatedAt, job.resultJson ?? null, job.error ?? null, job.id);
     return job;
   }
 

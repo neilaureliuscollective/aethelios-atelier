@@ -18,9 +18,9 @@ import {
   saveDraftSchema,
   upsertTaskSchema
 } from "@/lib/cofounder/tools";
-import { CompanionUsage } from "@/lib/cofounder/usage";
+import { CompanionUsage, type UsageReservation } from "@/lib/cofounder/usage";
 import { CompanionWork } from "@/lib/cofounder/work";
-import { CompanionWorkspace } from "@/lib/cofounder/workspace";
+import { canMutateWorkspace, CompanionWorkspace } from "@/lib/cofounder/workspace";
 import { INTELLIGENCE_DISPLAY_NAME } from "@/lib/copy";
 import { ForbiddenError } from "@/lib/domain/errors";
 import { confirmedProposal, currentClientProposal, isClientVisibleProposal } from "@/lib/domain/proposal";
@@ -42,6 +42,8 @@ export type TalkToolResult = {
   result: unknown;
 };
 
+export type TalkSavedWork = { id: string; title: string; href: string };
+
 export type TalkTurn = {
   conversation: CompanionConversation;
   userMessage: CompanionMessage;
@@ -49,6 +51,7 @@ export type TalkTurn = {
   liveAi: boolean;
   toolsUsed: TalkToolResult[];
   proposedActions: Array<{ id: string; title: string; preview: string }>;
+  savedWork: TalkSavedWork[];
   interrupted?: boolean;
 };
 
@@ -59,8 +62,84 @@ export type TalkStreamEvent =
   | { type: "done"; turn: TalkTurn }
   | { type: "error"; message: string };
 
-function canMutateWorkspace(context: AuthorizedBusinessContext, user: User) {
-  return context.business.ownerId === user.id || context.membership.role === "owner" || context.membership.role === "member";
+export type TalkModelClient = {
+  responses?: {
+    create: (body: unknown, opts?: { signal?: AbortSignal }) => Promise<unknown>;
+  };
+  chat?: {
+    completions: {
+      create: (
+        body: unknown,
+        opts?: { signal?: AbortSignal }
+      ) => Promise<{
+        choices: Array<{
+          message?: {
+            content?: string | null;
+            tool_calls?: Array<{ id: string; function: { name: string; arguments: string } }>;
+          };
+        }>;
+      }>;
+    };
+  };
+};
+
+const MAX_TOOL_HOPS = 4;
+const MAX_TOOL_OUTPUT = 8_000;
+
+export function buildResponsesContinuation(input: {
+  previousResponseId?: string;
+  callOutputs: Array<{ call_id: string; output: string }>;
+  functionCalls?: Array<Record<string, unknown>>;
+}) {
+  const outputs = input.callOutputs.map((item) => ({
+    type: "function_call_output" as const,
+    call_id: item.call_id,
+    output: item.output.slice(0, MAX_TOOL_OUTPUT)
+  }));
+  if (input.previousResponseId) {
+    return { previous_response_id: input.previousResponseId, input: outputs };
+  }
+  return { input: [...(input.functionCalls ?? []), ...outputs] };
+}
+
+export function describeCommittedWork(toolsUsed: TalkToolResult[], proposedActions: TalkTurn["proposedActions"]) {
+  const savedIds = toolsUsed
+    .map((item) => {
+      const result = item.result as { workItemId?: string; draftId?: string; actionId?: string } | null;
+      return result?.workItemId ?? result?.draftId ?? result?.actionId;
+    })
+    .filter((id): id is string => Boolean(id));
+  if (proposedActions.length) {
+    return `proposed ${proposedActions.length} action${proposedActions.length === 1 ? "" : "s"} for your review`;
+  }
+  if (savedIds.length) {
+    return `saved ${savedIds.length} result${savedIds.length === 1 ? "" : "s"} in Work`;
+  }
+  const okTools = toolsUsed.filter((item) => item.ok);
+  if (okTools.length) return `completed ${okTools.length} tool step${okTools.length === 1 ? "" : "s"}`;
+  return "";
+}
+
+function talkFailureBody(input: {
+  toolsUsed: TalkToolResult[];
+  proposedActions: TalkTurn["proposedActions"];
+  interrupted?: boolean;
+  invalidated?: boolean;
+}) {
+  const committed = describeCommittedWork(input.toolsUsed, input.proposedActions);
+  if (input.invalidated) {
+    return committed
+      ? `That reply was cancelled after sign-out. I already ${committed}. Nothing extra was written into another workspace.`
+      : "That reply was cancelled after sign-out. No extra work was written into another workspace.";
+  }
+  if (committed) {
+    return input.interrupted
+      ? `That reply was interrupted after I already ${committed}. Review it in Work, then continue from there.`
+      : `I could not finish that reply after I already ${committed}. Review the saved result in Work. Retrying the same request id will not duplicate it.`;
+  }
+  return input.interrupted
+    ? "That reply was interrupted. Nothing extra was saved."
+    : `${INTELLIGENCE_DISPLAY_NAME} could not complete that reply. Saved work is unchanged. Retry the same message — it will not duplicate the saved request or a billable action if you reuse the same request id.`;
 }
 
 export class CompanionTalk {
@@ -69,8 +148,13 @@ export class CompanionTalk {
     private readonly workspace = new CompanionWorkspace(store),
     private readonly work = new CompanionWork(store),
     private readonly studio = new CompanionStudio(store),
-    private readonly usage = new CompanionUsage(store)
+    private readonly usage = new CompanionUsage(store),
+    private readonly modelClient?: TalkModelClient
   ) {}
+
+  withModelClient(client: TalkModelClient) {
+    return new CompanionTalk(this.store, this.workspace, this.work, this.studio, this.usage, client);
+  }
 
   async conversation(businessId: string, user: User, conversationId?: string, projectId?: string) {
     await this.workspace.requireMembership(businessId, user);
@@ -130,7 +214,7 @@ export class CompanionTalk {
     signal?: AbortSignal;
     onEvent?: (event: TalkStreamEvent) => void;
   }): Promise<TalkTurn> {
-    const context = await this.workspace.requireMembership(input.businessId, input.user);
+    const context = await this.workspace.requireMutable(input.businessId, input.user);
     const conversation = await this.conversation(input.businessId, input.user, input.conversationId, input.projectId);
     if (input.idempotencyKey) {
       const existing = await this.store.companion.getJobByIdempotency(input.businessId, input.idempotencyKey);
@@ -171,30 +255,54 @@ export class CompanionTalk {
         createdAt: now(),
         metadata: { refused: "cross_tenant_or_private_probe" }
       });
-      const turn = { conversation, userMessage, assistantMessage, liveAi: false as const, toolsUsed: [], proposedActions: [] };
+      const turn = emptyTurn(conversation, userMessage, assistantMessage);
       input.onEvent?.({ type: "done", turn });
       return turn;
     }
 
     const toolsUsed: TalkToolResult[] = [];
     const proposedActions: TalkTurn["proposedActions"] = [];
+    const savedWork: TalkSavedWork[] = [];
     const runTool = async (name: string, raw: string, mode: "propose" | "execute") => {
-      const result = await this.executeTool(name, raw, context, input.user, mode);
+      if (input.signal?.aborted) {
+        throw new TalkInterruptedError();
+      }
+      await this.assertLiveAuthority(input);
+      const latest = await this.workspace.requireMutable(input.businessId, input.user);
+      const result = await this.executeTool(name, raw, latest, input.user, mode);
       toolsUsed.push({ name, ok: result.ok, result: result.result });
       if (result.proposedAction) proposedActions.push(result.proposedAction);
+      const workItemId =
+        result.proposedAction?.id ??
+        (result.result && typeof result.result === "object"
+          ? String((result.result as { workItemId?: string }).workItemId ?? "")
+          : "");
+      if (workItemId) {
+        savedWork.push({
+          id: workItemId,
+          title: result.proposedAction?.title ?? name,
+          href: `/companion/work?workItemId=${encodeURIComponent(workItemId)}`
+        });
+      }
       input.onEvent?.({ type: "tool", name, proposed: Boolean(result.proposedAction) });
       return result;
     };
 
     const action = detectStartingAction(input.message);
     const status = aureliusStatus();
-    if (!status.ready) {
+    const canUseModel = status.ready || Boolean(this.modelClient);
+    if (!canUseModel) {
       const prepared = action ? profilePreparedCopy(action, context) : null;
       if (prepared && canMutateWorkspace(context, input.user)) {
-        await this.work.saveDraft(input.businessId, input.user, {
+        const draft = await this.work.saveDraft(input.businessId, input.user, {
           title: prepared.title,
           body: prepared.body,
           kind: action === "announce_service" ? "announcement" : "copy"
+        });
+        savedWork.push({
+          id: draft.id,
+          title: draft.title,
+          href: `/companion/work?workItemId=${encodeURIComponent(draft.id)}`
         });
       }
       const body = [
@@ -213,9 +321,9 @@ export class CompanionTalk {
         body,
         liveAi: false,
         createdAt: now(),
-        metadata: { liveAi: false, startingAction: action, prepared: Boolean(prepared) }
+        metadata: { liveAi: false, startingAction: action, prepared: Boolean(prepared), savedWork }
       });
-      const turn = { conversation, userMessage, assistantMessage, liveAi: false as const, toolsUsed, proposedActions };
+      const turn = { conversation, userMessage, assistantMessage, liveAi: false as const, toolsUsed, proposedActions, savedWork };
       if (input.idempotencyKey) {
         await this.store.companion.addJob({
           id: companionId("job"),
@@ -235,6 +343,10 @@ export class CompanionTalk {
     }
 
     await this.usage.assertConcurrent(input.businessId, input.user, "talk");
+    const reservation = await this.usage.reserve(input.businessId, input.user, "talk", 1, {
+      conversationId: conversation.id,
+      idempotencyKey: input.idempotencyKey
+    });
     const priorJob = input.idempotencyKey
       ? await this.store.companion.getJobByIdempotency(input.businessId, input.idempotencyKey)
       : null;
@@ -262,36 +374,21 @@ export class CompanionTalk {
 
     try {
       if (input.signal?.aborted) {
-        const assistantMessage = await this.store.companion.addMessage({
-          id: companionId("msg"),
-          conversationId: conversation.id,
-          businessId: input.businessId,
-          projectId: conversation.projectId,
-          authorKind: "system",
-          body: "That reply was interrupted. Nothing extra was saved.",
-          liveAi: false,
-          createdAt: now(),
-          metadata: { interrupted: true }
-        });
-        await this.store.companion.updateJob({ ...job, status: "invalidated", updatedAt: now() });
-        const turn = { conversation, userMessage, assistantMessage, liveAi: false as const, toolsUsed, proposedActions, interrupted: true };
-        input.onEvent?.({ type: "done", turn });
-        return turn;
+        throw new TalkInterruptedError();
       }
 
       const history = await this.store.companion.listMessages(conversation.id);
       const modelContext = buildAuthorizedModelContext({ context, history });
-      const OpenAI = (await import("openai")).default;
+      const client = this.modelClient ?? (await this.loadOpenAiClient());
       const { loadConfig } = await import("@/lib/config");
       const config = loadConfig();
-      const client = new OpenAI({ apiKey: config.openAiKey, timeout: config.openAiTimeoutMs });
       const { CHAT_COMPLETION_TOOL_DEFINITIONS } = await import("@/lib/cofounder/tools");
 
       let text = "";
-      const responsesApi = typeof (client as { responses?: { create?: unknown } }).responses?.create === "function";
-      if (responsesApi) {
+      const responsesApi = typeof client.responses?.create === "function";
+      if (responsesApi && client.responses) {
         text = await this.runResponsesLoop({
-          client: client as never,
+          client: client as { responses: NonNullable<TalkModelClient["responses"]> },
           config,
           modelContext,
           history,
@@ -299,9 +396,9 @@ export class CompanionTalk {
           signal: input.signal,
           onDelta: (chunk) => input.onEvent?.({ type: "delta", text: chunk })
         });
-      } else {
+      } else if (client.chat) {
         text = await this.runChatLoop({
-          client: client as never,
+          client: { chat: client.chat },
           config,
           modelContext,
           history,
@@ -310,6 +407,8 @@ export class CompanionTalk {
           tools: CHAT_COMPLETION_TOOL_DEFINITIONS,
           onDelta: (chunk) => input.onEvent?.({ type: "delta", text: chunk })
         });
+      } else {
+        throw new Error("No Talk model client is available.");
       }
 
       if (!text) {
@@ -321,23 +420,24 @@ export class CompanionTalk {
 
       const latestJob = await this.store.companion.getJob(job.id);
       if (latestJob?.status === "invalidated") {
+        await this.usage.release(reservation);
         const assistantMessage = await this.store.companion.addMessage({
           id: companionId("msg"),
           conversationId: conversation.id,
           businessId: input.businessId,
           projectId: conversation.projectId,
           authorKind: "system",
-          body: "That reply was cancelled after sign-out. No extra work was written into another workspace.",
+          body: talkFailureBody({ toolsUsed, proposedActions, invalidated: true }),
           liveAi: false,
           createdAt: now(),
-          metadata: { invalidated: true }
+          metadata: { invalidated: true, savedWork, proposedActions }
         });
-        const turn = { conversation, userMessage, assistantMessage, liveAi: false as const, toolsUsed, proposedActions };
+        const turn = { conversation, userMessage, assistantMessage, liveAi: false as const, toolsUsed, proposedActions, savedWork };
         input.onEvent?.({ type: "done", turn });
         return turn;
       }
 
-      await this.usage.consume(input.businessId, input.user, "talk", 1, { conversationId: conversation.id });
+      await this.usage.settle(reservation);
       const assistantMessage = await this.store.companion.addMessage({
         id: companionId("msg"),
         conversationId: conversation.id,
@@ -347,9 +447,9 @@ export class CompanionTalk {
         body: text,
         liveAi: true,
         createdAt: now(),
-        metadata: { liveAi: true, toolsUsed: toolsUsed.map((item) => item.name), proposedActions }
+        metadata: { liveAi: true, toolsUsed: toolsUsed.map((item) => item.name), proposedActions, savedWork }
       });
-      const turn = { conversation, userMessage, assistantMessage, liveAi: true, toolsUsed, proposedActions };
+      const turn = { conversation, userMessage, assistantMessage, liveAi: true, toolsUsed, proposedActions, savedWork };
       await this.store.companion.updateJob({
         ...job,
         status: "completed",
@@ -360,26 +460,43 @@ export class CompanionTalk {
       input.onEvent?.({ type: "done", turn });
       return turn;
     } catch (error) {
+      await this.releaseQuietly(reservation);
+      const interrupted = error instanceof TalkInterruptedError || input.signal?.aborted;
       const assistantMessage = await this.store.companion.addMessage({
         id: companionId("msg"),
         conversationId: conversation.id,
         businessId: input.businessId,
         projectId: conversation.projectId,
         authorKind: "system",
-        body: `${INTELLIGENCE_DISPLAY_NAME} could not complete that reply. Saved work is unchanged. Retry the same message — it will not duplicate the saved request or a billable action if you reuse the same request id.`,
+        body: talkFailureBody({ toolsUsed, proposedActions, interrupted }),
         liveAi: false,
         createdAt: now(),
-        metadata: { failed: true, error: error instanceof Error ? error.name : "unknown" }
+        metadata: {
+          failed: !interrupted,
+          interrupted,
+          error: error instanceof Error ? `${error.name}: ${error.message}` : "unknown",
+          savedWork,
+          proposedActions
+        }
       });
       await this.store.companion.updateJob({
         ...job,
-        status: "failed",
+        status: interrupted ? "invalidated" : "failed",
         updatedAt: now(),
         error: error instanceof Error ? error.message : "unknown",
-        resultJson: JSON.stringify({ userMessageId: userMessage.id })
+        resultJson: JSON.stringify({ userMessageId: userMessage.id, savedWork })
       });
-      const turn = { conversation, userMessage, assistantMessage, liveAi: false as const, toolsUsed, proposedActions };
-      input.onEvent?.({ type: "error", message: assistantMessage.body });
+      const turn = {
+        conversation,
+        userMessage,
+        assistantMessage,
+        liveAi: false as const,
+        toolsUsed,
+        proposedActions,
+        savedWork,
+        interrupted
+      };
+      if (!interrupted) input.onEvent?.({ type: "error", message: assistantMessage.body });
       input.onEvent?.({ type: "done", turn });
       return turn;
     }
@@ -540,6 +657,30 @@ export class CompanionTalk {
     return { ok: false, result: { error: "unknown_tool" } };
   }
 
+  private async loadOpenAiClient(): Promise<TalkModelClient> {
+    const OpenAI = (await import("openai")).default;
+    const { loadConfig } = await import("@/lib/config");
+    const config = loadConfig();
+    return new OpenAI({ apiKey: config.openAiKey, timeout: config.openAiTimeoutMs }) as unknown as TalkModelClient;
+  }
+
+  private async assertLiveAuthority(input: { auth: AuthContext; businessId: string; user: User; signal?: AbortSignal }) {
+    if (input.signal?.aborted) throw new TalkInterruptedError();
+    const session = await this.store.getSession(input.auth.session.id);
+    if (!session || session.userId !== input.user.id) {
+      throw new ForbiddenError("Session expired before that tool ran. No extra work was written into another workspace.");
+    }
+    await this.workspace.requireMutable(input.businessId, input.user);
+  }
+
+  private async releaseQuietly(reservation: UsageReservation) {
+    try {
+      await this.usage.release(reservation);
+    } catch {
+      // Reservation release is best-effort after a failed turn.
+    }
+  }
+
   private async reuseFailedUserMessage(businessId: string, idempotencyKey?: string) {
     if (!idempotencyKey) return null;
     const existing = await this.store.companion.getJobByIdempotency(businessId, idempotencyKey);
@@ -560,7 +701,7 @@ export class CompanionTalk {
   }
 
   private async runResponsesLoop(input: {
-    client: { responses: { create: (body: never) => Promise<unknown> } };
+    client: { responses: { create: (body: unknown, opts?: { signal?: AbortSignal }) => Promise<unknown> } };
     config: { openAiModel: string; openAiMaxOutputTokens: number };
     modelContext: unknown;
     history: CompanionMessage[];
@@ -568,7 +709,7 @@ export class CompanionTalk {
     signal?: AbortSignal;
     onDelta: (text: string) => void;
   }) {
-    const items: Array<Record<string, unknown>> = [
+    const startingInput: Array<Record<string, unknown>> = [
       { role: "system", content: `Authorized workspace context:\n${JSON.stringify(input.modelContext)}` },
       ...input.history.slice(-12).map((item) => ({
         role: item.authorKind === "client" ? "user" : "assistant",
@@ -577,47 +718,73 @@ export class CompanionTalk {
     ];
     const { COMPANION_TOOL_DEFINITIONS } = await import("@/lib/cofounder/tools");
     let text = "";
-    for (let hop = 0; hop < 4; hop += 1) {
-      if (input.signal?.aborted) break;
+    let previousResponseId: string | undefined;
+    let pendingOutputs: Array<{ call_id: string; output: string }> = [];
+    let pendingFunctionCalls: Array<Record<string, unknown>> = [];
+    for (let hop = 0; hop < MAX_TOOL_HOPS; hop += 1) {
+      if (input.signal?.aborted) throw new TalkInterruptedError();
+      const continuation =
+        hop === 0
+          ? { input: startingInput }
+          : buildResponsesContinuation({
+              previousResponseId,
+              callOutputs: pendingOutputs,
+              functionCalls: pendingFunctionCalls
+            });
       const streamed = Boolean(input.onDelta);
-      const response = await input.client.responses.create({
-        model: input.config.openAiModel,
-        instructions: companionSystemPrompt(),
-        input: items,
-        tools: COMPANION_TOOL_DEFINITIONS,
-        max_output_tokens: input.config.openAiMaxOutputTokens,
-        stream: streamed
-      } as never);
+      const response = await input.client.responses.create(
+        {
+          model: input.config.openAiModel,
+          instructions: companionSystemPrompt(),
+          tools: COMPANION_TOOL_DEFINITIONS,
+          max_output_tokens: input.config.openAiMaxOutputTokens,
+          stream: streamed,
+          ...continuation
+        },
+        { signal: input.signal }
+      );
 
-      const calls: Array<{ name: string; arguments: string; call_id?: string }> = [];
+      const calls: Array<{ name: string; arguments: string; call_id: string; item: Record<string, unknown> }> = [];
       if (streamed && isAsyncIterable(response)) {
         for await (const event of response) {
+          if (input.signal?.aborted) throw new TalkInterruptedError();
           const typed = event as {
             type?: string;
             delta?: string;
-            name?: string;
-            arguments?: string;
-            call_id?: string;
+            response?: { id?: string };
             item?: { type?: string; name?: string; arguments?: string; call_id?: string };
           };
+          if (typed.response?.id) previousResponseId = typed.response.id;
           if (typed.type === "response.output_text.delta" && typed.delta) {
             text += typed.delta;
             input.onDelta(typed.delta);
           }
           const item = typed.item;
           if (typed.type === "response.output_item.done" && item?.type === "function_call" && item.name) {
-            calls.push({ name: item.name, arguments: item.arguments ?? "{}", call_id: item.call_id });
+            calls.push({
+              name: item.name,
+              arguments: item.arguments ?? "{}",
+              call_id: item.call_id ?? item.name,
+              item: item as Record<string, unknown>
+            });
           }
         }
       } else {
         const output = response as {
+          id?: string;
           output_text?: string;
           output?: Array<{ type?: string; name?: string; arguments?: string; call_id?: string }>;
         };
+        if (output.id) previousResponseId = output.id;
         if (Array.isArray(output.output)) {
           for (const item of output.output) {
             if (item.type === "function_call" && item.name && item.arguments) {
-              calls.push({ name: item.name, arguments: item.arguments, call_id: item.call_id });
+              calls.push({
+                name: item.name,
+                arguments: item.arguments,
+                call_id: item.call_id ?? item.name,
+                item: item as Record<string, unknown>
+              });
             }
           }
         }
@@ -628,13 +795,13 @@ export class CompanionTalk {
         }
       }
       if (!calls.length) break;
+      pendingOutputs = [];
+      pendingFunctionCalls = [];
       for (const call of calls) {
+        if (input.signal?.aborted) throw new TalkInterruptedError();
         const result = await input.runTool(call.name, call.arguments, "propose");
-        items.push({
-          type: "function_call_output",
-          call_id: call.call_id ?? call.name,
-          output: JSON.stringify(result.result)
-        });
+        pendingOutputs.push({ call_id: call.call_id, output: JSON.stringify(result.result).slice(0, MAX_TOOL_OUTPUT) });
+        pendingFunctionCalls.push(call.item);
       }
     }
     return text.trim();
@@ -642,13 +809,7 @@ export class CompanionTalk {
 
   private async runChatLoop(input: {
     client: {
-      chat: {
-        completions: {
-          create: (body: unknown, opts?: { signal?: AbortSignal }) => Promise<{
-            choices: Array<{ message?: { content?: string | null; tool_calls?: Array<{ id: string; function: { name: string; arguments: string } }> } }>;
-          }>;
-        };
-      };
+      chat: NonNullable<TalkModelClient["chat"]>;
     };
     config: { openAiModel: string; openAiMaxOutputTokens: number };
     modelContext: unknown;
@@ -667,7 +828,8 @@ export class CompanionTalk {
       }))
     ];
     let text = "";
-    for (let hop = 0; hop < 4; hop += 1) {
+    for (let hop = 0; hop < MAX_TOOL_HOPS; hop += 1) {
+      if (input.signal?.aborted) throw new TalkInterruptedError();
       const completion = await input.client.chat.completions.create(
         {
           model: input.config.openAiModel,
@@ -682,11 +844,12 @@ export class CompanionTalk {
       if (msg?.tool_calls?.length) {
         messages.push(msg);
         for (const call of msg.tool_calls) {
+          if (input.signal?.aborted) throw new TalkInterruptedError();
           const result = await input.runTool(call.function.name, call.function.arguments, "propose");
           messages.push({
             role: "tool",
             tool_call_id: call.id,
-            content: JSON.stringify(result.result)
+            content: JSON.stringify(result.result).slice(0, MAX_TOOL_OUTPUT)
           });
         }
         continue;
@@ -697,6 +860,21 @@ export class CompanionTalk {
     }
     return text;
   }
+}
+
+class TalkInterruptedError extends Error {
+  constructor() {
+    super("Talk was interrupted.");
+    this.name = "TalkInterruptedError";
+  }
+}
+
+function emptyTurn(
+  conversation: CompanionConversation,
+  userMessage: CompanionMessage,
+  assistantMessage: CompanionMessage
+): TalkTurn {
+  return { conversation, userMessage, assistantMessage, liveAi: false, toolsUsed: [], proposedActions: [], savedWork: [] };
 }
 
 function safeJson(raw: string) {

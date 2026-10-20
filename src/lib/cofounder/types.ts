@@ -30,6 +30,9 @@ export type DocumentStatus = (typeof DOCUMENT_STATUSES)[number];
 export const USAGE_KINDS = ["talk", "image", "voice", "tool"] as const;
 export type UsageKind = (typeof USAGE_KINDS)[number];
 
+export const USAGE_EVENT_STATUSES = ["held", "settled", "released"] as const;
+export type UsageEventStatus = (typeof USAGE_EVENT_STATUSES)[number];
+
 export const PLAN_IDS = ["atelier", "connected", "partnership"] as const;
 export type PlanId = (typeof PLAN_IDS)[number];
 
@@ -168,9 +171,12 @@ export type StudioLayer = {
   y: number;
   width: number;
   height: number;
+  cropX?: number;
+  cropY?: number;
+  cropZoom?: number;
 };
 
-export type StudioLayoutId = "square_announcement" | "story_portrait" | "website_banner";
+export type StudioLayoutId = "square_announcement" | "portrait_social" | "story_portrait" | "website_banner";
 
 export type StudioDraft = {
   id: string;
@@ -207,8 +213,21 @@ export type UsageEvent = {
   kind: UsageKind;
   units: number;
   createdAt: string;
+  status?: UsageEventStatus;
   metadata?: Record<string, unknown>;
 };
+
+export function usageEventStatus(event: Pick<UsageEvent, "status" | "metadata">): UsageEventStatus {
+  if (event.status === "held" || event.status === "settled" || event.status === "released") return event.status;
+  const meta = event.metadata?.status;
+  if (meta === "held" || meta === "settled" || meta === "released") return meta;
+  return "settled";
+}
+
+export function usageCountsTowardBudget(event: Pick<UsageEvent, "status" | "metadata">) {
+  const status = usageEventStatus(event);
+  return status === "held" || status === "settled";
+}
 
 export type GenerationJob = {
   id: string;

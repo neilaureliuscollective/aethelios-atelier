@@ -1,5 +1,6 @@
 import type { Sql, TransactionSql } from "postgres";
 import { emptyProfile } from "@/lib/cofounder/profile";
+import { usageCountsTowardBudget } from "@/lib/cofounder/types";
 import type {
   Business,
   BusinessDocument,
@@ -28,6 +29,7 @@ import {
   mapProfile,
   mapStudioAsset,
   mapStudioDraft,
+  mapUsage,
   mapWorkItem
 } from "@/lib/persistence/companionMaps";
 import { COMPANION_RESET_SQL, COMPANION_SQL, type CompanionStore } from "@/lib/persistence/companionStore";
@@ -343,12 +345,24 @@ export class PostgresCompanionStore implements CompanionStore {
     return event;
   }
 
+  async updateUsageEvent(event: UsageEvent) {
+    await this.client()`
+      UPDATE usage_events
+      SET units = ${event.units}, metadata_json = ${event.metadata ? JSON.stringify(event.metadata) : null}
+      WHERE id = ${event.id}
+    `;
+    return event;
+  }
+
   async sumUsage(businessId: string, kind: UsageKind, sinceIso: string) {
     const rows = await this.client()`
-      SELECT COALESCE(SUM(units),0) as total FROM usage_events
+      SELECT * FROM usage_events
       WHERE business_id = ${businessId} AND kind = ${kind} AND created_at >= ${sinceIso}
     `;
-    return Number(rows[0]?.total ?? 0);
+    return rows
+      .map((row) => mapUsage(row as Row))
+      .filter(usageCountsTowardBudget)
+      .reduce((sum, event) => sum + event.units, 0);
   }
 
   async countPendingJobs(businessId: string, kind: GenerationJob["kind"]) {
@@ -384,8 +398,8 @@ export class PostgresCompanionStore implements CompanionStore {
   async updateJob(job: GenerationJob) {
     await this.client()`
       UPDATE generation_jobs
-      SET status = ${job.status}, updated_at = ${job.updatedAt}, result_json = ${job.resultJson ?? null},
-          error = ${job.error ?? null}
+      SET status = ${job.status}, session_id = ${job.sessionId}, updated_at = ${job.updatedAt},
+          result_json = ${job.resultJson ?? null}, error = ${job.error ?? null}
       WHERE id = ${job.id}
     `;
     return job;

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { requireCompanion } from "@/lib/cofounder/http";
+import { requireCompanion, requireCompanionWrite } from "@/lib/cofounder/http";
 import { CompanionTalk, type TalkStreamEvent } from "@/lib/cofounder/talk";
 import { handleError, json, readJson } from "@/lib/http";
 
@@ -38,7 +38,7 @@ const bodySchema = z.object({
 export async function POST(request: Request) {
   try {
     const body = bodySchema.parse(await readJson(request));
-    const { auth, store, context } = await requireCompanion(body.businessId);
+    const { auth, store, context } = await requireCompanionWrite(body.businessId);
     const talk = new CompanionTalk(store);
     const wantsStream =
       body.stream === true || (request.headers.get("accept") ?? "").includes("text/event-stream");

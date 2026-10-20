@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { requireCompanion } from "@/lib/cofounder/http";
+import { requireCompanion, requireCompanionWrite } from "@/lib/cofounder/http";
 import { CompanionWork } from "@/lib/cofounder/work";
 import { handleError, json, readJson } from "@/lib/http";
 
@@ -29,7 +29,7 @@ const saveSchema = z.object({
 export async function POST(request: Request) {
   try {
     const body = saveSchema.parse(await readJson(request));
-    const { auth, store, context } = await requireCompanion(body.businessId);
+    const { auth, store, context } = await requireCompanionWrite(body.businessId);
     const item = await new CompanionWork(store).saveDraft(context.business.id, auth.user, body);
     return json({ ok: true, item });
   } catch (error) {
@@ -46,7 +46,7 @@ const archiveSchema = z.object({
 export async function PATCH(request: Request) {
   try {
     const body = archiveSchema.parse(await readJson(request));
-    const { auth, store, context } = await requireCompanion(body.businessId);
+    const { auth, store, context } = await requireCompanionWrite(body.businessId);
     const work = new CompanionWork(store);
     const item =
       body.action === "confirm"

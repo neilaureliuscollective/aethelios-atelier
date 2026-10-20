@@ -65,6 +65,7 @@ export type CompanionStore = {
   updateStudioAsset(asset: StudioAsset): StudioAsset | Promise<StudioAsset>;
 
   addUsageEvent(event: UsageEvent): UsageEvent | Promise<UsageEvent>;
+  updateUsageEvent(event: UsageEvent): UsageEvent | Promise<UsageEvent>;
   sumUsage(businessId: string, kind: UsageKind, sinceIso: string): number | Promise<number>;
   countPendingJobs(businessId: string, kind: GenerationJob["kind"]): number | Promise<number>;
 

@@ -54,7 +54,9 @@ export function CompanionShell({
         <p className="kicker">Aethelios · digital co-founder</p>
         <h1>{title}</h1>
         <p className="lede">{lede}</p>
-        <p className="tiny">Signed in as {user.email}. Membership is checked on the server for every action.</p>
+        <p className="tiny" title={user.email}>
+          Signed in as {user.displayName || user.email}. Membership is checked on the server for every action.
+        </p>
       </div>
       <nav className={styles.nav} aria-label="Companion">
         {LINKS.map((link) => (

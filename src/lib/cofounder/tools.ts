@@ -28,7 +28,9 @@ export const prepareStudioSchema = z.object({
   headline: z.string().min(1).max(160),
   body: z.string().max(800).optional(),
   direction: z.string().max(800).optional(),
-  layout: z.enum(["square_announcement", "story_portrait", "website_banner"]).default("square_announcement")
+  layout: z
+    .enum(["square_announcement", "portrait_social", "story_portrait", "website_banner"])
+    .default("square_announcement")
 });
 
 export const prepareEstimateToolSchema = z.object({
@@ -112,7 +114,10 @@ export const COMPANION_TOOL_DEFINITIONS = [
         headline: { type: "string" },
         body: { type: "string" },
         direction: { type: "string" },
-        layout: { type: "string", enum: ["square_announcement", "story_portrait", "website_banner"] }
+        layout: {
+          type: "string",
+          enum: ["square_announcement", "portrait_social", "story_portrait", "website_banner"]
+        }
       }
     }
   },

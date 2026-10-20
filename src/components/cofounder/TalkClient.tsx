@@ -13,6 +13,7 @@ import type { CompanionMessage } from "@/lib/cofounder/types";
 import styles from "./companion.module.css";
 
 type ProposedAction = { id: string; title: string; preview: string };
+type SavedWork = { id: string; title: string; href: string };
 
 export function TalkClient() {
   const { user, generation } = useSession();
@@ -23,9 +24,12 @@ export function TalkClient() {
   const [pending, setPending] = useState(false);
   const [streaming, setStreaming] = useState("");
   const [proposed, setProposed] = useState<ProposedAction[]>([]);
+  const [savedWork, setSavedWork] = useState<SavedWork[]>([]);
   const [error, setError] = useState("");
   const abortRef = useRef<AbortController | null>(null);
   const requestRef = useRef<string | null>(null);
+  const draftRef = useRef("");
+  const listRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -47,8 +51,13 @@ export function TalkClient() {
     })();
   }, [generation, user]);
 
+  useEffect(() => {
+    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages, streaming]);
+
   async function send(message: string) {
     if (!message.trim() || pending) return;
+    draftRef.current = message;
     setPending(true);
     setError("");
     setStreaming("");
@@ -100,6 +109,7 @@ export function TalkClient() {
               userMessage: CompanionMessage;
               assistantMessage: CompanionMessage;
               proposedActions?: ProposedAction[];
+              savedWork?: SavedWork[];
             };
           };
           if (!ownerFence.isCurrent(generation, user?.id ?? null)) return;
@@ -120,17 +130,20 @@ export function TalkClient() {
               return next;
             });
             setProposed(event.turn.proposedActions ?? []);
+            setSavedWork(event.turn.savedWork ?? []);
             setStreaming("");
             setInput("");
+            draftRef.current = "";
             requestRef.current = null;
           }
         }
       }
     } catch (err) {
+      setInput(draftRef.current);
       if (controller.signal.aborted) {
-        setError("Reply interrupted. Saved work was not duplicated.");
+        setError("Reply interrupted. Unsent text is still here. Review Work if a tool already saved something.");
       } else {
-        setError(actionErrorMessage(err, "That reply failed. Retry uses the same request id."));
+        setError(actionErrorMessage(err, "That reply failed. Unsent text is still here. Retry uses the same request id."));
       }
     } finally {
       setPending(false);
@@ -152,7 +165,7 @@ export function TalkClient() {
     >
       <div className={styles.grid}>
         <article className={`surface-dimensional ${styles.card}`}>
-          <div className={styles.messages} aria-live="polite">
+          <div className={styles.messages} aria-live="polite" ref={listRef}>
             {messages.map((message) => (
               <div
                 key={message.id}
@@ -171,6 +184,21 @@ export function TalkClient() {
               </div>
             ) : null}
           </div>
+          {savedWork.length ? (
+            <div className={styles.list} style={{ marginTop: 16 }}>
+              <p className="tiny">Saved from this turn</p>
+              {savedWork.map((item) => (
+                <AppLink key={item.id} className="btn btn-ghost btn-compact" href={item.href}>
+                  Open “{item.title}” in Work
+                </AppLink>
+              ))}
+              {savedWork[0] ? (
+                <AppLink className="btn btn-emerald btn-compact" href={`/companion/studio?workItemId=${encodeURIComponent(savedWork[0].id)}`}>
+                  Open that copy in Studio
+                </AppLink>
+              ) : null}
+            </div>
+          ) : null}
           {proposed.length ? (
             <div className={styles.list} style={{ marginTop: 16 }}>
               <p className="tiny">Proposed actions — nothing is saved until you confirm</p>
@@ -200,7 +228,10 @@ export function TalkClient() {
             <textarea
               id="talk-input"
               value={input}
-              onChange={(event) => setInput(event.target.value)}
+              onChange={(event) => {
+                setInput(event.target.value);
+                draftRef.current = event.target.value;
+              }}
               placeholder="Help me announce my new service."
             />
             <div className={styles.actions}>
@@ -219,7 +250,7 @@ export function TalkClient() {
                 className="btn btn-ghost"
                 type="button"
                 disabled={pending || !error}
-                onClick={() => void send(input)}
+                onClick={() => void send(draftRef.current || input)}
               >
                 Retry same request
               </button>

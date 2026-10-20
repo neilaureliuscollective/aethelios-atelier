@@ -93,6 +93,32 @@ check("other user cannot talk into owner business", otherTalk.status === 403);
 const founderWs = await req(`/api/companion/workspace?businessId=${businessId}`, { cookie: founder });
 check("founder can view owner workspace", founderWs.status === 200);
 
+const founderWrite = await req("/api/companion/workspace", {
+  method: "PATCH",
+  cookie: founder,
+  body: { businessId, fields: { services: { value: "Hijack", kind: "confirmed" } } }
+});
+check("founder cannot mutate client profile", founderWrite.status === 403);
+
+const founderTalk = await req("/api/companion/talk", {
+  method: "POST",
+  cookie: founder,
+  body: { businessId, message: "Save a draft into this client workspace." }
+});
+check("founder cannot talk-write client workspace", founderTalk.status === 403);
+
+const founderExport = await req("/api/companion/studio/export", {
+  method: "POST",
+  cookie: founder,
+  body: {
+    businessId,
+    draftId: "studio_missing",
+    format: "square_announcement",
+    composedPngBase64: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+  }
+});
+check("founder cannot export client artwork", founderExport.status === 403 || founderExport.status === 404);
+
 const studio = await req("/api/companion/studio", {
   method: "POST",
   cookie: owner,
@@ -113,6 +139,51 @@ const generate = await req("/api/companion/studio/generate", {
 check(
   "generate fails closed without live OpenAI",
   generate.status === 429 || generate.status === 503 || generate.json.asset?.status === "failed" || generate.status === 400
+);
+
+const work = await req("/api/companion/work?kind=draft", { cookie: owner });
+const selected = work.json.items?.[0];
+const imported = await req("/api/companion/studio", {
+  method: "POST",
+  cookie: owner,
+  body: {
+    businessId,
+    headline: selected?.title ?? "Now booking",
+    body: selected?.payload?.body ?? "Seasonal tables",
+    workItemId: selected?.id,
+    layout: "portrait_social"
+  }
+});
+check(
+  "studio imports the selected copy",
+  imported.status === 200 &&
+    imported.json.draft?.layers?.some((layer) => layer.kind === "body" && String(layer.text || "").includes("Seasonal"))
+);
+
+const failedExport = await req("/api/companion/studio/export", {
+  method: "POST",
+  cookie: owner,
+  body: { businessId, draftId: imported.json.draft.id, format: "portrait_social", composedPngBase64: "YQ==YQ==" }
+});
+check("export without a real composed file is rejected", failedExport.status === 403);
+
+const exported = await req("/api/companion/studio/export", {
+  method: "POST",
+  cookie: owner,
+  body: {
+    businessId,
+    draftId: imported.json.draft.id,
+    format: "portrait_social",
+    composedPngBase64:
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+  }
+});
+check("export succeeds only after composed bytes persist", exported.status === 200 && exported.json.exported?.assetUrl);
+
+const finished = await req("/api/companion/work", { cookie: owner });
+check(
+  "work marks exported only after persist",
+  finished.json.items?.some((item) => item.status === "exported" && item.payload?.export?.assetId)
 );
 
 const today = await req("/api/companion/today", { cookie: owner });

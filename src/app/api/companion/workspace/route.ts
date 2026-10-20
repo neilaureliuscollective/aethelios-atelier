@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { requireCompanion } from "@/lib/cofounder/http";
+import { canMutateWorkspace } from "@/lib/cofounder/workspace";
+import { requireCompanion, requireCompanionWrite } from "@/lib/cofounder/http";
 import { clientSafeDocuments, clientSafeProfile } from "@/lib/cofounder/isolation";
 import { CompanionUsage } from "@/lib/cofounder/usage";
 import { voiceCapability } from "@/lib/cofounder/voice";
@@ -26,7 +27,8 @@ export async function GET(request: Request) {
       businesses,
       usage,
       intelligence: aureliusStatus(),
-      voice: voiceCapability()
+      voice: voiceCapability(),
+      canMutate: canMutateWorkspace(context, auth.user)
     });
   } catch (error) {
     return handleError(error);
@@ -56,7 +58,7 @@ const patchSchema = z.object({
 export async function PATCH(request: Request) {
   try {
     const body = patchSchema.parse(await readJson(request));
-    const { auth, workspace, context } = await requireCompanion(body.businessId);
+    const { auth, workspace, context } = await requireCompanionWrite(body.businessId);
     const fields = { ...context.profile.fields };
     if (body.name) {
       fields.name = { ...fields.name, value: body.name, kind: "confirmed", source: "owner", updatedAt: new Date().toISOString() };
