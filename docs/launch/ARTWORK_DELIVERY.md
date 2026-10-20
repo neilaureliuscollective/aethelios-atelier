@@ -1,6 +1,6 @@
 # Artwork delivery, recovery, and ownership
 
-Application commit for this pass is recorded in `LAUNCH_READINESS.md`. This is local evidence, not hosted launch acceptance. Simulated identities are not Auth.js verification.
+Application commit: `5d48e88f391017291d62630a662b34298b36354d`. This is local evidence, not hosted launch acceptance. Simulated identities are not Auth.js verification.
 
 ## Preserved from earlier PR #18 passes
 

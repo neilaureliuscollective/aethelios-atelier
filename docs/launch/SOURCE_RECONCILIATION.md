@@ -53,7 +53,7 @@ Owner-bound guest claims, transactional adoption, exact-draft navigation, idempo
 
 ## Artwork-delivery recovery patch
 
-`docs/launch/atelier-artwork-delivery.patch` is the recoverable diff of this pass against `b7e47e0`.
+`docs/launch/atelier-artwork-delivery.patch` is the recoverable diff of `5d48e88` against `b7e47e0` (71,787 bytes, SHA-256 `66fb974e8cdc957607be8f1a1f5e6ed860b67f84957ba8e6714eb3cee0f26a9c`).
 
 ## Visual-continuity recovery patch
 

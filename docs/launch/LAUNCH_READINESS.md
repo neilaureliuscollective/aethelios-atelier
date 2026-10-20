@@ -2,8 +2,8 @@
 
 Branch: `cursor/atelier-premium-launch-readiness-da63`  
 Inspected incoming head: `a8aabc60d0b91c17bbe1d117443ea4e67a2584f6`  
-Application commit: `a5f109a9ba7270c4c47a9fcbf1a096276aa6a4ac`  
-Documented head at last push: `342ab8f660db4f906faa93930116dcaad7d8e332`  
+Artwork-delivery application commit: `5d48e88f391017291d62630a662b34298b36354d`  
+Prior visual-continuity application commit: `a5f109a9ba7270c4c47a9fcbf1a096276aa6a4ac`  
 This pass continues that branch. It does not reset to `main`.
 
 This is **code-complete evidence for a local candidate**, not configured launch acceptance.
