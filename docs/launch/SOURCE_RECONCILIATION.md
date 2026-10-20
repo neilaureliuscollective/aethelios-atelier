@@ -2,6 +2,8 @@
 
 Exact working branch: `cursor/atelier-premium-launch-readiness-da63`  
 Inspected incoming head: `6f5dcedf906e26715c4d351227cb9614772dca7c`  
+Application commit: `2c6a4c7`  
+Resulting head: `2cc7a2c6a017a36cec495401bfc212ae1fe65e1e`  
 This pass continues that branch. It does not reset to `main` and does not replace the application.
 
 ## Supplied attachments
