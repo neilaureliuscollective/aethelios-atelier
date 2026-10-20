@@ -103,6 +103,9 @@ export function StudioClient() {
       if (current) {
         const latest = data.drafts.find((item) => item.id === current.id);
         if (latest && latest.updatedAt !== current.updatedAt) hydrate(latest);
+      } else if (data.drafts.length) {
+        const latest = [...data.drafts].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+        if (latest) hydrate(latest);
       }
       return;
     }
@@ -419,19 +422,43 @@ export function StudioClient() {
     };
   }
 
+  const saveState = saving
+    ? "Saving"
+    : error.toLowerCase().includes("could not be saved") || error.toLowerCase().includes("layers could not")
+      ? "Failed"
+      : status.toLowerCase().includes("newer")
+        ? "Conflict"
+        : dirty
+          ? "Unsaved"
+          : exporting
+            ? "Exporting"
+            : !dirty && status.toLowerCase().startsWith("exported")
+              ? "Exported"
+              : selected
+                ? "Saved"
+                : "";
+  const readyImages = selected
+    ? assets.filter((item) => item.draftId === selected.id && item.status === "ready" && item.blobId)
+    : [];
+
   return (
     <CompanionShell
+      wide
       title="Brand Studio"
-      lede="Import the exact Talk copy, place the real logo, and export only after the composed file is saved."
+      lede="The artwork is the stage. Import exact Talk copy, place the real logo, and export only after this revision is saved."
     >
       <canvas ref={canvasRef} hidden />
-      <p className="tiny" data-project-name={profile?.fields.name.value ?? ""}>
-        {profile?.fields.name.value ? `Selected project: ${profile.fields.name.value}` : "Select a business in Companion."}
-        {selected ? ` · Draft ${selected.id.slice(0, 12)}` : " · No draft open"}
-        {dirty ? " · Unsaved edits" : selected ? " · Saved" : ""}
+      <p className={styles.context} data-project-name={profile?.fields.name.value ?? ""}>
+        <strong>{profile?.fields.name.value || "Select a business in Companion."}</strong>
+        <span>{selected ? `Draft ${selected.id.slice(0, 12)}` : "No draft open"}</span>
+        {saveState ? (
+          <span className={styles.saveState} data-save-state={saveState}>
+            {saveState}
+          </span>
+        ) : null}
       </p>
-      <div className={styles.grid}>
-        <article className={`surface-dimensional ${styles.card}`}>
+      <div className={styles.studioDesk}>
+        <section className={styles.artboard}>
           <div
             ref={previewBoxRef}
             className={styles.canvas}
@@ -453,182 +480,200 @@ export function StudioClient() {
             {composition ? (
               <canvas ref={previewCanvasRef} className={styles.previewCanvas} data-studio-preview="canvas" />
             ) : (
-              <p className={`${styles.emptyCanvas} tiny`}>No generated image. The logo and copy still compose.</p>
+              <p className={`${styles.emptyCanvas} ${styles.meta}`}>No generated image. The logo and copy still compose.</p>
             )}
-            {asset?.status === "pending" ? <p className="tiny" style={{ position: "absolute", bottom: 16, left: 16 }}>Pending generation</p> : null}
+            {asset?.status === "pending" ? <p className={styles.meta} style={{ position: "absolute", bottom: 16, left: 16 }}>Pending generation</p> : null}
             {asset?.status === "failed" ? <p className="notice notice-warn">Generation failed — not a completed asset.</p> : null}
           </div>
-          <p className="tiny">{status}</p>
+          <p className={styles.meta}>{status}</p>
           {error ? <p className="notice notice-warn">{error}</p> : null}
-          {recovery ? <p className="tiny">{recovery}</p> : null}
-        </article>
-        <aside className={`panel ${styles.card}`}>
-          <label className="tiny" htmlFor="studio-draft">
-            Saved draft
-          </label>
-          <select
-            id="studio-draft"
-            className={styles.select}
-            value={selected?.id ?? ""}
-            onChange={(event) => {
-              const next = drafts.find((item) => item.id === event.target.value) ?? null;
-              hydrate(next);
-              setError("");
-              setRecovery("");
-            }}
-          >
-            <option value="">No composition selected</option>
-            {drafts.map((draft) => (
-              <option key={draft.id} value={draft.id}>
-                {draft.layers.find((layer) => layer.kind === "headline")?.text || "Untitled"} · {draft.layout}
-              </option>
-            ))}
-          </select>
-          <label className="tiny" htmlFor="studio-layout">
-            Layout
-          </label>
-          <select
-            id="studio-layout"
-            className={styles.select}
-            value={layout}
-            onChange={(event) => markDirty(setLayout)(event.target.value as StudioLayoutId)}
-          >
-            {LAYOUTS.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.label} · {item.purpose}
-              </option>
-            ))}
-          </select>
-          <label className="tiny" htmlFor="headline">
-            Headline
-          </label>
-          <input
-            id="headline"
-            className={styles.field}
-            data-work-title={headline}
-            value={headline}
-            onChange={(event) => markDirty(setHeadline)(event.target.value)}
-          />
-          <label className="tiny" htmlFor="body">
-            Body
-          </label>
-          <textarea id="body" className={styles.field} value={body} onChange={(event) => markDirty(setBody)(event.target.value)} />
-          <label className="tiny" htmlFor="direction">
-            Image direction
-          </label>
-          <textarea id="direction" className={styles.field} value={direction} onChange={(event) => setDirection(event.target.value)} />
-          <label className="tiny" htmlFor="crop-x">
-            Image crop X {cropX}
-          </label>
-          <input id="crop-x" type="range" min={0} max={100} value={cropX} onChange={(event) => markDirty(setCropX)(Number(event.target.value))} />
-          <label className="tiny" htmlFor="crop-y">
-            Image crop Y {cropY}
-          </label>
-          <input id="crop-y" type="range" min={0} max={100} value={cropY} onChange={(event) => markDirty(setCropY)(Number(event.target.value))} />
-          <label className="tiny" htmlFor="crop-zoom">
-            Crop zoom {cropZoom}
-          </label>
-          <input
-            id="crop-zoom"
-            type="range"
-            min={1}
-            max={2.4}
-            step={0.05}
-            value={cropZoom}
-            onChange={(event) => markDirty(setCropZoom)(Number(event.target.value))}
-          />
-          <label className="tiny" htmlFor="logo-x">
-            Logo placement
-          </label>
-          <div className={styles.actions}>
-            <input aria-label="Logo X" type="range" min={2} max={80} value={logoX} onChange={(event) => markDirty(setLogoX)(Number(event.target.value))} />
-            <input aria-label="Logo Y" type="range" min={2} max={88} value={logoY} onChange={(event) => markDirty(setLogoY)(Number(event.target.value))} />
-          </div>
-          <div className={styles.actions}>
-            <button className="btn btn-gold" type="button" onClick={() => void createDraft()}>
+          {recovery ? <p className={styles.meta}>{recovery}</p> : null}
+        </section>
+        <aside className={styles.inspector}>
+          <details className={styles.sheet} open>
+            <summary>Content</summary>
+            <label className={styles.label} htmlFor="studio-draft">
+              Saved draft
+            </label>
+            <select
+              id="studio-draft"
+              className={styles.select}
+              value={selected?.id ?? ""}
+              onChange={(event) => {
+                const next = drafts.find((item) => item.id === event.target.value) ?? null;
+                hydrate(next);
+                setError("");
+                setRecovery("");
+              }}
+            >
+              <option value="">No composition selected</option>
+              {drafts.map((draft) => (
+                <option key={draft.id} value={draft.id}>
+                  {draft.layers.find((layer) => layer.kind === "headline")?.text || "Untitled"} · {draft.layout}
+                </option>
+              ))}
+            </select>
+            <label className={styles.label} htmlFor="studio-source">
+              Source from Talk or Work
+            </label>
+            <select
+              id="studio-source"
+              className={styles.select}
+              value=""
+              onChange={(event) => {
+                const item = workItems.find((entry) => entry.id === event.target.value);
+                if (item) void importWork(item);
+              }}
+            >
+              <option value="">Choose saved copy</option>
+              {workItems.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.title}
+                </option>
+              ))}
+            </select>
+            <label className={styles.label} htmlFor="headline">
+              Headline
+            </label>
+            <input
+              id="headline"
+              className={styles.field}
+              data-work-title={headline}
+              value={headline}
+              onChange={(event) => markDirty(setHeadline)(event.target.value)}
+            />
+            <label className={styles.label} htmlFor="body">
+              Body
+            </label>
+            <textarea id="body" className={styles.field} value={body} onChange={(event) => markDirty(setBody)(event.target.value)} />
+          </details>
+          <details className={styles.sheet} open>
+            <summary>Image</summary>
+            <label className={styles.label} htmlFor="direction">
+              Image direction
+            </label>
+            <textarea id="direction" className={styles.field} value={direction} onChange={(event) => setDirection(event.target.value)} />
+            <label className={styles.label} htmlFor="crop-x">
+              Image crop X {cropX}
+            </label>
+            <input id="crop-x" className={styles.range} type="range" min={0} max={100} value={cropX} onChange={(event) => markDirty(setCropX)(Number(event.target.value))} />
+            <label className={styles.label} htmlFor="crop-y">
+              Image crop Y {cropY}
+            </label>
+            <input id="crop-y" className={styles.range} type="range" min={0} max={100} value={cropY} onChange={(event) => markDirty(setCropY)(Number(event.target.value))} />
+            <label className={styles.label} htmlFor="crop-zoom">
+              Crop zoom {cropZoom}
+            </label>
+            <input
+              id="crop-zoom"
+              className={styles.range}
+              type="range"
+              min={1}
+              max={2.4}
+              step={0.05}
+              value={cropZoom}
+              onChange={(event) => markDirty(setCropZoom)(Number(event.target.value))}
+            />
+            {selected ? (
+              <div className={styles.list} data-retained-images>
+                <p className={styles.label}>Ready images</p>
+                {readyImages.length === 0 ? (
+                  <p className={styles.meta}>No completed image is waiting to be applied. Invalidated or failed generations are not retained.</p>
+                ) : (
+                  <div className={styles.picker}>
+                    {readyImages.map((item) => {
+                      const applied = selected.selectedAssetId === item.id;
+                      return (
+                        <figure key={item.id} className={styles.pick} data-retained-image={item.id} data-retained-applied={applied ? "true" : "false"}>
+                          {businessId && item.blobId ? (
+                            <img src={assetUrl(businessId, item.id)} alt="" />
+                          ) : null}
+                          <p className={styles.meta}>{applied ? "Applied" : "Unapplied"}</p>
+                          <button
+                            className="btn btn-ghost btn-compact"
+                            type="button"
+                            data-apply-retained={item.id}
+                            disabled={applied || saving}
+                            onClick={() => void applyRetained(item.id)}
+                          >
+                            {applied ? "Already applied" : "Apply to draft"}
+                          </button>
+                        </figure>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : null}
+            {assets.filter((item) => item.status === "pending" || item.status === "failed").length ? (
+              <p className={styles.meta}>
+                {assets.filter((item) => item.status === "pending" || item.status === "failed").length} pending or
+                failed generation(s) — those are not retained images.
+              </p>
+            ) : null}
+          </details>
+          <details className={styles.sheet}>
+            <summary>Brand</summary>
+            <label className={styles.label} htmlFor="logo">
+              Add original logo
+            </label>
+            <input
+              id="logo"
+              className={styles.file}
+              type="file"
+              accept="image/*"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void uploadLogo(file);
+              }}
+            />
+            <label className={styles.label} htmlFor="logo-x">
+              Logo placement
+            </label>
+            <input className={styles.range} aria-label="Logo X" type="range" min={2} max={80} value={logoX} onChange={(event) => markDirty(setLogoX)(Number(event.target.value))} />
+            <input className={styles.range} aria-label="Logo Y" type="range" min={2} max={88} value={logoY} onChange={(event) => markDirty(setLogoY)(Number(event.target.value))} />
+            <p className={styles.meta}>Business palette stays on the artwork. Atelier chrome does not recolor the export.</p>
+          </details>
+          <details className={styles.sheet} open>
+            <summary>Layout</summary>
+            <label className={styles.label} htmlFor="studio-layout">
+              Layout
+            </label>
+            <select
+              id="studio-layout"
+              className={styles.select}
+              value={layout}
+              onChange={(event) => markDirty(setLayout)(event.target.value as StudioLayoutId)}
+            >
+              {LAYOUTS.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.label} · {item.purpose}
+                </option>
+              ))}
+            </select>
+          </details>
+          <div className={styles.primaryActions}>
+            <button className="btn btn-ghost btn-compact" type="button" onClick={() => void createDraft()}>
               New draft
             </button>
-            <button className="btn btn-ghost" type="button" onClick={() => void saveLayers()} disabled={!selected || saving}>
+            <button className="btn btn-gold" type="button" onClick={() => void saveLayers()} disabled={!selected || saving}>
               {saving ? "Saving…" : dirty ? "Save layers" : "Saved"}
             </button>
             <button className="btn btn-ghost" type="button" onClick={() => void generate()} disabled={!selected || generating}>
               {generating ? "Generating…" : "Generate image"}
             </button>
             <button
-              className="btn btn-ghost"
+              className="btn btn-ghost btn-compact"
               type="button"
               onClick={() => void generate(selected?.selectedAssetId)}
               disabled={!selected?.selectedAssetId || generating}
             >
               Edit selected image
             </button>
-            <button className="btn btn-emerald" type="button" onClick={() => void exportDraft()} disabled={!selected || exporting}>
+            <button className="btn btn-emerald-glass" type="button" onClick={() => void exportDraft()} disabled={!selected || exporting}>
               {exporting ? "Exporting…" : "Export"}
             </button>
           </div>
-          <label className="tiny" htmlFor="logo">
-            Add original logo
-          </label>
-          <input
-            id="logo"
-            type="file"
-            accept="image/*"
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) void uploadLogo(file);
-            }}
-          />
-          {workItems.length ? (
-            <div className={styles.list} style={{ marginTop: 16 }}>
-              <p className="tiny">From Talk / Work</p>
-              {workItems.slice(0, 8).map((item) => (
-                <button
-                  key={item.id}
-                  className="btn btn-ghost"
-                  type="button"
-                  onClick={() => void importWork(item)}
-                >
-                  Use “{item.title}”
-                </button>
-              ))}
-            </div>
-          ) : null}
-          {selected ? (
-            <div className={styles.list} style={{ marginTop: 16 }} data-retained-images>
-              <p className="tiny">Retained ready images</p>
-              {assets.filter((item) => item.draftId === selected.id && item.status === "ready" && item.blobId).length === 0 ? (
-                <p className="tiny">No completed image is waiting to be applied. Invalidated or failed generations are not retained.</p>
-              ) : (
-                assets
-                  .filter((item) => item.draftId === selected.id && item.status === "ready" && item.blobId)
-                  .map((item) => {
-                    const applied = selected.selectedAssetId === item.id;
-                    return (
-                      <div key={item.id} className={styles.actions} data-retained-image={item.id} data-retained-applied={applied ? "true" : "false"}>
-                        <p className="tiny">
-                          {applied ? "Applied" : "Unapplied"} · {item.prompt.slice(0, 48) || "Ready image"}
-                        </p>
-                        <button
-                          className="btn btn-ghost"
-                          type="button"
-                          data-apply-retained={item.id}
-                          disabled={applied || saving}
-                          onClick={() => void applyRetained(item.id)}
-                        >
-                          {applied ? "Already applied" : "Apply to draft"}
-                        </button>
-                      </div>
-                    );
-                  })
-              )}
-            </div>
-          ) : null}
-          {assets.filter((item) => item.status === "pending" || item.status === "failed").length ? (
-            <p className="tiny">
-              {assets.filter((item) => item.status === "pending" || item.status === "failed").length} pending or
-              failed generation(s) — those are not retained images.
-            </p>
-          ) : null}
         </aside>
       </div>
     </CompanionShell>

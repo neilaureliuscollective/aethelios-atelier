@@ -64,7 +64,7 @@ await page.waitForSelector("#talk-input");
 await page.type("#talk-input", "Help me announce my new service.");
 await Promise.all([
   page.click("button[type=submit]"),
-  page.waitForFunction(() => document.body.innerText.includes("not a live AI reply") || document.body.innerText.includes("Work"))
+  page.waitForFunction(() => document.body.innerText.includes("not a live AI reply") || document.body.innerText.includes("unavailable"))
 ]);
 const talk = await page.content();
 check("talk stays honest without live OpenAI", talk.includes("not a live AI reply") || talk.includes("unavailable"));

@@ -6,6 +6,7 @@ type Props = {
   withWordmark?: boolean;
   href?: string | null;
   priority?: boolean;
+  lockupSrc?: string;
 };
 
 export function BrandMark({
@@ -13,18 +14,27 @@ export function BrandMark({
   variant = "icon",
   withWordmark = true,
   href = "/",
-  priority = false
+  priority = false,
+  lockupSrc
 }: Props) {
-  const src = variant === "wordmark" ? "/brand/logo.webp" : "/brand/icon.webp";
-  const lockup = variant === "wordmark";
+  const usingLockup = Boolean(lockupSrc);
+  const src = lockupSrc ?? (variant === "wordmark" ? "/brand/logo.webp" : "/brand/icon.webp");
+  const lockup = usingLockup || variant === "wordmark";
+  const lockupHeight = Math.max(48, size);
+  const lockupWidth = Math.round(lockupHeight * (1192 / 1160));
   const inner = (
     <>
       <img
         className={lockup ? "brand-lockup" : "brand-mark"}
         src={src}
         alt={withWordmark ? "" : "Aethelios Atelier"}
-        width={lockup ? Math.round(size * 1.5) : size}
-        height={size}
+        width={usingLockup ? lockupWidth : lockup ? Math.round(size * 1.5) : size}
+        height={usingLockup ? lockupHeight : size}
+        style={
+          usingLockup
+            ? { width: "auto", height: lockupHeight, maxWidth: "min(220px, 42vw)", background: "transparent" }
+            : undefined
+        }
         decoding={priority ? "sync" : "async"}
         fetchPriority={priority ? "high" : "low"}
       />

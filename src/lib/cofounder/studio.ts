@@ -143,6 +143,7 @@ const LAYOUTS = STUDIO_LAYOUTS;
 
 export class CompanionStudio {
   private finalizeBarrier?: () => Promise<void>;
+  private finalizeFault?: () => Promise<void>;
 
   constructor(
     private readonly store: PersistenceAdapter,
@@ -160,6 +161,11 @@ export class CompanionStudio {
 
   withFinalizeBarrier(barrier?: () => Promise<void>) {
     this.finalizeBarrier = barrier;
+    return this;
+  }
+
+  withFinalizeFault(fault?: () => Promise<void>) {
+    this.finalizeFault = fault;
     return this;
   }
 
@@ -385,7 +391,7 @@ export class CompanionStudio {
       const generated = parent?.blobId
         ? await this.editFromAsset(parent, input.prompt, input.signal)
         : await this.images.generate({ prompt: input.prompt, signal: input.signal });
-      return this.finalizeGeneratedImage({
+      return await this.finalizeGeneratedImage({
         businessId,
         auth,
         draft,
@@ -424,6 +430,7 @@ export class CompanionStudio {
         input.reservation.event.id,
         input.draft.id
       );
+      if (this.finalizeFault) await this.finalizeFault();
       const jobNow = locked.job;
       const usageNow = locked.usage;
       const draftNow = locked.draft ?? input.draft;

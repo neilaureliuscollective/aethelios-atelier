@@ -1,9 +1,11 @@
 node_modules
 .next
 .next-cofounder
+.next-atelier-prod
 out
 .data
 .data-cofounder
+.data-atelier-visual
 .vercel
 .env
 .env.local

@@ -108,6 +108,31 @@ img { max-width: 100%; height: auto; display: block; }
 .app-root[data-surface="studio"] {
   color-scheme: dark;
 }
+.app-root[data-surface="atelier"] {
+  --bg: var(--obsidian);
+  --bg-raised: var(--charcoal);
+  --bg-panel: color-mix(in srgb, var(--charcoal) 78%, var(--deep) 22%);
+  --bg-panel-strong: color-mix(in srgb, var(--charcoal) 88%, black 12%);
+  --bg-glass: color-mix(in srgb, var(--charcoal) 52%, transparent);
+  --bg-input: color-mix(in srgb, var(--ivory) 96%, #ffffff 4%);
+  --bg-read: color-mix(in srgb, var(--ivory) 94%, #ffffff 6%);
+  --text: var(--ivory);
+  --text-muted: color-mix(in srgb, var(--sage) 72%, var(--ivory) 28%);
+  --text-gold: var(--gold-champagne);
+  --border: color-mix(in srgb, var(--gold) 26%, transparent);
+  --border-soft: color-mix(in srgb, var(--ivory) 14%, transparent);
+  --shadow: 0 28px 64px rgba(3, 6, 5, 0.46);
+  --atelier-read-ink: #14110c;
+  --atelier-read-muted: #3f4a43;
+  --atelier-stage: #070a09;
+  --atelier-glass: color-mix(in srgb, #121a17 58%, transparent);
+  --atelier-glass-border: color-mix(in srgb, var(--gold-champagne) 20%, transparent);
+  --atelier-emerald: color-mix(in srgb, var(--deep) 70%, var(--charcoal));
+  --header-h: 112px;
+  --radius: 18px;
+  --radius-sm: 12px;
+  color-scheme: dark;
+}
 
 .atmosphere {
   position: fixed;
@@ -140,6 +165,103 @@ img { max-width: 100%; height: auto; display: block; }
 .app-root[data-surface="workroom"] .atmosphere::before {
   opacity: 0.35;
   background: linear-gradient(118deg, transparent 42%, rgba(226, 201, 136, 0.14) 46%, transparent 50%);
+}
+.app-root[data-surface="atelier"] .atmosphere {
+  background:
+    radial-gradient(880px 520px at 88% -8%, rgba(36, 131, 104, 0.22), transparent 58%),
+    radial-gradient(640px 420px at 8% 0%, rgba(199, 164, 90, 0.12), transparent 56%),
+    radial-gradient(760px 520px at 30% 120%, rgba(11, 70, 53, 0.38), transparent 60%),
+    linear-gradient(180deg, #080c0b 0%, #0d1613 46%, #080c0b 100%);
+}
+.app-root[data-surface="atelier"] .atmosphere::before {
+  opacity: 0.55;
+  background:
+    linear-gradient(118deg, transparent 42%, rgba(232, 213, 163, 0.06) 46%, transparent 50%),
+    linear-gradient(90deg, rgba(8, 12, 11, 0.4), transparent 18%, transparent 82%, rgba(8, 12, 11, 0.45));
+}
+.app-root[data-surface="atelier"] .site-header {
+  background:
+    linear-gradient(180deg, rgba(243, 240, 231, 0.06), transparent 42%),
+    color-mix(in srgb, #0d1613 72%, transparent);
+  border-bottom: 1px solid var(--atelier-glass-border);
+  backdrop-filter: blur(20px) saturate(1.15);
+  box-shadow: inset 0 1px 0 rgba(232, 213, 163, 0.12);
+}
+.app-root[data-surface="atelier"] .site-header-inner {
+  min-height: var(--header-h);
+  align-items: center;
+}
+.app-root[data-surface="atelier"] .brand {
+  align-items: center;
+  background: transparent;
+  padding: 0;
+  border: 0;
+}
+.app-root[data-surface="atelier"] .brand img,
+.app-root[data-surface="atelier"] .brand img.brand-lockup {
+  display: block;
+  width: auto;
+  height: 104px;
+  max-width: min(280px, 46vw);
+  background: transparent;
+  object-fit: contain;
+  object-position: left center;
+  filter: drop-shadow(0 10px 20px rgba(8, 12, 11, 0.4));
+}
+.app-root[data-surface="atelier"] .workspace-nav a {
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 14px;
+  letter-spacing: 0.02em;
+}
+.app-root[data-surface="atelier"] .workspace-nav a[aria-current="page"],
+.app-root[data-surface="atelier"] .workspace-nav a:hover {
+  color: var(--ivory);
+  background: color-mix(in srgb, var(--deep) 42%, transparent);
+  box-shadow: inset 0 1px 0 rgba(243, 240, 231, 0.16);
+}
+.app-root[data-surface="atelier"] .sim-banner {
+  background: color-mix(in srgb, var(--deep) 38%, #080c0b);
+  color: var(--gold-champagne);
+  text-align: left;
+}
+.app-root[data-surface="atelier"] .sim-banner summary {
+  cursor: pointer;
+  list-style: none;
+}
+.app-root[data-surface="atelier"] .sim-banner summary::-webkit-details-marker { display: none; }
+.app-root[data-surface="atelier"] .site-footer {
+  background: transparent;
+  border-top-color: color-mix(in srgb, var(--ivory) 10%, transparent);
+  padding: 18px 0 28px;
+  font-size: 13px;
+}
+.app-root[data-surface="atelier"] h1 {
+  font-size: clamp(28px, 3.4vw, 40px);
+}
+.app-root[data-surface="atelier"] h2 {
+  font-size: clamp(22px, 2.4vw, 30px);
+}
+.app-root[data-surface="atelier"] h3 { font-size: 22px; }
+.app-root[data-surface="atelier"] .lede { font-size: 16px; max-width: 62ch; }
+.app-root[data-surface="atelier"] .section { padding: 20px 0 48px; }
+.app-root[data-surface="atelier"] .surface-read {
+  background: var(--bg-read);
+  color: var(--atelier-read-ink);
+}
+.app-root[data-surface="atelier"] .surface-read .muted,
+.app-root[data-surface="atelier"] .surface-read .tiny {
+  color: var(--atelier-read-muted);
+}
+@media (prefers-reduced-transparency: reduce), (prefers-reduced-motion: reduce) {
+  .app-root[data-surface="atelier"] .site-header,
+  .app-root[data-surface="atelier"] .surface-glass,
+  .app-root[data-surface="atelier"] .glass {
+    backdrop-filter: none;
+    background: var(--charcoal);
+  }
 }
 .app-root[data-surface="studio"] .atmosphere::after {
   content: "";
@@ -1111,6 +1233,15 @@ a.chip {
   }
   .bottom-nav { display: flex; }
   main { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+  .app-root[data-surface="atelier"] main { padding-bottom: 36px; }
+  .app-root[data-surface="atelier"] .brand img,
+  .app-root[data-surface="atelier"] .brand img.brand-lockup {
+    height: 80px;
+    max-width: min(200px, 48vw);
+  }
+  .app-root[data-surface="atelier"] {
+    --header-h: 92px;
+  }
   .approach-step { grid-template-columns: 1fr; }
   .recovery-panel { position: relative; top: auto; bottom: auto; }
   .recovery-pair { grid-template-columns: 1fr; }

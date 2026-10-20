@@ -3,6 +3,7 @@ import { createSimulatedSession, publicUser } from "@/lib/auth/session";
 import { handleError, json, readJson } from "@/lib/http";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({
   email: z.string().email()

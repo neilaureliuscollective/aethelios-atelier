@@ -103,12 +103,13 @@ export function BusinessClient() {
   return (
     <CompanionShell
       title="Business context"
-      lede="Confirmed facts, your preferences, and Aethelios suggestions stay distinct. Source and updated time appear when useful."
+      lede="This is the saved brand home. Studio placement and crop stay on the draft until you save them there."
     >
       {error ? <p className="notice notice-warn">{error}</p> : null}
       {profile ? (
         <div className={styles.grid}>
-          <article className={`surface-dimensional ${styles.card}`}>
+          <article className={styles.glassCard}>
+            <p className={styles.label}>Saved defaults</p>
             {/lifestyle/i.test(profile.fields.name.value) ? (
               <p className="notice">
                 Selected project: {LIFESTYLE_PROJECT.brandName}. {LIFESTYLE_PROJECT.story} Missing
@@ -117,8 +118,11 @@ export function BusinessClient() {
             ) : null}
             {Object.values(profile.fields).map((field) => (
               <label key={field.key} className={styles.composer}>
-                <span className="tiny">
-                  {FIELD_LABELS[field.key] ?? field.key} · {field.kind}
+                <span className={styles.label}>
+                  {FIELD_LABELS[field.key] ?? field.key}
+                </span>
+                <span className={styles.meta}>
+                  {field.kind}
                   {field.source ? ` · ${field.source}` : ""}
                   {field.updatedAt ? ` · updated ${new Date(field.updatedAt).toLocaleString()}` : ""}
                 </span>
@@ -161,8 +165,12 @@ export function BusinessClient() {
             </button>
             {status ? <p className="notice">{status}</p> : null}
           </article>
-          <aside className={`panel ${styles.card}`}>
-            <p className="tiny">Approved rates</p>
+          <aside className={styles.inspector}>
+            <p className={styles.label}>Brand assets</p>
+            <p className={styles.meta}>
+              Logos and source files stored here are business defaults. Temporary Studio crop, placement, and selected images stay on the open draft.
+            </p>
+            <p className={styles.label}>Approved rates</p>
             {profile.approvedRates.map((rate) => (
               <p key={rate.id}>
                 {rate.label}: ${(rate.amountCents / 100).toFixed(2)} / {rate.unit}
@@ -173,20 +181,19 @@ export function BusinessClient() {
             <button className="btn btn-ghost" type="button" onClick={() => addRate()}>
               Add approved rate (cents)
             </button>
-            <p className="tiny" style={{ marginTop: 18 }}>
-              Source documents
-            </p>
+            <p className={styles.label}>Source documents</p>
             {documents.length === 0 ? <p className="muted">No selected source documents yet.</p> : null}
             {documents.map((doc) => (
-              <p key={doc.id} className="tiny">
+              <p key={doc.id} className={styles.meta}>
                 {doc.title} · {doc.status}
               </p>
             ))}
-            <label className="tiny" htmlFor="source-doc">
+            <label className={styles.label} htmlFor="source-doc">
               Upload a text source
             </label>
             <input
               id="source-doc"
+              className={styles.file}
               type="file"
               accept="text/*,.md,.json,.csv"
               onChange={(event) => {
@@ -194,12 +201,10 @@ export function BusinessClient() {
                 if (file) void uploadDocument(file, "document").catch((err) => setError(actionErrorMessage(err, "Upload failed.")));
               }}
             />
-            <p className="tiny" style={{ marginTop: 18 }}>
-              Pending memory
-            </p>
+            <p className={styles.label}>Pending memory</p>
             {pending.length === 0 ? <p className="muted">No suggestions waiting.</p> : null}
             {pending.map((item) => (
-              <div key={item.id} className="surface-read" style={{ padding: 12, marginBottom: 8 }}>
+              <div key={item.id} className={styles.resultCard} style={{ marginBottom: 8 }}>
                 <p>
                   {item.fieldKey}: {item.proposedValue}
                 </p>

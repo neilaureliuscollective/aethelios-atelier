@@ -722,4 +722,66 @@ describe("studio draft compare-and-swap", () => {
     expect((await store.companion.getJobByIdempotency(ctx.business.id, "finalize-fail"))?.status).toBe("failed");
     expect((await store.companion.getUsageByOperation(ctx.business.id, "finalize-fail"))?.status).toBe("released");
   });
+
+  it("cleans up only the matching pending attempt when finalization throws", async () => {
+    const store = new MemoryPersistence();
+    await seedSimulatedUsers(store, ["neil.local@atelier.invalid"]);
+    const owner = (await store.getUserByEmail("owner.local@atelier.invalid")) as User;
+    const session = {
+      user: owner,
+      session: {
+        id: `sess_${owner.id}_dbfail`,
+        userId: owner.id,
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 60_000).toISOString()
+      },
+      adapter: "simulated" as const
+    };
+    await store.createSession(session.session);
+    const okStudio = new CompanionStudio(store).withImageProvider({
+      async generate() {
+        const { encodeSolidPng } = await import("@/lib/cofounder/png");
+        return { bytes: encodeSolidPng(32, 32), mime: "image/png", model: "ok" };
+      },
+      async edit() {
+        return this.generate({ prompt: "edit" });
+      }
+    });
+    const ctx = await new CompanionWorkspace(store).ensureForUser(owner);
+    const kept = await okStudio.createFromCopy(ctx.business.id, owner, { headline: "Already complete" });
+    const completed = await okStudio.generate(ctx.business.id, owner, session, {
+      draftId: kept.draft.id,
+      prompt: "keep-me",
+      idempotencyKey: "finalize-keep"
+    });
+    const failing = new CompanionStudio(store)
+      .withImageProvider({
+        async generate() {
+          const { encodeSolidPng } = await import("@/lib/cofounder/png");
+          return { bytes: encodeSolidPng(32, 32), mime: "image/png", model: "dbfail" };
+        },
+        async edit() {
+          return this.generate({ prompt: "edit" });
+        }
+      })
+      .withFinalizeFault(async () => {
+        throw new Error("blob_store_down");
+      });
+    const next = await failing.createFromCopy(ctx.business.id, owner, { headline: "Should stay unsaved" });
+    await expect(
+      failing.generate(ctx.business.id, owner, session, {
+        draftId: next.draft.id,
+        prompt: "dbfail",
+        idempotencyKey: "finalize-db"
+      })
+    ).rejects.toThrow(/blob_store_down/);
+    const failedDraft = await store.companion.getStudioDraft(next.draft.id);
+    expect(failedDraft?.selectedAssetId).toBeUndefined();
+    expect(failedDraft?.layers.find((layer) => layer.kind === "headline")?.text).toBe("Should stay unsaved");
+    expect((await store.companion.getJobByIdempotency(ctx.business.id, "finalize-db"))?.status).toBe("failed");
+    expect((await store.companion.getUsageByOperation(ctx.business.id, "finalize-db"))?.status).toBe("released");
+    expect((await store.companion.getStudioDraft(kept.draft.id))?.selectedAssetId).toBe(completed.asset.id);
+    expect((await store.companion.getJobByIdempotency(ctx.business.id, "finalize-keep"))?.status).toBe("completed");
+    expect((await store.companion.getUsageByOperation(ctx.business.id, "finalize-keep"))?.status).toBe("settled");
+  });
 });

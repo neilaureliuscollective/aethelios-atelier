@@ -28,7 +28,7 @@ export function sessionCookieOptions(expires: Date) {
     httpOnly: true,
     sameSite: "lax" as const,
     path: "/",
-    secure: config.nodeEnv === "production",
+    secure: config.nodeEnv === "production" && !/^http:\/\//i.test(config.publicOrigin),
     expires
   };
 }

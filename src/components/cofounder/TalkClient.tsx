@@ -161,17 +161,17 @@ export function TalkClient() {
   return (
     <CompanionShell
       title="Talk as working interface"
-      lede="Plan a promotion, draft copy, review your documents, or prepare an estimate from approved rates. Starting actions do not force a questionnaire."
+      lede="Plan a promotion, draft copy, review your documents, or prepare an estimate from approved rates."
     >
       <div className={styles.grid}>
-        <article className={`surface-dimensional ${styles.card}`}>
+        <article className={styles.glassCard}>
           <div className={styles.messages} aria-live="polite" ref={listRef}>
             {messages.map((message) => (
               <div
                 key={message.id}
                 className={`${styles.bubble} ${message.authorKind === "client" ? styles.bubbleUser : ""}`}
               >
-                <p className="tiny">
+                <p className={styles.meta}>
                   {message.authorKind} {message.liveAi ? "· live model" : "· saved"}
                 </p>
                 <p style={{ whiteSpace: "pre-wrap" }}>{message.body}</p>
@@ -179,31 +179,34 @@ export function TalkClient() {
             ))}
             {streaming ? (
               <div className={styles.bubble}>
-                <p className="tiny">Aethelios · streaming</p>
+                <p className={styles.meta}>Aethelios · streaming</p>
                 <p style={{ whiteSpace: "pre-wrap" }}>{streaming}</p>
               </div>
             ) : null}
           </div>
           {savedWork.length ? (
             <div className={styles.list} style={{ marginTop: 16 }}>
-              <p className="tiny">Saved from this turn</p>
+              <p className={styles.label}>Saved from this turn</p>
               {savedWork.map((item) => (
-                <AppLink key={item.id} className="btn btn-ghost btn-compact" href={item.href}>
-                  Open “{item.title}” in Work
-                </AppLink>
+                <article key={item.id} className={styles.resultCard}>
+                  <h3>{item.title}</h3>
+                  <div className={styles.actions}>
+                    <AppLink className="btn btn-emerald-glass btn-compact" href={`/companion/studio?workItemId=${encodeURIComponent(item.id)}`}>
+                      Open in Studio
+                    </AppLink>
+                    <AppLink className="btn btn-ghost btn-compact" href={item.href}>
+                      Open in Work
+                    </AppLink>
+                  </div>
+                </article>
               ))}
-              {savedWork[0] ? (
-                <AppLink className="btn btn-emerald btn-compact" href={`/companion/studio?workItemId=${encodeURIComponent(savedWork[0].id)}`}>
-                  Open that copy in Studio
-                </AppLink>
-              ) : null}
             </div>
           ) : null}
           {proposed.length ? (
             <div className={styles.list} style={{ marginTop: 16 }}>
-              <p className="tiny">Proposed actions — nothing is saved until you confirm</p>
+              <p className={styles.label}>Proposed actions — nothing is saved until you confirm</p>
               {proposed.map((item) => (
-                <div key={item.id} className="surface-read" style={{ padding: 12 }}>
+                <div key={item.id} className={styles.resultCard}>
                   <strong>{item.title}</strong>
                   <p className="muted" style={{ whiteSpace: "pre-wrap" }}>
                     {item.preview.slice(0, 280)}
@@ -216,17 +219,18 @@ export function TalkClient() {
             </div>
           ) : null}
           <form
-            className={styles.composer}
+            className={styles.composerBar}
             onSubmit={(event) => {
               event.preventDefault();
               void send(input);
             }}
           >
-            <label className="tiny" htmlFor="talk-input">
+            <label className={styles.label} htmlFor="talk-input">
               Message Aethelios
             </label>
             <textarea
               id="talk-input"
+              className={styles.composerInput}
               value={input}
               onChange={(event) => {
                 setInput(event.target.value);
@@ -258,8 +262,8 @@ export function TalkClient() {
             {error ? <p className="notice notice-warn">{error}</p> : null}
           </form>
         </article>
-        <aside className={`panel ${styles.card}`}>
-          <p className="tiny">Start here</p>
+        <aside className={styles.inspector}>
+          <p className={styles.label}>Start here</p>
           <div className={styles.list}>
             {STARTING_ACTIONS.map((action) => (
               <button
@@ -278,7 +282,7 @@ export function TalkClient() {
           <p className="muted" style={{ marginTop: 16 }}>
             Reviewed copy can move into Studio without leaving this workspace.
           </p>
-          <AppLink className="btn btn-emerald" href="/companion/studio">
+          <AppLink className="btn btn-emerald-glass" href="/companion/studio">
             Open Studio
           </AppLink>
         </aside>
