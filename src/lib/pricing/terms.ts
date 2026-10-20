@@ -1,4 +1,5 @@
 import "server-only";
+import { STARTING_COMMERCIAL_TERMS as FOUNDER_STARTING_TERMS } from "@/lib/cofounder/entitlements";
 import { PLAN_IDS, type PlanId } from "@/lib/pricing/ids";
 
 export const PRICING_PUBLICATION_STATUS = "not_finalized" as const;
@@ -11,19 +12,27 @@ export type StartingPlanTerms = {
   setup: "quoted" | "amount";
 };
 
+function presentPlan(plan: { setupUsd: number | null; monthlyUsd: number | null; setup?: "quoted" }): StartingPlanTerms {
+  return {
+    setupUsd: plan.setupUsd,
+    monthlyUsd: plan.monthlyUsd,
+    setup: plan.setup === "quoted" || plan.setupUsd == null ? "quoted" : "amount"
+  };
+}
+
 /**
- * Founder starting commercial structure from the current review.
- * Not approved for publication, not a live catalog, and not checkout.
+ * Presentation wrapper around the founder starting structure in entitlements.
+ * Not a second entitlement system, not approved for publication, and not checkout.
  */
 export const STARTING_COMMERCIAL_TERMS = {
-  status: PRICING_PUBLICATION_STATUS,
-  source: "founder_starting_structure" as const,
+  status: FOUNDER_STARTING_TERMS.status,
+  source: FOUNDER_STARTING_TERMS.source,
   note: "Draft pricing pending final terms. Not activated as Stripe products or billed amounts.",
   currency: "USD" as const,
   plans: {
-    atelier: { setupUsd: 299, monthlyUsd: 249, setup: "amount" as const },
-    connected: { setupUsd: 499, monthlyUsd: 399, setup: "amount" as const },
-    partnership: { setupUsd: null, monthlyUsd: 699, setup: "quoted" as const }
+    atelier: presentPlan(FOUNDER_STARTING_TERMS.plans.atelier),
+    connected: presentPlan(FOUNDER_STARTING_TERMS.plans.connected),
+    partnership: presentPlan(FOUNDER_STARTING_TERMS.plans.partnership)
   } satisfies Record<PlanId, StartingPlanTerms>
 };
 

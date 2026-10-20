@@ -1,6 +1,6 @@
-export const PLAN_IDS = ["atelier", "connected", "partnership"] as const;
+import { PLAN_IDS, type PlanId } from "@/lib/cofounder/types";
 
-export type PlanId = (typeof PLAN_IDS)[number];
+export { PLAN_IDS, type PlanId };
 
 export const PLAN_LABELS: Record<PlanId, string> = {
   atelier: "Atelier",
@@ -9,7 +9,7 @@ export const PLAN_LABELS: Record<PlanId, string> = {
 };
 
 export function isPlanId(value: unknown): value is PlanId {
-  return value === "atelier" || value === "connected" || value === "partnership";
+  return (PLAN_IDS as readonly string[]).includes(String(value));
 }
 
 export function parsePlanId(value: string | null | undefined): PlanId | null {
