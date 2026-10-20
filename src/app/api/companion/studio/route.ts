@@ -70,7 +70,10 @@ const patchSchema = z.object({
     )
     .optional(),
   selectedAssetId: z.string().optional(),
-  expectedUpdatedAt: z.string().optional()
+  expectedUpdatedAt: z.string().optional(),
+  expectedSaveRevision: z.number().int().positive().optional()
+}).refine((body) => Boolean(body.expectedUpdatedAt || body.expectedSaveRevision), {
+  message: "A concurrency token is required to update an existing Studio draft."
 });
 
 export async function PATCH(request: Request) {

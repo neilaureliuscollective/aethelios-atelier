@@ -11,7 +11,14 @@ import {
   scaleCompositionPx,
   wrapLines
 } from "@/lib/cofounder/composition";
-import { assertExportMatchesRevision, decodePng, encodeSolidPng, inspectPng } from "@/lib/cofounder/png";
+import {
+  assertExportMatchesRevision,
+  decodePng,
+  encodeSolidPng,
+  inspectPng,
+  maxChannelDelta,
+  RASTER_TOLERANCE
+} from "@/lib/cofounder/png";
 import { lifestyleProfileFields } from "@/lib/cofounder/lifestyle";
 
 describe("canonical studio composition", () => {
@@ -125,5 +132,54 @@ describe("canonical studio composition", () => {
     );
     const notPng = Uint8Array.from(Buffer.from("not-a-png-file-but-long-enough-to-pass-length"));
     expect(() => inspectPng(notPng)).toThrow(/not a PNG/);
+  });
+
+  it("compares decoded pixels with a documented rasterization tolerance", () => {
+    const original = encodeSolidPng(64, 48, [42, 34, 24, 255]);
+    const again = encodeSolidPng(64, 48, [42, 34, 24, 255]);
+    const other = encodeSolidPng(64, 48, [200, 10, 10, 255]);
+    expect(maxChannelDelta(decodePng(original).data, decodePng(again).data)).toBe(0);
+    expect(maxChannelDelta(decodePng(original).data, decodePng(other).data)).toBeGreaterThan(RASTER_TOLERANCE);
+    expect(RASTER_TOLERANCE).toBe(2);
+  });
+
+  it("keeps logo proportions and crop geometry inside every layout size", () => {
+    const long =
+      "Aethelios Lifestyle evening gathering under cedar light with a long confirmed announcement that must wrap rather than invent claims";
+    for (const layout of ["square_announcement", "portrait_social", "story_portrait", "website_banner"] as const) {
+      const layers = defaultLayers({
+        headline: long,
+        body: long,
+        layout,
+        logoDocumentId: "doc_logo"
+      });
+      layers.push({
+        id: "image_crop",
+        kind: "image",
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 100,
+        cropX: 20,
+        cropY: 80,
+        cropZoom: 1.4
+      });
+      const spec = buildComposition({
+        layout,
+        layers,
+        businessId: "biz_1",
+        backgroundImageUrl: "/logo.png"
+      });
+      expect(spec.width).toBeGreaterThan(0);
+      expect(spec.height).toBeGreaterThan(0);
+      expect(spec.headline.text.length).toBeGreaterThan(20);
+      expect(spec.logo).toBeTruthy();
+      const logoRatio = (spec.logo?.width ?? 0) / (spec.logo?.height || 1);
+      expect(logoRatio).toBeGreaterThan(0.5);
+      expect(logoRatio).toBeLessThan(3);
+      const crop = coverCropRect(2000, 800, spec.width, spec.height, 20, 80, 1.4);
+      expect(crop.width).toBeGreaterThanOrEqual(spec.width);
+      expect(crop.height).toBeGreaterThanOrEqual(spec.height);
+    }
   });
 });

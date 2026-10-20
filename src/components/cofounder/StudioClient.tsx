@@ -276,7 +276,7 @@ export function StudioClient() {
     const idempotencyKey = generateKeyRef.current ?? crypto.randomUUID();
     generateKeyRef.current = idempotencyKey;
     try {
-      const result = await api<{ asset: StudioAsset }>("/api/companion/studio/generate", {
+      const result = await api<{ asset: StudioAsset; applied?: boolean; conflict?: boolean }>("/api/companion/studio/generate", {
         method: "POST",
         body: JSON.stringify({
           businessId,
@@ -288,7 +288,11 @@ export function StudioClient() {
       });
       setAsset(result.asset);
       generateKeyRef.current = null;
-      setStatus(result.asset.status === "ready" ? "Image ready. It is not a portfolio result." : result.asset.error ?? "");
+      if (result.conflict) {
+        setStatus("Image ready as a separate asset. Newer draft edits were kept. Select it explicitly if you want it applied.");
+      } else {
+        setStatus(result.asset.status === "ready" ? "Image ready. It is not a portfolio result." : result.asset.error ?? "");
+      }
       await refresh();
     } catch (err) {
       setAsset((currentAsset) =>

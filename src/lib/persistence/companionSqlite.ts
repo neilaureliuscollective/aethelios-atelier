@@ -44,6 +44,7 @@ export class SqliteCompanionStore implements CompanionStore {
     this.ensureUsageColumns();
     this.ensureAssetRevisionColumn();
     this.ensureOutputHashColumns();
+    this.ensureDraftRevisionColumn();
   }
 
   private ensureProjectBusinessColumn() {
@@ -82,8 +83,36 @@ export class SqliteCompanionStore implements CompanionStore {
     if (!names.has("output_hash")) this.db.exec("ALTER TABLE studio_composition_revisions ADD COLUMN output_hash TEXT");
   }
 
+  private ensureDraftRevisionColumn() {
+    const columns = this.db.prepare("PRAGMA table_info(studio_drafts)").all() as Array<{ name: string }>;
+    if (!columns.some((column) => column.name === "save_revision")) {
+      this.db.exec("ALTER TABLE studio_drafts ADD COLUMN save_revision INTEGER NOT NULL DEFAULT 1");
+    }
+  }
+
   lockUsageBudget() {
     /* BEGIN IMMEDIATE already serializes this sqlite connection. */
+  }
+
+  countHeldUsage(businessId: string, kind: UsageKind) {
+    const row = this.db
+      .prepare("SELECT COUNT(*) as total FROM usage_events WHERE business_id=? AND kind=? AND status='held'")
+      .get(businessId, kind) as { total: number } | undefined;
+    return Number(row?.total ?? 0);
+  }
+
+  transitionUsageEvent(id: string, fromStatus: UsageEvent["status"], event: UsageEvent) {
+    const result = this.db
+      .prepare("UPDATE usage_events SET units=?, metadata_json=?, status=?, expires_at=? WHERE id=? AND status=?")
+      .run(
+        event.units,
+        event.metadata ? JSON.stringify(event.metadata) : null,
+        event.status ?? null,
+        event.expiresAt ?? null,
+        id,
+        fromStatus ?? null
+      );
+    return result.changes === 1 ? event : null;
   }
 
   reset() {
@@ -381,8 +410,8 @@ export class SqliteCompanionStore implements CompanionStore {
   addStudioDraft(draft: StudioDraft) {
     this.db
       .prepare(
-        `INSERT INTO studio_drafts(id,business_id,work_item_id,layout,layers_json,selected_asset_id,source_work_item_id,created_at,updated_at)
-         VALUES(?,?,?,?,?,?,?,?,?)`
+        `INSERT INTO studio_drafts(id,business_id,work_item_id,layout,layers_json,selected_asset_id,source_work_item_id,created_at,updated_at,save_revision)
+         VALUES(?,?,?,?,?,?,?,?,?,?)`
       )
       .run(
         draft.id,
@@ -393,7 +422,8 @@ export class SqliteCompanionStore implements CompanionStore {
         draft.selectedAssetId ?? null,
         draft.sourceWorkItemId ?? null,
         draft.createdAt,
-        draft.updatedAt
+        draft.updatedAt,
+        draft.saveRevision ?? 1
       );
     return draft;
   }
@@ -411,23 +441,33 @@ export class SqliteCompanionStore implements CompanionStore {
 
   updateStudioDraft(draft: StudioDraft) {
     this.db
-      .prepare("UPDATE studio_drafts SET layout=?, layers_json=?, selected_asset_id=?, updated_at=? WHERE id=?")
-      .run(draft.layout, JSON.stringify(draft.layers), draft.selectedAssetId ?? null, draft.updatedAt, draft.id);
-    return draft;
-  }
-
-  compareAndSwapStudioDraft(draft: StudioDraft, expectedUpdatedAt: string) {
-    const result = this.db
       .prepare(
-        "UPDATE studio_drafts SET layout=?, layers_json=?, selected_asset_id=?, updated_at=? WHERE id=? AND updated_at=?"
+        "UPDATE studio_drafts SET layout=?, layers_json=?, selected_asset_id=?, updated_at=?, save_revision=? WHERE id=?"
       )
       .run(
         draft.layout,
         JSON.stringify(draft.layers),
         draft.selectedAssetId ?? null,
         draft.updatedAt,
+        draft.saveRevision ?? 1,
+        draft.id
+      );
+    return draft;
+  }
+
+  compareAndSwapStudioDraft(draft: StudioDraft, expectedSaveRevision: number) {
+    const result = this.db
+      .prepare(
+        "UPDATE studio_drafts SET layout=?, layers_json=?, selected_asset_id=?, updated_at=?, save_revision=? WHERE id=? AND save_revision=?"
+      )
+      .run(
+        draft.layout,
+        JSON.stringify(draft.layers),
+        draft.selectedAssetId ?? null,
+        draft.updatedAt,
+        draft.saveRevision,
         draft.id,
-        expectedUpdatedAt
+        expectedSaveRevision
       );
     return result.changes === 1 ? draft : null;
   }
@@ -534,19 +574,12 @@ export class SqliteCompanionStore implements CompanionStore {
   }
 
   releaseExpiredHolds(asOfIso: string) {
-    const rows = this.db
-      .prepare("SELECT * FROM usage_events WHERE status = 'held' AND expires_at IS NOT NULL AND expires_at <= ?")
-      .all(asOfIso) as Row[];
-    for (const row of rows) {
-      const event = mapUsage(row);
-      this.updateUsageEvent({
-        ...event,
-        status: "released",
-        expiresAt: undefined,
-        metadata: { ...event.metadata, status: "released", releasedAt: asOfIso, reason: "expired_hold" }
-      });
-    }
-    return rows.length;
+    const result = this.db
+      .prepare(
+        "UPDATE usage_events SET status='released', expires_at=NULL, metadata_json=? WHERE status='held' AND expires_at IS NOT NULL AND expires_at <= ?"
+      )
+      .run(JSON.stringify({ status: "released", releasedAt: asOfIso, reason: "expired_hold" }), asOfIso);
+    return Number(result.changes ?? 0);
   }
 
   addCompositionRevision(revision: CompositionRevision) {

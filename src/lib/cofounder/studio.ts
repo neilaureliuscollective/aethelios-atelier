@@ -30,6 +30,22 @@ function nextStamp(previous?: string) {
   return new Date(Date.parse(previous) + 1).toISOString();
 }
 
+function concurrencyToken(
+  draft: StudioDraft,
+  patch: { expectedUpdatedAt?: string; expectedSaveRevision?: number }
+) {
+  if (patch.expectedSaveRevision == null && !patch.expectedUpdatedAt) {
+    throw new ConflictError("This Studio draft requires a concurrency token. Reload and save again.");
+  }
+  if (patch.expectedSaveRevision != null && patch.expectedSaveRevision !== draft.saveRevision) {
+    throw new ConflictError("This Studio draft changed since you last edited it. Reload the newer revision before saving.");
+  }
+  if (patch.expectedUpdatedAt && patch.expectedUpdatedAt !== draft.updatedAt) {
+    throw new ConflictError("This Studio draft changed since you last edited it. Reload the newer revision before saving.");
+  }
+  return draft.saveRevision ?? 1;
+}
+
 function companionId(prefix: string) {
   return `${prefix}_${crypto.randomUUID()}`;
 }
@@ -174,6 +190,7 @@ export class CompanionStudio {
       layout: input.layout ?? "square_announcement",
       layers,
       sourceWorkItemId: source?.id,
+      saveRevision: 1,
       createdAt: now(),
       updatedAt: now()
     };
@@ -185,27 +202,27 @@ export class CompanionStudio {
     businessId: string,
     user: User,
     draftId: string,
-    patch: Partial<Pick<StudioDraft, "layout" | "layers" | "selectedAssetId">> & { expectedUpdatedAt?: string }
+    patch: Partial<Pick<StudioDraft, "layout" | "layers" | "selectedAssetId">> & {
+      expectedUpdatedAt?: string;
+      expectedSaveRevision?: number;
+    }
   ) {
     await this.workspace.requireMutable(businessId, user);
     const draft = await this.requireDraft(businessId, draftId);
-    if (patch.expectedUpdatedAt && patch.expectedUpdatedAt !== draft.updatedAt) {
-      throw new ConflictError("This Studio draft changed since you last edited it. Reload the newer revision before saving.");
-    }
-    const { expectedUpdatedAt, ...next } = patch;
+    const token = concurrencyToken(draft, patch);
     const written = {
       ...draft,
-      ...next,
+      ...(patch.layout ? { layout: patch.layout } : {}),
+      ...(patch.layers ? { layers: patch.layers } : {}),
+      ...(patch.selectedAssetId !== undefined ? { selectedAssetId: patch.selectedAssetId } : {}),
+      saveRevision: token + 1,
       updatedAt: nextStamp(draft.updatedAt)
     };
-    if (expectedUpdatedAt) {
-      const swapped = await this.store.companion.compareAndSwapStudioDraft(written, expectedUpdatedAt);
-      if (!swapped) {
-        throw new ConflictError("This Studio draft changed since you last edited it. Reload the newer revision before saving.");
-      }
-      return swapped;
+    const swapped = await this.store.companion.compareAndSwapStudioDraft(written, token);
+    if (!swapped) {
+      throw new ConflictError("This Studio draft changed since you last edited it. Reload the newer revision before saving.");
     }
-    return this.store.companion.updateStudioDraft(written);
+    return swapped;
   }
 
   async listDrafts(businessId: string, user: User) {
@@ -237,17 +254,40 @@ export class CompanionStudio {
       const parsed = JSON.parse(existing.resultJson) as { assetId?: string };
       if (parsed.assetId) {
         const asset = await this.store.companion.getStudioAsset(parsed.assetId);
-        if (asset) return asset;
+        if (asset) {
+          return { asset, applied: draft.selectedAssetId === asset.id, draft };
+        }
       }
     }
     if (existing?.status === "pending") {
       throw new ForbiddenError("That generation is already in progress. Wait or retry the same request after it finishes.");
     }
-    await this.usage.assertConcurrent(businessId, user, "image");
-    const reservation = await this.usage.reserve(businessId, user, "image", 1, {
-      draftId: draft.id,
-      idempotencyKey: input.idempotencyKey
-    });
+    const reservation = await this.usage.reserve(
+      businessId,
+      user,
+      "image",
+      1,
+      {
+        draftId: draft.id,
+        idempotencyKey: input.idempotencyKey,
+        inputSaveRevision: draft.saveRevision
+      },
+      input.idempotencyKey
+    );
+    if (reservation.reused) {
+      if (reservation.event.status === "settled") {
+        const existingCompleted = await this.store.companion.getJobByIdempotency(businessId, input.idempotencyKey);
+        if (existingCompleted?.resultJson) {
+          const parsed = JSON.parse(existingCompleted.resultJson) as { assetId?: string };
+          if (parsed.assetId) {
+            const reused = await this.store.companion.getStudioAsset(parsed.assetId);
+            if (reused) return { asset: reused, applied: draft.selectedAssetId === reused.id, draft };
+          }
+        }
+        throw new ForbiddenError("That generation already completed. Retry will not start another provider call.");
+      }
+      throw new ForbiddenError("That generation is already in progress. Wait or retry the same request after it finishes.");
+    }
     const job = existing
       ? await this.store.companion.updateJob({
           ...existing,
@@ -301,7 +341,7 @@ export class CompanionStudio {
         asset.updatedAt = now();
         await this.store.companion.updateStudioAsset(asset);
         await this.usage.release(reservation);
-        return asset;
+        return { asset, applied: false, draft };
       }
       const blob = await this.store.companion.putBlob({
         id: companionId("blob"),
@@ -315,19 +355,26 @@ export class CompanionStudio {
       asset.model = generated.model;
       asset.updatedAt = now();
       await this.store.companion.updateStudioAsset(asset);
-      await this.store.companion.updateStudioDraft({
+      const attach = {
         ...draft,
         selectedAssetId: asset.id,
-        updatedAt: now()
-      });
+        saveRevision: (draft.saveRevision ?? 1) + 1,
+        updatedAt: nextStamp(draft.updatedAt)
+      };
+      const swapped = await this.store.companion.compareAndSwapStudioDraft(attach, draft.saveRevision ?? 1);
       await this.usage.settle(reservation);
       await this.store.companion.updateJob({
         ...job,
         status: "completed",
         updatedAt: now(),
-        resultJson: JSON.stringify({ assetId: asset.id })
+        resultJson: JSON.stringify({ assetId: asset.id, applied: Boolean(swapped) })
       });
-      return asset;
+      return {
+        asset,
+        applied: Boolean(swapped),
+        draft: swapped ?? ((await this.store.companion.getStudioDraft(draft.id)) || draft),
+        conflict: !swapped
+      };
     } catch (error) {
       await this.usage.release(reservation);
       asset.status = "failed";
@@ -363,6 +410,7 @@ export class CompanionStudio {
     options?: {
       composedPngBase64?: string;
       expectedUpdatedAt?: string;
+      expectedSaveRevision?: number;
       layers?: StudioLayer[];
       layout?: StudioLayoutId;
     }
@@ -373,22 +421,20 @@ export class CompanionStudio {
       const nextLayers = options?.layers ?? draft.layers;
       const nextLayout = options?.layout ?? format ?? draft.layout;
       await this.assertAuthorizedLayers(businessId, nextLayers);
-      if (options?.layers || options?.layout) {
+      if (options?.layers || (options?.layout && options.layout !== draft.layout)) {
         const written = {
           ...draft,
           layers: nextLayers,
           layout: nextLayout,
           updatedAt: nextStamp(draft.updatedAt)
         };
-        if (options.expectedUpdatedAt) {
-          const swapped = await this.store.companion.compareAndSwapStudioDraft(written, options.expectedUpdatedAt);
-          if (!swapped) {
-            throw new ConflictError("This Studio draft changed since you last edited it. Reload the newer revision before exporting.");
-          }
-          draft = swapped;
-        } else {
-          draft = await this.store.companion.updateStudioDraft(written);
+        const token = concurrencyToken(draft, options);
+        written.saveRevision = token + 1;
+        const swapped = await this.store.companion.compareAndSwapStudioDraft(written, token);
+        if (!swapped) {
+          throw new ConflictError("This Studio draft changed since you last edited it. Reload the newer revision before exporting.");
         }
+        draft = swapped;
       } else if (options?.expectedUpdatedAt && options.expectedUpdatedAt !== draft.updatedAt) {
         throw new ConflictError("This Studio draft changed since you last edited it. Reload the newer revision before exporting.");
       }

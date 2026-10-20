@@ -2,6 +2,7 @@
 /**
  * Companion HTTP acceptance. Simulated identities. No live OpenAI spend.
  */
+import { createHash } from "node:crypto";
 import { deflateSync, crc32 } from "node:zlib";
 
 const BASE = process.env.ATELIER_BASE ?? "http://127.0.0.1:3010";
@@ -230,6 +231,14 @@ check(
   Boolean(exported.json.exported?.revision?.id) &&
     exported.json.exported?.asset?.compositionRevisionId === exported.json.exported?.revision?.id
 );
+check(
+  "solid PNG export is labeled bound, not a verified composition render",
+  exported.json.exported?.labeled === "owner_canvas_bound" &&
+    String(exported.json.exported?.note || "").includes("Not a server-rasterized proof")
+);
+const originalBytes = encodeSolidPng(1080, 1350);
+const originalHash = createHash("sha256").update(originalBytes).digest("hex");
+check("export stores the output hash", exported.json.exported?.revision?.outputHash === originalHash);
 
 const ownerAgain = await signIn("owner.local@atelier.invalid");
 const finished = await req("/api/companion/work", { cookie: ownerAgain });
@@ -239,7 +248,36 @@ check(
   Boolean(exportedItem?.payload?.export?.assetId && exportedItem.payload.export.revisionId)
 );
 const download = await fetch(`${BASE}${exported.json.exported.assetUrl}`, { headers: { cookie: ownerAgain } });
-check("fresh session can download the same exported file", download.ok && download.headers.get("content-type")?.includes("png"));
+const downloaded = Buffer.from(await download.arrayBuffer());
+const downloadedHash = createHash("sha256").update(downloaded).digest("hex");
+check(
+  "fresh session downloads the exact exported bytes",
+  download.ok &&
+    download.headers.get("content-type")?.includes("png") &&
+    downloadedHash === originalHash &&
+    downloaded.equals(originalBytes)
+);
+const revisionAgain = exportedItem?.payload?.export?.revisionId;
+check("fresh session recovers the exact composition revision", revisionAgain === exported.json.exported?.revision?.id);
+const later = await req("/api/companion/studio", {
+  method: "PATCH",
+  cookie: ownerAgain,
+  body: {
+    businessId,
+    draftId: imported.json.draft.id,
+    layers: imported.json.draft.layers.map((layer) =>
+      layer.kind === "headline" ? { ...layer, text: "Later draft edit" } : layer
+    ),
+    expectedUpdatedAt: exported.json.exported?.draft?.updatedAt
+  }
+});
+check("later draft edit is accepted", later.status === 200);
+const afterEdit = await fetch(`${BASE}${exported.json.exported.assetUrl}`, { headers: { cookie: ownerAgain } });
+const afterBytes = Buffer.from(await afterEdit.arrayBuffer());
+check(
+  "later draft edit does not change the exported file",
+  createHash("sha256").update(afterBytes).digest("hex") === originalHash
+);
 const otherDownload = await fetch(`${BASE}${exported.json.exported.assetUrl}`, { headers: { cookie: other } });
 check("second owner cannot download the exported file", otherDownload.status === 401 || otherDownload.status === 403 || otherDownload.status === 404);
 

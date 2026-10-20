@@ -143,6 +143,7 @@ export function mapStudioDraft(row: Row): StudioDraft {
     layers: parseJson(asString(row.layers_json, "[]"), []),
     selectedAssetId: asOptionalString(row.selected_asset_id),
     sourceWorkItemId: asOptionalString(row.source_work_item_id),
+    saveRevision: Number(row.save_revision ?? 1) || 1,
     createdAt: asString(row.created_at),
     updatedAt: asString(row.updated_at)
   };

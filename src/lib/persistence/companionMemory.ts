@@ -220,15 +220,28 @@ export class MemoryCompanionStore implements CompanionStore {
     return clone(draft);
   }
 
-  compareAndSwapStudioDraft(draft: StudioDraft, expectedUpdatedAt: string) {
+  compareAndSwapStudioDraft(draft: StudioDraft, expectedSaveRevision: number) {
     const current = this.drafts.get(draft.id);
-    if (!current || current.updatedAt !== expectedUpdatedAt) return null;
+    if (!current || current.saveRevision !== expectedSaveRevision) return null;
     this.drafts.set(draft.id, clone(draft));
     return clone(draft);
   }
 
   lockUsageBudget() {
     /* Single-process memory adapter; reserve() still uses a database transaction when available. */
+  }
+
+  countHeldUsage(businessId: string, kind: UsageKind) {
+    return this.usage.filter((event) => event.businessId === businessId && event.kind === kind && event.status === "held")
+      .length;
+  }
+
+  transitionUsageEvent(id: string, fromStatus: UsageEvent["status"], event: UsageEvent) {
+    const index = this.usage.findIndex((item) => item.id === id);
+    const current = index >= 0 ? this.usage[index] : undefined;
+    if (!current || current.status !== fromStatus) return null;
+    this.usage[index] = clone(event);
+    return clone(event);
   }
 
   addStudioAsset(asset: StudioAsset) {
@@ -279,6 +292,7 @@ export class MemoryCompanionStore implements CompanionStore {
         return {
           ...event,
           status: "released" as const,
+          expiresAt: undefined,
           metadata: { ...event.metadata, status: "released", releasedAt: asOfIso, reason: "expired_hold" }
         };
       }

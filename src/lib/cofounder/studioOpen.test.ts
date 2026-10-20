@@ -24,6 +24,7 @@ function draft(id: string, workItemId: string, headline: string, sourceWorkItemI
     sourceWorkItemId,
     layout: "square_announcement",
     layers: [{ id: "headline", kind: "headline", text: headline, x: 8, y: 12, width: 84, height: 18 }],
+    saveRevision: 1,
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z"
   };

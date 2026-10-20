@@ -205,13 +205,14 @@ describe("companion workspace isolation", () => {
       workItemId: drafts[0]?.id
     });
     await store.createSession(authFor(owner).session);
-    const asset = await studio.generate(ctx.business.id, owner, authFor(owner), {
+    const generated = await studio.generate(ctx.business.id, owner, authFor(owner), {
       draftId: created.draft.id,
       prompt: "Quiet table setting, no logos invented",
       idempotencyKey: "img-1"
     });
-    expect(asset.status).toBe("ready");
-    expect(asset.blobId).toBeTruthy();
+    expect(generated.asset.status).toBe("ready");
+    expect(generated.asset.blobId).toBeTruthy();
+    expect(generated.applied).toBe(true);
     const exported = await studio.exportDraft(ctx.business.id, owner, created.draft.id, "square_announcement", {
       composedPngBase64: Buffer.from(encodeSolidPng(1080, 1080)).toString("base64")
     });

@@ -281,7 +281,8 @@ CREATE TABLE IF NOT EXISTS studio_drafts (
   selected_asset_id TEXT,
   source_work_item_id TEXT,
   created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  save_revision INTEGER NOT NULL DEFAULT 1
 );
 CREATE TABLE IF NOT EXISTS studio_assets (
   id TEXT PRIMARY KEY,

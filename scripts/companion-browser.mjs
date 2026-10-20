@@ -2,6 +2,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import puppeteer from "puppeteer-core";
+import { PNG } from "pngjs";
+
+const RASTER_TOLERANCE = 2;
 
 const BASE = process.env.ATELIER_BASE ?? "http://127.0.0.1:3010";
 const SHOTS = process.env.ATELIER_SCREENSHOT_DIR ?? "/opt/cursor/artifacts/screenshots";
@@ -165,6 +168,14 @@ await page.evaluate(() => {
 });
 const savedHttp = await saveResponse;
 check("browser save writes the edited draft", savedHttp.ok(), String(savedHttp.status()));
+const previewRaster = await page.evaluate(() => {
+  const canvas = document.querySelector("[data-studio-preview='canvas']");
+  if (!canvas) return null;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  return { width: canvas.width, height: canvas.height, pixels: Array.from(image.data) };
+});
 const exportResponse = page.waitForResponse(
   (response) => response.url().includes("/api/companion/studio/export") && response.request().method() === "POST",
   { timeout: 30000 }
@@ -206,14 +217,55 @@ const downloadHref = await page.$$eval("a[href*='/api/companion/assets/']", (nod
 const downloaded = await page.evaluate(async (href) => {
   const response = await fetch(href);
   const bytes = new Uint8Array(await response.arrayBuffer());
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
   return {
     status: response.status,
     type: response.headers.get("content-type") || "",
     length: bytes.byteLength,
-    png: bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78 && bytes[3] === 71
+    png: bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78 && bytes[3] === 71,
+    hash: Array.from(new Uint8Array(digest)).map((value) => value.toString(16).padStart(2, "0")).join(""),
+    bytes: Array.from(bytes)
   };
 }, downloadHref);
-check("fresh session downloads the same exported PNG", downloaded.status === 200 && downloaded.png && downloaded.length > 1000, JSON.stringify(downloaded));
+const again = await page.evaluate(async (href) => {
+  const response = await fetch(href);
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return {
+    status: response.status,
+    hash: Array.from(new Uint8Array(digest)).map((value) => value.toString(16).padStart(2, "0")).join("")
+  };
+}, downloadHref);
+check(
+  "fresh session downloads the same exported PNG",
+  downloaded.status === 200 && downloaded.png && downloaded.length > 1000,
+  JSON.stringify({ status: downloaded.status, length: downloaded.length, hash: downloaded.hash })
+);
+check("reopen is byte-for-byte identical", again.status === 200 && again.hash === downloaded.hash, downloaded.hash);
+let rasterDelta = Number.POSITIVE_INFINITY;
+let exportRaster = { width: 0, height: 0 };
+try {
+  const decoded = PNG.sync.read(Buffer.from(downloaded.bytes), { checkCRC: true });
+  exportRaster = { width: decoded.width, height: decoded.height };
+  if (previewRaster && previewRaster.pixels.length === decoded.data.length) {
+    rasterDelta = 0;
+    for (let i = 0; i < decoded.data.length; i += 1) {
+      const delta = Math.abs((previewRaster.pixels[i] ?? 0) - (decoded.data[i] ?? 0));
+      if (delta > rasterDelta) rasterDelta = delta;
+    }
+  }
+} catch (error) {
+  rasterDelta = Number.POSITIVE_INFINITY;
+  exportRaster = { width: 0, height: 0, error: String(error) };
+}
+check(
+  "preview and export pixels match within rasterization tolerance 2",
+  Boolean(previewRaster) &&
+    previewRaster.width === exportRaster.width &&
+    previewRaster.height === exportRaster.height &&
+    rasterDelta <= RASTER_TOLERANCE,
+  `delta=${rasterDelta} preview=${previewRaster?.width}x${previewRaster?.height} export=${exportRaster.width}x${exportRaster.height}`
+);
 await shot("companion-work-exported-1440.png");
 globalThis.__atelierExportedAsset = downloadHref;
 
@@ -256,6 +308,36 @@ await shot("companion-today-390.png");
 await page.setViewport({ width: 1440, height: 900 });
 await page.reload({ waitUntil: "networkidle0" });
 check("reload keeps the signed-in workspace", (await page.content()).includes("owner.local@atelier.invalid") || (await page.content()).includes("Today"));
+
+await page.goto(`${BASE}${evening.href}`, { waitUntil: "networkidle0" });
+for (const format of [
+  { id: "square_announcement", width: 1080, height: 1080 },
+  { id: "portrait_social", width: 1080, height: 1350 },
+  { id: "story_portrait", width: 1080, height: 1920 },
+  { id: "website_banner", width: 1600, height: 900 }
+]) {
+  await page.select("#studio-layout", format.id);
+  await page
+    .waitForFunction(
+      (width, height) => {
+        const canvas = document.querySelector("[data-studio-preview='canvas']");
+        return canvas && canvas.width === width && canvas.height === height;
+      },
+      { timeout: 10000 },
+      format.width,
+      format.height
+    )
+    .catch(() => null);
+  const size = await page.evaluate(() => {
+    const canvas = document.querySelector("[data-studio-preview='canvas']");
+    return { width: canvas?.width || 0, height: canvas?.height || 0 };
+  });
+  check(
+    `preview canvas matches ${format.id}`,
+    size.width === format.width && size.height === format.height,
+    JSON.stringify(size)
+  );
+}
 
 await signIn("owner-two.local@atelier.invalid");
 await page.goto(`${BASE}/companion`, { waitUntil: "networkidle0" });

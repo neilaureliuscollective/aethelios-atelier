@@ -186,6 +186,7 @@ export type StudioDraft = {
   layers: StudioLayer[];
   selectedAssetId?: string;
   sourceWorkItemId?: string;
+  saveRevision: number;
   createdAt: string;
   updatedAt: string;
 };

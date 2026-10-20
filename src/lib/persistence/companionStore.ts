@@ -59,8 +59,14 @@ export type CompanionStore = {
   getStudioDraft(id: string): StudioDraft | null | Promise<StudioDraft | null>;
   listStudioDrafts(businessId: string): StudioDraft[] | Promise<StudioDraft[]>;
   updateStudioDraft(draft: StudioDraft): StudioDraft | Promise<StudioDraft>;
-  compareAndSwapStudioDraft(draft: StudioDraft, expectedUpdatedAt: string): StudioDraft | null | Promise<StudioDraft | null>;
+  compareAndSwapStudioDraft(draft: StudioDraft, expectedSaveRevision: number): StudioDraft | null | Promise<StudioDraft | null>;
   lockUsageBudget(businessId: string, kind: UsageKind, periodKey: string): void | Promise<void>;
+  countHeldUsage(businessId: string, kind: UsageKind): number | Promise<number>;
+  transitionUsageEvent(
+    id: string,
+    fromStatus: UsageEvent["status"],
+    event: UsageEvent
+  ): UsageEvent | null | Promise<UsageEvent | null>;
 
   addStudioAsset(asset: StudioAsset): StudioAsset | Promise<StudioAsset>;
   getStudioAsset(id: string): StudioAsset | null | Promise<StudioAsset | null>;
@@ -178,7 +184,8 @@ CREATE TABLE IF NOT EXISTS studio_drafts (
   selected_asset_id TEXT,
   source_work_item_id TEXT,
   created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  save_revision INTEGER NOT NULL DEFAULT 1
 );
 CREATE TABLE IF NOT EXISTS studio_assets (
   id TEXT PRIMARY KEY,

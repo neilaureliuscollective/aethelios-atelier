@@ -54,10 +54,28 @@ export class PostgresCompanionStore implements CompanionStore {
     await this.client().unsafe("ALTER TABLE studio_assets ADD COLUMN IF NOT EXISTS output_hash TEXT");
     await this.client().unsafe("ALTER TABLE studio_composition_revisions ADD COLUMN IF NOT EXISTS renderer_version TEXT");
     await this.client().unsafe("ALTER TABLE studio_composition_revisions ADD COLUMN IF NOT EXISTS output_hash TEXT");
+    await this.client().unsafe("ALTER TABLE studio_drafts ADD COLUMN IF NOT EXISTS save_revision INTEGER NOT NULL DEFAULT 1");
   }
 
   async lockUsageBudget(businessId: string, kind: UsageKind, periodKey: string) {
     await this.client()`SELECT pg_advisory_xact_lock(hashtext(${`${businessId}:${kind}:${periodKey}`}))`;
+  }
+
+  async countHeldUsage(businessId: string, kind: UsageKind) {
+    const rows =
+      await this.client()`SELECT COUNT(*)::int as total FROM usage_events WHERE business_id = ${businessId} AND kind = ${kind} AND status = ${"held"}`;
+    return Number(rows[0]?.total ?? 0);
+  }
+
+  async transitionUsageEvent(id: string, fromStatus: UsageEvent["status"], event: UsageEvent) {
+    const rows = await this.client()`
+      UPDATE usage_events
+      SET units = ${event.units}, metadata_json = ${event.metadata ? JSON.stringify(event.metadata) : null},
+          status = ${event.status ?? null}, expires_at = ${event.expiresAt ?? null}
+      WHERE id = ${id} AND status = ${fromStatus ?? null}
+      RETURNING *
+    `;
+    return rows[0] ? mapUsage(rows[0] as Row) : null;
   }
 
   async reset() {
@@ -286,10 +304,11 @@ export class PostgresCompanionStore implements CompanionStore {
 
   async addStudioDraft(draft: StudioDraft) {
     await this.client()`
-      INSERT INTO studio_drafts(id,business_id,work_item_id,layout,layers_json,selected_asset_id,source_work_item_id,created_at,updated_at)
+      INSERT INTO studio_drafts(id,business_id,work_item_id,layout,layers_json,selected_asset_id,source_work_item_id,created_at,updated_at,save_revision)
       VALUES (
         ${draft.id}, ${draft.businessId}, ${draft.workItemId}, ${draft.layout}, ${JSON.stringify(draft.layers)},
-        ${draft.selectedAssetId ?? null}, ${draft.sourceWorkItemId ?? null}, ${draft.createdAt}, ${draft.updatedAt}
+        ${draft.selectedAssetId ?? null}, ${draft.sourceWorkItemId ?? null}, ${draft.createdAt}, ${draft.updatedAt},
+        ${draft.saveRevision ?? 1}
       )
     `;
     return draft;
@@ -309,18 +328,20 @@ export class PostgresCompanionStore implements CompanionStore {
     await this.client()`
       UPDATE studio_drafts
       SET layout = ${draft.layout}, layers_json = ${JSON.stringify(draft.layers)},
-          selected_asset_id = ${draft.selectedAssetId ?? null}, updated_at = ${draft.updatedAt}
+          selected_asset_id = ${draft.selectedAssetId ?? null}, updated_at = ${draft.updatedAt},
+          save_revision = ${draft.saveRevision ?? 1}
       WHERE id = ${draft.id}
     `;
     return draft;
   }
 
-  async compareAndSwapStudioDraft(draft: StudioDraft, expectedUpdatedAt: string) {
+  async compareAndSwapStudioDraft(draft: StudioDraft, expectedSaveRevision: number) {
     const rows = await this.client()`
       UPDATE studio_drafts
       SET layout = ${draft.layout}, layers_json = ${JSON.stringify(draft.layers)},
-          selected_asset_id = ${draft.selectedAssetId ?? null}, updated_at = ${draft.updatedAt}
-      WHERE id = ${draft.id} AND updated_at = ${expectedUpdatedAt}
+          selected_asset_id = ${draft.selectedAssetId ?? null}, updated_at = ${draft.updatedAt},
+          save_revision = ${draft.saveRevision}
+      WHERE id = ${draft.id} AND save_revision = ${expectedSaveRevision}
       RETURNING *
     `;
     return rows[0] ? mapStudioDraft(rows[0] as Row) : null;
@@ -394,17 +415,13 @@ export class PostgresCompanionStore implements CompanionStore {
   }
 
   async releaseExpiredHolds(asOfIso: string) {
-    const rows =
-      await this.client()`SELECT * FROM usage_events WHERE status = 'held' AND expires_at IS NOT NULL AND expires_at <= ${asOfIso}`;
-    for (const row of rows) {
-      const event = mapUsage(row as Row);
-      await this.updateUsageEvent({
-        ...event,
-        status: "released",
-        expiresAt: undefined,
-        metadata: { ...event.metadata, status: "released", releasedAt: asOfIso, reason: "expired_hold" }
-      });
-    }
+    const rows = await this.client()`
+      UPDATE usage_events
+      SET status = ${"released"}, expires_at = NULL,
+          metadata_json = ${JSON.stringify({ status: "released", releasedAt: asOfIso, reason: "expired_hold" })}
+      WHERE status = ${"held"} AND expires_at IS NOT NULL AND expires_at <= ${asOfIso}
+      RETURNING id
+    `;
     return rows.length;
   }
 

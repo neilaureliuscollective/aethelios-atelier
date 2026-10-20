@@ -91,23 +91,35 @@ export class CompanionUsage {
     operationId?: string
   ): Promise<UsageReservation> {
     const op = operationId || (typeof metadata?.operationId === "string" ? metadata.operationId : companionId("op"));
-    return this.store.runInTransaction(async () => {
+    return withProcessLock(`${businessId}:${kind}:${periodStartIso()}`, () =>
+    this.store.runInTransaction(async () => {
       await this.workspace.requireMembership(businessId, user);
       await this.store.companion.lockUsageBudget(businessId, kind, periodStartIso());
       await this.store.companion.releaseExpiredHolds(new Date().toISOString());
       const existing = await this.store.companion.getUsageByOperation(businessId, op);
-      if (existing) {
+      if (existing?.status === "held" || existing?.status === "settled") {
         return { event: existing, reused: true };
       }
       if (kind === "talk" || kind === "image" || kind === "voice") {
-        const pending = await this.store.companion.countPendingJobs(businessId, kind);
+        const held = await this.store.companion.countHeldUsage(businessId, kind);
         const limit = limitsForPlan(
           (await this.workspace.requireMembership(businessId, user)).business.planId,
           configuredLimitOverrides()
         ).concurrentGenerations;
-        if (pending >= limit) {
+        if (held >= limit) {
           throw new LimitError("A generation is already in progress for this workspace. Wait for it to finish or retry the same request.");
         }
+      }
+      if (existing?.status === "released") {
+        const reheld: UsageEvent = {
+          ...existing,
+          status: "held",
+          units,
+          expiresAt: new Date(Date.now() + USAGE_HOLD_MS).toISOString(),
+          metadata: { ...metadata, status: "held", operationId: op, retriedAt: new Date().toISOString() }
+        };
+        const swapped = await this.store.companion.transitionUsageEvent(existing.id, "released", reheld);
+        if (swapped) return { event: swapped };
       }
       const snapshot = await this.snapshotInTx(businessId, user);
       const check = assertWithinBudget(snapshot, kind, units);
@@ -125,7 +137,8 @@ export class CompanionUsage {
         metadata: { ...metadata, status: "held", operationId: op }
       });
       return { event };
-    });
+    })
+    );
   }
 
   async settle(reservation: UsageReservation, actualUnits?: number) {
@@ -144,8 +157,14 @@ export class CompanionUsage {
         expiresAt: undefined,
         metadata: { ...latest.metadata, status: "settled", settledAt: new Date().toISOString() }
       };
-      await this.store.companion.updateUsageEvent(event);
-      return event;
+      const swapped = await this.store.companion.transitionUsageEvent(latest.id, "held", event);
+      if (swapped) return swapped;
+      const current = await this.store.companion.getUsageEvent(latest.id);
+      if (current?.status === "settled") return current;
+      if (current?.status === "released") {
+        throw new LimitError("That usage hold was already released and cannot be settled.");
+      }
+      throw new LimitError("That usage hold could not be settled.");
     });
   }
 
@@ -160,7 +179,10 @@ export class CompanionUsage {
         expiresAt: undefined,
         metadata: { ...latest.metadata, status: "released", releasedAt: new Date().toISOString() }
       };
-      await this.store.companion.updateUsageEvent(event);
+      const swapped = await this.store.companion.transitionUsageEvent(latest.id, "held", event);
+      if (swapped) return swapped;
+      const current = await this.store.companion.getUsageEvent(latest.id);
+      if (current) return current;
       return event;
     });
   }
@@ -180,9 +202,9 @@ export class CompanionUsage {
 
   async assertConcurrent(businessId: string, user: User, kind: "talk" | "image" | "voice") {
     const context = await this.workspace.requireMembership(businessId, user);
-    const pending = await this.store.companion.countPendingJobs(businessId, kind);
+    const held = await this.store.companion.countHeldUsage(businessId, kind);
     const limit = limitsForPlan(context.business.planId, configuredLimitOverrides()).concurrentGenerations;
-    if (pending >= limit) {
+    if (held >= limit) {
       throw new LimitError("A generation is already in progress for this workspace. Wait for it to finish or retry the same request.");
     }
   }

@@ -47,6 +47,19 @@ export function hashPng(bytes: Uint8Array) {
   return createHash("sha256").update(Buffer.from(bytes)).digest("hex");
 }
 
+/** Max absolute per-channel difference allowed when comparing preview and export rasters. */
+export const RASTER_TOLERANCE = 2;
+
+export function maxChannelDelta(left: Uint8Array | number[], right: Uint8Array | number[]) {
+  if (left.length !== right.length) return Number.POSITIVE_INFINITY;
+  let max = 0;
+  for (let i = 0; i < left.length; i += 1) {
+    const delta = Math.abs((left[i] ?? 0) - (right[i] ?? 0));
+    if (delta > max) max = delta;
+  }
+  return max;
+}
+
 export function decodePng(bytes: Uint8Array) {
   try {
     const png = PNG.sync.read(Buffer.from(bytes), { checkCRC: true });
