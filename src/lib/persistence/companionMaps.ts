@@ -7,6 +7,7 @@ import type {
   BusinessMember,
   BusinessProfile,
   GuestWorkClaim,
+  GuestWorkOwner,
   GuestWorkKind,
   CompanionBlob,
   CompanionConversation,
@@ -39,6 +40,14 @@ export function mapGuestClaim(row: Row): GuestWorkClaim {
     kind: asString(row.kind) as GuestWorkKind,
     destination: asString(row.destination),
     payloadJson: asString(row.payload_json),
+    createdAt: asString(row.created_at)
+  };
+}
+
+export function mapGuestOwner(row: Row): GuestWorkOwner {
+  return {
+    guestWorkId: asString(row.guest_work_id),
+    ownerId: asString(row.owner_id),
     createdAt: asString(row.created_at)
   };
 }

@@ -8,6 +8,7 @@ import type {
   BusinessMember,
   BusinessProfile,
   GuestWorkClaim,
+  GuestWorkOwner,
   CompanionBlob,
   CompanionConversation,
   CompanionMessage,
@@ -26,6 +27,7 @@ import {
   mapBusiness,
   mapConfirmation,
   mapGuestClaim,
+  mapGuestOwner,
   mapCompanionMessage,
   mapConversation,
   mapDocument,
@@ -59,6 +61,7 @@ export class SqliteCompanionStore implements CompanionStore {
     this.ensureJobAttemptColumn();
     this.ensureConfirmationDraftColumn();
     this.ensureGuestClaimRevisions();
+    this.ensureGuestWorkOwners();
   }
 
   private ensureProjectBusinessColumn() {
@@ -141,6 +144,22 @@ export class SqliteCompanionStore implements CompanionStore {
         FROM guest_work_claims;
       DROP TABLE guest_work_claims;
       ALTER TABLE guest_work_claims_v2 RENAME TO guest_work_claims;
+    `);
+  }
+
+  private ensureGuestWorkOwners() {
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS guest_work_owners (
+        guest_work_id TEXT PRIMARY KEY,
+        owner_id TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+      INSERT OR IGNORE INTO guest_work_owners(guest_work_id, owner_id, created_at)
+        SELECT c.guest_work_id, c.owner_id, c.created_at
+        FROM guest_work_claims c
+        WHERE c.created_at = (
+          SELECT MIN(c2.created_at) FROM guest_work_claims c2 WHERE c2.guest_work_id = c.guest_work_id
+        );
     `);
   }
 
@@ -272,6 +291,24 @@ export class SqliteCompanionStore implements CompanionStore {
     const stored = this.getGuestWorkClaim(claim.guestWorkId, claim.sourceRevision);
     if (!stored) {
       throw new Error("The guest work claim could not be stored.");
+    }
+    return stored;
+  }
+
+  getGuestWorkOwner(guestWorkId: string) {
+    const row = this.db.prepare("SELECT * FROM guest_work_owners WHERE guest_work_id = ?").get(guestWorkId) as
+      | Row
+      | undefined;
+    return row ? mapGuestOwner(row) : null;
+  }
+
+  claimGuestWorkOwner(owner: GuestWorkOwner) {
+    this.db
+      .prepare("INSERT OR IGNORE INTO guest_work_owners(guest_work_id, owner_id, created_at) VALUES(?,?,?)")
+      .run(owner.guestWorkId, owner.ownerId, owner.createdAt);
+    const stored = this.getGuestWorkOwner(owner.guestWorkId);
+    if (!stored) {
+      throw new Error("The guest work owner could not be stored.");
     }
     return stored;
   }

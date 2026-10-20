@@ -537,6 +537,77 @@ describe.skipIf(!isolated)("PostgreSQL companion integration", () => {
     expect(await storeA.companion.listStudioDrafts(ctx.business.id)).toHaveLength(2);
   }, 60_000);
 
+  it("lets only one account own all revisions when two connections claim different revisions first", async () => {
+    const { storeA, storeB, owner } = await openStores();
+    const other = (await storeA.getUserByEmail("owner-two.local@atelier.invalid")) as User;
+    const guestsA = new GuestWorkService(storeA);
+    const guestsB = new GuestWorkService(storeB);
+    const results = await Promise.allSettled([
+      guestsA.claim(owner, {
+        guestWorkId: "dsel_pg_split",
+        kind: "discovery",
+        payload: { selectionId: "dsel_pg_split", localRevision: 1, selectedDirectionId: "lumen", paletteId: "ivory_hall" }
+      }),
+      guestsB.claim(other, {
+        guestWorkId: "dsel_pg_split",
+        kind: "discovery",
+        payload: { selectionId: "dsel_pg_split", localRevision: 2, selectedDirectionId: "signal", paletteId: "signal_ink" }
+      })
+    ]);
+    const won = results.filter((item) => item.status === "fulfilled");
+    const lost = results.filter((item) => item.status === "rejected");
+    expect(won).toHaveLength(1);
+    expect(lost).toHaveLength(1);
+    expect(lost[0]?.status === "rejected" && lost[0].reason).toBeInstanceOf(ForbiddenError);
+    const winner = won[0]?.status === "fulfilled" ? won[0].value : null;
+    expect(winner).toBeTruthy();
+    const ownerRow = await storeA.companion.getGuestWorkOwner("dsel_pg_split");
+    expect(ownerRow?.ownerId).toBe(winner?.ownerId);
+    const winnerService = winner?.ownerId === owner.id ? guestsA : guestsB;
+    const loserService = winner?.ownerId === owner.id ? guestsB : guestsA;
+    const loser = winner?.ownerId === owner.id ? other : owner;
+    await expect(loserService.readForUser(loser, "dsel_pg_split")).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(loserService.readForUser(loser, "dsel_pg_split", 1)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(loserService.readForUser(loser, "dsel_pg_split", 2)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(
+      loserService.claim(loser, {
+        guestWorkId: "dsel_pg_split",
+        kind: "discovery",
+        payload: { selectionId: "dsel_pg_split", localRevision: 3, selectedDirectionId: "hearth" }
+      })
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    const later = await winnerService.claim(winner!.ownerId === owner.id ? owner : other, {
+      guestWorkId: "dsel_pg_split",
+      kind: "discovery",
+      payload: {
+        selectionId: "dsel_pg_split",
+        localRevision: winner!.sourceRevision === 1 ? 2 : 3,
+        selectedDirectionId: "hearth",
+        paletteId: "hearth_linen"
+      }
+    });
+    expect(later.ownerId).toBe(winner!.ownerId);
+    expect((await storeA.companion.getGuestWorkClaim("dsel_pg_split", winner!.sourceRevision))?.payloadJson).toBe(
+      winner!.payloadJson
+    );
+    const independent = await guestsB.claim(other, {
+      guestWorkId: "dsel_pg_unrelated",
+      kind: "discovery",
+      payload: { selectionId: "dsel_pg_unrelated", localRevision: 1, selectedDirectionId: "hearth" }
+    });
+    expect(independent.ownerId).toBe(other.id);
+    const loserCtx = await new CompanionWorkspace(storeB).ensureForUser(loser);
+    await expect(
+      new BusinessAdoption(storeB).confirm(loserCtx.business.id, loser, {
+        businessName: "Stolen",
+        businessContext: "no",
+        sourceSelectionId: "dsel_pg_split",
+        sourceRevision: winner!.sourceRevision,
+        directionId: "lumen"
+      })
+    ).rejects.toBeInstanceOf(ForbiddenError);
+  }, 60_000);
+
   it("initializes two connections against an empty schema without a type-name race", async () => {
     const postgres = (await import("postgres")).default;
     const admin = postgres(url, { max: 1, prepare: false, connection: { application_name: "atelier-init-admin" } });

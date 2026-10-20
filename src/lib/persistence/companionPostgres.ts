@@ -8,6 +8,7 @@ import type {
   BusinessMember,
   BusinessProfile,
   GuestWorkClaim,
+  GuestWorkOwner,
   CompanionBlob,
   CompanionConversation,
   CompanionMessage,
@@ -26,6 +27,7 @@ import {
   mapBusiness,
   mapConfirmation,
   mapGuestClaim,
+  mapGuestOwner,
   mapCompanionMessage,
   mapConversation,
   mapDocument,
@@ -69,6 +71,7 @@ export class PostgresCompanionStore implements CompanionStore {
     await this.client().unsafe("ALTER TABLE generation_jobs ADD COLUMN IF NOT EXISTS attempt INTEGER NOT NULL DEFAULT 1");
     await this.client().unsafe("ALTER TABLE business_confirmations ADD COLUMN IF NOT EXISTS studio_draft_id TEXT");
     await this.ensureGuestClaimRevisions();
+    await this.ensureGuestWorkOwners();
   }
 
   private async ensureGuestClaimRevisions() {
@@ -98,6 +101,23 @@ export class PostgresCompanionStore implements CompanionStore {
         END IF;
       END
       $$;
+    `);
+  }
+
+  private async ensureGuestWorkOwners() {
+    await this.client().unsafe(`
+      CREATE TABLE IF NOT EXISTS guest_work_owners (
+        guest_work_id TEXT PRIMARY KEY,
+        owner_id TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    `);
+    await this.client().unsafe(`
+      INSERT INTO guest_work_owners(guest_work_id, owner_id, created_at)
+      SELECT DISTINCT ON (guest_work_id) guest_work_id, owner_id, created_at
+      FROM guest_work_claims
+      ORDER BY guest_work_id, created_at ASC, source_revision ASC
+      ON CONFLICT (guest_work_id) DO NOTHING
     `);
   }
 
@@ -218,6 +238,24 @@ export class PostgresCompanionStore implements CompanionStore {
     const stored = await this.getGuestWorkClaim(claim.guestWorkId, claim.sourceRevision);
     if (!stored) {
       throw new Error("The guest work claim could not be stored.");
+    }
+    return stored;
+  }
+
+  async getGuestWorkOwner(guestWorkId: string) {
+    const rows = await this.client()`SELECT * FROM guest_work_owners WHERE guest_work_id = ${guestWorkId}`;
+    return rows[0] ? mapGuestOwner(rows[0] as Row) : null;
+  }
+
+  async claimGuestWorkOwner(owner: GuestWorkOwner) {
+    await this.client()`
+      INSERT INTO guest_work_owners(guest_work_id, owner_id, created_at)
+      VALUES (${owner.guestWorkId}, ${owner.ownerId}, ${owner.createdAt})
+      ON CONFLICT (guest_work_id) DO NOTHING
+    `;
+    const stored = await this.getGuestWorkOwner(owner.guestWorkId);
+    if (!stored) {
+      throw new Error("The guest work owner could not be stored.");
     }
     return stored;
   }

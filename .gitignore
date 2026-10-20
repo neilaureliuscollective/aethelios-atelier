@@ -8,6 +8,7 @@ out
 .data-atelier-visual
 .data-adopt-verify
 .data-visual
+.data-delivery
 .vercel
 .env
 .env.local

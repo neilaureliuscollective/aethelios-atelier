@@ -7,6 +7,7 @@ import type {
   BusinessMember,
   BusinessProfile,
   GuestWorkClaim,
+  GuestWorkOwner,
   CompanionBlob,
   CompanionConversation,
   CompanionMessage,
@@ -30,6 +31,7 @@ export class MemoryCompanionStore implements CompanionStore {
   private businesses = new Map<string, Business>();
   private initialBusiness = new Map<string, string>();
   private guestClaims = new Map<string, GuestWorkClaim>();
+  private guestOwners = new Map<string, GuestWorkOwner>();
   private confirmations = new Map<string, BusinessConfirmation>();
   private members = new Map<string, BusinessMember>();
   private profiles = new Map<string, BusinessProfile>();
@@ -51,6 +53,7 @@ export class MemoryCompanionStore implements CompanionStore {
       businesses: new Map(this.businesses),
       initialBusiness: new Map(this.initialBusiness),
       guestClaims: new Map(this.guestClaims),
+      guestOwners: new Map(this.guestOwners),
       confirmations: new Map(this.confirmations),
       members: new Map(this.members),
       profiles: new Map(this.profiles),
@@ -64,6 +67,7 @@ export class MemoryCompanionStore implements CompanionStore {
     this.businesses = new Map(snapshot.businesses);
     this.initialBusiness = new Map(snapshot.initialBusiness);
     this.guestClaims = new Map(snapshot.guestClaims);
+    this.guestOwners = new Map(snapshot.guestOwners);
     this.confirmations = new Map(snapshot.confirmations);
     this.members = new Map(snapshot.members);
     this.profiles = new Map(snapshot.profiles);
@@ -76,6 +80,7 @@ export class MemoryCompanionStore implements CompanionStore {
     this.businesses.clear();
     this.initialBusiness.clear();
     this.guestClaims.clear();
+    this.guestOwners.clear();
     this.confirmations.clear();
     this.members.clear();
     this.profiles.clear();
@@ -156,6 +161,18 @@ export class MemoryCompanionStore implements CompanionStore {
     if (existing) return clone(existing);
     this.guestClaims.set(key, clone(claim));
     return clone(claim);
+  }
+
+  getGuestWorkOwner(guestWorkId: string) {
+    const item = this.guestOwners.get(guestWorkId);
+    return item ? clone(item) : null;
+  }
+
+  claimGuestWorkOwner(owner: GuestWorkOwner) {
+    const existing = this.guestOwners.get(owner.guestWorkId);
+    if (existing) return clone(existing);
+    this.guestOwners.set(owner.guestWorkId, clone(owner));
+    return clone(owner);
   }
 
   getBusinessConfirmation(businessId: string) {

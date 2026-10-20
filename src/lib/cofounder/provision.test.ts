@@ -209,6 +209,49 @@ describe("guest work claims", () => {
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
 
+  it("assigns one owner when two accounts race different revisions of an unclaimed selection", async () => {
+    const { store, owner, other } = await setup();
+    const service = new GuestWorkService(store);
+    const results = await Promise.allSettled([
+      service.claim(owner, {
+        guestWorkId: "dsel_split",
+        kind: "discovery",
+        payload: { selectionId: "dsel_split", localRevision: 1, selectedDirectionId: "lumen" }
+      }),
+      service.claim(other, {
+        guestWorkId: "dsel_split",
+        kind: "discovery",
+        payload: { selectionId: "dsel_split", localRevision: 2, selectedDirectionId: "signal" }
+      })
+    ]);
+    const won = results.filter((item) => item.status === "fulfilled");
+    const lost = results.filter((item) => item.status === "rejected");
+    expect(won).toHaveLength(1);
+    expect(lost).toHaveLength(1);
+    expect(lost[0]?.status === "rejected" && lost[0].reason).toBeInstanceOf(ForbiddenError);
+    const winner = won[0]?.status === "fulfilled" ? won[0].value : null;
+    expect(winner).toBeTruthy();
+    const ownerRow = await store.companion.getGuestWorkOwner("dsel_split");
+    expect(ownerRow?.ownerId).toBe(winner?.ownerId);
+    const loser = winner?.ownerId === owner.id ? other : owner;
+    await expect(service.readForUser(loser, "dsel_split")).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(service.readForUser(loser, "dsel_split", 1)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(service.readForUser(loser, "dsel_split", 2)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(
+      service.claim(loser, {
+        guestWorkId: "dsel_split",
+        kind: "discovery",
+        payload: { selectionId: "dsel_split", localRevision: 3, selectedDirectionId: "hearth" }
+      })
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    const unrelated = await service.claim(loser, {
+      guestWorkId: "dsel_other",
+      kind: "discovery",
+      payload: { selectionId: "dsel_other", localRevision: 1, selectedDirectionId: "hearth" }
+    });
+    expect(unrelated.ownerId).toBe(loser.id);
+  });
+
   it("adopts a guest brief once and refuses a second account", async () => {
     const { store, owner, other } = await setup();
     const projects = new ProjectService(store);

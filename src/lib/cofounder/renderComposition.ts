@@ -96,11 +96,37 @@ function drawText(ctx: CanvasRenderingContext2D, box: CompositionBox, spec: Comp
     box.y * spec.height / 100 + index * box.fontSize * box.lineHeight));
 }
 
+export function compositionImageCrossOrigin(src: string): "anonymous" | null {
+  if (!src || src.startsWith("data:") || src.startsWith("blob:") || src.startsWith("/")) return null;
+  try {
+    const url = new URL(src, typeof location === "undefined" ? "http://localhost" : location.href);
+    if (typeof location !== "undefined" && url.origin === location.origin) return null;
+    return "anonymous";
+  } catch {
+    return null;
+  }
+}
+
 export function loadCompositionImage(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("A retained background or logo failed to load. Export was not marked complete."));
+    const crossOrigin = compositionImageCrossOrigin(src);
+    if (crossOrigin) img.crossOrigin = crossOrigin;
+    img.onload = () => {
+      if (img.naturalWidth < 1 || img.naturalHeight < 1) {
+        reject(new Error("A retained background or logo failed to load. Export was not marked complete."));
+        return;
+      }
+      resolve(img);
+    };
+    img.onerror = () =>
+      reject(
+        new Error(
+          crossOrigin
+            ? "A source image could not be loaded for export. Cross-origin images need CORS permission from their host. The draft was not marked exported."
+            : "A retained background or logo failed to load. Export was not marked complete."
+        )
+      );
     img.src = src;
   });
 }

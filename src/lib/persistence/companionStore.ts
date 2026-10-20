@@ -5,6 +5,7 @@ import type {
   BusinessMember,
   BusinessProfile,
   GuestWorkClaim,
+  GuestWorkOwner,
   CompanionBlob,
   CompanionConversation,
   CompanionMessage,
@@ -36,6 +37,8 @@ export type CompanionStore = {
   getGuestWorkClaim(guestWorkId: string, sourceRevision?: number | null): GuestWorkClaim | null | Promise<GuestWorkClaim | null>;
   listGuestWorkClaims(guestWorkId: string): GuestWorkClaim[] | Promise<GuestWorkClaim[]>;
   insertGuestWorkClaim(claim: GuestWorkClaim): GuestWorkClaim | Promise<GuestWorkClaim>;
+  getGuestWorkOwner(guestWorkId: string): GuestWorkOwner | null | Promise<GuestWorkOwner | null>;
+  claimGuestWorkOwner(owner: GuestWorkOwner): GuestWorkOwner | Promise<GuestWorkOwner>;
   getBusinessConfirmation(businessId: string): BusinessConfirmation | null | Promise<BusinessConfirmation | null>;
   upsertBusinessConfirmation(confirmation: BusinessConfirmation): BusinessConfirmation | Promise<BusinessConfirmation>;
   getStudioDirectionAdoption(
@@ -159,6 +162,11 @@ CREATE TABLE IF NOT EXISTS guest_work_claims (
   payload_json TEXT NOT NULL,
   created_at TEXT NOT NULL,
   PRIMARY KEY (guest_work_id, source_revision)
+);
+CREATE TABLE IF NOT EXISTS guest_work_owners (
+  guest_work_id TEXT PRIMARY KEY,
+  owner_id TEXT NOT NULL,
+  created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS business_confirmations (
   business_id TEXT PRIMARY KEY,
@@ -355,6 +363,7 @@ export const COMPANION_RESET_SQL = `
   DELETE FROM business_profiles;
   DELETE FROM business_confirmations;
   DELETE FROM guest_work_claims;
+  DELETE FROM guest_work_owners;
   DELETE FROM user_initial_business;
   DELETE FROM business_members;
   DELETE FROM businesses;

@@ -14,7 +14,14 @@ See `docs/launch/SOURCE_RECONCILIATION.md`.
 
 The actual immersive patch was present, hash-verified (283,258 bytes, SHA-256 `6ad51b91012226ae59a5e4d71fd30d6551ee9b753963d634b000b2eec352db35`), three-way applied, and reconciled file by file. `REHEARSAL.md` was not used as a substitute source.
 
-## What this pass added
+## What the artwork-delivery pass added
+
+- Insert-once `guest_work_owners` so two accounts cannot split revisions of one unclaimed selection
+- Studio export stages: render → save → saved → download / download-failed, with Download again
+- Logo upload failures keep the existing artwork
+- Real UI exports for Lumen and Hearth (1600×1200, distinct SHA-256, byte-identical reopen)
+
+## What the visual-continuity pass added
 
 - Direction → Refine → Collection, BrandKit, shared preview/export rendering, and saved-versus-working comparison from the approved immersive patch
 - Immutable owner-bound Discovery revisions: identical retry, same-revision conflict, newer revision claimable without overwriting the first snapshot
@@ -65,8 +72,8 @@ Owner-canvas-bound export SHA-256: `ab6b8492d0d565cba5fdaf31a9b92993e0f6fb74b0a8
 
 ## Configured launch acceptance
 
-See `docs/launch/HOSTED_ACTIVATION.md`. Hosted sign-in, callback origin, durable Postgres, artifact storage, two real accounts, one approved provider request, and GitHub Actions billing remain blocked or not run.
+See `docs/launch/ARTWORK_DELIVERY.md` for this pass and `docs/launch/HOSTED_ACTIVATION.md` for remaining gates.
 
-GitHub Actions `check` on `342ab8f` (run `39473099250`) failed in 3s because the job was not started: account payments failed or the spending limit must be increased. The same 3s billing failure already existed on earlier heads of this PR. Vercel preview completed; that is not launch acceptance.
+GitHub Actions `check` remains **blocked** by account billing / spending limit. A never-started Actions job is not a passing test suite. Vercel preview is not launch acceptance.
 
 Do not merge to `main` or deploy from this agent without a separate approval.

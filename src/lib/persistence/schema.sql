@@ -213,6 +213,11 @@ CREATE TABLE IF NOT EXISTS guest_work_claims (
   created_at TEXT NOT NULL,
   PRIMARY KEY (guest_work_id, source_revision)
 );
+CREATE TABLE IF NOT EXISTS guest_work_owners (
+  guest_work_id TEXT PRIMARY KEY,
+  owner_id TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS business_confirmations (
   business_id TEXT PRIMARY KEY,
   owner_id TEXT NOT NULL,

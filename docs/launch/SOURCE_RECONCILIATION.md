@@ -51,7 +51,11 @@ Owner-bound guest claims, transactional adoption, exact-draft navigation, idempo
 - `createFromConfirmedSnapshot` builds BrandKit + designSpec artwork (`direction_board`) instead of default square layers.
 - Confirmation opens that exact draft. Preview/export continue to share `renderComposition`.
 
-## Recovery patch
+## Artwork-delivery recovery patch
+
+`docs/launch/atelier-artwork-delivery.patch` is the recoverable diff of this pass against `b7e47e0`.
+
+## Visual-continuity recovery patch
 
 `docs/launch/atelier-visual-continuity.patch` is the recoverable diff of `a5f109a` against `a8aabc6` (382,993 bytes, SHA-256 `6357848f90527635509786b49620ec628af992b2a7aaf74c0757f7ead0af9e00`).
 

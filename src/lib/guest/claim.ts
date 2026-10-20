@@ -61,6 +61,14 @@ export class GuestWorkService {
     };
 
     return this.store.runInTransaction(async () => {
+      const owner = await this.store.companion.claimGuestWorkOwner({
+        guestWorkId,
+        ownerId: user.id,
+        createdAt: next.createdAt
+      });
+      if (owner.ownerId !== user.id) {
+        throw new ForbiddenError("This guest work already belongs to another account.");
+      }
       const siblings = await this.store.companion.listGuestWorkClaims(guestWorkId);
       const foreign = siblings.find((item) => item.ownerId !== user.id);
       if (foreign) {
@@ -103,6 +111,10 @@ export class GuestWorkService {
 
   async readForUser(user: User, guestWorkId: string, sourceRevision?: number | null) {
     const id = sanitizeGuestWorkId(guestWorkId);
+    const owner = await this.store.companion.getGuestWorkOwner(id);
+    if (owner && owner.ownerId !== user.id && user.role !== "founder") {
+      throw new ForbiddenError("This guest work already belongs to another account.");
+    }
     const claim =
       sourceRevision == null
         ? await this.store.companion.getGuestWorkClaim(id)

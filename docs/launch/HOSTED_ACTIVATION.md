@@ -2,7 +2,7 @@
 
 This is the next stage after local code-complete verification. Nothing here was activated by this agent.
 
-Local visual-brand continuity on this branch is complete: two distinct identities become editable Studio drafts, revision 2 is explicitly adoptable without overwriting revision 1, and preview/export share `renderComposition`. That does **not** satisfy any row below.
+Local artwork delivery on this branch is complete: selection ownership is atomic, saved export is distinct from download, and two real UI exports were re-downloaded. That does **not** satisfy any row below. The server binds owner-rendered bytes to a revision; it does not independently re-rasterize every pixel.
 
 | Integration | Status | What “verified” requires |
 | --- | --- | --- |

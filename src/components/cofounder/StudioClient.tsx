@@ -18,6 +18,7 @@ import {
   previewScale,
   scaleCompositionPx,
   studioLayouts,
+  STUDIO_LAYOUTS,
   type BrandPalette,
   type CompositionSpec
 } from "@/lib/cofounder/composition";
@@ -27,8 +28,46 @@ import styles from "./companion.module.css";
 import stage from "./studioStage.module.css";
 import { CompositionStudy } from "./CompositionStudy";
 import { isStudioBackgroundAsset, studioAssetKind } from "@/lib/cofounder/studioAssets";
+import {
+  exportDownloadFailedMessage,
+  exportSaveFailedMessage,
+  exportSavedStatus,
+  fetchSavedExportBytes,
+  triggerBrowserDownload,
+  type ExportDeliveryStage,
+  type SavedExportRef
+} from "@/lib/cofounder/exportDelivery";
 
 const LAYOUTS = studioLayouts();
+
+function recoverSavedExport(
+  list: StudioAsset[],
+  draft: StudioDraft | null,
+  biz?: string
+): SavedExportRef | null {
+  if (!draft || !biz) return null;
+  const item = list
+    .filter(
+      (asset) =>
+        asset.draftId === draft.id &&
+        studioAssetKind(asset) === "composition_export" &&
+        asset.status === "ready" &&
+        asset.blobId &&
+        asset.compositionRevisionId
+    )
+    .sort((left, right) => right.revision - left.revision)[0];
+  if (!item?.compositionRevisionId) return null;
+  const size = STUDIO_LAYOUTS[draft.layout] ?? STUDIO_LAYOUTS.direction_board;
+  return {
+    assetId: item.id,
+    assetUrl: assetUrl(biz, item.id),
+    revisionId: item.compositionRevisionId,
+    draftId: draft.id,
+    width: size.width,
+    height: size.height,
+    outputHash: item.outputHash
+  };
+}
 
 export function StudioClient() {
   const { user, generation } = useSession();
@@ -61,6 +100,9 @@ export function StudioClient() {
   const [logoDocumentId, setLogoDocumentId] = useState<string | undefined>();
   const [generating, setGenerating] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [exportStage, setExportStage] = useState<ExportDeliveryStage>("idle");
+  const [savedExport, setSavedExport] = useState<SavedExportRef | null>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const generateKeyRef = useRef<string | null>(null);
@@ -110,6 +152,13 @@ export function StudioClient() {
     setDrafts(data.drafts);
     setWorkItems(work.items);
     setAssets(data.assets ?? today.today.pendingAssets);
+    const nextDraft =
+      (search.get("draftId") && data.drafts.find((item) => item.id === search.get("draftId"))) ||
+      current ||
+      data.drafts[0] ||
+      null;
+    const recovered = recoverSavedExport(data.assets ?? today.today.pendingAssets, nextDraft, workspace.business.id);
+    if (recovered) setSavedExport(recovered);
     if (!restoreDraft) {
       setPhase("ready");
       return;
@@ -133,6 +182,12 @@ export function StudioClient() {
       if (!current || current.id !== resolved.draft.id || current.updatedAt !== resolved.draft.updatedAt) {
         hydrate(resolved.draft);
       }
+      const resolvedExport = recoverSavedExport(
+        data.assets ?? today.today.pendingAssets,
+        resolved.draft,
+        workspace.business.id
+      );
+      if (resolvedExport) setSavedExport(resolvedExport);
       setError("");
       setRecovery("");
       setPhase("ready");
@@ -382,18 +437,62 @@ export function StudioClient() {
     }
   }
 
+  async function downloadExistingExport(ref: SavedExportRef) {
+    setExporting(true);
+    setExportStage("downloading");
+    setError("");
+    setRecovery("");
+    setStatus("The export is saved. Downloading the existing file…");
+    try {
+      const blob = await fetchSavedExportBytes(ref);
+      triggerBrowserDownload(blob, `${ref.draftId}.png`);
+      setExportStage("saved");
+      setStatus(exportSavedStatus(ref));
+    } catch (err) {
+      setExportStage("download_failed");
+      setError(exportSaveFailedMessage(err, exportDownloadFailedMessage()));
+      setRecovery("The composition was not changed. Download again to retry the existing file.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   async function exportDraft() {
     if (!selected || !composition || exporting) return;
     setExporting(true);
     setError("");
     setRecovery("");
-    setStatus("Saving the exact revision, then exporting…");
+    setExportStage("rendering");
+    setStatus("Rendering this composition…");
+    let persisted: SavedExportRef | null = null;
     try {
       const saved = dirty ? await saveLayers() : selected;
       if (!saved) return;
-      const composedPngBase64 = await composePng(composition);
+      let composedPngBase64: string;
+      try {
+        composedPngBase64 = await composePng(composition);
+      } catch (err) {
+        setExportStage("idle");
+        setError(
+          exportSaveFailedMessage(
+            err,
+            "Rendering failed. The draft is still editable and was not marked exported."
+          )
+        );
+        setRecovery("Fix the artwork or replace the failed source image, then export again. Unsaved edits were kept.");
+        setStatus("");
+        return;
+      }
+      setExportStage("saving");
+      setStatus("Saving the exact revision…");
       const result = await api<{
-        exported: { labeled: string; dimensions: { width: number; height: number }; assetUrl?: string | null };
+        exported: {
+          labeled: string;
+          dimensions: { width: number; height: number };
+          assetUrl?: string | null;
+          asset?: { id: string; outputHash?: string };
+          revision?: { id: string };
+        };
       }>("/api/companion/studio/export", {
         method: "POST",
         body: JSON.stringify({
@@ -406,25 +505,45 @@ export function StudioClient() {
           expectedUpdatedAt: saved.updatedAt
         })
       });
-      setStatus(`Exported ${result.exported.dimensions.width}×${result.exported.dimensions.height}. The saved revision and file match.`);
-      if (result.exported.assetUrl) {
-        const file = await fetch(result.exported.assetUrl);
-        if (file.ok) {
-          const blob = await file.blob();
-          const objectUrl = URL.createObjectURL(blob);
-          const link = document.createElement("a");
-          link.href = objectUrl;
-          link.download = `${saved.id}.png`;
-          link.rel = "noopener";
-          link.click();
-          URL.revokeObjectURL(objectUrl);
-        }
+      if (!result.exported.assetUrl || !result.exported.asset?.id || !result.exported.revision?.id) {
+        throw new Error("The export was saved without a complete download reference. Reload Work and use Download exported revision.");
       }
-      await refresh();
+      persisted = {
+        assetId: result.exported.asset.id,
+        assetUrl: result.exported.assetUrl,
+        revisionId: result.exported.revision.id,
+        draftId: saved.id,
+        width: result.exported.dimensions.width,
+        height: result.exported.dimensions.height,
+        outputHash: result.exported.asset.outputHash
+      };
+      setSavedExport(persisted);
+      setExportStage("saved");
+      setStatus(`Export saved ${persisted.width}×${persisted.height}. Preparing download…`);
     } catch (err) {
-      setError(actionErrorMessage(err, "Export failed. The draft is still editable and was not marked exported."));
+      setExportStage("idle");
+      setError(
+        exportSaveFailedMessage(err, "Export failed. The draft is still editable and was not marked exported.")
+      );
       setRecovery("Keep editing, then retry export. A mismatched or 1×1 image will not mark Work as exported.");
       setStatus("");
+      return;
+    } finally {
+      if (!persisted) setExporting(false);
+    }
+    if (!persisted) return;
+    try {
+      setExportStage("downloading");
+      const blob = await fetchSavedExportBytes(persisted);
+      triggerBrowserDownload(blob, `${persisted.draftId}.png`);
+      setExportStage("saved");
+      setStatus(exportSavedStatus(persisted));
+      await refresh();
+    } catch (err) {
+      setExportStage("download_failed");
+      setError(exportSaveFailedMessage(err, exportDownloadFailedMessage()));
+      setRecovery("The export is saved. Download again to retry the existing file. A duplicate export was not created.");
+      await refresh();
     } finally {
       setExporting(false);
     }
@@ -475,29 +594,47 @@ export function StudioClient() {
   }
 
   async function uploadLogo(file: File) {
-    const bytesBase64 = await file.arrayBuffer().then((buffer) => {
-      const bytes = new Uint8Array(buffer);
-      let binary = "";
-      bytes.forEach((value) => {
-        binary += String.fromCharCode(value);
+    if (uploadingLogo || saving || exporting) return;
+    const previousLogo = { logoDocumentId, logoAssetId };
+    setUploadingLogo(true);
+    setError("");
+    setRecovery("");
+    setStatus("Uploading the original logo…");
+    try {
+      const bytesBase64 = await file.arrayBuffer().then((buffer) => {
+        const bytes = new Uint8Array(buffer);
+        let binary = "";
+        bytes.forEach((value) => {
+          binary += String.fromCharCode(value);
+        });
+        return btoa(binary);
       });
-      return btoa(binary);
-    });
-    const result = await api<{ document: { id: string } }>("/api/companion/documents", {
-      method: "POST",
-      body: JSON.stringify({
-        businessId,
-        title: file.name,
-        mime: file.type || "image/png",
-        bytesBase64,
-        kind: "logo"
-      })
-    });
-    setLogoDocumentId(result.document.id);
-    setLogoAssetId(undefined);
-    setDirty(true);
-    setStatus("Original logo stored. Preview and export use the same placement.");
-    if (selected) await saveLayers(result.document.id);
+      const result = await api<{ document: { id: string } }>("/api/companion/documents", {
+        method: "POST",
+        body: JSON.stringify({
+          businessId,
+          title: file.name,
+          mime: file.type || "image/png",
+          bytesBase64,
+          kind: "logo"
+        })
+      });
+      setLogoDocumentId(result.document.id);
+      setLogoAssetId(undefined);
+      setDirty(true);
+      setStatus("Original logo stored. Preview and export use the same placement.");
+      if (selected) await saveLayers(result.document.id);
+    } catch (err) {
+      setLogoDocumentId(previousLogo.logoDocumentId);
+      setLogoAssetId(previousLogo.logoAssetId);
+      setError(
+        actionErrorMessage(err, "Logo upload failed. The existing logo, composition, and chosen direction were kept.")
+      );
+      setRecovery("Retry the same file. The current artwork was not replaced.");
+      setStatus("");
+    } finally {
+      setUploadingLogo(false);
+    }
   }
 
   async function importWork(item: WorkItem) {
@@ -523,9 +660,13 @@ export function StudioClient() {
         : dirty
           ? "Unsaved"
           : exporting
-            ? "Exporting"
-            : !dirty && status.toLowerCase().startsWith("exported")
-              ? "Exported"
+            ? exportStage === "downloading"
+              ? "Downloading"
+              : "Exporting"
+            : exportStage === "download_failed"
+              ? "Download failed"
+              : savedExport && !dirty
+              ? "Export saved"
               : selected
                 ? "Saved"
                 : "";
@@ -629,7 +770,7 @@ export function StudioClient() {
           </div></div>
           <div className={stage.toolDock} aria-label="Select an element">{["Content", "Image", "Brand", "Layout"].map((name) => <button key={name} type="button" aria-pressed={panel === name && mode === "refine"} onClick={() => focusPanel(name)}>{name === "Content" ? "Aa · Text" : name === "Image" ? "◈ · Image" : name === "Brand" ? "◇ · Logo" : "▣ · Format"}</button>)}</div>
           <div className={stage.collection} data-expanded={mode === "collection"} aria-label="Coordinated artifact previews">{collection.map((item) => <button key={item.format} type="button" className={stage.study} aria-pressed={layout === item.format} disabled={kept.includes("Layout") || saving || exporting} onClick={() => { markDirty(setLayout)(item.format); setMode("refine"); }}><span className={stage.studyCanvas}><CompositionStudy spec={item.spec} label={`${item.label} live collection preview`} /></span><span>{item.label}<small>{layout === item.format ? "On stage" : "Open & edit"}</small></span></button>)}</div>
-          <div className={stage.stageActions}><button className="btn btn-gold" type="button" onClick={() => void saveLayers()} disabled={!selected || saving}>{saving ? "Saving…" : dirty ? "Save layers" : "Saved"}</button><button className="btn btn-emerald-glass" type="button" onClick={() => void exportDraft()} disabled={!selected || exporting}>{exporting ? "Exporting…" : "Export"}</button><button className={stage.compare} type="button" disabled={!current || !dirty} onClick={() => { hydrate(current); setStatus("Restored the last saved composition."); }}>Reset edits</button></div>
+          <div className={stage.stageActions}><button className="btn btn-gold" type="button" onClick={() => void saveLayers()} disabled={!selected || saving}>{saving ? "Saving…" : dirty ? "Save layers" : "Saved"}</button><button className="btn btn-emerald-glass" type="button" onClick={() => void exportDraft()} disabled={!selected || exporting}>{exporting ? exportStage === "downloading" ? "Downloading…" : exportStage === "saving" ? "Saving export…" : "Exporting…" : "Export"}</button>{savedExport ? <button className="btn btn-ghost" type="button" onClick={() => void downloadExistingExport(savedExport)} disabled={exporting}>{exportStage === "download_failed" ? "Download again" : "Download saved export"}</button> : null}<button className={stage.compare} type="button" disabled={!current || !dirty} onClick={() => { hydrate(current); setStatus("Restored the last saved composition."); }}>Reset edits</button></div>
           <p className={styles.meta} role="status">{status}</p>
           {error ? <p className="notice notice-warn">{error}</p> : null}
           {recovery ? <p className={styles.meta}>{recovery}</p> : null}
@@ -772,9 +913,13 @@ export function StudioClient() {
               className={styles.file}
               type="file"
               accept="image/*"
+              disabled={uploadingLogo || saving || exporting}
               onChange={(event) => {
                 const file = event.target.files?.[0];
-                if (file) void uploadLogo(file);
+                if (file) {
+                  void uploadLogo(file);
+                  event.currentTarget.value = "";
+                }
               }}
             />
             <label className={styles.label} htmlFor="logo-x">
@@ -831,6 +976,15 @@ export function StudioClient() {
 async function composePng(spec: CompositionSpec) {
   // Match preview rasterization without inheriting CSS text styles from a mounted canvas.
   const target = await renderComposition(spec, document.createElement("canvas"));
-  const data = target.toDataURL("image/png");
-  return data.replace(/^data:image\/png;base64,/, "");
+  try {
+    const data = target.toDataURL("image/png");
+    return data.replace(/^data:image\/png;base64,/, "");
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "SecurityError") {
+      throw new Error(
+        "This composition includes an image this browser cannot export safely. Use a workspace-owned source image, then retry. The draft was not marked exported."
+      );
+    }
+    throw error;
+  }
 }

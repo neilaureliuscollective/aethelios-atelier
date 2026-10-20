@@ -107,6 +107,12 @@ export type GuestWorkClaim = {
   createdAt: string;
 };
 
+export type GuestWorkOwner = {
+  guestWorkId: string;
+  ownerId: string;
+  createdAt: string;
+};
+
 export type BusinessConfirmation = {
   businessId: string;
   ownerId: string;

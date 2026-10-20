@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildComposition, defaultLayers } from "./composition";
-import { renderComposition } from "./renderComposition";
+import { compositionImageCrossOrigin, renderComposition } from "./renderComposition";
 import { createDraft } from "@/lib/discovery";
 import { trustedSpecFromDiscovery } from "@/lib/design-spec/fromDiscovery";
 
@@ -55,6 +55,12 @@ describe("shared preview/export renderer", () => {
     expect(texts).toContain(spec.palette.accent.toUpperCase());
     expect(texts).toContain(spec.board?.typeLabel);
     expect(texts.some(text => text.includes("Curated concept — no live AI"))).toBe(true);
+  });
+
+  it("does not request CORS for same-origin workspace assets and does for foreign hosts", () => {
+    expect(compositionImageCrossOrigin("/api/companion/assets/asset_1?businessId=biz")).toBeNull();
+    expect(compositionImageCrossOrigin("data:image/png;base64,aaa")).toBeNull();
+    expect(compositionImageCrossOrigin("https://foreign.example/logo.png")).toBe("anonymous");
   });
 
   it("refuses to silently export overflowing text", async () => {
