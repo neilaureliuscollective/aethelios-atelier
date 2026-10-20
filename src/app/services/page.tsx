@@ -1,113 +1,131 @@
 import type { Metadata } from "next";
 import { AppLink } from "@/components/ui/AppLink";
-import { CalendarIcon, GlobeIcon, NodesIcon } from "@/components/ui/Icons";
+import { AppsIcon, GlobeIcon, NodesIcon, StoreIcon } from "@/components/ui/Icons";
 import { Reveal } from "@/components/motion/Reveal";
+import {
+  DemoApp,
+  DemoInfra,
+  DemoStore,
+  DemoWebsite,
+  DeviceFrame
+} from "@/components/marketing/DeviceFrame";
 import { SERVICE_CATALOG } from "@/lib/catalog";
+import { SERVICE_CATEGORY_COPY } from "@/lib/serviceCategories";
 
 export const metadata: Metadata = { title: "Services" };
 
-export default function ServicesPage() {
-  const website = SERVICE_CATALOG.offers.find((o) => o.id === "website");
-  const booking = SERVICE_CATALOG.offers.find((o) => o.id === "booking_connected_website");
-  const infra = SERVICE_CATALOG.offers.find((o) => o.id === "digital_infrastructure");
+const SECTIONS = [
+  {
+    id: "website",
+    href: "/discover?interest=website",
+    icon: GlobeIcon,
+    reverse: false,
+    visual: (
+      <DeviceFrame variant="desktop" depth="tile" label="Illustrative branded website">
+        <DemoWebsite />
+      </DeviceFrame>
+    )
+  },
+  {
+    id: "custom_apps_platforms",
+    href: "/discover?interest=custom_apps_platforms",
+    icon: AppsIcon,
+    reverse: true,
+    visual: (
+      <DeviceFrame variant="desktop" depth="tile" label="Illustrative custom app">
+        <DemoApp />
+      </DeviceFrame>
+    )
+  },
+  {
+    id: "ecommerce_storefronts",
+    href: "/discover?interest=ecommerce_storefronts",
+    icon: StoreIcon,
+    reverse: false,
+    visual: (
+      <DeviceFrame variant="desktop" depth="tile" label="Illustrative storefront">
+        <DemoStore />
+      </DeviceFrame>
+    )
+  },
+  {
+    id: "digital_infrastructure",
+    href: "/discover?interest=digital_infrastructure",
+    icon: NodesIcon,
+    reverse: true,
+    hash: "digital-infrastructure",
+    visual: (
+      <DeviceFrame variant="desktop" depth="tile" label="Illustrative infrastructure workflow">
+        <DemoInfra />
+      </DeviceFrame>
+    )
+  }
+] as const;
 
+export default function ServicesPage() {
   return (
     <section className="container section">
       <p className="kicker">Services</p>
       <h1>What can be commissioned now.</h1>
       <p className="lede">
         Pricing and commercial terms are not finalized. Aethelios may explain only these approved
-        options. Neil confirms every proposal. Other business niches can be discussed; they are not
-        pretended to be packaged products.
+        options. Neil confirms every proposal. Branding can be part of any of these paths, or a
+        separately scoped identity commission — it is not required to begin.
       </p>
 
-      <Reveal as="article" className="service-feature surface-dimensional">
-        <div>
-          <p className="tiny">Offered</p>
-          <GlobeIcon />
-          <h2>{website?.title}</h2>
-          <p className="lede">{website?.summary}</p>
-          <AppLink className="btn btn-gold" href="/discover?interest=website">
-            Explore a website direction
-          </AppLink>
-        </div>
-        <div className="surface-read service-spec">
-          <h3>Includes</h3>
-          <ul>
-            {website?.includes.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-          <h3>Does not include</h3>
-          <ul>
-            {website?.excludes.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </div>
-      </Reveal>
-
-      <Reveal as="article" className="service-feature service-feature-reverse surface-glass" delay={1}>
-        <div>
-          <p className="tiny">Primary path</p>
-          <CalendarIcon />
-          <h2>{booking?.title}</h2>
-          <p className="lede">{booking?.summary}</p>
-          <p className="notice">
-            Existing booking providers continue handling appointments and payments. Atelier does not
-            operate a scheduling engine in this candidate.
-          </p>
-          <AppLink className="btn btn-gold" href="/discover?interest=booking_connected_website">
-            Explore a booking-connected direction
-          </AppLink>
-        </div>
-        <div className="surface-read service-spec">
-          <h3>Includes</h3>
-          <ul>
-            {booking?.includes.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-          <h3>Does not include</h3>
-          <ul>
-            {booking?.excludes.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </div>
-      </Reveal>
-
-      <Reveal as="article" className="service-feature surface-read" delay={2} id="digital-infrastructure">
-        <div>
-          <p className="tiny">Exploratory</p>
-          <NodesIcon />
-          <h2>{infra?.title}</h2>
-          <p className="lede">{infra?.summary}</p>
-          <AppLink className="btn btn-ghost" href="/project">
-            Open a brief to discuss this
-          </AppLink>
-        </div>
-        <div className="service-spec">
-          <h3>Includes</h3>
-          <ul>
-            {infra?.includes.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-          <h3>Does not include</h3>
-          <ul>
-            {infra?.excludes.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </div>
-      </Reveal>
+      {SECTIONS.map((section, index) => {
+        const offer = SERVICE_CATALOG.offers.find((item) => item.id === section.id);
+        const copy = SERVICE_CATEGORY_COPY[section.id];
+        const Icon = section.icon;
+        return (
+          <Reveal
+            as="article"
+            className={`service-feature ${section.reverse ? "service-feature-reverse" : ""} surface-ivory`}
+            delay={(index % 3) as 0 | 1 | 2}
+            id={"hash" in section ? section.hash : undefined}
+            key={section.id}
+          >
+            <div>
+              <p className="tiny">{offer?.status === "exploratory" ? "Exploratory" : copy.short}</p>
+              <Icon />
+              <h2>{offer?.title}</h2>
+              <p className="lede">{copy.summary}</p>
+              {section.id === "custom_apps_platforms" ? (
+                <p className="notice">
+                  An existing booking provider can remain the destination for appointments and payments.
+                  Atelier does not operate a scheduling engine.
+                </p>
+              ) : null}
+              <AppLink className="btn btn-emerald-glass" href={section.href}>
+                {copy.action}
+              </AppLink>
+            </div>
+            <div className="surface-read service-spec">
+              <div className="service-spec-visual" aria-hidden="true">
+                {section.visual}
+              </div>
+              <h3>Includes</h3>
+              <ul>
+                {offer?.includes.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+              <h3>Does not include</h3>
+              <ul>
+                {offer?.excludes.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          </Reveal>
+        );
+      })}
 
       <div className="row" style={{ marginTop: 28 }}>
-        <AppLink className="btn btn-gold" href="/discover">
+        <AppLink className="btn btn-emerald-glass" href="/discover">
           Explore your direction
         </AppLink>
-        <AppLink className="btn btn-ghost" href="/project">
+        <AppLink className="btn btn-gold" href="/project">
           Begin a brief
         </AppLink>
         <AppLink className="btn btn-ghost" href="/approach">

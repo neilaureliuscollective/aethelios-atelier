@@ -4,6 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FIELD_HINTS, FIELD_LABELS, applyClientValue, fieldsForStep, isBookingConnected } from "@/lib/brief";
 import {
+  COMMISSION_TYPE_OPTIONS,
+  HISTORICAL_BOOKING_PROJECT_TYPE,
+  historicalProjectTypeNote
+} from "@/lib/serviceCategories";
+import {
   createGuestDraft,
   markGuestRetained,
   readGuestDraft,
@@ -48,12 +53,7 @@ const STEPS = [
   { n: 5, label: "Review" }
 ];
 
-const TYPE_OPTIONS: Array<{ id: Brief["projectType"]["value"]; label: string }> = [
-  { id: "website", label: "Website" },
-  { id: "booking_connected_website", label: "Booking-connected site" },
-  { id: "digital_infrastructure", label: "Digital infrastructure" },
-  { id: "undecided", label: "Not sure yet" }
-];
+const TYPE_OPTIONS = COMMISSION_TYPE_OPTIONS;
 
 type ProjectResponse = {
   project: Project;
@@ -788,9 +788,16 @@ export function GuidedBrief({
               {visibleFields.map((key, index) => (
                 <div key={key} style={{ marginTop: 18 }}>
                   <label>
-                    <span className="lbl">{FIELD_LABELS[key]}</span>
+                    <span className="lbl" id={key === "projectType" ? "project-type-label" : undefined}>
+                      {FIELD_LABELS[key]}
+                    </span>
                     {key === "projectType" ? (
-                      <div className="chips" role="group" aria-label="Project type">
+                      <div className="chips" role="group" aria-labelledby="project-type-label">
+                        {brief.projectType.value === HISTORICAL_BOOKING_PROJECT_TYPE ? (
+                          <span className="chip chip-saved" aria-pressed="true">
+                            Saved as booking-connected website
+                          </span>
+                        ) : null}
                         {TYPE_OPTIONS.map((option) => (
                           <button
                             key={option.id}
@@ -814,10 +821,13 @@ export function GuidedBrief({
                   </label>
                 </div>
               ))}
+              {historicalProjectTypeNote(brief.projectType.value) ? (
+                <p className="notice">{historicalProjectTypeNote(brief.projectType.value)}</p>
+              ) : null}
               {step === 4 && isBookingConnected(brief) ? (
                 <p className="notice">
-                  Booking-connected means a link to the booking destination you already use. It does not
-                  build a scheduler or move payments into Atelier.
+                  Custom apps and platforms may later link to the booking destination you already use. That
+                  does not build a scheduler or move payments into Atelier.
                 </p>
               ) : null}
               <div className="row brief-actions">

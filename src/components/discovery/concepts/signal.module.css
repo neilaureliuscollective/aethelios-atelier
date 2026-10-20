@@ -3,6 +3,7 @@
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--c-surfaceStrong) 50%, var(--c-bg)), var(--c-bg));
   color: var(--c-text);
+  isolation: isolate;
   font-family: var(--font-signal), "Syne", "Avenir Next", sans-serif;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(200px, 280px);
@@ -201,7 +202,7 @@
   font-family: var(--font-body), "Figtree", sans-serif;
 }
 
-@container concept (max-width: 520px) {
+@container concept (max-width: 720px) {
   .root {
     grid-template-columns: minmax(0, 1fr);
     min-height: 0;

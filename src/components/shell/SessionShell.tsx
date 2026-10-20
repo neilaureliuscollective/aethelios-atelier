@@ -1,7 +1,8 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { atelierSurfaceForPath } from "@/lib/atelierSurface";
 import type { Route } from "next";
 import { SiteHeader } from "@/components/shell/SiteHeader";
 import { SiteFooter } from "@/components/shell/SiteFooter";
@@ -18,6 +19,8 @@ type SessionValue = {
   generation: number;
 };
 
+type PublicAuth = { adapter: string; labeled: boolean; ready: boolean };
+
 const SessionContext = createContext<SessionValue | null>(null);
 
 export function useSession() {
@@ -28,17 +31,14 @@ export function useSession() {
   return value;
 }
 
-export function SessionShell({
-  auth,
-  children
-}: {
-  auth: { adapter: string; labeled: boolean; ready: boolean };
-  children: React.ReactNode;
-}) {
+export function SessionShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const surface = atelierSurfaceForPath(pathname);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [generation, setGeneration] = useState(0);
+  const [auth, setAuth] = useState<PublicAuth | null>(null);
 
   useEffect(() => {
     const onNav = (event: Event) => {
@@ -77,6 +77,12 @@ export function SessionShell({
     void refresh().finally(() => setLoading(false));
   }, [refresh]);
 
+  useEffect(() => {
+    void api<{ auth: PublicAuth }>("/api/config")
+      .then((config) => setAuth(config.auth))
+      .catch(() => setAuth({ adapter: "unconfigured", labeled: false, ready: false }));
+  }, []);
+
   const value = useMemo(
     () => ({ user, loading, refresh, generation }),
     [user, loading, refresh, generation]
@@ -84,10 +90,13 @@ export function SessionShell({
 
   return (
     <SessionContext.Provider value={value}>
-      <SimulatedBanner auth={auth} user={user} />
-      <SiteHeader user={user} />
-      <main id="main">{children}</main>
-      <SiteFooter />
+      <div className="app-root" data-surface={surface}>
+        <div className="atmosphere" aria-hidden="true" />
+        {auth ? <SimulatedBanner auth={auth} user={user} /> : null}
+        <SiteHeader user={user} />
+        <main id="main">{children}</main>
+        <SiteFooter />
+      </div>
     </SessionContext.Provider>
   );
 }

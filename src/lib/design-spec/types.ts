@@ -29,7 +29,7 @@ export type ComponentId = (typeof COMPONENT_IDS)[number];
 export const TYPEFACE_IDS = ["fraunces", "outfit", "syne", "figtree"] as const;
 export type TypefaceId = (typeof TYPEFACE_IDS)[number];
 
-export const ASSET_KINDS = ["svg_plate", "local_fallback"] as const;
+export const ASSET_KINDS = ["svg_plate", "photo_plate", "local_fallback"] as const;
 export type AssetKind = (typeof ASSET_KINDS)[number];
 
 export const SPEC_SOURCES = ["curated_local", "model_proposed"] as const;

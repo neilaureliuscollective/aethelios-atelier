@@ -22,7 +22,10 @@ describe("design specification adapter", () => {
     expect(spec.source).toBe("curated_local");
     expect(spec.layoutId).toBe(LAYOUT_FOR_DIRECTION.lumen);
     expect(spec.copy.headline).toBeTruthy();
-    expect(spec.assets[0]?.href.startsWith("/discovery/")).toBe(true);
+    expect(
+      spec.assets[0]?.href.startsWith("/discovery/") || spec.assets[0]?.href.startsWith("/atmosphere/")
+    ).toBe(true);
+    expect(spec.assets[0]?.fallbackHref.startsWith("/discovery/")).toBe(true);
     expect(validateDesignSpec(spec).ok).toBe(true);
   });
 

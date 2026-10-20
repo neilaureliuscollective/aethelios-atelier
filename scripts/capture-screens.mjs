@@ -54,7 +54,7 @@ for (const width of [390, 884, 1440]) {
       area.dispatchEvent(new Event("input", { bubbles: true }));
     }
     const chips = [...document.querySelectorAll("button.chip")];
-    chips.find((el) => el.textContent?.includes("Booking-connected"))?.click();
+    chips.find((el) => el.textContent?.includes("Custom apps"))?.click();
   });
   await new Promise((r) => setTimeout(r, 400));
   await shot(page, width, "guided_brief");

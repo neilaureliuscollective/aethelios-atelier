@@ -29,8 +29,10 @@ import {
   confirmDirection,
   confirmSelection,
   createDraft,
+  createSampleExplorationDraft,
   draftFingerprint,
   hasUnpublishedChanges,
+  hasVisitorAnswers,
   parseDraft,
   parseSelection,
   patchDraft,
@@ -230,6 +232,26 @@ describe("discovery selection", () => {
     draft = toggleQuality(draft, "bold");
     expect(draft.favorites).toEqual([]);
     expect(draft.qualities).toContain("bold");
+  });
+
+  it("does not treat an empty draft as visitor answers, and sample exploration stays distinct", () => {
+    expect(hasVisitorAnswers(createDraft())).toBe(false);
+    const sample = createSampleExplorationDraft();
+    expect(hasVisitorAnswers(sample)).toBe(true);
+    expect(sample.activeDirectionId).toBe("hearth");
+    expect(sample.paletteId).toBe("hearth_linen");
+    expect(sample.businessName).toBe("Northridge");
+    const kept = createDraft({ businessName: "Meridian Sitting Room" });
+    expect(hasVisitorAnswers(kept)).toBe(true);
+  });
+
+  it("switches Hearth onto its own default palette instead of keeping Lumen nocturne", () => {
+    const fromLumen = patchDraft(createDraft(), { activeDirectionId: "hearth" });
+    expect(fromLumen.activeDirectionId).toBe("hearth");
+    expect(fromLumen.paletteId).toBe("hearth_linen");
+    expect(fromLumen.visualDirectionId).toBe("material");
+    const custom = patchDraft(createDraft({ paletteId: "verdant" }), { activeDirectionId: "hearth" });
+    expect(custom.paletteId).toBe("verdant");
   });
 
   it("defaults new sessions to nocturne without recoloring a confirmed ivory_hall snapshot", () => {

@@ -14,7 +14,7 @@ export default function AboutPage() {
         and no pretence of unlimited custom work.
       </p>
       <div className="about-grid">
-        <article className="surface-dimensional value-card">
+        <article className="surface-ivory value-card">
           <h3>Strategic foundation</h3>
           <p className="muted">Clarity, structure, and systems for what is next — written before build begins.</p>
         </article>

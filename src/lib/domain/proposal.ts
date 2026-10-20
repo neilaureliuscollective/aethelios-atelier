@@ -102,7 +102,9 @@ export function normalizeProposalScope(input: unknown): ProposalScope {
 
 export function seedProposalScope(brief: Brief): ProposalScope {
   const offer = offerById(brief.projectType.value) ?? offerById("undecided");
-  const booking = brief.projectType.value === "booking_connected_website";
+  const booking =
+    brief.projectType.value === "booking_connected_website" ||
+    brief.projectType.value === "custom_apps_platforms";
   return {
     summary: brief.vision.value.trim(),
     deliverables: offer?.includes ?? [],

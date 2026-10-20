@@ -275,7 +275,7 @@ export function WorkspaceDetail({ id }: { id: string }) {
           <span className="tiny">Client-visible only</span>
         </div>
         {view.updates.length === 0 ? (
-          <p className="muted">No founder updates yet. Return here to read them — this local candidate does not send notifications.</p>
+          <p className="muted">No founder updates yet. Return here to read them — this app does not send notifications.</p>
         ) : (
           view.updates.map((update) => (
             <article key={update.id} className="brief-item">

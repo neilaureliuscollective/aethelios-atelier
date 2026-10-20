@@ -8,9 +8,12 @@ export function SimulatedBanner({
   user: User | null;
 }) {
   if (!auth.ready && !auth.labeled) return null;
+  const identity = auth.ready
+    ? "sign-in is a labeled local simulator"
+    : "sign-in is not configured";
   return (
     <div className="sim-banner" role="status">
-      Local candidate · {auth.adapter === "simulated" ? "simulated identity adapter" : "auth unconfigured"}
+      Development preview · {identity}
       {user ? ` · signed in as ${user.email}` : " · guest drafts stay on this device"}
     </div>
   );

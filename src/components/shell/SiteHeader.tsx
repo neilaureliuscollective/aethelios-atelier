@@ -19,8 +19,7 @@ export function SiteHeader({ user }: { user: User | null }) {
   const compact =
     pathname.startsWith("/project") ||
     pathname.startsWith("/workspace") ||
-    pathname.startsWith("/founder") ||
-    pathname.startsWith("/discover");
+    pathname.startsWith("/founder");
 
   return (
     <header className="site-header">

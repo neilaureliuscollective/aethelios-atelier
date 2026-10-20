@@ -3,7 +3,13 @@
 import { AppLink } from "@/components/ui/AppLink";
 import styles from "./DiscoveryStudio.module.css";
 
-export function Entrance({ onExplore }: { onExplore: () => void }) {
+export function Entrance({
+  onExplore,
+  onSample
+}: {
+  onExplore: () => void;
+  onSample: () => void;
+}) {
   return (
     <section className={styles.hero} aria-labelledby="discover-hero">
       <div>
@@ -18,8 +24,11 @@ export function Entrance({ onExplore }: { onExplore: () => void }) {
           personally review. No account and no contact details are required to explore.
         </p>
         <div className={styles.actions}>
-          <button className={`${styles.btn} ${styles.btnGold}`} type="button" onClick={onExplore}>
+          <button className="btn btn-emerald-glass" type="button" onClick={onExplore}>
             Explore your direction
+          </button>
+          <button className={`${styles.btn} ${styles.btnGhost}`} type="button" onClick={onSample}>
+            See a sample direction
           </button>
           <AppLink className={`${styles.btn} ${styles.btnGhost}`} href="/project">
             I already know what I need
@@ -57,7 +66,7 @@ export function Entrance({ onExplore }: { onExplore: () => void }) {
               </p>
               <h2
                 style={{
-                  fontFamily: "var(--font-lumen), Georgia, serif",
+                  fontFamily: "var(--font-lumen), var(--font-display), Georgia, serif",
                   fontSize: "clamp(32px, 4vw, 52px)",
                   lineHeight: 0.95,
                   margin: "8px 0 16px",
@@ -67,11 +76,11 @@ export function Entrance({ onExplore }: { onExplore: () => void }) {
                 A quieter way to be found.
               </h2>
               <p style={{ color: "#B7B1A4", maxWidth: "36ch" }}>
-                A cinematic editorial opening, composed atmosphere, and a clear next step toward the
-                booking tool you already use.
+                A cinematic editorial opening, composed atmosphere, and a clear next step for the
+                digital presence — not a live website.
               </p>
               <img
-                src="/discovery/scenes/lumen-nocturne.svg"
+                src="/atmosphere/lumen.webp"
                 alt=""
                 width={1600}
                 height={420}

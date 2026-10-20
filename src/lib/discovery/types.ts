@@ -1,3 +1,4 @@
+import { serviceInterestToStoredProjectType } from "@/lib/serviceCategories";
 import type { Brief, BriefFieldKey, ProjectType } from "@/lib/types";
 
 export const DISCOVERY_CATALOG_VERSION = 1;
@@ -64,6 +65,9 @@ export type VisualDirectionId = (typeof VISUAL_DIRECTION_IDS)[number];
 export const SERVICE_INTEREST_IDS = [
   "unspecified",
   "website",
+  "custom_apps_platforms",
+  "ecommerce_storefronts",
+  "digital_infrastructure",
   "booking_connected_website"
 ] as const;
 
@@ -259,6 +263,5 @@ export function isDiscoveryPhase(value: unknown): value is DiscoveryPhase {
 }
 
 export function serviceInterestToProjectType(interest: ServiceInterestId): ProjectType | null {
-  if (interest === "website" || interest === "booking_connected_website") return interest;
-  return null;
+  return serviceInterestToStoredProjectType(interest);
 }

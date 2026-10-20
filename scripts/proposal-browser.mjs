@@ -69,7 +69,7 @@ check("owner submitted", submitted.status === 200, submitted.json.receipt?.recei
 await signIn(page, "neil.local@atelier.invalid");
 await page.goto(`${BASE}/founder`, { waitUntil: "networkidle0" });
 const queueText = await page.evaluate(() => document.body.innerText);
-check("founder queue shows submitted commission", queueText.includes("Booking-connected website"));
+check("founder queue shows submitted commission", queueText.includes("Custom apps & platforms"));
 await page.screenshot({ path: `${OUT}/founder-queue.png`, fullPage: true });
 
 await page.goto(`${BASE}/founder/${id}`, { waitUntil: "networkidle0" });

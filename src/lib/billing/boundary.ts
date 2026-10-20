@@ -16,7 +16,7 @@ export const billingBoundary = {
       enabled: false,
       ready: false as const,
       message:
-        "Payment is out of scope for this local candidate. Atelier is a request-and-review experience until Neil confirms a proposal."
+        "Payments are not collected in Atelier. This remains a request-and-review experience until Neil confirms a proposal."
     };
   }
 };

@@ -24,8 +24,10 @@ import {
   createDraft,
   createEnvelope,
   currentGuideView,
+  createSampleExplorationDraft,
   defaultPaletteFor,
   hasUnpublishedChanges,
+  hasVisitorAnswers,
   isServiceInterestId,
   mapSelectionToBriefProposals,
   patchDraft,
@@ -75,6 +77,7 @@ type State = {
   persistenceState: PersistenceState;
   persistenceMessage: string;
   status: string;
+  sampleVisit: boolean;
 };
 
 type Action =
@@ -87,7 +90,8 @@ type Action =
   | { type: "preview"; mode: PreviewMode }
   | { type: "persist"; optIn: boolean; persistenceState: PersistenceState; message: string }
   | { type: "status"; status: string }
-  | { type: "resetVisit" };
+  | { type: "resetVisit" }
+  | { type: "sample"; draft: DiscoveryDraft };
 
 function farthestOf(a: DiscoveryPhase, b: DiscoveryPhase): DiscoveryPhase {
   return PHASES.findIndex((item) => item.id === a) >= PHASES.findIndex((item) => item.id === b) ? a : b;
@@ -126,7 +130,8 @@ function reducer(state: State, action: Action): State {
         ...state,
         persistenceOptIn: action.optIn,
         persistenceState: action.persistenceState,
-        persistenceMessage: action.message
+        persistenceMessage: action.message,
+        sampleVisit: action.optIn ? false : state.sampleVisit
       };
     case "status":
       return { ...state, status: action.status };
@@ -139,6 +144,15 @@ function reducer(state: State, action: Action): State {
           ? "This visit was reset. The saved sketch on this device will update if saving stays on."
           : "This visit was reset. Nothing was stored on this device.",
         status: "Started over on this screen. A saved sketch was not removed."
+      };
+    case "sample":
+      return {
+        ...state,
+        draft: action.draft,
+        phase: "studio",
+        farthest: farthestOf(state.farthest, "studio"),
+        sampleVisit: true,
+        status: "Sample direction for exploration. Not saved to an account."
       };
     default:
       return state;
@@ -155,7 +169,8 @@ const initial: State = {
   persistenceOptIn: false,
   persistenceState: "memory",
   persistenceMessage: "Kept in memory for this visit unless you opt in below.",
-  status: ""
+  status: "",
+  sampleVisit: false
 };
 
 export function DiscoveryStudio() {
@@ -222,7 +237,7 @@ export function DiscoveryStudio() {
   }, [state.phase, state.intakeStep]);
 
   useEffect(() => {
-    if (!hydrated.current || !state.persistenceOptIn) return;
+    if (!hydrated.current || !state.persistenceOptIn || state.sampleVisit) return;
     const result = writeDiscovery(
       browserStorage(),
       createEnvelope(state.draft, state.confirmed, state.phase, state.intakeStep)
@@ -235,7 +250,7 @@ export function DiscoveryStudio() {
         message: result.reason
       });
     }
-  }, [state.draft, state.confirmed, state.phase, state.intakeStep, state.persistenceOptIn]);
+  }, [state.draft, state.confirmed, state.phase, state.intakeStep, state.persistenceOptIn, state.sampleVisit]);
 
   const suggested = useMemo(() => recommendDirection(state.draft.qualities), [state.draft.qualities]);
   const unpublished = hasUnpublishedChanges(state.draft, state.confirmed);
@@ -247,6 +262,17 @@ export function DiscoveryStudio() {
   const demoContent = demo ? buildConceptContent(demo.draft, demo.directionId) : null;
 
   const go = useCallback((phase: DiscoveryPhase) => dispatch({ type: "phase", phase }), []);
+  const openSample = useCallback(() => {
+    if (hasVisitorAnswers(state.draft) || state.confirmed) {
+      dispatch({
+        type: "status",
+        status: "Continuing with the answers already on this visit. Sample content was not applied."
+      });
+      dispatch({ type: "phase", phase: "studio" });
+      return;
+    }
+    dispatch({ type: "sample", draft: createSampleExplorationDraft() });
+  }, [state.draft, state.confirmed]);
   const onAction = useCallback((context: PreviewActionContext) => {
     setDemo(context);
     setDemoOpen(true);
@@ -276,14 +302,8 @@ export function DiscoveryStudio() {
         <span className={styles.glowC} />
       </div>
       <div className={styles.frame}>
+        {state.phase === "enter" ? null : (
         <div className={styles.innerNav}>
-          <div className={styles.brandLockup}>
-            <img src="/brand/icon.webp" alt="" width={36} height={36} />
-            <span className={styles.brandCopy}>
-              <strong>AETHELIOS</strong>
-              <span>Discovery studio</span>
-            </span>
-          </div>
           <div className={styles.steps} role="navigation" aria-label="Discovery steps">
             {PHASES.map((item, index) => {
               const currentIndex = PHASES.findIndex((phase) => phase.id === state.phase);
@@ -304,19 +324,28 @@ export function DiscoveryStudio() {
             })}
           </div>
         </div>
+        )}
 
+        {state.phase === "enter" ? null : (
         <div className={styles.guide} data-state={guide.state} aria-live="polite">
           <div className={styles.chipRow}>
             <span className={styles.badge}>{guide.labeled === "curated" ? "Curated" : "Live model"}</span>
-            <strong>Personalized from your answers. Not live model output.</strong>
+            <strong>
+              {state.sampleVisit
+                ? "Sample exploration. Not live model output, and not saved to an account."
+                : "Personalized from your answers. Not live model output."}
+            </strong>
           </div>
         </div>
+        )}
 
         <p className={styles.status} role="status">
           {state.status}
         </p>
 
-        {state.phase === "enter" ? <Entrance onExplore={() => go("intake")} /> : null}
+        {state.phase === "enter" ? (
+          <Entrance onExplore={() => go("intake")} onSample={openSample} />
+        ) : null}
         {state.phase === "intake" ? (
           <Intake
             draft={state.draft}
@@ -391,6 +420,9 @@ export function DiscoveryStudio() {
                     ? "Saved on this device. Clear anytime. This is not an account."
                     : written.reason
                 });
+                if (written.ok) {
+                  dispatch({ type: "status", status: "Saved on this device. This is still not an account." });
+                }
               }}
             >
               Save on this device
@@ -1024,8 +1056,13 @@ function ReviewBody({
           <div className={styles.options} role="radiogroup" aria-label="Service interest">
             {[
               ["unspecified", "Not sure yet"],
-              ["website", "Branded website"],
-              ["booking_connected_website", "Booking-connected website"]
+              ["website", "Branded websites"],
+              ["custom_apps_platforms", "Custom apps & platforms"],
+              ["ecommerce_storefronts", "E-commerce & storefronts"],
+              ["digital_infrastructure", "Digital infrastructure"],
+              ...(draft.serviceInterest === "booking_connected_website"
+                ? ([["booking_connected_website", "Saved as booking-connected website"]] as const)
+                : [])
             ].map(([id, label]) => (
               <label className={styles.option} key={id}>
                 <input

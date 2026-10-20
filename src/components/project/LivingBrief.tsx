@@ -1,4 +1,5 @@
 import { displayFieldValue, FIELD_LABELS, provenanceLabel } from "@/lib/brief";
+import { historicalProjectTypeNote } from "@/lib/serviceCategories";
 import { INTELLIGENCE_DISPLAY_NAME } from "@/lib/copy";
 import { BRIEF_FIELD_KEYS, type Brief, type Suggestion } from "@/lib/types";
 
@@ -15,6 +16,9 @@ export function LivingBrief({
     <aside className="surface-glass living-brief" aria-label="Living brief">
       <p className="tiny">Your direction</p>
       <h2 style={{ fontSize: 28 }}>Living brief</h2>
+      {historicalProjectTypeNote(brief.projectType.value) ? (
+        <p className="notice">{historicalProjectTypeNote(brief.projectType.value)}</p>
+      ) : null}
       <p className="muted" style={{ fontSize: 14 }}>
         Client statements, suggestions, unresolved questions, and founder decisions stay distinct.
         Suggestions are never labeled approved.
