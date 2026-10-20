@@ -458,7 +458,7 @@ export function StudioClient() {
         ) : null}
       </p>
       <div className={styles.studioDesk}>
-        <section className={styles.artboard}>
+        <section className={`${styles.artboard} on-glass`}>
           <div
             ref={previewBoxRef}
             className={styles.canvas}
@@ -489,7 +489,7 @@ export function StudioClient() {
           {error ? <p className="notice notice-warn">{error}</p> : null}
           {recovery ? <p className={styles.meta}>{recovery}</p> : null}
         </section>
-        <aside className={styles.inspector}>
+        <aside className={`${styles.inspector} on-glass`}>
           <details className={styles.sheet} open>
             <summary>Content</summary>
             <label className={styles.label} htmlFor="studio-draft">

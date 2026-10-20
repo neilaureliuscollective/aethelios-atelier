@@ -164,7 +164,7 @@ export function TalkClient() {
       lede="Plan a promotion, draft copy, review your documents, or prepare an estimate from approved rates."
     >
       <div className={styles.grid}>
-        <article className={styles.glassCard}>
+        <article className={`${styles.glassCard} on-glass`}>
           <div className={styles.messages} aria-live="polite" ref={listRef}>
             {messages.map((message) => (
               <div
@@ -219,7 +219,7 @@ export function TalkClient() {
             </div>
           ) : null}
           <form
-            className={styles.composerBar}
+            className={`${styles.composerBar} on-glass`}
             onSubmit={(event) => {
               event.preventDefault();
               void send(input);
@@ -262,7 +262,7 @@ export function TalkClient() {
             {error ? <p className="notice notice-warn">{error}</p> : null}
           </form>
         </article>
-        <aside className={styles.inspector}>
+        <aside className={`${styles.inspector} on-glass`}>
           <p className={styles.label}>Start here</p>
           <div className={styles.list}>
             {STARTING_ACTIONS.map((action) => (

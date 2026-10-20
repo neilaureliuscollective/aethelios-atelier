@@ -166,12 +166,29 @@
   color: var(--atelier-on-glass-muted, color-mix(in srgb, var(--ivory) 78%, var(--sage)));
 }
 
-.glassCard :global(.btn-ghost),
-.inspector :global(.btn-ghost),
-.composerBar :global(.btn-ghost),
-.artboard :global(.btn-ghost) {
-  color: var(--ivory);
+:global(.app-root[data-surface="atelier"]) .glassCard :global(.btn-ghost),
+:global(.app-root[data-surface="atelier"]) .inspector :global(.btn-ghost),
+:global(.app-root[data-surface="atelier"]) .composerBar :global(.btn-ghost),
+:global(.app-root[data-surface="atelier"]) .artboard :global(.btn-ghost) {
+  color: var(--atelier-on-glass, var(--ivory));
   border-color: color-mix(in srgb, var(--ivory) 28%, transparent);
+}
+:global(.app-root[data-surface="atelier"]) .glassCard :global(.btn-ghost):hover,
+:global(.app-root[data-surface="atelier"]) .inspector :global(.btn-ghost):hover,
+:global(.app-root[data-surface="atelier"]) .composerBar :global(.btn-ghost):hover,
+:global(.app-root[data-surface="atelier"]) .artboard :global(.btn-ghost):hover,
+:global(.app-root[data-surface="atelier"]) .glassCard :global(.btn-ghost):focus-visible,
+:global(.app-root[data-surface="atelier"]) .inspector :global(.btn-ghost):focus-visible,
+:global(.app-root[data-surface="atelier"]) .composerBar :global(.btn-ghost):focus-visible,
+:global(.app-root[data-surface="atelier"]) .artboard :global(.btn-ghost):focus-visible {
+  color: var(--ivory);
+  border-color: color-mix(in srgb, var(--gold-champagne) 42%, transparent);
+}
+:global(.app-root[data-surface="atelier"]) .glassCard :global(.btn-ghost):disabled,
+:global(.app-root[data-surface="atelier"]) .inspector :global(.btn-ghost):disabled,
+:global(.app-root[data-surface="atelier"]) .composerBar :global(.btn-ghost):disabled,
+:global(.app-root[data-surface="atelier"]) .artboard :global(.btn-ghost):disabled {
+  color: color-mix(in srgb, var(--atelier-on-glass, var(--ivory)) 62%, transparent);
 }
 
 .saveState {

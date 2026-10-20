@@ -108,7 +108,7 @@ export function BusinessClient() {
       {error ? <p className="notice notice-warn">{error}</p> : null}
       {profile ? (
         <div className={styles.grid}>
-          <article className={styles.glassCard}>
+          <article className={`${styles.glassCard} on-glass`}>
             <p className={styles.label}>Saved defaults</p>
             {/lifestyle/i.test(profile.fields.name.value) ? (
               <p className="notice">
@@ -165,7 +165,7 @@ export function BusinessClient() {
             </button>
             {status ? <p className="notice">{status}</p> : null}
           </article>
-          <aside className={styles.inspector}>
+          <aside className={`${styles.inspector} on-glass`}>
             <p className={styles.label}>Brand assets</p>
             <p className={styles.meta}>
               Logos and source files stored here are business defaults. Temporary Studio crop, placement, and selected images stay on the open draft.

@@ -63,7 +63,7 @@ export function TodayClient() {
       {!today ? <p className="muted">Gathering saved work…</p> : null}
       {today ? (
         <div className={styles.grid}>
-          <article className={styles.glassCard}>
+          <article className={`${styles.glassCard} on-glass`}>
             <p className={styles.label}>Continue</p>
             {continueItem ? (
               <div className={styles.list}>
@@ -98,7 +98,7 @@ export function TodayClient() {
               <p className="muted">{today.emptyReason ?? "No open drafts. Start in Talk or Studio."}</p>
             )}
           </article>
-          <aside className={styles.inspector}>
+          <aside className={`${styles.inspector} on-glass`}>
             <p className={styles.label}>Next actions</p>
             <div className={styles.actions}>
               <AppLink className="btn btn-gold" href="/companion/talk">

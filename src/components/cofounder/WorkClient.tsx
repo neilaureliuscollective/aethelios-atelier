@@ -134,7 +134,7 @@ export function WorkClient() {
     >
       {error ? <p className="notice notice-warn">{error}</p> : null}
       <div className={styles.grid}>
-        <article className={styles.glassCard}>
+        <article className={`${styles.glassCard} on-glass`}>
           <div className={styles.libraryToolbar}>
             <label className={styles.label}>
               Filter
@@ -242,7 +242,7 @@ export function WorkClient() {
             <p className={styles.meta}>{filtered.length} records shown</p>
           )}
         </article>
-        <aside className={styles.inspector}>
+        <aside className={`${styles.inspector} on-glass`}>
           {editing ? (
             <>
               <p className={styles.label}>Edit draft</p>
