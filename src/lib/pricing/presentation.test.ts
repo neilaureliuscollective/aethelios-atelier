@@ -105,9 +105,9 @@ describe("pricing presentation", () => {
     expect(JSON.stringify(pub)).not.toMatch(/buy now|start subscription|most popular|free trial/i);
     expect(pub.commissions.map((item) => item.href)).toEqual([
       "/discover?interest=website",
-      "/discover?interest=custom_apps_platforms",
+      "/project?interest=custom_apps_platforms&purpose=business",
       "/discover?interest=ecommerce_storefronts",
-      "/discover?interest=digital_infrastructure"
+      "/project?interest=digital_infrastructure&purpose=business"
     ]);
     expect(pub.faq.some((item) => /subscription/i.test(item.question))).toBe(true);
   });

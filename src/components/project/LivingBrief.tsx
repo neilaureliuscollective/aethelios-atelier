@@ -1,4 +1,5 @@
-import { displayFieldValue, FIELD_LABELS, provenanceLabel } from "@/lib/brief";
+import { displayFieldValue, fieldLabel, provenanceLabel } from "@/lib/brief";
+import { displayPurposeLabel } from "@/lib/commissionContext";
 import { historicalProjectTypeNote } from "@/lib/serviceCategories";
 import { INTELLIGENCE_DISPLAY_NAME } from "@/lib/copy";
 import { BRIEF_FIELD_KEYS, type Brief, type Suggestion } from "@/lib/types";
@@ -16,6 +17,14 @@ export function LivingBrief({
     <aside className="surface-glass living-brief" aria-label="Living brief">
       <p className="tiny">Your direction</p>
       <h2 style={{ fontSize: 28 }}>Living brief</h2>
+      {displayPurposeLabel(brief.context?.purpose) ? (
+        <p className="notice">
+          Context: {displayPurposeLabel(brief.context?.purpose)}
+          {brief.context?.route === "custom_project" ? " · other custom project" : ""}
+          {brief.context?.exampleId ? ` · started from ${brief.context.exampleId.replaceAll("_", " ")}` : ""}
+          . You can change this before sending.
+        </p>
+      ) : null}
       {historicalProjectTypeNote(brief.projectType.value) ? (
         <p className="notice">{historicalProjectTypeNote(brief.projectType.value)}</p>
       ) : null}
@@ -30,7 +39,7 @@ export function LivingBrief({
         return (
           <div className="brief-item" key={key}>
             <div className="row" style={{ justifyContent: "space-between" }}>
-              <strong>{FIELD_LABELS[key]}</strong>
+              <strong>{fieldLabel(key, brief)}</strong>
               <span
                 className={`badge ${
                   field.provenance.startsWith("ai_")

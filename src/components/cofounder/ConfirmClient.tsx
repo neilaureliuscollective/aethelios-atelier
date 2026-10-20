@@ -11,6 +11,7 @@ import { actionErrorMessage } from "@/lib/client/asyncAction";
 import { PALETTES, VISUAL_DIRECTION_COPY } from "@/lib/discovery/catalog";
 import { DIRECTIONS, parseSelection, readDiscoveryHandoff, type DiscoverySelection } from "@/lib/discovery";
 import { clearGuestIntent, readGuestIntent } from "@/lib/guest/intent";
+import { DEFAULT_WORKSPACE_NAME, isPlaceholderBusinessName } from "@/lib/cofounder/provision";
 import type { Business, BusinessConfirmation, StudioDraft } from "@/lib/cofounder/types";
 import styles from "./companion.module.css";
 
@@ -83,7 +84,13 @@ export function ConfirmClient() {
           setDraft({ id: data.confirmation.studioDraftId } as StudioDraft);
         }
         const existingName = data.confirmation?.businessName || data.rawProfile.fields.name.value || data.business.name;
-        setBusinessName(existingName === "Your business" && next?.businessName ? next.businessName : existingName);
+        setBusinessName(
+          isPlaceholderBusinessName(existingName, user.displayName) && next?.businessName
+            ? next.businessName
+            : isPlaceholderBusinessName(existingName, user.displayName)
+              ? DEFAULT_WORKSPACE_NAME
+              : existingName
+        );
         setBusinessContext(
           data.confirmation?.businessContext ||
             data.rawProfile.fields.audience.value ||
@@ -170,7 +177,7 @@ export function ConfirmClient() {
   if (phase === "checking") {
     return (
       <CompanionShell
-        title="Confirm this business"
+        title="Confirm this workspace"
         lede="Checking the signed-in owner, claimed Discovery snapshot, and target workspace before anything is adopted."
       >
         <p className="notice">Checking authorization and any claimed Discovery direction…</p>
@@ -180,8 +187,8 @@ export function ConfirmClient() {
 
   return (
     <CompanionShell
-      title="Confirm this business"
-      lede="Review the business and the Discovery direction before Studio uses them. Existing businesses keep their name unless you change it here."
+      title="Confirm this workspace"
+      lede="Review the project or business and any Discovery direction before Studio uses them. Existing names stay unless you change them here. Individuals can keep Project workspace — you do not need to invent a company."
     >
       {error ? <p className="notice notice-warn">{error}</p> : null}
       {status ? <p className="notice">{status}</p> : null}
@@ -193,10 +200,16 @@ export function ConfirmClient() {
       ) : null}
       <div className={styles.grid}>
         <article className={`${styles.glassCard} on-glass`}>
-          <p className={styles.label}>Business</p>
+          <p className={styles.label}>Project workspace</p>
           <label className={styles.composer}>
-            <span className={styles.label}>Business name</span>
-            <input className={styles.field} value={businessName} maxLength={160} onChange={(event) => setBusinessName(event.target.value)} />
+            <span className={styles.label}>Project or business name</span>
+            <input
+              className={styles.field}
+              value={businessName}
+              maxLength={160}
+              onChange={(event) => setBusinessName(event.target.value)}
+              placeholder={DEFAULT_WORKSPACE_NAME}
+            />
           </label>
           <label className={styles.composer}>
             <span className={styles.label}>Context Aethelios may use</span>
@@ -248,7 +261,7 @@ export function ConfirmClient() {
               ) : null}
             </>
           ) : (
-            <p className="muted">No Discovery direction is waiting on this device. You can still confirm the business name.</p>
+            <p className="muted">No Discovery direction is waiting on this device. You can still confirm a project or business name.</p>
           )}
           {confirmation ? (
             <p className={styles.meta} style={{ marginTop: 16 }}>

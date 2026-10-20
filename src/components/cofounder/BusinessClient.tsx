@@ -11,7 +11,7 @@ import type { ApprovedRate, BusinessProfile, MemoryProposal, UsageSnapshot } fro
 import styles from "./companion.module.css";
 
 const FIELD_LABELS: Record<string, string> = {
-  name: "Business name",
+  name: "Project or business name",
   audience: "Audience",
   services: "Services",
   products: "Products",
@@ -102,8 +102,8 @@ export function BusinessClient() {
 
   return (
     <CompanionShell
-      title="Business context"
-      lede="This is the saved brand home. Studio placement and crop stay on the draft until you save them there."
+      title="Workspace context"
+      lede="This is the saved project or brand home. Studio placement and crop stay on the draft until you save them there. Individuals can keep Project workspace without inventing a company."
     >
       {error ? <p className="notice notice-warn">{error}</p> : null}
       {profile ? (

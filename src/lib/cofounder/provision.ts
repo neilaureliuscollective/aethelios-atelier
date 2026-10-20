@@ -1,4 +1,10 @@
-const PLACEHOLDER_NAMES = new Set(["your business", "untitled business"]);
+export const DEFAULT_WORKSPACE_NAME = "Project workspace";
+
+const PLACEHOLDER_NAMES = new Set([
+  "your business",
+  "untitled business",
+  "project workspace"
+]);
 
 export function isPlaceholderBusinessName(name: string, displayName?: string) {
   const trimmed = name.trim();
@@ -7,7 +13,8 @@ export function isPlaceholderBusinessName(name: string, displayName?: string) {
   if (displayName) {
     const possessive = `${displayName.trim()}’s business`;
     const ascii = `${displayName.trim()}'s business`;
-    if (trimmed === possessive || trimmed === ascii) return true;
+    const workspace = `${displayName.trim()}’s workspace`;
+    if (trimmed === possessive || trimmed === ascii || trimmed === workspace) return true;
   }
   return false;
 }

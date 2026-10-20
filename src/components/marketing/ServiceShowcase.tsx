@@ -23,7 +23,7 @@ const CARDS = [
   },
   {
     id: "custom_apps_platforms" as const,
-    href: "/discover?interest=custom_apps_platforms",
+    href: "/project?interest=custom_apps_platforms&purpose=business",
     icon: AppsIcon,
     visual: (
       <DeviceFrame variant="tablet" depth="tile" label="Custom app demonstration">
@@ -43,7 +43,7 @@ const CARDS = [
   },
   {
     id: "digital_infrastructure" as const,
-    href: "/discover?interest=digital_infrastructure",
+    href: "/project?interest=digital_infrastructure&purpose=business",
     icon: NodesIcon,
     visual: (
       <DeviceFrame variant="tablet" depth="tile" label="Infrastructure demonstration">

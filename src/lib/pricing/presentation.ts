@@ -262,7 +262,10 @@ function commissions(): CommissionPresentation[] {
       title: offer?.title ?? copy.title,
       summary: copy.summary,
       status: offer?.status === "exploratory" ? "exploratory" : "offered",
-      href: `/discover?interest=${id}`,
+      href:
+        id === "custom_apps_platforms" || id === "digital_infrastructure"
+          ? `/project?interest=${id}&purpose=business`
+          : `/discover?interest=${id}`,
       action: copy.action
     };
   });

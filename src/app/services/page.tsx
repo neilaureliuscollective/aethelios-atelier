@@ -28,7 +28,7 @@ const SECTIONS = [
   },
   {
     id: "custom_apps_platforms",
-    href: "/discover?interest=custom_apps_platforms",
+    href: "/project?interest=custom_apps_platforms&purpose=business",
     icon: AppsIcon,
     reverse: true,
     visual: (
@@ -50,7 +50,7 @@ const SECTIONS = [
   },
   {
     id: "digital_infrastructure",
-    href: "/discover?interest=digital_infrastructure",
+    href: "/project?interest=digital_infrastructure&purpose=business",
     icon: NodesIcon,
     reverse: true,
     hash: "digital-infrastructure",
@@ -120,6 +120,35 @@ export default function ServicesPage() {
           </Reveal>
         );
       })}
+
+      <Reveal as="article" className="service-feature surface-ivory custom-invite-block" delay={1}>
+        <div>
+          <p className="tiny">Secondary route</p>
+          <h2>Have another project in mind?</h2>
+          <p className="lede">
+            Need a useful tool for your work, studies, or a personal project? Bring the idea. We’ll
+            help define what’s worth building. These commissions use the same review path, with a
+            scope that fits the request.
+          </p>
+          <AppLink className="btn btn-emerald-glass" href="/custom-projects">
+            Other custom projects
+          </AppLink>
+        </div>
+        <div className="surface-read service-spec">
+          <h3>What this is</h3>
+          <ul>
+            <li>A professional workflow, study tool, or bounded personal utility</li>
+            <li>The same founder review, proposal, and delivery path</li>
+            <li>A smaller complete scope when the project is smaller</li>
+          </ul>
+          <h3>What this is not</h3>
+          <ul>
+            <li>A self-serve coding platform</li>
+            <li>A replacement for business clients as the central audience</li>
+            <li>A promise that every idea will be accepted</li>
+          </ul>
+        </div>
+      </Reveal>
 
       <div className="row" style={{ marginTop: 28 }}>
         <AppLink className="btn btn-emerald-glass" href="/discover">

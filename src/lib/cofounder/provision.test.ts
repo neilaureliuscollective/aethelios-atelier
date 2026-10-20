@@ -51,6 +51,8 @@ describe("initial workspace provisioning", () => {
     expect(a.business.id).not.toBe(b.business.id);
     expect(a.business.ownerId).toBe(owner.id);
     expect(b.business.ownerId).toBe(other.id);
+    expect(a.business.name).toBe("Project workspace");
+    expect(b.business.name).toBe("Project workspace");
   });
 
   it("rolls back a failed initial create so a retry can provision cleanly", async () => {
@@ -254,6 +256,12 @@ describe("business confirmation", () => {
     });
     expect(placeholder.retainedExisting).toBe(false);
     expect(placeholder.name).toBe("Northridge");
+    const individual = resolveConfirmedBusinessName({
+      submittedName: "",
+      existingName: "Project workspace"
+    });
+    expect(individual.retainedExisting).toBe(false);
+    expect(individual.name).toBe("Project workspace");
   });
 
   it("persists a confirmation and refuses a silent direction change", async () => {
