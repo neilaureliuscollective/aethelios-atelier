@@ -2,9 +2,12 @@ import { normalizeProfile } from "@/lib/cofounder/profile";
 import { usageEventStatus } from "@/lib/cofounder/types";
 import type {
   Business,
+  BusinessConfirmation,
   BusinessDocument,
   BusinessMember,
   BusinessProfile,
+  GuestWorkClaim,
+  GuestWorkKind,
   CompanionBlob,
   CompanionConversation,
   CompanionMessage,
@@ -25,6 +28,31 @@ function parseJson<T>(value: string, fallback: T): T {
   } catch {
     return fallback;
   }
+}
+
+export function mapGuestClaim(row: Row): GuestWorkClaim {
+  return {
+    guestWorkId: asString(row.guest_work_id),
+    ownerId: asString(row.owner_id),
+    kind: asString(row.kind) as GuestWorkKind,
+    destination: asString(row.destination),
+    payloadJson: asString(row.payload_json),
+    createdAt: asString(row.created_at)
+  };
+}
+
+export function mapConfirmation(row: Row): BusinessConfirmation {
+  return {
+    businessId: asString(row.business_id),
+    ownerId: asString(row.owner_id),
+    businessName: asString(row.business_name),
+    businessContext: asString(row.business_context),
+    sourceSelectionId: asOptionalString(row.source_selection_id) ?? null,
+    sourceRevision: row.source_revision == null ? null : asNumber(row.source_revision),
+    directionId: asOptionalString(row.direction_id) ?? null,
+    confirmedAt: asString(row.confirmed_at),
+    confirmedBy: asString(row.confirmed_by)
+  };
 }
 
 export function mapBusiness(row: Row): Business {

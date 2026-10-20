@@ -11,6 +11,7 @@ describe("offline cache policy", () => {
   it("refuses personalized HTML, APIs, and authenticated routes", () => {
     expect(isPersonalizedPath("/workspace/abc")).toBe(true);
     expect(isPersonalizedPath("/api/session")).toBe(true);
+    expect(isPersonalizedPath("/companion/studio")).toBe(true);
     expect(
       shouldCacheResponse({
         method: "GET",
@@ -56,7 +57,7 @@ describe("offline cache policy", () => {
       })
     ).toBe(false);
     expect(ATELIER_CACHE_PREFIX).toBe("atelier-static-");
-    expect(ATELIER_CACHE_NAME).toBe("atelier-static-v8");
+    expect(ATELIER_CACHE_NAME).toBe("atelier-static-v9");
     expect(
       shouldCacheResponse({
         method: "GET",

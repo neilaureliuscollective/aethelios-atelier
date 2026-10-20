@@ -62,7 +62,7 @@ export function Qualities({
           Back
         </button>
         <button className={`${styles.btn} ${styles.btnGold}`} type="button" onClick={onContinue}>
-          Open the studio
+          Review the business
         </button>
       </div>
     </section>

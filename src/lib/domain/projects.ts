@@ -2,6 +2,8 @@ import "server-only";
 import { briefTitle, createEmptyBrief, normalizeBrief } from "@/lib/brief";
 import { CONSENT_TEXT, DELIVERY_APPROVAL_TEXT, PROPOSAL_AGREEMENT_TEXT } from "@/lib/copy";
 import { ConflictError, ForbiddenError, NotFoundError } from "@/lib/domain/errors";
+import { isUniqueViolation } from "@/lib/persistence/unique";
+import { GuestWorkService } from "@/lib/guest/claim";
 import { buildDeliveryHandoff } from "@/lib/domain/handoff";
 import { toClientView } from "@/lib/domain/next-step";
 import {
@@ -93,21 +95,39 @@ export class ProjectService {
     if (draft.kind !== "guest_draft") {
       throw new ForbiddenError("Only labeled guest drafts can be adopted.");
     }
-    const existing = await this.store.getProjectByOwnerAndGuestDraft(owner.id, draft.draftId);
-    if (existing) return existing;
-    const project = await this.createProject(owner, draft.brief, draft.draftId);
-    for (const message of draft.messages) {
-      await this.store.addMessage({
-        id: createId("msg"),
-        projectId: project.id,
-        authorKind: message.authorKind,
-        body: message.body,
-        liveAi: false,
-        createdAt: message.createdAt,
-        metadata: { importedFromGuest: true, originalId: message.id }
+    return this.store.runInTransaction(async () => {
+      const existing = await this.store.getProjectByOwnerAndGuestDraft(owner.id, draft.draftId);
+      if (existing) return existing;
+      const claimed = await this.store.getProjectByGuestDraft(draft.draftId);
+      if (claimed && claimed.ownerId !== owner.id) {
+        throw new ForbiddenError("This guest work already belongs to another account.");
+      }
+      await new GuestWorkService(this.store).claim(owner, {
+        guestWorkId: draft.draftId,
+        kind: "brief",
+        destination: "/account/adopt"
       });
-    }
-    return project;
+      try {
+        const project = await this.createProject(owner, draft.brief, draft.draftId);
+        for (const message of draft.messages) {
+          await this.store.addMessage({
+            id: createId("msg"),
+            projectId: project.id,
+            authorKind: message.authorKind,
+            body: message.body,
+            liveAi: false,
+            createdAt: message.createdAt,
+            metadata: { importedFromGuest: true, originalId: message.id }
+          });
+        }
+        return project;
+      } catch (error) {
+        if (!isUniqueViolation(error)) throw error;
+        const again = await this.store.getProjectByOwnerAndGuestDraft(owner.id, draft.draftId);
+        if (again) return again;
+        throw new ForbiddenError("This guest work already belongs to another account.");
+      }
+    });
   }
 
   async listForOwner(user: User) {

@@ -31,6 +31,13 @@ export class ConflictError extends DomainError {
   }
 }
 
+export class UniqueConstraintError extends ConflictError {
+  constructor(message = "This record already exists.") {
+    super(message);
+    this.name = "UniqueConstraintError";
+  }
+}
+
 export class UnconfiguredError extends DomainError {
   constructor(message: string) {
     super(message, "unconfigured", 503);

@@ -12,6 +12,7 @@ export const DISCOVERY_PHASES = [
   "enter",
   "intake",
   "qualities",
+  "confirm",
   "studio",
   "compare",
   "review"

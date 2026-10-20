@@ -1,7 +1,9 @@
 import { emptyProfile, normalizeProfile } from "@/lib/cofounder/profile";
 import { resolvePlanId } from "@/lib/cofounder/entitlements";
 import { isLifestyleOwner, lifestyleProfileFields, LIFESTYLE_PROJECT } from "@/lib/cofounder/lifestyle";
-import { ForbiddenError, NotFoundError } from "@/lib/domain/errors";
+import { canonicalOwnedBusiness } from "@/lib/cofounder/provision";
+import { ForbiddenError, NotFoundError, UniqueConstraintError } from "@/lib/domain/errors";
+import { isUniqueViolation } from "@/lib/persistence/unique";
 import { currentClientProposal, isClientVisibleProposal } from "@/lib/domain/proposal";
 import type { PersistenceAdapter } from "@/lib/persistence/adapter";
 import type {
@@ -36,36 +38,65 @@ export class CompanionWorkspace {
     if (requestedBusinessId) {
       return this.requireMembership(requestedBusinessId, user);
     }
-    const existing = await this.store.companion.listBusinessesForUser(user.id);
-    const owned = existing.find((business) => business.ownerId === user.id);
-    if (owned) {
-      await this.attachOrphanProjects(owned, user);
-      return this.requireMembership(owned.id, user);
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      try {
+        return await this.provisionInitialWorkspace(user);
+      } catch (error) {
+        if (!isUniqueViolation(error) || attempt === 3) throw error;
+      }
     }
-    const stamp = now();
-    const lifestyle = isLifestyleOwner(user.email);
-    const business: Business = {
-      id: companionId("biz"),
-      ownerId: user.id,
-      name: lifestyle ? LIFESTYLE_PROJECT.brandName : user.displayName ? `${user.displayName}’s business` : "Your business",
-      planId: resolvePlanId(process.env.ATELIER_DEFAULT_PLAN),
-      createdAt: stamp,
-      updatedAt: stamp
-    };
-    await this.store.companion.createBusiness(business);
-    await this.store.companion.addMember({
-      businessId: business.id,
-      userId: user.id,
-      role: user.role === "founder" ? "founder" : "owner",
-      createdAt: stamp
+    throw new UniqueConstraintError("The initial workspace could not be provisioned uniquely.");
+  }
+
+  private async provisionInitialWorkspace(user: User): Promise<AuthorizedBusinessContext> {
+    return this.store.runInTransaction(async () => {
+      const claimedId = await this.store.companion.getInitialBusinessId(user.id);
+      if (claimedId) {
+        const claimed = await this.store.companion.getBusiness(claimedId);
+        if (claimed) {
+          await this.attachOrphanProjects(claimed, user);
+          return this.requireMembership(claimed.id, user);
+        }
+      }
+
+      const existing = await this.store.companion.listBusinessesForUser(user.id);
+      const owned = canonicalOwnedBusiness(existing, user.id);
+      if (owned) {
+        const claim = await this.store.companion.claimInitialBusiness(user.id, owned.id, owned.createdAt);
+        const canonical = (await this.store.companion.getBusiness(claim.businessId)) ?? owned;
+        await this.attachOrphanProjects(canonical, user);
+        return this.requireMembership(canonical.id, user);
+      }
+
+      const stamp = now();
+      const lifestyle = isLifestyleOwner(user.email);
+      const business: Business = {
+        id: companionId("biz"),
+        ownerId: user.id,
+        name: lifestyle ? LIFESTYLE_PROJECT.brandName : user.displayName ? `${user.displayName}’s business` : "Your business",
+        planId: resolvePlanId(process.env.ATELIER_DEFAULT_PLAN),
+        createdAt: stamp,
+        updatedAt: stamp
+      };
+      await this.store.companion.createBusiness(business);
+      await this.store.companion.addMember({
+        businessId: business.id,
+        userId: user.id,
+        role: user.role === "founder" ? "founder" : "owner",
+        createdAt: stamp
+      });
+      const profile = emptyProfile(business.id, stamp);
+      if (lifestyle) {
+        profile.fields = lifestyleProfileFields(stamp);
+      }
+      await this.store.companion.upsertProfile(profile);
+      const claim = await this.store.companion.claimInitialBusiness(user.id, business.id, stamp);
+      if (claim.businessId !== business.id) {
+        throw new UniqueConstraintError("Initial workspace already exists for this account.");
+      }
+      await this.attachOrphanProjects(business, user);
+      return this.requireMembership(business.id, user);
     });
-    const profile = emptyProfile(business.id, stamp);
-    if (lifestyle) {
-      profile.fields = lifestyleProfileFields(stamp);
-    }
-    await this.store.companion.upsertProfile(profile);
-    await this.attachOrphanProjects(business, user);
-    return this.requireMembership(business.id, user);
   }
 
   async requireMembership(businessId: string, user: User): Promise<AuthorizedBusinessContext> {

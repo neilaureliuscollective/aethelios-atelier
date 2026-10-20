@@ -27,6 +27,7 @@ import type {
 import { normalizeBrief } from "@/lib/brief";
 import { SqliteCompanionStore } from "@/lib/persistence/companionSqlite";
 import type { PersistenceAdapter } from "@/lib/persistence/adapter";
+import { throwIfUnique } from "@/lib/persistence/unique";
 import {
   mapAuthAccount,
   mapContentRequest,
@@ -86,6 +87,9 @@ CREATE TABLE IF NOT EXISTS projects (
   adopted_from_guest_id TEXT,
   latest_submission_id TEXT
 );
+CREATE UNIQUE INDEX IF NOT EXISTS projects_guest_draft_idx
+  ON projects (adopted_from_guest_id)
+  WHERE adopted_from_guest_id IS NOT NULL;
 CREATE TABLE IF NOT EXISTS submissions (
   id TEXT PRIMARY KEY,
   project_id TEXT NOT NULL,
@@ -264,6 +268,9 @@ export class SqlitePersistence implements PersistenceAdapter {
     this.db.exec(SCHEMA);
     this.ensureSubmissionRequestColumns();
     this.ensureAuthColumns();
+    this.db.exec(
+      "CREATE UNIQUE INDEX IF NOT EXISTS projects_guest_draft_idx ON projects (adopted_from_guest_id) WHERE adopted_from_guest_id IS NOT NULL"
+    );
     this.companion = new SqliteCompanionStore(this.db);
   }
 
@@ -483,25 +490,29 @@ export class SqlitePersistence implements PersistenceAdapter {
   }
 
   createProject(project: Project) {
-    this.db
-      .prepare(
-        `INSERT INTO projects(id,owner_id,title,status,brief_json,version,created_at,updated_at,adopted_from_guest_id,latest_submission_id,business_id)
-         VALUES(?,?,?,?,?,?,?,?,?,?,?)`
-      )
-      .run(
-        project.id,
-        project.ownerId,
-        project.title,
-        project.status,
-        JSON.stringify(project.brief),
-        project.version,
-        project.createdAt,
-        project.updatedAt,
-        project.adoptedFromGuestId ?? null,
-        project.latestSubmissionId ?? null,
-        project.businessId ?? null
-      );
-    return project;
+    try {
+      this.db
+        .prepare(
+          `INSERT INTO projects(id,owner_id,title,status,brief_json,version,created_at,updated_at,adopted_from_guest_id,latest_submission_id,business_id)
+           VALUES(?,?,?,?,?,?,?,?,?,?,?)`
+        )
+        .run(
+          project.id,
+          project.ownerId,
+          project.title,
+          project.status,
+          JSON.stringify(project.brief),
+          project.version,
+          project.createdAt,
+          project.updatedAt,
+          project.adoptedFromGuestId ?? null,
+          project.latestSubmissionId ?? null,
+          project.businessId ?? null
+        );
+      return project;
+    } catch (error) {
+      throwIfUnique(error, "This guest work has already been claimed.");
+    }
   }
 
   getProject(id: string) {
@@ -523,6 +534,13 @@ export class SqlitePersistence implements PersistenceAdapter {
       .prepare("SELECT * FROM projects WHERE status != 'draft' ORDER BY updated_at DESC")
       .all() as Record<string, unknown>[];
     return rows.map((row) => this.mapProject(row));
+  }
+
+  getProjectByGuestDraft(guestDraftId: string) {
+    const row = this.db
+      .prepare("SELECT * FROM projects WHERE adopted_from_guest_id = ? LIMIT 1")
+      .get(guestDraftId) as Record<string, unknown> | undefined;
+    return row ? this.mapProject(row) : null;
   }
 
   getProjectByOwnerAndGuestDraft(ownerId: string, guestDraftId: string) {

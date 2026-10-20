@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { useSession } from "@/components/shell/SessionShell";
 import { api } from "@/lib/client/api";
+import { readGuestIntent } from "@/lib/guest/intent";
 import styles from "./companion.module.css";
 
 export function CompanionShell({
@@ -20,13 +21,28 @@ export function CompanionShell({
   const pathname = usePathname();
   const { user, loading } = useSession();
   const [businessName, setBusinessName] = useState("");
+  const [studioGate, setStudioGate] = useState<"ready" | "confirm">("ready");
 
   useEffect(() => {
     if (!user) return;
-    void api<{ business: { name: string } }>("/api/companion/workspace")
-      .then((data) => setBusinessName(data.business.name))
+    void api<{ business: { name: string }; confirmation: { sourceSelectionId: string | null } | null }>(
+      "/api/companion/workspace"
+    )
+      .then((data) => {
+        setBusinessName(data.business.name);
+        const intent = readGuestIntent();
+        if (
+          pathname.startsWith("/companion/studio") &&
+          intent?.selectionId &&
+          data.confirmation?.sourceSelectionId !== intent.selectionId
+        ) {
+          setStudioGate("confirm");
+        } else {
+          setStudioGate("ready");
+        }
+      })
       .catch(() => setBusinessName(""));
-  }, [user]);
+  }, [user, pathname]);
 
   if (loading) {
     return (
@@ -49,8 +65,26 @@ export function CompanionShell({
           <p className="lede">
             This is your business workspace — not a public chatbot and not a guest draft.
           </p>
-          <a className="btn btn-gold" href="/account?next=/companion">
+          <a className="btn btn-gold" href={`/account?next=${encodeURIComponent(pathname || "/companion")}`}>
             Sign in
+          </a>
+        </div>
+      </section>
+    );
+  }
+
+  if (studioGate === "confirm") {
+    return (
+      <section className={`container ${styles.shell}`}>
+        <div className={`surface-glass ${styles.gate}`}>
+          <p className={styles.meta}>Confirm first</p>
+          <h1>Review the business before Studio</h1>
+          <p className="lede">
+            A Discovery direction is waiting. Confirm the business and that exact selection so Studio
+            cannot silently adopt another tab’s version.
+          </p>
+          <a className="btn btn-gold" href="/companion/confirm">
+            Confirm business and direction
           </a>
         </div>
       </section>

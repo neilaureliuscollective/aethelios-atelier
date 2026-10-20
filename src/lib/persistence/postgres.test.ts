@@ -12,6 +12,10 @@ describe("hosted postgres schema", () => {
     expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS delivery_versions/);
     expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS delivery_milestones/);
     expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS businesses/);
+    expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS user_initial_business/);
+    expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS guest_work_claims/);
+    expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS business_confirmations/);
+    expect(sql).toMatch(/projects_guest_draft_idx/);
     expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS work_items/);
     expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS studio_assets/);
     expect(sql).toMatch(/reviewed_version/);

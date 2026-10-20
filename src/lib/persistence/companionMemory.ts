@@ -1,10 +1,13 @@
 import { emptyProfile, normalizeProfile } from "@/lib/cofounder/profile";
 import { usageCountsTowardBudget } from "@/lib/cofounder/types";
+import { UniqueConstraintError } from "@/lib/domain/errors";
 import type {
   Business,
+  BusinessConfirmation,
   BusinessDocument,
   BusinessMember,
   BusinessProfile,
+  GuestWorkClaim,
   CompanionBlob,
   CompanionConversation,
   CompanionMessage,
@@ -25,6 +28,9 @@ function clone<T>(value: T): T {
 
 export class MemoryCompanionStore implements CompanionStore {
   private businesses = new Map<string, Business>();
+  private initialBusiness = new Map<string, string>();
+  private guestClaims = new Map<string, GuestWorkClaim>();
+  private confirmations = new Map<string, BusinessConfirmation>();
   private members = new Map<string, BusinessMember>();
   private profiles = new Map<string, BusinessProfile>();
   private memory = new Map<string, MemoryProposal>();
@@ -39,8 +45,31 @@ export class MemoryCompanionStore implements CompanionStore {
   private blobs = new Map<string, CompanionBlob>();
   private revisions = new Map<string, CompositionRevision>();
 
+  snapshot() {
+    return {
+      businesses: new Map(this.businesses),
+      initialBusiness: new Map(this.initialBusiness),
+      guestClaims: new Map(this.guestClaims),
+      confirmations: new Map(this.confirmations),
+      members: new Map(this.members),
+      profiles: new Map(this.profiles)
+    };
+  }
+
+  restore(snapshot: ReturnType<MemoryCompanionStore["snapshot"]>) {
+    this.businesses = new Map(snapshot.businesses);
+    this.initialBusiness = new Map(snapshot.initialBusiness);
+    this.guestClaims = new Map(snapshot.guestClaims);
+    this.confirmations = new Map(snapshot.confirmations);
+    this.members = new Map(snapshot.members);
+    this.profiles = new Map(snapshot.profiles);
+  }
+
   reset() {
     this.businesses.clear();
+    this.initialBusiness.clear();
+    this.guestClaims.clear();
+    this.confirmations.clear();
     this.members.clear();
     this.profiles.clear();
     this.memory.clear();
@@ -78,6 +107,43 @@ export class MemoryCompanionStore implements CompanionStore {
   updateBusiness(business: Business) {
     this.businesses.set(business.id, clone(business));
     return clone(business);
+  }
+
+  getInitialBusinessId(userId: string) {
+    return this.initialBusiness.get(userId) ?? null;
+  }
+
+  claimInitialBusiness(userId: string, businessId: string) {
+    const existing = this.initialBusiness.get(userId);
+    if (existing) {
+      return { claimed: false, businessId: existing };
+    }
+    this.initialBusiness.set(userId, businessId);
+    return { claimed: true, businessId };
+  }
+
+  getGuestWorkClaim(guestWorkId: string) {
+    const item = this.guestClaims.get(guestWorkId);
+    return item ? clone(item) : null;
+  }
+
+  insertGuestWorkClaim(claim: GuestWorkClaim) {
+    const existing = this.guestClaims.get(claim.guestWorkId);
+    if (existing) {
+      throw new UniqueConstraintError("This guest work has already been claimed.");
+    }
+    this.guestClaims.set(claim.guestWorkId, clone(claim));
+    return clone(claim);
+  }
+
+  getBusinessConfirmation(businessId: string) {
+    const item = this.confirmations.get(businessId);
+    return item ? clone(item) : null;
+  }
+
+  upsertBusinessConfirmation(confirmation: BusinessConfirmation) {
+    this.confirmations.set(confirmation.businessId, clone(confirmation));
+    return clone(confirmation);
   }
 
   addMember(member: BusinessMember) {

@@ -1,8 +1,10 @@
 import type {
   Business,
+  BusinessConfirmation,
   BusinessDocument,
   BusinessMember,
   BusinessProfile,
+  GuestWorkClaim,
   CompanionBlob,
   CompanionConversation,
   CompanionMessage,
@@ -24,6 +26,16 @@ export type CompanionStore = {
   listBusinessesForUser(userId: string): Business[] | Promise<Business[]>;
   listAllBusinesses(): Business[] | Promise<Business[]>;
   updateBusiness(business: Business): Business | Promise<Business>;
+  getInitialBusinessId(userId: string): string | null | Promise<string | null>;
+  claimInitialBusiness(
+    userId: string,
+    businessId: string,
+    createdAt: string
+  ): { claimed: boolean; businessId: string } | Promise<{ claimed: boolean; businessId: string }>;
+  getGuestWorkClaim(guestWorkId: string): GuestWorkClaim | null | Promise<GuestWorkClaim | null>;
+  insertGuestWorkClaim(claim: GuestWorkClaim): GuestWorkClaim | Promise<GuestWorkClaim>;
+  getBusinessConfirmation(businessId: string): BusinessConfirmation | null | Promise<BusinessConfirmation | null>;
+  upsertBusinessConfirmation(confirmation: BusinessConfirmation): BusinessConfirmation | Promise<BusinessConfirmation>;
 
   addMember(member: BusinessMember): BusinessMember | Promise<BusinessMember>;
   getMember(businessId: string, userId: string): BusinessMember | null | Promise<BusinessMember | null>;
@@ -118,6 +130,30 @@ CREATE TABLE IF NOT EXISTS businesses (
   plan_id TEXT NOT NULL,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS user_initial_business (
+  user_id TEXT PRIMARY KEY,
+  business_id TEXT NOT NULL UNIQUE,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS guest_work_claims (
+  guest_work_id TEXT PRIMARY KEY,
+  owner_id TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  destination TEXT NOT NULL,
+  payload_json TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS business_confirmations (
+  business_id TEXT PRIMARY KEY,
+  owner_id TEXT NOT NULL,
+  business_name TEXT NOT NULL,
+  business_context TEXT NOT NULL,
+  source_selection_id TEXT,
+  source_revision INTEGER,
+  direction_id TEXT,
+  confirmed_at TEXT NOT NULL,
+  confirmed_by TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS business_members (
   business_id TEXT NOT NULL,
@@ -284,6 +320,9 @@ export const COMPANION_RESET_SQL = `
   DELETE FROM business_documents;
   DELETE FROM business_memory_proposals;
   DELETE FROM business_profiles;
+  DELETE FROM business_confirmations;
+  DELETE FROM guest_work_claims;
+  DELETE FROM user_initial_business;
   DELETE FROM business_members;
   DELETE FROM businesses;
 `;

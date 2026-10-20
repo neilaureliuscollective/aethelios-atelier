@@ -3,9 +3,11 @@ import { emptyProfile } from "@/lib/cofounder/profile";
 import { usageCountsTowardBudget } from "@/lib/cofounder/types";
 import type {
   Business,
+  BusinessConfirmation,
   BusinessDocument,
   BusinessMember,
   BusinessProfile,
+  GuestWorkClaim,
   CompanionBlob,
   CompanionConversation,
   CompanionMessage,
@@ -18,9 +20,12 @@ import type {
   UsageKind,
   WorkItem
 } from "@/lib/cofounder/types";
+import { throwIfUnique } from "@/lib/persistence/unique";
 import {
   mapBlob,
   mapBusiness,
+  mapConfirmation,
+  mapGuestClaim,
   mapCompanionMessage,
   mapConversation,
   mapDocument,
@@ -172,6 +177,80 @@ export class SqliteCompanionStore implements CompanionStore {
       .prepare("UPDATE businesses SET name=?, plan_id=?, updated_at=? WHERE id=?")
       .run(business.name, business.planId, business.updatedAt, business.id);
     return business;
+  }
+
+  getInitialBusinessId(userId: string) {
+    const row = this.db.prepare("SELECT business_id FROM user_initial_business WHERE user_id = ?").get(userId) as
+      | { business_id: string }
+      | undefined;
+    return row?.business_id ?? null;
+  }
+
+  claimInitialBusiness(userId: string, businessId: string, createdAt: string) {
+    this.db
+      .prepare(
+        "INSERT OR IGNORE INTO user_initial_business(user_id, business_id, created_at) VALUES(?,?,?)"
+      )
+      .run(userId, businessId, createdAt);
+    const existing = this.getInitialBusinessId(userId);
+    return { claimed: existing === businessId, businessId: existing ?? businessId };
+  }
+
+  getGuestWorkClaim(guestWorkId: string) {
+    const row = this.db.prepare("SELECT * FROM guest_work_claims WHERE guest_work_id = ?").get(guestWorkId) as
+      | Row
+      | undefined;
+    return row ? mapGuestClaim(row) : null;
+  }
+
+  insertGuestWorkClaim(claim: GuestWorkClaim) {
+    try {
+      this.db
+        .prepare(
+          "INSERT INTO guest_work_claims(guest_work_id,owner_id,kind,destination,payload_json,created_at) VALUES(?,?,?,?,?,?)"
+        )
+        .run(claim.guestWorkId, claim.ownerId, claim.kind, claim.destination, claim.payloadJson, claim.createdAt);
+      return claim;
+    } catch (error) {
+      throwIfUnique(error, "This guest work has already been claimed.");
+    }
+  }
+
+  getBusinessConfirmation(businessId: string) {
+    const row = this.db.prepare("SELECT * FROM business_confirmations WHERE business_id = ?").get(businessId) as
+      | Row
+      | undefined;
+    return row ? mapConfirmation(row) : null;
+  }
+
+  upsertBusinessConfirmation(confirmation: BusinessConfirmation) {
+    this.db
+      .prepare(
+        `INSERT INTO business_confirmations(
+          business_id,owner_id,business_name,business_context,source_selection_id,source_revision,direction_id,confirmed_at,confirmed_by
+        ) VALUES(?,?,?,?,?,?,?,?,?)
+        ON CONFLICT(business_id) DO UPDATE SET
+          owner_id=excluded.owner_id,
+          business_name=excluded.business_name,
+          business_context=excluded.business_context,
+          source_selection_id=excluded.source_selection_id,
+          source_revision=excluded.source_revision,
+          direction_id=excluded.direction_id,
+          confirmed_at=excluded.confirmed_at,
+          confirmed_by=excluded.confirmed_by`
+      )
+      .run(
+        confirmation.businessId,
+        confirmation.ownerId,
+        confirmation.businessName,
+        confirmation.businessContext,
+        confirmation.sourceSelectionId,
+        confirmation.sourceRevision,
+        confirmation.directionId,
+        confirmation.confirmedAt,
+        confirmation.confirmedBy
+      );
+    return confirmation;
   }
 
   addMember(member: BusinessMember) {

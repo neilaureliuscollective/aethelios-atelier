@@ -48,11 +48,14 @@ import {
   type PreviewMode,
   type VisualDirectionId
 } from "@/lib/discovery";
+import { ConfirmBusiness } from "./ConfirmBusiness";
 import { ConceptStage } from "./ConceptStage";
 import { Entrance } from "./Entrance";
 import { Intake } from "./Intake";
 import { Qualities } from "./Qualities";
 import { SelectionSummary } from "./SelectionSummary";
+import { useSession } from "@/components/shell/SessionShell";
+import { writeGuestIntent } from "@/lib/guest/intent";
 import { resolveSampleVisit } from "./sampleVisit";
 import styles from "./DiscoveryStudio.module.css";
 
@@ -60,6 +63,7 @@ const PHASES: Array<{ id: DiscoveryPhase; label: string }> = [
   { id: "enter", label: "Enter" },
   { id: "intake", label: "Business" },
   { id: "qualities", label: "Qualities" },
+  { id: "confirm", label: "Confirm" },
   { id: "studio", label: "Studio" },
   { id: "compare", label: "Compare" },
   { id: "review", label: "Review" }
@@ -173,6 +177,7 @@ const initial: State = {
 };
 
 export function DiscoveryStudio() {
+  const { user } = useSession();
   const [state, dispatch] = useReducer(reducer, initial);
   const [demoOpen, setDemoOpen] = useState(false);
   const [demo, setDemo] = useState<PreviewActionContext | null>(null);
@@ -288,6 +293,12 @@ export function DiscoveryStudio() {
   const confirm = useCallback((directionId: DirectionId = state.draft.activeDirectionId) => {
     const result = confirmDirection(state.draft, directionId, state.confirmed);
     writeDiscoveryHandoff(result.selection);
+    writeGuestIntent({
+      guestWorkId: result.selection.selectionId,
+      destination: "/companion/confirm",
+      selectionId: result.selection.selectionId,
+      localRevision: result.selection.localRevision
+    });
     dispatch({ type: "confirm", draft: result.draft, selection: result.selection });
   }, [state.draft, state.confirmed]);
 
@@ -356,6 +367,14 @@ export function DiscoveryStudio() {
             draft={state.draft}
             onToggle={(id) => dispatch({ type: "draft", draft: toggleQuality(state.draft, id) })}
             onBack={() => go("intake")}
+            onContinue={() => go("confirm")}
+          />
+        ) : null}
+        {state.phase === "confirm" ? (
+          <ConfirmBusiness
+            draft={state.draft}
+            onPatch={(patch) => dispatch({ type: "patch", patch })}
+            onBack={() => go("qualities")}
             onContinue={() => go("studio")}
           />
         ) : null}
@@ -387,6 +406,7 @@ export function DiscoveryStudio() {
             onBack={() => go("studio")}
             onCopy={() => void copySummary()}
             onAction={onAction}
+            continueHref={user ? "/companion/confirm" : "/account?next=/companion/confirm"}
           />
         ) : null}
 
@@ -1067,7 +1087,8 @@ function ReviewBody({
   onConfirm,
   onBack,
   onCopy,
-  onAction
+  onAction,
+  continueHref
 }: {
   draft: DiscoveryDraft;
   confirmed: DiscoverySelection | null;
@@ -1078,6 +1099,7 @@ function ReviewBody({
   onBack: () => void;
   onCopy: () => void;
   onAction: (context: PreviewActionContext) => void;
+  continueHref: string;
 }) {
   return (
     <section className={styles.reviewGrid}>
@@ -1181,6 +1203,11 @@ function ReviewBody({
           <button className={`${styles.btn} ${styles.btnGold}`} type="button" onClick={() => onConfirm()}>
             Use this direction
           </button>
+          {confirmed ? (
+            <AppLink className={`${styles.btn} ${styles.btnGold}`} href={continueHref}>
+              Continue to your workspace
+            </AppLink>
+          ) : null}
           <AppLink className={`${styles.btn} ${styles.btnGhost}`} href="/project">
             Add to your brief
           </AppLink>

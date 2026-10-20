@@ -30,6 +30,9 @@ CREATE TABLE IF NOT EXISTS projects (
   adopted_from_guest_id TEXT,
   latest_submission_id TEXT
 );
+CREATE UNIQUE INDEX IF NOT EXISTS projects_guest_draft_idx
+  ON projects (adopted_from_guest_id)
+  WHERE adopted_from_guest_id IS NOT NULL;
 CREATE TABLE IF NOT EXISTS submissions (
   id TEXT PRIMARY KEY,
   project_id TEXT NOT NULL,
@@ -194,6 +197,30 @@ CREATE TABLE IF NOT EXISTS businesses (
   plan_id TEXT NOT NULL,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS user_initial_business (
+  user_id TEXT PRIMARY KEY,
+  business_id TEXT NOT NULL UNIQUE,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS guest_work_claims (
+  guest_work_id TEXT PRIMARY KEY,
+  owner_id TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  destination TEXT NOT NULL,
+  payload_json TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS business_confirmations (
+  business_id TEXT PRIMARY KEY,
+  owner_id TEXT NOT NULL,
+  business_name TEXT NOT NULL,
+  business_context TEXT NOT NULL,
+  source_selection_id TEXT,
+  source_revision INTEGER,
+  direction_id TEXT,
+  confirmed_at TEXT NOT NULL,
+  confirmed_by TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS business_members (
   business_id TEXT NOT NULL,

@@ -19,7 +19,18 @@ const body = Figtree({
   display: "swap"
 });
 
+const publicOrigin = (() => {
+  const value = process.env.ATELIER_PUBLIC_ORIGIN?.trim();
+  if (!value) return undefined;
+  try {
+    return new URL(value);
+  } catch {
+    return undefined;
+  }
+})();
+
 export const metadata: Metadata = {
+  metadataBase: publicOrigin,
   title: {
     default: "Aethelios Atelier",
     template: "%s · Aethelios Atelier"
@@ -27,6 +38,23 @@ export const metadata: Metadata = {
   description:
     "Founder-led websites and digital infrastructure. Shape a commission with Aethelios; Neil Stutes reviews, scopes, and delivers.",
   applicationName: "Aethelios Atelier",
+  alternates: publicOrigin ? { canonical: "/" } : undefined,
+  openGraph: {
+    title: "Aethelios Atelier",
+    description:
+      "Founder-led websites and digital infrastructure. Shape a commission with Aethelios; Neil Stutes reviews, scopes, and delivers.",
+    siteName: "Aethelios Atelier",
+    locale: "en_US",
+    type: "website",
+    images: [{ url: "/brand/logo-1024.png", width: 1024, height: 1024, alt: "Aethelios Atelier" }]
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Aethelios Atelier",
+    description:
+      "Founder-led websites and digital infrastructure. Shape a commission with Aethelios; Neil Stutes reviews, scopes, and delivers.",
+    images: ["/brand/logo-1024.png"]
+  },
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [

@@ -1,3 +1,5 @@
+import { isApprovedReturnPath } from "@/lib/auth/returnRoutes";
+
 const DEFAULT_CALLBACK = "/account";
 
 export function safeCallbackUrl(value: unknown, fallback = DEFAULT_CALLBACK) {
@@ -7,5 +9,7 @@ export function safeCallbackUrl(value: unknown, fallback = DEFAULT_CALLBACK) {
   if (trimmed.startsWith("//")) return fallback;
   if (trimmed.includes("://")) return fallback;
   if (trimmed.includes("\\")) return fallback;
-  return trimmed;
+  const pathOnly = trimmed.split("#")[0] ?? trimmed;
+  if (!isApprovedReturnPath(pathOnly)) return fallback;
+  return pathOnly;
 }

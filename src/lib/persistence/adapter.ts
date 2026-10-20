@@ -57,6 +57,7 @@ export type PersistenceAdapter = {
   listProjectsByOwner(ownerId: string): MaybePromise<Project[]>;
   listSubmittedProjects(): MaybePromise<Project[]>;
   getProjectByOwnerAndGuestDraft(ownerId: string, guestDraftId: string): MaybePromise<Project | null>;
+  getProjectByGuestDraft(guestDraftId: string): MaybePromise<Project | null>;
   updateProject(project: Project): MaybePromise<Project>;
   getSubmissionByIdempotencyKey(key: string): MaybePromise<Submission | null>;
 

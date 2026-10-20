@@ -3,9 +3,11 @@ import { emptyProfile } from "@/lib/cofounder/profile";
 import { usageCountsTowardBudget } from "@/lib/cofounder/types";
 import type {
   Business,
+  BusinessConfirmation,
   BusinessDocument,
   BusinessMember,
   BusinessProfile,
+  GuestWorkClaim,
   CompanionBlob,
   CompanionConversation,
   CompanionMessage,
@@ -18,9 +20,12 @@ import type {
   UsageKind,
   WorkItem
 } from "@/lib/cofounder/types";
+import { throwIfUnique } from "@/lib/persistence/unique";
 import {
   mapBlob,
   mapBusiness,
+  mapConfirmation,
+  mapGuestClaim,
   mapCompanionMessage,
   mapConversation,
   mapDocument,
@@ -134,6 +139,65 @@ export class PostgresCompanionStore implements CompanionStore {
       WHERE id = ${business.id}
     `;
     return business;
+  }
+
+  async getInitialBusinessId(userId: string) {
+    const rows = await this.client()`SELECT business_id FROM user_initial_business WHERE user_id = ${userId}`;
+    return rows[0] ? String(rows[0].business_id) : null;
+  }
+
+  async claimInitialBusiness(userId: string, businessId: string, createdAt: string) {
+    await this.client()`
+      INSERT INTO user_initial_business(user_id, business_id, created_at)
+      VALUES (${userId}, ${businessId}, ${createdAt})
+      ON CONFLICT (user_id) DO NOTHING
+    `;
+    const existing = await this.getInitialBusinessId(userId);
+    return { claimed: existing === businessId, businessId: existing ?? businessId };
+  }
+
+  async getGuestWorkClaim(guestWorkId: string) {
+    const rows = await this.client()`SELECT * FROM guest_work_claims WHERE guest_work_id = ${guestWorkId}`;
+    return rows[0] ? mapGuestClaim(rows[0] as Row) : null;
+  }
+
+  async insertGuestWorkClaim(claim: GuestWorkClaim) {
+    try {
+      await this.client()`
+        INSERT INTO guest_work_claims(guest_work_id,owner_id,kind,destination,payload_json,created_at)
+        VALUES (${claim.guestWorkId}, ${claim.ownerId}, ${claim.kind}, ${claim.destination}, ${claim.payloadJson}, ${claim.createdAt})
+      `;
+      return claim;
+    } catch (error) {
+      throwIfUnique(error, "This guest work has already been claimed.");
+    }
+  }
+
+  async getBusinessConfirmation(businessId: string) {
+    const rows = await this.client()`SELECT * FROM business_confirmations WHERE business_id = ${businessId}`;
+    return rows[0] ? mapConfirmation(rows[0] as Row) : null;
+  }
+
+  async upsertBusinessConfirmation(confirmation: BusinessConfirmation) {
+    await this.client()`
+      INSERT INTO business_confirmations(
+        business_id,owner_id,business_name,business_context,source_selection_id,source_revision,direction_id,confirmed_at,confirmed_by
+      ) VALUES (
+        ${confirmation.businessId}, ${confirmation.ownerId}, ${confirmation.businessName}, ${confirmation.businessContext},
+        ${confirmation.sourceSelectionId}, ${confirmation.sourceRevision}, ${confirmation.directionId},
+        ${confirmation.confirmedAt}, ${confirmation.confirmedBy}
+      )
+      ON CONFLICT (business_id) DO UPDATE SET
+        owner_id = excluded.owner_id,
+        business_name = excluded.business_name,
+        business_context = excluded.business_context,
+        source_selection_id = excluded.source_selection_id,
+        source_revision = excluded.source_revision,
+        direction_id = excluded.direction_id,
+        confirmed_at = excluded.confirmed_at,
+        confirmed_by = excluded.confirmed_by
+    `;
+    return confirmation;
   }
 
   async addMember(member: BusinessMember) {

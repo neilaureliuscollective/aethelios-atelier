@@ -93,6 +93,29 @@ export type Business = {
   updatedAt: string;
 };
 
+export type GuestWorkKind = "discovery" | "brief";
+
+export type GuestWorkClaim = {
+  guestWorkId: string;
+  ownerId: string;
+  kind: GuestWorkKind;
+  destination: string;
+  payloadJson: string;
+  createdAt: string;
+};
+
+export type BusinessConfirmation = {
+  businessId: string;
+  ownerId: string;
+  businessName: string;
+  businessContext: string;
+  sourceSelectionId: string | null;
+  sourceRevision: number | null;
+  directionId: string | null;
+  confirmedAt: string;
+  confirmedBy: string;
+};
+
 export type BusinessMember = {
   businessId: string;
   userId: string;

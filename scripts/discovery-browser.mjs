@@ -147,7 +147,9 @@ const quality2 = (await page.$$("button[aria-pressed]"))[1];
 await quality2?.click();
 await shot(page, 1440, "discover_qualities");
 await shot(page, 390, "discover_qualities");
-check("open studio", await continueBtn(page, "Open the studio"));
+check("review business", await continueBtn(page, "Review the business"));
+await page.waitForSelector("input, textarea");
+check("confirm business", await continueBtn(page, "Confirm and open the studio"));
 await page.waitForSelector("article");
 const personalized = await page.evaluate(() => document.body.innerText);
 check("personalized business name in preview", personalized.includes("Meridian Sitting Room"));
@@ -279,12 +281,15 @@ for (const direction of ["lumen", "hearth", "signal"]) {
   check(`${direction} phone layout inside 1440px browser`, Boolean(layout.ok), JSON.stringify(layout));
   await shot(page, 1440, `discover_phone_${direction}_in_desktop`, 1100, false);
 }
+await page.waitForSelector("input[name='direction-studio'][value='lumen']");
 await page.click("input[name='direction-studio'][value='lumen']");
 await page.click("input[name='preview-studio'][value='desktop']");
 
 async function conceptViewport(direction, width) {
   await page.setViewport({ width, height: width === 390 ? 844 : 1100, deviceScaleFactor: 1 });
+  await page.waitForSelector(`input[name="direction-studio"][value="${direction}"]`);
   await page.click(`input[name="direction-studio"][value="${direction}"]`);
+  await page.waitForSelector("input[name='preview-studio'][value='desktop']");
   await page.click("input[name='preview-studio'][value='desktop']");
   await new Promise((r) => setTimeout(r, 280));
   return page.evaluate((directionId) => {

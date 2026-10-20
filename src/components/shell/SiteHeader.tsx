@@ -20,7 +20,8 @@ const workspaceLinks = [
   { href: "/companion/talk", label: "Talk" },
   { href: "/companion/studio", label: "Studio" },
   { href: "/companion/work", label: "Work" },
-  { href: "/companion/business", label: "Business" }
+  { href: "/companion/business", label: "Business" },
+  { href: "/companion/confirm", label: "Confirm" }
 ];
 
 function currentWorkspace(pathname: string, href: string) {

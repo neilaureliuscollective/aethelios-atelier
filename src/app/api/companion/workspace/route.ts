@@ -15,9 +15,11 @@ export async function GET(request: Request) {
     const { auth, store, workspace, context } = await requireCompanion(requested);
     const usage = await new CompanionUsage(store).snapshot(context.business.id, auth.user);
     const businesses = await workspace.listForUser(auth.user);
+    const confirmation = await store.companion.getBusinessConfirmation(context.business.id);
     return json({
       ok: true,
       business: context.business,
+      confirmation,
       membership: context.membership,
       profile: clientSafeProfile(context.profile),
       rawProfile: context.profile,

@@ -60,6 +60,7 @@ node scripts/companion-api.mjs
 node scripts/companion-browser.mjs
 node scripts/lifestyle-journey.mjs
 node scripts/usage-concurrency.mjs
+node scripts/launch-journey-api.mjs
 ```
 
 ## Configuration

@@ -55,9 +55,13 @@ describe("Auth.js identity mapping and authorization", () => {
     expect(resolveRole("client.a@example.com", ["founder.auth@atelier.invalid"])).toBe("client");
     expect(displayNameFromEmail("client.a@example.com")).toBe("Client A");
     expect(safeCallbackUrl("/account/adopt")).toBe("/account/adopt");
+    expect(safeCallbackUrl("/companion/confirm")).toBe("/companion/confirm");
+    expect(safeCallbackUrl("/workspace/proj_1")).toBe("/workspace/proj_1");
     expect(safeCallbackUrl("https://evil.example")).toBe("/account");
     expect(safeCallbackUrl("//evil.example")).toBe("/account");
     expect(safeCallbackUrl("/\\evil")).toBe("/account");
+    expect(safeCallbackUrl("/api/session")).toBe("/account");
+    expect(safeCallbackUrl("/unknown-private")).toBe("/account");
   });
 
   it("keeps two real client accounts isolated and authorizes founder through the existing project API", async () => {

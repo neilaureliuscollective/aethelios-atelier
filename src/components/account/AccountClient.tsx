@@ -7,7 +7,9 @@ import { api } from "@/lib/client/api";
 import { actionErrorMessage } from "@/lib/client/asyncAction";
 import { ownerFence } from "@/lib/client/ownerFence";
 import { clearOwnerScopedData } from "@/lib/client/ownerScope";
+import { safeCallbackUrl } from "@/lib/auth/callbackUrl";
 import { readGuestDraft } from "@/lib/guest/draft";
+import { readGuestIntent } from "@/lib/guest/intent";
 import type { User } from "@/lib/types";
 
 type Config = {
@@ -23,7 +25,8 @@ type Config = {
 
 function nextPath() {
   const next = new URLSearchParams(window.location.search).get("next");
-  return next?.startsWith("/") && !next.startsWith("//") ? next : "/account";
+  const intent = readGuestIntent();
+  return safeCallbackUrl(next || intent?.destination || "/account");
 }
 
 export function AccountClient() {
@@ -77,7 +80,7 @@ export function AccountClient() {
           body: JSON.stringify({
             provider,
             email: email.trim() || undefined,
-            callbackUrl: guestDraft ? "/account/adopt" : nextPath()
+            callbackUrl: nextPath() !== "/account" ? nextPath() : guestDraft ? "/account/adopt" : nextPath()
           })
         }
       );
@@ -151,17 +154,24 @@ export function AccountClient() {
             Signed in as <strong>{user.displayName}</strong> ({user.email}) · {user.role} · {user.adapter}
           </p>
           <div className="row" style={{ marginTop: 16 }}>
-            {user.role === "founder" ? (
+            {readGuestIntent() ? (
+              <AppLink className="btn btn-gold" href="/companion/confirm">
+                Continue where you left off
+              </AppLink>
+            ) : user.role === "founder" ? (
               <AppLink className="btn btn-gold" href="/founder">
                 Founder workspace
               </AppLink>
             ) : (
-              <AppLink className="btn btn-gold" href="/workspace">
-                Open workspace
+              <AppLink className="btn btn-gold" href="/companion">
+                Open your workspace
               </AppLink>
             )}
-            <AppLink className="btn btn-ghost" href="/companion">
-              Open companion
+            <AppLink className="btn btn-ghost" href="/workspace">
+              Commissions
+            </AppLink>
+            <AppLink className="btn btn-ghost" href="/companion/studio">
+              Studio
             </AppLink>
             <AppLink className="btn btn-ghost" href="/account/adopt">
               Review guest draft

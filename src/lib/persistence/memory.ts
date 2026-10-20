@@ -19,6 +19,7 @@ import type {
   User,
   VerificationTokenRecord
 } from "@/lib/types";
+import { UniqueConstraintError } from "@/lib/domain/errors";
 import { MemoryCompanionStore } from "@/lib/persistence/companionMemory";
 import type { PersistenceAdapter } from "@/lib/persistence/adapter";
 
@@ -70,8 +71,14 @@ export class MemoryPersistence implements PersistenceAdapter {
     this.txChain = next;
     await previous.catch(() => undefined);
     this.txDepth += 1;
+    const companionSnap = this.companion.snapshot();
+    const projectSnap = new Map(this.projects);
     try {
       return await fn();
+    } catch (error) {
+      this.companion.restore(companionSnap);
+      this.projects = projectSnap;
+      throw error;
     } finally {
       this.txDepth -= 1;
       release();
@@ -175,6 +182,14 @@ export class MemoryPersistence implements PersistenceAdapter {
   }
 
   createProject(project: Project) {
+    if (project.adoptedFromGuestId) {
+      const claimed = [...this.projects.values()].find(
+        (item) => item.adoptedFromGuestId === project.adoptedFromGuestId
+      );
+      if (claimed) {
+        throw new UniqueConstraintError("This guest work has already been claimed.");
+      }
+    }
     this.projects.set(project.id, clone(project));
     return clone(project);
   }
@@ -199,6 +214,11 @@ export class MemoryPersistence implements PersistenceAdapter {
     const project = [...this.projects.values()].find(
       (item) => item.ownerId === ownerId && item.adoptedFromGuestId === guestDraftId
     );
+    return project ? clone(project) : null;
+  }
+
+  getProjectByGuestDraft(guestDraftId: string) {
+    const project = [...this.projects.values()].find((item) => item.adoptedFromGuestId === guestDraftId);
     return project ? clone(project) : null;
   }
 

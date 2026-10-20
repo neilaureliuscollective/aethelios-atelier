@@ -45,6 +45,7 @@ import {
   type Row
 } from "@/lib/persistence/map";
 import { PostgresCompanionStore } from "@/lib/persistence/companionPostgres";
+import { throwIfUnique } from "@/lib/persistence/unique";
 
 const txSql = new AsyncLocalStorage<Sql | TransactionSql>();
 
@@ -97,6 +98,9 @@ const SCHEMA_STATEMENTS = [
     adopted_from_guest_id TEXT,
     latest_submission_id TEXT
   )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS projects_guest_draft_idx
+    ON projects (adopted_from_guest_id)
+    WHERE adopted_from_guest_id IS NOT NULL`,
   `CREATE TABLE IF NOT EXISTS submissions (
     id TEXT PRIMARY KEY,
     project_id TEXT NOT NULL,
@@ -471,23 +475,27 @@ export class PostgresPersistence implements PersistenceAdapter {
   }
 
   async createProject(project: Project) {
-    await this.client()`
-      INSERT INTO projects(id,owner_id,title,status,brief_json,version,created_at,updated_at,adopted_from_guest_id,latest_submission_id,business_id)
-      VALUES (
-        ${project.id},
-        ${project.ownerId},
-        ${project.title},
-        ${project.status},
-        ${JSON.stringify(project.brief)},
-        ${project.version},
-        ${project.createdAt},
-        ${project.updatedAt},
-        ${project.adoptedFromGuestId ?? null},
-        ${project.latestSubmissionId ?? null},
-        ${project.businessId ?? null}
-      )
-    `;
-    return project;
+    try {
+      await this.client()`
+        INSERT INTO projects(id,owner_id,title,status,brief_json,version,created_at,updated_at,adopted_from_guest_id,latest_submission_id,business_id)
+        VALUES (
+          ${project.id},
+          ${project.ownerId},
+          ${project.title},
+          ${project.status},
+          ${JSON.stringify(project.brief)},
+          ${project.version},
+          ${project.createdAt},
+          ${project.updatedAt},
+          ${project.adoptedFromGuestId ?? null},
+          ${project.latestSubmissionId ?? null},
+          ${project.businessId ?? null}
+        )
+      `;
+      return project;
+    } catch (error) {
+      throwIfUnique(error, "This guest work has already been claimed.");
+    }
   }
 
   async getProject(id: string) {
@@ -511,6 +519,12 @@ export class PostgresPersistence implements PersistenceAdapter {
     const rows = await this.client()`
       SELECT * FROM projects WHERE owner_id = ${ownerId} AND adopted_from_guest_id = ${guestDraftId} LIMIT 1
     `;
+    return rows[0] ? mapProject(rows[0] as Row) : null;
+  }
+
+  async getProjectByGuestDraft(guestDraftId: string) {
+    const rows =
+      await this.client()`SELECT * FROM projects WHERE adopted_from_guest_id = ${guestDraftId} LIMIT 1`;
     return rows[0] ? mapProject(rows[0] as Row) : null;
   }
 

@@ -446,6 +446,21 @@ describe("discovery persistence and safety", () => {
     expect(sanitizeIntakeStep(null)).toEqual({ step: 0, recovered: true });
   });
 
+  it("accepts the business confirmation stage in a saved envelope", () => {
+    const draft = sampleDraft();
+    const recovered = parseEnvelopeWithRecovery({
+      version: 2,
+      kind: "discovery_session",
+      savedAt: "2026-10-20T17:00:00.000Z",
+      draft,
+      confirmed: null,
+      phase: "confirm",
+      intakeStep: 3
+    });
+    expect(recovered?.envelope.phase).toBe("confirm");
+    expect(recovered?.envelope.draft.businessName).toBe("Meridian Sitting Room");
+  });
+
   it("recovers an invalid intake step while keeping valid answers", () => {
     const draft = sampleDraft();
     const recovered = parseEnvelopeWithRecovery({
