@@ -17,6 +17,7 @@ import type {
   Suggestion,
   User
 } from "@/lib/types";
+import { MemoryCompanionStore } from "@/lib/persistence/companionMemory";
 import type { PersistenceAdapter } from "@/lib/persistence/adapter";
 
 function clone<T>(value: T): T {
@@ -26,6 +27,7 @@ function clone<T>(value: T): T {
 export class MemoryPersistence implements PersistenceAdapter {
   readonly kind = "memory" as const;
   readonly labeled = true as const;
+  readonly companion = new MemoryCompanionStore();
 
   private users = new Map<string, User>();
   private usersByEmail = new Map<string, string>();
@@ -75,6 +77,11 @@ export class MemoryPersistence implements PersistenceAdapter {
     this.deliveryFeedback.clear();
     this.contentRequests.clear();
     this.milestones.clear();
+    this.companion.reset();
+  }
+
+  listProjectsByBusiness(businessId: string) {
+    return [...this.projects.values()].filter((project) => project.businessId === businessId).map(clone);
   }
 
   upsertUser(user: User) {

@@ -28,6 +28,7 @@ export async function GET() {
     },
     auth: { adapter: config.auth.adapter, ready: config.auth.ready, labeled: config.auth.labeled },
     aurelius: config.aurelius,
-    billing: config.billing
+    billing: config.billing,
+    companion: config.companion
   });
 }

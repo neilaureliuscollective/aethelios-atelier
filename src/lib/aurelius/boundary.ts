@@ -9,6 +9,7 @@ import {
 import { SERVICE_CATALOG } from "@/lib/catalog";
 import { INTELLIGENCE_DISPLAY_NAME } from "@/lib/copy";
 import { loadConfig } from "@/lib/config";
+import { clientSafeProfile } from "@/lib/cofounder/isolation";
 import { ProjectService } from "@/lib/domain/projects";
 import type { PersistenceAdapter } from "@/lib/persistence/adapter";
 import type { Brief, Project, User } from "@/lib/types";
@@ -144,7 +145,7 @@ export class AureliusBoundary {
           role: "system",
           content: `Authorized project ${input.project.id}. Durable brief:\n${JSON.stringify(
             briefForModel(input.project.brief)
-          )}`
+          )}${await this.authorizedBusinessNote(input.project)}`
         },
         ...history.map((item) => ({
           role: (item.authorKind === "client" ? "user" : "assistant") as "user" | "assistant",
@@ -213,5 +214,11 @@ export class AureliusBoundary {
       );
       return { message: failed, liveAi: false as const, status: { ready: false, live: false, reason: "request_failed" } };
     }
+  }
+
+  private async authorizedBusinessNote(project: Project) {
+    if (!project.businessId) return "";
+    const profile = await this.store.companion.getProfile(project.businessId);
+    return `\nAuthorized business context (confirmed/preferences only; never founder notes):\n${JSON.stringify(clientSafeProfile(profile))}`;
   }
 }
