@@ -10,6 +10,7 @@ Inspected at the start of this integration (refreshed, not assumed):
 - Shared merge-base: `b7e47e0`. PR #19 was two commits ahead and five behind PR #18.
 
 History-preserving merge commit: `411e4daf328d45a3856931f9836b573965eb4b4e`.  
+Integrated local candidate: `1dd0c75e56d60094d96c3ba02a272beab1a85dbe`.  
 Neither PR was closed. `main` was not merged. Force-push was not used.
 
 This is **code-complete evidence for an integrated local candidate**, not configured launch acceptance and not a live launch.
