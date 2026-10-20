@@ -2,6 +2,7 @@
 
 Exact working branch: `cursor/atelier-premium-launch-readiness-da63`  
 Inspected incoming head: `a8aabc60d0b91c17bbe1d117443ea4e67a2584f6`  
+Application commit: `a5f109a9ba7270c4c47a9fcbf1a096276aa6a4ac`  
 This pass continues that branch. It does not reset to `main` and does not replace the application.
 
 ## Immersive source attachment
@@ -52,7 +53,7 @@ Owner-bound guest claims, transactional adoption, exact-draft navigation, idempo
 
 ## Recovery patch
 
-`docs/launch/atelier-visual-continuity.patch` is the recoverable diff of this pass against `a8aabc6`.
+`docs/launch/atelier-visual-continuity.patch` is the recoverable diff of `a5f109a` against `a8aabc6` (382,993 bytes, SHA-256 `6357848f90527635509786b49620ec628af992b2a7aaf74c0757f7ead0af9e00`).
 
 ## Still separate hosted gates
 

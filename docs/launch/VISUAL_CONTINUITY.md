@@ -1,6 +1,6 @@
 # Visual-brand continuity evidence
 
-This records the local candidate from the visual-continuity pass. It is not hosted launch acceptance.
+This records the local candidate from application commit `a5f109a9ba7270c4c47a9fcbf1a096276aa6a4ac`. It is not hosted launch acceptance.
 
 ## Identities
 
