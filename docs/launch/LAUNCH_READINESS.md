@@ -3,6 +3,7 @@
 Branch: `cursor/atelier-premium-launch-readiness-da63`  
 Inspected incoming head: `a8aabc60d0b91c17bbe1d117443ea4e67a2584f6`  
 Application commit: `a5f109a9ba7270c4c47a9fcbf1a096276aa6a4ac`  
+Documented head at last push: `342ab8f660db4f906faa93930116dcaad7d8e332`  
 This pass continues that branch. It does not reset to `main`.
 
 This is **code-complete evidence for a local candidate**, not configured launch acceptance.
@@ -64,6 +65,8 @@ Owner-canvas-bound export SHA-256: `ab6b8492d0d565cba5fdaf31a9b92993e0f6fb74b0a8
 
 ## Configured launch acceptance
 
-See `docs/launch/HOSTED_ACTIVATION.md`. Hosted sign-in, callback origin, durable Postgres, artifact storage, two real accounts, and one approved provider request remain blocked or not run.
+See `docs/launch/HOSTED_ACTIVATION.md`. Hosted sign-in, callback origin, durable Postgres, artifact storage, two real accounts, one approved provider request, and GitHub Actions billing remain blocked or not run.
+
+GitHub Actions `check` on `342ab8f` (run `39473099250`) failed in 3s because the job was not started: account payments failed or the spending limit must be increased. The same 3s billing failure already existed on earlier heads of this PR. Vercel preview completed; that is not launch acceptance.
 
 Do not merge to `main` or deploy from this agent without a separate approval.
