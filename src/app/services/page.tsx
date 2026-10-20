@@ -68,7 +68,7 @@ export default function ServicesPage() {
       <p className="kicker">Services</p>
       <h1>What can be commissioned now.</h1>
       <p className="lede">
-        Pricing and commercial terms are not finalized. Aethelios may explain only these approved
+        Plan prices are listed on the pricing page. Aethelios may explain only these approved
         options. Neil confirms every proposal. Branding can be part of any of these paths, or a
         separately scoped identity commission — it is not required to begin.
       </p>

@@ -262,7 +262,7 @@ export function publicRuntimeConfig() {
     billing: config.billing,
     pricing: {
       status: "not_finalized" as const,
-      note: "Pricing and commercial terms are not finalized. Estimates are nonbinding until Neil confirms a proposal."
+      note: "Plan prices are shown in USD. Payments are not collected here. A written proposal confirms deliverables and remaining terms before work begins."
     },
     companion: {
       routes: ["/companion", "/companion/talk", "/companion/studio", "/companion/work", "/companion/business"],

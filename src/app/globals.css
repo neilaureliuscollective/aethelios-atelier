@@ -1370,6 +1370,10 @@ a.chip {
   color: var(--obsidian);
 }
 .surface-obsidian .pricing-charges dd { color: var(--ivory); }
+.pricing-plan.surface-obsidian .tiny,
+.pricing-plan.surface-obsidian .pricing-charges dt {
+  color: color-mix(in srgb, var(--ivory) 88%, var(--gold-pale));
+}
 .pricing-founder-notes {
   margin: 0 0 18px;
   padding-left: 18px;

@@ -9,6 +9,11 @@ export function isFiniteUsdAmount(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
 
+/** Published charges must be a real positive amount. Zero is not a silent fallback. */
+export function isPublishableUsdAmount(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
 export function formatUsdAmount(amountUsd: number, currency: typeof PRICING_CURRENCY = PRICING_CURRENCY): string {
   if (!isFiniteUsdAmount(amountUsd)) {
     throw new Error("A currency amount must be a finite non-negative number.");

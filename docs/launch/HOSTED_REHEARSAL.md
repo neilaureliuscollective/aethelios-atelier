@@ -37,6 +37,8 @@ An authorized operator — not this agent — must, on a dedicated Atelier envir
 4. Prove the second account receives `403 forbidden` on the first account’s export URL, a signed-out request receives `401 unauthenticated`, and a missing asset receives `404 not_found`.
 5. Leave paid OpenAI / voice off unless a separate spend approval exists.
 
+Displayed public plan prices and a green local build do not complete this rehearsal and are not launch verification.
+
 Do not ask for a new architecture. The current Auth.js, PostgreSQL, and private artifact-storage implementation already supports this rehearsal.
 
 ## Explicitly not this rehearsal

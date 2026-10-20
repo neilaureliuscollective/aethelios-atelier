@@ -4,13 +4,11 @@ import { billingBoundary } from "@/lib/billing/boundary";
 import { SERVICE_CATEGORY_COPY, type VisibleProjectType } from "@/lib/serviceCategories";
 import { planDiscussionHref } from "@/lib/pricing/context";
 import {
-  PUBLIC_RECURRING_LABEL,
-  PUBLIC_SETUP_LABEL,
   QUOTED_SETUP_LABEL,
   TERMS_UNAVAILABLE_LABEL,
   formatMonthlyCharge,
   formatSetupCharge,
-  isFiniteUsdAmount
+  isPublishableUsdAmount
 } from "@/lib/pricing/format";
 import { PLAN_IDS, PLAN_LABELS, type PlanId } from "@/lib/pricing/ids";
 import { resolvePricingMode } from "@/lib/pricing/review";
@@ -84,11 +82,10 @@ export type PricingPresentation = {
 
 const PLAN_RELATIONSHIP: Record<PlanId, string> = {
   atelier:
-    "The starting ongoing relationship around the private workspace and founder-led digital work. Inclusions are not published until Neil finalizes terms.",
-  connected:
-    "A closer ongoing cadence across more of the work. Differentiation beyond the starting setup and monthly structure is still a founder decision.",
+    "The starting ongoing relationship around the private workspace and founder-led digital work.",
+  connected: "A closer ongoing cadence across more of the supported work.",
   partnership:
-    "The closest operating relationship, including founder review of larger changes. Setup is scoped with Neil. Other inclusions remain unpublished."
+    "The closest operating relationship, including founder review of larger changes. Setup is quoted for the specific engagement."
 };
 
 const LOCAL_FOUNDER_DECISIONS: Record<PlanId, string[]> = {
@@ -116,10 +113,6 @@ const COMMISSION_ORDER: CommissionId[] = [
   "digital_infrastructure"
 ];
 
-function discussCharge(label: string): ChargePresentation {
-  return { kind: "discuss", label, formatted: label, amountUsd: null };
-}
-
 function quotedCharge(): ChargePresentation {
   return { kind: "quoted", label: QUOTED_SETUP_LABEL, formatted: QUOTED_SETUP_LABEL, amountUsd: null };
 }
@@ -137,22 +130,45 @@ function amountCharge(amountUsd: number, formatted: string, label: string): Char
   return { kind: "amount", label, formatted, amountUsd };
 }
 
-function setupCharge(mode: PricingMode, terms: StartingPlanTerms | null): ChargePresentation {
-  if (mode === "public") return discussCharge(PUBLIC_SETUP_LABEL);
+export function setupCharge(terms: StartingPlanTerms | null): ChargePresentation {
   if (!terms) return unavailableCharge();
   if (terms.setup === "quoted" || terms.setupUsd == null) return quotedCharge();
-  if (!isFiniteUsdAmount(terms.setupUsd)) return unavailableCharge();
+  if (!isPublishableUsdAmount(terms.setupUsd)) return unavailableCharge();
   return amountCharge(terms.setupUsd, formatSetupCharge(terms.setupUsd), "One-time setup");
 }
 
-function recurringCharge(mode: PricingMode, terms: StartingPlanTerms | null): ChargePresentation {
-  if (mode === "public") return discussCharge(PUBLIC_RECURRING_LABEL);
-  if (!terms || !isFiniteUsdAmount(terms.monthlyUsd)) return unavailableCharge();
+export function recurringCharge(terms: StartingPlanTerms | null): ChargePresentation {
+  if (!terms || !isPublishableUsdAmount(terms.monthlyUsd)) return unavailableCharge();
   return amountCharge(terms.monthlyUsd, formatMonthlyCharge(terms.monthlyUsd), "Ongoing");
 }
 
-function publicComparison(): ComparisonRow[] {
+function chargeComparison(plans: PlanPresentation[]): ComparisonRow[] {
+  const byId = Object.fromEntries(plans.map((plan) => [plan.id, plan])) as Record<PlanId, PlanPresentation>;
   return [
+    {
+      id: "setup",
+      label: "One-time setup",
+      values: {
+        atelier: byId.atelier.setup.formatted,
+        connected: byId.connected.setup.formatted,
+        partnership: byId.partnership.setup.formatted
+      }
+    },
+    {
+      id: "monthly",
+      label: "Monthly service",
+      values: {
+        atelier: byId.atelier.recurring.formatted,
+        connected: byId.connected.recurring.formatted,
+        partnership: byId.partnership.recurring.formatted
+      }
+    }
+  ];
+}
+
+function publicComparison(plans: PlanPresentation[]): ComparisonRow[] {
+  return [
+    ...chargeComparison(plans),
     {
       id: "explore",
       label: "Explore Discovery and write a brief",
@@ -166,9 +182,9 @@ function publicComparison(): ComparisonRow[] {
       id: "commissions",
       label: "Founder-led commissions",
       values: {
-        atelier: "Scoped separately after review",
-        connected: "Scoped separately after review",
-        partnership: "Scoped separately after review"
+        atelier: "Scoped and priced separately",
+        connected: "Scoped and priced separately",
+        partnership: "Scoped and priced separately"
       }
     },
     {
@@ -191,11 +207,11 @@ function publicComparison(): ComparisonRow[] {
     },
     {
       id: "price",
-      label: "Who confirms price and timing",
+      label: "Who confirms deliverables and remaining terms",
       values: {
-        atelier: "Neil, after review",
-        connected: "Neil, after review",
-        partnership: "Neil, after review"
+        atelier: "Neil, in a written proposal",
+        connected: "Neil, in a written proposal",
+        partnership: "Neil, in a written proposal"
       }
     },
     {
@@ -220,37 +236,19 @@ function publicComparison(): ComparisonRow[] {
 }
 
 function localComparison(plans: PlanPresentation[]): ComparisonRow[] {
-  const setup: ComparisonRow = {
-    id: "setup",
-    label: "Starting setup (draft, not finalized)",
-    founderDecision: true,
-    values: {
-      atelier: plans.find((plan) => plan.id === "atelier")?.setup.formatted ?? TERMS_UNAVAILABLE_LABEL,
-      connected: plans.find((plan) => plan.id === "connected")?.setup.formatted ?? TERMS_UNAVAILABLE_LABEL,
-      partnership: plans.find((plan) => plan.id === "partnership")?.setup.formatted ?? TERMS_UNAVAILABLE_LABEL
+  return [
+    ...publicComparison(plans),
+    {
+      id: "inclusions",
+      label: "Published inclusions and limits",
+      founderDecision: true,
+      values: {
+        atelier: "Not an approved inclusion list",
+        connected: "Not an approved inclusion list",
+        partnership: "Not an approved inclusion list"
+      }
     }
-  };
-  const monthly: ComparisonRow = {
-    id: "monthly",
-    label: "Starting monthly (draft, not finalized)",
-    founderDecision: true,
-    values: {
-      atelier: plans.find((plan) => plan.id === "atelier")?.recurring.formatted ?? TERMS_UNAVAILABLE_LABEL,
-      connected: plans.find((plan) => plan.id === "connected")?.recurring.formatted ?? TERMS_UNAVAILABLE_LABEL,
-      partnership: plans.find((plan) => plan.id === "partnership")?.recurring.formatted ?? TERMS_UNAVAILABLE_LABEL
-    }
-  };
-  const inclusions: ComparisonRow = {
-    id: "inclusions",
-    label: "Published inclusions and limits",
-    founderDecision: true,
-    values: {
-      atelier: "Not approved — founder decision",
-      connected: "Not approved — founder decision",
-      partnership: "Not approved — founder decision"
-    }
-  };
-  return [...publicComparison(), setup, monthly, inclusions];
+  ];
 }
 
 function commissions(): CommissionPresentation[] {
@@ -280,6 +278,12 @@ function faq(): PricingFaq[] {
         "No. You can browse Discovery, begin a brief, and request a custom commission without a subscription. Selecting a plan only carries a discussion note into the brief if you choose to keep it."
     },
     {
+      id: "charges",
+      question: "What do setup and monthly charges cover?",
+      answer:
+        "Setup is the one-time starting charge for that plan. Monthly is the ongoing service relationship. Custom project commissions are scoped and priced separately. A written proposal confirms deliverables and remaining terms before work begins."
+    },
+    {
       id: "branding",
       question: "Do I have to purchase a rebrand?",
       answer:
@@ -293,38 +297,36 @@ function faq(): PricingFaq[] {
     },
     {
       id: "confirm",
-      question: "When is a price actually confirmed?",
+      question: "When are deliverables and remaining terms confirmed?",
       answer:
-        "Neil reviews the brief and confirms deliverables, price, and timing in a written proposal. The brief itself is a request, not a booking, quote, or payment."
+        "Neil reviews the brief and confirms deliverables, any remaining terms, and timing in a written proposal. The brief itself is a request, not a booking or payment."
     },
     {
       id: "payments",
       question: "Can I pay or start a subscription here?",
       answer:
-        "No. Payments are not collected in Atelier. There is no checkout, card form, or activated billing. A founder-set proposal price stays labeled as not collected."
+        "No. Payments are not collected in Atelier. There is no checkout, card form, or activated billing. Displayed plan prices are not a collected charge."
     },
     {
       id: "workspace",
       question: "What is the private workspace?",
       answer:
-        "Signed-in clients use a private commission workspace to resume briefs, read founder responses, and review proposals. It is not a self-serve product studio and does not require a published plan to open a brief."
+        "Signed-in clients use a private commission workspace to resume briefs, read founder responses, and review proposals. It is not a self-serve product studio and does not require a plan to open a brief."
     },
     {
       id: "third-party",
       question: "Are booking, commerce, or other third-party tools included?",
       answer:
-        "Existing booking and commerce providers can remain the destination for appointments and payments. Atelier does not replace those products or collect those charges. Third-party costs are outside this page’s unpublished terms."
+        "Existing booking and commerce providers can remain the destination for appointments and payments. Atelier does not replace those products or collect those charges. Third-party costs sit outside these plan prices."
     }
   ];
 }
 
 const FOUNDER_CHECKLIST = [
-  "Approve or revise the starting setup and monthly amounts before any public publication.",
   "Write the actual inclusion and exclusion lists for each plan — do not inherit companion usage budgets.",
-  "Decide whether Partnership setup stays quoted or receives a number.",
   "Confirm tax treatment, billing commencement, minimum commitments, and cancellation in a later legal pass.",
   "Keep billing disabled until a separate, authorized payment implementation exists.",
-  "Do not mark these terms approved from this pricing-page work."
+  "Do not mark remaining commercial terms approved merely because prices are displayed."
 ];
 
 export function buildPricingPresentation(input?: {
@@ -340,8 +342,8 @@ export function buildPricingPresentation(input?: {
       id,
       name: PLAN_LABELS[id],
       relationship: PLAN_RELATIONSHIP[id],
-      setup: setupCharge(mode, planTerms),
-      recurring: recurringCharge(mode, planTerms),
+      setup: setupCharge(planTerms),
+      recurring: recurringCharge(planTerms),
       action: {
         href: planDiscussionHref(id),
         label: "Discuss this plan" as const
@@ -355,13 +357,13 @@ export function buildPricingPresentation(input?: {
     mode,
     reviewBanner:
       mode === "local_review"
-        ? "Draft pricing pending final terms. These starting amounts are for isolated local review only and are not published, billed, or approved."
+        ? "Isolated local review. These are the same public amounts. Remaining commercial terms are not marked finalized."
         : null,
     billingEnabled: false,
     paymentCollected: false,
     plans,
     commissions: commissions(),
-    comparison: mode === "local_review" ? localComparison(plans) : publicComparison(),
+    comparison: mode === "local_review" ? localComparison(plans) : publicComparison(plans),
     founderChecklist: mode === "local_review" ? FOUNDER_CHECKLIST : [],
     faq: faq()
   };
@@ -370,7 +372,7 @@ export function buildPricingPresentation(input?: {
 export function publicPricingFacts() {
   return {
     status: PRICING_PUBLICATION_STATUS,
-    note: "Pricing and commercial terms are not finalized. Estimates are nonbinding until Neil confirms a proposal.",
+    note: "Plan prices are shown in USD. Payments are not collected here. A written proposal confirms deliverables and remaining terms before work begins.",
     billing: {
       enabled: false as const,
       ready: false as const,
@@ -379,6 +381,6 @@ export function publicPricingFacts() {
   };
 }
 
-export function presentationContainsUnapprovedAmounts(value: unknown): boolean {
-  return /\b(?:249|299|399|499|699)\b/.test(JSON.stringify(value));
+export function presentationContainsInternalBudgets(value: unknown): boolean {
+  return /\b(?:80|160|240) talk\b|\b(?:20|40|60) images\b|\b(?:30|60|90) voice/i.test(JSON.stringify(value));
 }

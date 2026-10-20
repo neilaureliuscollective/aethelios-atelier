@@ -83,7 +83,7 @@ HTTP proof: `scripts/integrated-journeys.mjs` **61/61**. Browser proof: `scripts
 
 - `pnpm typecheck` — pass
 - `pnpm lint` — pass
-- `pnpm test` — 340 passed, 1 skipped
+- `pnpm test` — 344 passed, 1 skipped (`postgres.worker.test.ts` helper when run alone)
 - Isolated Postgres suite — 19 passed
 - `pnpm build` — production build of this head
 - Combined-head HTTP and browser journeys, custom-projects browser, launch-journey API, and strict artwork-delivery browser acceptance
@@ -101,3 +101,11 @@ See `docs/launch/ARTWORK_DELIVERY.md` for this pass, `docs/launch/HOSTED_REHEARS
 GitHub Actions `check` remains **blocked** by account billing / spending limit. A never-started Actions job is not a passing test suite. Vercel preview is not launch acceptance.
 
 Do not merge to `main` or deploy from this agent without a separate approval.
+
+## Pricing publication and contrast finishing pass
+
+Public plan amounts now render in normal unauthenticated mode from `STARTING_COMMERCIAL_TERMS`: Atelier $299 setup + $249/month, Connected $499 setup + $399/month, Partnership setup quoted + $699/month. Quoted setup is never $0. Payment collection stays disabled. Remaining commercial terms stay `not_finalized`. Isolated local-review flags still cannot publish a different hosted page.
+
+Partnership dark-card eyebrow, setup, and ongoing labels use scoped light-on-dark color. Ivory canvas, emerald cards, gold accents, and premium buttons were not reset.
+
+This pass does not complete hosted rehearsal. Displayed prices and a green local build are not launch verification.

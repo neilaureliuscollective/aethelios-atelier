@@ -5,7 +5,8 @@ import {
   formatMonthlyCharge,
   formatSetupCharge,
   formatUsdAmount,
-  isFiniteUsdAmount
+  isFiniteUsdAmount,
+  isPublishableUsdAmount
 } from "./format";
 
 describe("pricing currency formatting", () => {
@@ -28,9 +29,11 @@ describe("pricing currency formatting", () => {
     expect(() => formatUsdAmount(Number.NaN)).toThrow(/finite/i);
   });
 
-  it("keeps public labels free of amounts", () => {
+  it("treats zero as unpublishable so quoted setup cannot become $0", () => {
+    expect(isFiniteUsdAmount(0)).toBe(true);
+    expect(isPublishableUsdAmount(0)).toBe(false);
+    expect(isPublishableUsdAmount(299)).toBe(true);
     expect(PUBLIC_SETUP_LABEL).toBe("Discuss your scope");
     expect(PUBLIC_RECURRING_LABEL).toBe("Request a proposal");
-    expect(`${PUBLIC_SETUP_LABEL} ${PUBLIC_RECURRING_LABEL}`).not.toMatch(/\d/);
   });
 });

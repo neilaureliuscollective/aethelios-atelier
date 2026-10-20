@@ -16,7 +16,7 @@ const PROCESS = [
   ["02", "Brief", "Write what the business actually needs. A plan note can be reviewed, changed, or left out.", "/project"],
   ["03", "Founder review", "Neil opens accepted work. Submitted is not the same as under review.", "/approach"],
   ["04", "Agreed scope", "Deliverables, price, and timing are confirmed only in a written proposal.", "/approach"],
-  ["05", "Delivery or relationship", "Build proceeds against the agreed version. An ongoing plan, if any, is a later founder decision.", "/project"]
+              ["05", "Delivery or relationship", "Build proceeds against the agreed version. An ongoing plan can sit beside a commission when that is the fit.", "/project"]
 ] as const;
 
 export function PricingExperience({ presentation }: { presentation: PricingPresentation }) {
@@ -66,8 +66,9 @@ export function PricingExperience({ presentation }: { presentation: PricingPrese
             <li>
               <strong>Ongoing Atelier plans</strong>
               <span>
-                A relationship between the private commission workspace, the digital work being
-                supported, and founder-led service. Terms are not finalized.
+                A monthly service relationship around the private workspace and founder-led
+                support. It is separate from a scoped commission. Remaining terms are confirmed in
+                a proposal.
               </span>
             </li>
           </ol>
@@ -131,9 +132,9 @@ export function PricingExperience({ presentation }: { presentation: PricingPrese
             <h2>A relationship, not a checkout.</h2>
           </div>
           <p className="lede">
-            These names describe a closer working cadence around supported digital work. They do not
-            start a subscription, collect payment, or unlock unlimited websites, coding, revisions,
-            AI, or integrations.
+            These plans list a one-time setup charge and a monthly service charge in USD. They do
+            not start a subscription, collect payment, or unlock unlimited websites, coding,
+            revisions, AI, or integrations. Custom commissions are scoped separately.
           </p>
         </div>
         <div className="pricing-plan-grid">
@@ -141,20 +142,23 @@ export function PricingExperience({ presentation }: { presentation: PricingPrese
             <Reveal
               as="article"
               className={`pricing-plan ${plan.id === "partnership" ? "surface-obsidian" : "surface-ivory"}`}
+              data-pricing-plan={plan.id}
               delay={(index % 3) as 0 | 1 | 2}
               key={plan.id}
             >
-              <p className="tiny">{local ? "Draft terms" : "Terms not finalized"}</p>
+              <p className="tiny" data-pricing-eyebrow>
+                {local ? "Local review" : "USD"}
+              </p>
               <h3>{plan.name}</h3>
               <p className={plan.id === "partnership" ? "lede-bright" : "muted"}>{plan.relationship}</p>
               <dl className="pricing-charges">
                 <div>
-                  <dt>Setup</dt>
-                  <dd>{plan.setup.formatted}</dd>
+                  <dt data-pricing-charge="setup">Setup</dt>
+                  <dd data-pricing-amount="setup">{plan.setup.formatted}</dd>
                 </div>
                 <div>
-                  <dt>Ongoing</dt>
-                  <dd>{plan.recurring.formatted}</dd>
+                  <dt data-pricing-charge="ongoing">Ongoing</dt>
+                  <dd data-pricing-amount="ongoing">{plan.recurring.formatted}</dd>
                 </div>
               </dl>
               {local && plan.founderDecisions.length > 0 ? (
@@ -175,24 +179,24 @@ export function PricingExperience({ presentation }: { presentation: PricingPrese
       <section className="container section" id="meaning">
         <div className="section-head">
           <p className="kicker">What the charges mean</p>
-          <h2>Setup and ongoing service, in confirmed terms only.</h2>
+          <h2>Setup, monthly service, and separately scoped work.</h2>
         </div>
         <div className="pricing-meaning">
           <article className="surface-ivory">
             <h3>Setup</h3>
             <p className="muted">
-              Setup is the starting one-time charge in the unpublished commercial structure. It is
-              not a live invoice, not collected here, and not a promise that work has been accepted.
-              Partnership setup stays quoted until Neil writes a specific figure.
+              Setup is the one-time starting charge for that plan. It is not collected here and
+              does not mean work has been accepted. Partnership setup stays quoted until Neil
+              writes a specific figure. Quoted setup is never shown as $0.
             </p>
           </article>
           <article className="surface-ivory">
             <h3>Ongoing</h3>
             <p className="muted">
-              Ongoing is the starting monthly relationship around the private workspace and
-              founder-led service. It is not an Aethelios subscription product, not unlimited custom
-              work, and not activated billing. Neil still confirms the actual client price in a
-              proposal.
+              Ongoing is the monthly service around the private workspace and founder-led support.
+              It is not an Aethelios subscription product, not unlimited custom work, and not
+              activated billing. Custom commissions stay separately scoped. A proposal confirms
+              deliverables before work begins.
             </p>
           </article>
         </div>
@@ -201,10 +205,10 @@ export function PricingExperience({ presentation }: { presentation: PricingPrese
       <section className="container section" id="comparison">
         <div className="section-head">
           <p className="kicker">Comparison</p>
-          <h2>What is already true, and what is still undecided.</h2>
+          <h2>Published prices, and what a proposal still confirms.</h2>
           <p className="lede">
-            This comparison uses approved capabilities and service scope. Unpublished inclusions are
-            labeled as founder decisions instead of invented allowances.
+            Setup and monthly amounts match the plan cards. Remaining deliverables and terms are
+            confirmed in a written proposal. Disabled capabilities are not sold as extras.
           </p>
         </div>
         <div className="pricing-compare">

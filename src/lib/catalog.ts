@@ -102,7 +102,7 @@ export const AURELIUS_FACTS = [
   "Custom apps and platforms may later link to a booking provider the client already uses, but only when that is part of the request. Atelier does not replace that provider.",
   "Branding is a quality of the work and can also be scoped as its own commission. A rebrand is not required to begin, and a functional tool does not require a new brand.",
   "A smaller project means a smaller complete scope, not lower quality or unlimited work at a discount.",
-  "Pricing is not finalized. Any range Aethelios mentions must come from the approved catalog and is nonbinding.",
+  "Plan prices are published in USD on the pricing page. Payments are not collected in Atelier. Neil confirms every proposal.",
   "Submitted is not the same as under founder review.",
   "Private founder notes and internal prices never belong in client-visible replies."
 ];

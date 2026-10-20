@@ -22,12 +22,12 @@ function presentPlan(plan: { setupUsd: number | null; monthlyUsd: number | null;
 
 /**
  * Presentation wrapper around the founder starting structure in entitlements.
- * Not a second entitlement system, not approved for publication, and not checkout.
+ * Amounts may be shown publicly. This is not a second entitlement system and not checkout.
  */
 export const STARTING_COMMERCIAL_TERMS = {
   status: FOUNDER_STARTING_TERMS.status,
   source: FOUNDER_STARTING_TERMS.source,
-  note: "Draft pricing pending final terms. Not activated as Stripe products or billed amounts.",
+  note: "Displayed plan prices in USD. Not activated as Stripe products or collected charges.",
   currency: "USD" as const,
   plans: {
     atelier: presentPlan(FOUNDER_STARTING_TERMS.plans.atelier),
