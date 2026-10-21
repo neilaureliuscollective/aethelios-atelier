@@ -19,6 +19,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:auth": "node scripts/auth-acceptance.mjs",
+    "test:early-access": "node scripts/early-access-journey.mjs",
     "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm build"
   },
   "dependencies": {

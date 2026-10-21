@@ -12,6 +12,7 @@ describe("offline cache policy", () => {
     expect(isPersonalizedPath("/workspace/abc")).toBe(true);
     expect(isPersonalizedPath("/api/session")).toBe(true);
     expect(isPersonalizedPath("/companion/studio")).toBe(true);
+    expect(isPersonalizedPath("/account/continue")).toBe(true);
     expect(
       shouldCacheResponse({
         method: "GET",
@@ -57,7 +58,7 @@ describe("offline cache policy", () => {
       })
     ).toBe(false);
     expect(ATELIER_CACHE_PREFIX).toBe("atelier-static-");
-    expect(ATELIER_CACHE_NAME).toBe("atelier-static-v11");
+    expect(ATELIER_CACHE_NAME).toBe("atelier-static-v12");
     expect(
       shouldCacheResponse({
         method: "GET",

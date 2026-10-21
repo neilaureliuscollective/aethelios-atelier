@@ -18,6 +18,9 @@ const EXACT = new Set([
   "/founder",
   "/pricing",
   "/services",
+  "/custom-projects",
+  "/install",
+  "/offline",
   "/approach",
   "/about"
 ]);
@@ -26,6 +29,7 @@ const PREFIXES = [
   "/workspace/",
   "/project/",
   "/founder/",
+  "/services/",
   "/discover?"
 ];
 

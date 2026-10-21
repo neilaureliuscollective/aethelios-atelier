@@ -6,7 +6,7 @@ export type PublicSignInProvider = {
 export function signInProviderSentence(providers: PublicSignInProvider[]): string {
   const labels = providers.map((provider) => provider.label).filter(Boolean);
   const review =
-    "Signing in does not adopt a guest draft and does not submit a brief. You will review any device draft before it belongs to this account.";
+    "Signing in is free. It does not start a subscription, create a payment, or grant founder access. You will review any device draft before it belongs to this account.";
   if (labels.length === 0) {
     return `Sign-in options will appear here when they are available. ${review}`;
   }

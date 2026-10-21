@@ -2,9 +2,16 @@ import { safeCallbackUrl } from "./callbackUrl";
 
 /** Keep the complete private-work destination through sign-in and optional draft review. */
 export function signInDestination(next: unknown, hasGuestDraft: boolean) {
-  const destination = safeCallbackUrl(next);
-  if (!hasGuestDraft || destination.startsWith("/account/adopt")) return destination;
-  return `/account/adopt?next=${encodeURIComponent(destination)}`;
+  const destination = safeCallbackUrl(next, "/account/continue");
+  if (!hasGuestDraft || destination.startsWith("/account/adopt")) {
+    return destination === "/account" ? "/account/continue" : destination;
+  }
+  return `/account/adopt?next=${encodeURIComponent(destination === "/account" ? "/account/continue" : destination)}`;
+}
+
+export function signInHrefForPath(pathname: string) {
+  if (!pathname || pathname.startsWith("/account")) return "/account";
+  return accountLink(pathname);
 }
 
 export function afterAdoption(next: unknown, projectId: string) {

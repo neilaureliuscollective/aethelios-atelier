@@ -7,8 +7,8 @@ import { api } from "@/lib/client/api";
 import { actionErrorMessage } from "@/lib/client/asyncAction";
 import { ownerFence } from "@/lib/client/ownerFence";
 import { clearOwnerScopedData } from "@/lib/client/ownerScope";
+import { firstLoginDestination } from "@/lib/account/firstLogin";
 import { safeCallbackUrl } from "@/lib/auth/callbackUrl";
-import { signInDestination } from "@/lib/auth/continuation";
 import { authSurfaceState, signInProviderSentence } from "@/lib/auth/signInCopy";
 import { readGuestDraft } from "@/lib/guest/draft";
 import { readGuestIntent } from "@/lib/guest/intent";
@@ -28,7 +28,18 @@ type Config = {
 function nextPath() {
   const next = new URLSearchParams(window.location.search).get("next");
   const intent = readGuestIntent();
-  return safeCallbackUrl(next || intent?.destination || "/account");
+  return safeCallbackUrl(next || intent?.destination || "/account/continue");
+}
+
+function authErrorNote(search: string) {
+  const error = new URLSearchParams(search).get("error");
+  if (error === "OAuthAccountNotLinked") {
+    return "That Google account could not be attached to the existing Atelier account. Sign in with the method you used first, or use the same verified email.";
+  }
+  if (error === "AccessDenied") {
+    return "Sign-in was refused. Google must present a verified email before this account can be used.";
+  }
+  return "";
 }
 
 export function AccountClient() {
@@ -44,7 +55,10 @@ export function AccountClient() {
   useEffect(() => {
     void api<Config>("/api/config").then(setConfig).catch((err) => setError(actionErrorMessage(err, "Sign-in options could not load. Reload to retry.")));
     setGuestDraft(Boolean(readGuestDraft()));
-    setVerifyRequested(new URLSearchParams(window.location.search).has("verify"));
+    const params = new URLSearchParams(window.location.search);
+    setVerifyRequested(params.has("verify"));
+    const denied = authErrorNote(window.location.search);
+    if (denied) setError(denied);
   }, []);
 
   async function signInSimulated(identityEmail: string) {
@@ -58,7 +72,7 @@ export function AccountClient() {
       });
       setNote(result.note);
       await refresh();
-      window.location.href = signInDestination(nextPath(), guestDraft);
+      window.location.href = firstLoginDestination(nextPath(), guestDraft);
     } catch (err) {
       setError(actionErrorMessage(err, "Sign-in did not complete."));
     } finally {
@@ -82,7 +96,7 @@ export function AccountClient() {
           body: JSON.stringify({
             provider,
             email: email.trim() || undefined,
-            callbackUrl: signInDestination(nextPath(), guestDraft)
+            callbackUrl: firstLoginDestination(nextPath(), guestDraft)
           })
         }
       );
@@ -131,13 +145,13 @@ export function AccountClient() {
       <h1>{simulated ? "Identity for this local candidate." : "Your Atelier account."}</h1>
       <p className="lede">
         {user
-          ? "This account is signed in. Signing in did not adopt a guest draft or submit a brief."
+          ? "This account is signed in. Signing in did not adopt a guest draft, submit a brief, or start a subscription."
           : surface === "loading"
             ? "Checking which sign-in options are available."
             : surface === "unavailable"
               ? "Sign-in could not be confirmed yet. Providers appear only when they are actually connected."
               : simulated
-                ? "This is a labeled local test identity. It is not production sign-in. Signing in does not adopt a guest draft and does not submit a brief."
+                ? "This is a labeled local test identity. It is not production sign-in. Signing in does not adopt a guest draft, submit a brief, or start a subscription."
                 : signInProviderSentence(enabledProviders)}
       </p>
       {surface === "loading" ? (
@@ -169,24 +183,20 @@ export function AccountClient() {
             {simulated ? " · labeled local test identity" : ""}
           </p>
           <div className="row" style={{ marginTop: 16 }}>
-            {readGuestIntent() ? (
-              <AppLink className="btn btn-gold" href="/companion/confirm">
-                Continue where you left off
-              </AppLink>
-            ) : user.role === "founder" ? (
-              <AppLink className="btn btn-gold" href="/founder">
+            <AppLink className="btn btn-gold" href="/account/continue">
+              Continue
+            </AppLink>
+            {user.role === "founder" ? (
+              <AppLink className="btn btn-ghost" href="/founder">
                 Founder workspace
               </AppLink>
             ) : (
-              <AppLink className="btn btn-gold" href="/companion">
-                Open Business Studio
+              <AppLink className="btn btn-ghost" href="/workspace">
+                Commissions
               </AppLink>
             )}
-            <AppLink className="btn btn-ghost" href="/workspace">
-              Commissions
-            </AppLink>
-            <AppLink className="btn btn-ghost" href="/companion/studio">
-              Studio
+            <AppLink className="btn btn-ghost" href="/install">
+              Install on your phone
             </AppLink>
             <AppLink className="btn btn-ghost" href="/account/adopt">
               Review guest draft

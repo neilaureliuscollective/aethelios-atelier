@@ -114,6 +114,10 @@ export class MemoryPersistence implements PersistenceAdapter {
   }
 
   upsertUser(user: User) {
+    const existing = this.users.get(user.id);
+    if (existing && existing.email.toLowerCase() !== user.email.toLowerCase()) {
+      this.usersByEmail.delete(existing.email.toLowerCase());
+    }
     this.users.set(user.id, clone(user));
     this.usersByEmail.set(user.email.toLowerCase(), user.id);
     return clone(user);

@@ -51,9 +51,13 @@ export function FounderHome() {
               <p className="tiny">{item.status.replaceAll("_", " ")}</p>
               <h2 style={{ fontSize: 28 }}>{item.title}</h2>
               <p className="muted">
-                {item.owner?.email} · {item.reviewStartedAt ? "Review started" : "Submitted, not yet reviewing"}
+                {item.owner?.email}
+                {item.submittedAt ? ` · Sent ${new Date(item.submittedAt).toLocaleString()}` : ""}
+                {item.reviewStartedAt ? " · Review started" : " · Submitted, not accepted"}
+                {item.handoffSummary ? ` · ${item.handoffSummary}` : ""}
                 {item.nextMilestone ? ` · Next: ${item.nextMilestone}` : ""}
               </p>
+              {item.receiptId ? <p className="tiny">Receipt {item.receiptId}</p> : null}
               {item.attention.length ? (
                 <p className="tiny">{item.attention.map((entry) => entry.label).join(" · ")}</p>
               ) : null}
@@ -156,7 +160,11 @@ export function FounderDetail({ id }: { id: string }) {
       <p className="kicker">Founder review</p>
       <h1>{briefTitle(view.project.brief)}</h1>
       <p className="muted">
-        Owner {view.owner.email} · private notes stay on this page
+        Owner {view.owner.email}
+        {view.submission
+          ? ` · Sent ${new Date(view.submission.createdAt).toLocaleString()} · Receipt ${view.submission.receiptId}`
+          : ""}
+        {" · private notes stay on this page"}
       </p>
       <div className="row" style={{ marginTop: 16 }}>
         {!view.reviewStartedAt ? (
@@ -175,7 +183,7 @@ export function FounderDetail({ id }: { id: string }) {
           <h2>Submitted snapshot</h2>
           <p className="tiny">Immutable client brief</p>
           {view.submission ? (
-            <LivingBrief brief={view.submission.snapshot} suggestions={[]} />
+            <LivingBrief brief={view.submission.snapshot} suggestions={[]} frozen />
           ) : (
             <p>No snapshot.</p>
           )}

@@ -1,5 +1,6 @@
 import type { Adapter, AdapterAccount, AdapterUser, VerificationToken } from "next-auth/adapters";
-import { displayNameFromEmail, normalizeEmail, resolveRole } from "@/lib/auth/roles";
+import { evaluateAccountLink, hasVerifiedIdentity, persistableEmailVerifiedAt, resolveAuthorizedRole } from "@/lib/auth/identityTrust";
+import { displayNameFromEmail, normalizeEmail } from "@/lib/auth/roles";
 import { loadConfig } from "@/lib/config";
 import { createId } from "@/lib/ids";
 import type { PersistenceAdapter } from "@/lib/persistence/adapter";
@@ -19,16 +20,22 @@ function toAdapterUser(user: User): AdapterUser {
 function fromAdapterUser(user: AdapterUser, existing?: User | null): User {
   const config = loadConfig();
   const email = normalizeEmail(user.email);
+  const emailVerifiedAt = persistableEmailVerifiedAt({
+    incomingVerifiedAt: user.emailVerified,
+    existingVerifiedAt: existing?.emailVerifiedAt
+  });
   return {
     id: existing?.id || user.id || createId("user"),
     email,
     displayName: displayNameFromEmail(email, user.name ?? existing?.displayName),
-    role: resolveRole(email, config.founderEmailList),
+    role: resolveAuthorizedRole(email, config.founderEmailList, {
+      verified: Boolean(emailVerifiedAt),
+      adapter: existing?.adapter ?? "authjs",
+      existingRole: existing?.role
+    }),
     adapter: "authjs",
     createdAt: existing?.createdAt ?? new Date().toISOString(),
-    emailVerifiedAt: user.emailVerified
-      ? user.emailVerified.toISOString()
-      : existing?.emailVerifiedAt
+    emailVerifiedAt
   };
 }
 
@@ -87,6 +94,22 @@ export function createLazyAtelierAuthAdapter(): Adapter {
 export function createAtelierAuthAdapter(store: PersistenceAdapter): Adapter {
   return {
     async createUser(user) {
+      const email = normalizeEmail(user.email);
+      const existing = await store.getUserByEmail(email);
+      if (existing) {
+        const link = evaluateAccountLink({
+          incomingEmail: email,
+          incomingVerified: Boolean(user.emailVerified),
+          existingEmail: existing.email,
+          existingVerified: hasVerifiedIdentity(existing)
+        });
+        if (!link.allowed) {
+          throw new Error(link.reason);
+        }
+        const merged = fromAdapterUser(user, existing);
+        await store.upsertUser(merged);
+        return toAdapterUser(merged);
+      }
       const created = fromAdapterUser(user);
       await store.upsertUser(created);
       return toAdapterUser(created);

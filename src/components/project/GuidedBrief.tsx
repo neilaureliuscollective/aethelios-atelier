@@ -792,7 +792,8 @@ export function GuidedBrief({
           {user && !projectId && !createNew ? (
             <p className="notice" style={{ marginTop: 12 }}>
               This is a device draft. It does not open another commission on this account.{" "}
-              <AppLink href="/workspace">Open Commissions</AppLink> or{" "}
+              <AppLink href="/account/adopt">Review it for this account</AppLink>,{" "}
+              <AppLink href="/workspace">open Commissions</AppLink>, or{" "}
               <AppLink href="/project/new">start a new project</AppLink>.
             </p>
           ) : null}

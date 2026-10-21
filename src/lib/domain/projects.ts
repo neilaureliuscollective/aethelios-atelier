@@ -5,6 +5,7 @@ import { ConflictError, ForbiddenError, NotFoundError } from "@/lib/domain/error
 import { runWithUniqueRetry } from "@/lib/persistence/unique";
 import { GuestWorkService } from "@/lib/guest/claim";
 import { buildDeliveryHandoff } from "@/lib/domain/handoff";
+import { handoffSummaryFromBrief } from "@/lib/domain/handoffSummary";
 import { toClientView } from "@/lib/domain/next-step";
 import {
   assertPublishableScope,
@@ -187,11 +188,17 @@ export class ProjectService {
       const nextMilestone =
         milestones.find((item) => item.status === "current" || item.status === "waiting_on_client") ??
         milestones.find((item) => item.status === "upcoming");
+      const submissions = await this.store.listSubmissions(project.id);
+      const latestSubmission = submissions[submissions.length - 1] ?? null;
+      const snapshot = latestSubmission?.snapshot ?? project.brief;
       queue.push({
         id: project.id,
-        title: briefTitle(project.brief),
+        title: briefTitle(snapshot),
         status: project.status,
         updatedAt: project.updatedAt,
+        submittedAt: latestSubmission?.createdAt ?? null,
+        receiptId: latestSubmission?.receiptId ?? null,
+        handoffSummary: handoffSummaryFromBrief(snapshot),
         reviewStartedAt: reviews[0]?.createdAt ?? null,
         owner: owner
           ? { id: owner.id, email: owner.email, displayName: owner.displayName, adapter: owner.adapter }

@@ -62,6 +62,7 @@ node scripts/lifestyle-journey.mjs
 node scripts/usage-concurrency.mjs
 node scripts/custom-projects-browser.mjs
 node scripts/launch-journey-api.mjs
+node scripts/early-access-journey.mjs
 ```
 
 ## Configuration
@@ -82,7 +83,7 @@ Approved logo and icon live in `public/brand/original/`. Optimized derivatives a
 
 ## Launch blockers (external)
 
-- Real authentication (the current adapter is simulated, labeled, and refused on Vercel)
+- Hosted Auth.js activation with real Google credentials (`docs/AUTH.md`). The adapter is integrated; public Vercel stays unsigned until those secrets exist. Simulated identities remain labeled and local-only.
 - Dedicated hosted database credentials in the Vercel project (adapter exists; do not reuse Aethelios production)
 - Authorized OpenAI spend (`ATELIER_OPENAI_ENABLED` + key)
 - Final service pricing

@@ -10,11 +10,13 @@ import { BRIEF_FIELD_KEYS, type Brief, type Suggestion } from "@/lib/types";
 export function LivingBrief({
   brief,
   suggestions,
-  onResolve
+  onResolve,
+  frozen
 }: {
   brief: Brief;
   suggestions: Suggestion[];
   onResolve?: (id: string, action: "accept" | "reject") => void;
+  frozen?: boolean;
 }) {
   return (
     <aside className="surface-glass living-brief" aria-label="Living brief">
@@ -33,7 +35,7 @@ export function LivingBrief({
           {brief.context?.showcaseId && (brief.context.offerId || brief.context.purpose)
             ? ` · from the ${displayShowcaseLabel(brief.context.showcaseId)} showcase`
             : ""}
-          . You can change this before sending.
+          {frozen ? ". This is the submitted snapshot." : ". You can change this before sending."}
         </p>
       ) : null}
       <OfferReview brief={brief} />

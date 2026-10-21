@@ -22,8 +22,14 @@ describe("account to saved-work continuity", () => {
     expect(signInDestination("/account/adopt?next=%2Fcompanion", true)).toBe("/account/adopt?next=%2Fcompanion");
   });
 
+  it("lands a first sign-in on the continue page instead of an empty account screen", () => {
+    expect(signInDestination(null, false)).toBe("/account/continue");
+    expect(signInDestination("/account", false)).toBe("/account/continue");
+    expect(signInDestination("/project/new", false)).toBe("/project/new");
+  });
+
   it.each(["https://evil.test", "//evil.test", "/\\evil.test", "javascript:alert(1)", "/\n/evil.test", "/\t/evil.test"])("rejects external destination %s", (next) => {
-    expect(signInDestination(next, false)).toBe("/account");
+    expect(signInDestination(next, false)).toBe("/account/continue");
     expect(afterAdoption(next, "project_new")).toBe("/workspace/project_new");
   });
 });

@@ -228,8 +228,29 @@ try {
   });
   check("client A can submit their own brief", submitted.status === 200, submitted.json.receipt?.receiptId);
 
+  const laterDraft = {
+    ...brief,
+    vision: { ...brief.vision, value: "Later draft that must not rewrite the receipt." }
+  };
+  const patched = await req(`/api/projects/${id}`, {
+    method: "PATCH",
+    jar: clientA.jar,
+    body: { expectedVersion: created.json.project.version, brief: laterDraft }
+  });
+  check("client A can keep editing the working draft after submit", patched.status === 200);
+
   const queue = await req("/api/founder/queue", { jar: founder.jar });
-  check("founder queue includes client A's submission", (queue.json.queue ?? []).some((item) => item.id === id));
+  const queued = (queue.json.queue ?? []).find((item) => item.id === id);
+  check("founder queue includes client A's submission", Boolean(queued));
+  check("founder queue names the client and receipt", queued?.owner?.email === CLIENT_A && queued?.receiptId === submitted.json.receipt?.receiptId);
+
+  const founderView = await req(`/api/founder/projects/${id}`, { jar: founder.jar });
+  check(
+    "founder sees the exact submitted snapshot, not the later draft",
+    founderView.status === 200 &&
+      founderView.json.submission?.snapshot?.vision?.value === brief.vision.value &&
+      founderView.json.project?.brief?.vision?.value === laterDraft.vision.value
+  );
 
   const otherFounder = await req(`/api/founder/projects/${id}`, { jar: clientB.jar });
   check("client B is denied founder project access", otherFounder.status === 403);

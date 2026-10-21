@@ -68,7 +68,10 @@ export function WorkspaceHome() {
         {projects === null && !error ? (
           <p className="notice">Loading your commissions…</p>
         ) : projects && projects.length === 0 ? (
-          <p className="notice">No saved commissions yet. Start a brief or adopt a guest draft.</p>
+          <p className="notice">
+            No saved commissions yet. Start a brief, or review a guest draft on this device. This
+            account is free and does not start a subscription.
+          </p>
         ) : (
           (projects ?? []).map((project) => (
             <AppLink className="surface-dimensional workspace-card" href={`/workspace/${project.id}`} key={project.id}>
@@ -299,7 +302,7 @@ export function WorkspaceDetail({ id }: { id: string }) {
 
       {mode === "snapshot" && view.submission ? (
         <div style={{ marginTop: 16 }}>
-          <LivingBrief brief={view.submission.snapshot} suggestions={[]} />
+          <LivingBrief brief={view.submission.snapshot} suggestions={[]} frozen />
         </div>
       ) : null}
       {mode === "snapshot" && !view.submission ? (

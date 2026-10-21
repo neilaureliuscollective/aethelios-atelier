@@ -5,6 +5,7 @@ describe("sign-in copy", () => {
   it("names only the providers that are actually enabled", () => {
     expect(signInProviderSentence([])).toMatch(/will appear here when they are available/i);
     expect(signInProviderSentence([{ id: "google", label: "Google" }])).toMatch(/^Sign in with Google\./);
+    expect(signInProviderSentence([{ id: "google", label: "Google" }])).toMatch(/Signing in is free/);
     expect(signInProviderSentence([{ id: "google", label: "Google" }])).not.toMatch(/email/i);
     expect(
       signInProviderSentence([

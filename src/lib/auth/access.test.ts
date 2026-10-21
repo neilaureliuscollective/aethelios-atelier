@@ -60,6 +60,9 @@ describe("Auth.js identity mapping and authorization", () => {
     expect(safeCallbackUrl("/companion/studio?draftId=studio_1#composition")).toBe(
       "/companion/studio?draftId=studio_1#composition"
     );
+    expect(safeCallbackUrl("/install")).toBe("/install");
+    expect(safeCallbackUrl("/services/barbers-salons")).toBe("/services/barbers-salons");
+    expect(safeCallbackUrl("/custom-projects")).toBe("/custom-projects");
     expect(safeCallbackUrl("https://evil.example")).toBe("/account");
     expect(safeCallbackUrl("//evil.example")).toBe("/account");
     expect(safeCallbackUrl("/\\evil")).toBe("/account");
@@ -131,6 +134,46 @@ describe("Auth.js identity mapping and authorization", () => {
     expect(
       await adapter.useVerificationToken?.({ identifier: "client.a@example.com", token: "hash-1" })
     ).toBeNull();
+  });
+
+  it("does not grant founder from an unverified Auth.js email and refuses unverified linking", async () => {
+    const store = new MemoryPersistence();
+    const adapter = createAtelierAuthAdapter(store);
+    const unverifiedFounderEmail = await adapter.createUser?.({
+      id: undefined as unknown as string,
+      email: "founder.auth@atelier.invalid",
+      name: "Unverified Neil",
+      emailVerified: null,
+      image: null
+    } as AdapterUser);
+    expect((await store.getUserById(unverifiedFounderEmail!.id))?.role).toBe("client");
+    await expect(
+      adapter.createUser?.({
+        id: undefined as unknown as string,
+        email: "founder.auth@atelier.invalid",
+        name: "Google Neil",
+        emailVerified: new Date(),
+        image: null
+      } as AdapterUser)
+    ).rejects.toThrow(/unverified account cannot be claimed/i);
+
+    const verified = await adapter.createUser?.({
+      id: undefined as unknown as string,
+      email: "client.link@example.com",
+      name: "Linked",
+      emailVerified: new Date("2026-04-01T00:00:00.000Z"),
+      image: null
+    } as AdapterUser);
+    const linked = await adapter.createUser?.({
+      id: undefined as unknown as string,
+      email: "client.link@example.com",
+      name: "Google Linked",
+      emailVerified: new Date("2026-04-02T00:00:00.000Z"),
+      image: null
+    } as AdapterUser);
+    expect(linked?.id).toBe(verified?.id);
+    expect((await store.getUserById(verified!.id))?.emailVerifiedAt).toBe("2026-04-02T00:00:00.000Z");
+    expect((await store.getUserById(verified!.id))?.displayName).toBe("Google Linked");
   });
 
   it("recomputes founder authorization from the current allow-list, not a stored claim", async () => {

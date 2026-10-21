@@ -3,7 +3,8 @@ import { cookies } from "next/headers";
 import { loadConfig } from "@/lib/config";
 import { AuthenticationError, UnconfiguredError } from "@/lib/domain/errors";
 import { createId } from "@/lib/ids";
-import { displayNameFromEmail, normalizeEmail, resolveRole } from "@/lib/auth/roles";
+import { persistableEmailVerifiedAt, resolveAuthorizedRole } from "@/lib/auth/identityTrust";
+import { displayNameFromEmail, normalizeEmail } from "@/lib/auth/roles";
 import { sessionCookieSecure } from "@/lib/auth/sessionCookie";
 import { getStore } from "@/lib/persistence/store";
 import type { AuthAdapterKind, AuthContext, User } from "@/lib/types";
@@ -36,7 +37,11 @@ export function sessionCookieOptions(expires: Date) {
 
 async function applyFounderRole(user: User): Promise<User> {
   const config = loadConfig();
-  const role = resolveRole(user.email, config.founderEmailList);
+  const role = resolveAuthorizedRole(user.email, config.founderEmailList, {
+    verified: Boolean(user.emailVerifiedAt),
+    adapter: user.adapter,
+    existingRole: user.role
+  });
   if (role === user.role) return { ...user, email: normalizeEmail(user.email) };
   const next = { ...user, email: normalizeEmail(user.email), role };
   try {
@@ -136,14 +141,22 @@ export async function upsertVerifiedUser(input: {
     ? await store.getUserById(input.existingId)
     : await store.getUserByEmail(email);
   const now = new Date().toISOString();
+  const emailVerifiedAt = persistableEmailVerifiedAt({
+    incomingVerifiedAt: input.emailVerified,
+    existingVerifiedAt: existing?.emailVerifiedAt
+  });
   const user: User = {
     id: existing?.id ?? input.existingId ?? createId("user"),
     email,
     displayName: displayNameFromEmail(email, input.displayName ?? existing?.displayName),
-    role: resolveRole(email, config.founderEmailList),
+    role: resolveAuthorizedRole(email, config.founderEmailList, {
+      verified: Boolean(emailVerifiedAt),
+      adapter: existing?.adapter ?? "authjs",
+      existingRole: existing?.role
+    }),
     adapter: "authjs",
     createdAt: existing?.createdAt ?? now,
-    emailVerifiedAt: input.emailVerified?.toISOString() ?? existing?.emailVerifiedAt ?? now
+    emailVerifiedAt
   };
   return store.upsertUser(user);
 }

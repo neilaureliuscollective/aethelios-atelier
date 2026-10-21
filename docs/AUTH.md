@@ -50,7 +50,15 @@ Do this after the dedicated Atelier Postgres database is connected. Do not reuse
 | `AUTH_RESEND_FROM` | Verified from address, e.g. `Atelier <signin@your-domain>` |
 
 4. Redeploy. `GET /api/health` should report `auth.adapter: "authjs"` and `auth.ready: true`.
-5. Sign in once with the founder email listed in `ATELIER_FOUNDER_EMAILS`. Founder authorization is recomputed on the server from that list on every request.
+5. Sign in once with the founder email listed in `ATELIER_FOUNDER_EMAILS`. Google must present a verified email. Founder authorization is recomputed on the server from that list plus provider verification evidence.
+
+## Verification and account linking
+
+- Google sign-in is refused unless the provider profile includes `email_verified: true`. A present email is not enough.
+- Role, email, and verification are never taken from the client. Founder is assigned only when the verified email is on `ATELIER_FOUNDER_EMAILS`.
+- Atelier does not invent an `email_verified_at` timestamp. The adapter stores the date Auth.js received from the provider, or keeps an existing one.
+- Same-email linking is allowed only when both the incoming provider evidence and the existing account are already verified. An unverified stub cannot be claimed, and an unverified Google profile cannot attach to a real account.
+- Creating an Atelier account is free. It does not start a subscription, create a payment, or grant founder access.
 
 Do **not** set on Vercel:
 
@@ -79,3 +87,14 @@ Then `pnpm build && pnpm test:auth`.
 ## Guest drafts
 
 Sign-in never adopts or submits a device draft. After an account exists, `/account/adopt` copies the brief only when `confirmed: true`.
+
+## Google pilot check (Neil)
+
+Automated tests cover Auth.js email capture and simulated identities. They cannot click a real Google account. After this branch is deployed to a preview (not production), run this once with a second Google account that is **not** on `ATELIER_FOUNDER_EMAILS`:
+
+1. Open the preview URL on your phone. Confirm the public site, `/install`, and Sign in.
+2. Sign in with that second Google account. You should land on Continue. The account is free; you should not see Founder.
+3. Start a project, write a distinctive sentence, save until the status says the server saved it, sign out, sign in again, and confirm the sentence is still there.
+4. Review and send once. Confirm the receipt says submitted, not accepted or paid.
+5. Sign in with your founder Google account. Open Founder. Confirm that request, the exact sentence, the selected interests, and the timestamp.
+6. Sign back in as the second account and confirm you cannot open `/founder` or another client’s workspace by changing the URL.

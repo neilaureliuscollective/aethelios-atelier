@@ -2,7 +2,7 @@
    Keep in sync with src/lib/pwa/cachePolicy.ts.
    Cache only the generic offline shell and public brand assets.
    Never cache personalized HTML, authenticated routes, APIs, or RSC payloads. */
-const CACHE = "atelier-static-v11";
+const CACHE = "atelier-static-v12";
 const PREFIX = "atelier-";
 const PRECACHE = [
   "/offline",
@@ -24,7 +24,8 @@ function personalized(pathname) {
     pathname.startsWith("/founder") ||
     pathname.startsWith("/project") ||
     pathname.startsWith("/account") ||
-    pathname.startsWith("/companion")
+    pathname.startsWith("/companion") ||
+    pathname.startsWith("/install")
   );
 }
 

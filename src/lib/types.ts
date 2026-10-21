@@ -372,6 +372,9 @@ export type FounderQueueItem = {
   title: string;
   status: ProjectStatus;
   updatedAt: string;
+  submittedAt: string | null;
+  receiptId: string | null;
+  handoffSummary: string;
   reviewStartedAt: string | null;
   owner: Pick<User, "id" | "email" | "displayName" | "adapter"> | null;
   attention: FounderAttentionItem[];

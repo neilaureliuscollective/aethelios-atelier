@@ -4,6 +4,7 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { BrandMark } from "@/components/brand/BrandMark";
 import { AppLink } from "@/components/ui/AppLink";
+import { signInHrefForPath } from "@/lib/auth/continuation";
 import { FULL_LOGO } from "@/lib/brand/fullLogo";
 import type { User } from "@/lib/types";
 
@@ -90,7 +91,7 @@ export function SiteHeader({ user }: { user: User | null }) {
               {user.displayName}
             </AppLink>
           ) : (
-            <AppLink className="btn btn-ghost" href={companion ? "/account?next=/companion" : "/account"}>
+            <AppLink className="btn btn-ghost" href={signInHrefForPath(pathname)}>
               Sign in
             </AppLink>
           )}
@@ -125,7 +126,7 @@ export function SiteHeader({ user }: { user: User | null }) {
             Begin your project
           </AppLink>
         )}
-        <AppLink href={user ? "/account" : companion ? "/account?next=/companion" : "/account"} onClick={() => setOpen(false)}>
+        <AppLink href={user ? "/account" : signInHrefForPath(pathname)} onClick={() => setOpen(false)}>
           {user ? "Account" : "Sign in"}
         </AppLink>
         {!companion && user ? (
