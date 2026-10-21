@@ -63,11 +63,10 @@ export default function BarbersSalonsPage() {
       <section className="container section">
         <div className="section-head">
           <p className="kicker">Completed work</p>
-          <h2>A real website, before the illustrative direction.</h2>
+          <h2>A presence as considered as the work.</h2>
           <p className="lede">
-            Fix It Shop is a completed public website for a men’s salon. Vale & Crown, further down
-            this page, is a labeled fictional demonstration — not a client and not a substitute for
-            this work.
+            Fix It Shop is a completed public website for a men’s salon. The labeled demonstration
+            further down this page is illustrative.
           </p>
         </div>
         <SelectedWork variant="editorial" />
@@ -78,8 +77,7 @@ export default function BarbersSalonsPage() {
           <p className="kicker">Illustrative direction</p>
           <h2>A website the professional actually opens.</h2>
           <p className="lede">
-            Move through story, work, services, visit details, and the booking handoff. Desktop and
-            phone stay in step. Vale & Crown is a labeled fictional shop, not a live salon and not a
+            Story, work, services, and the booking handoff — shown as a labeled fictional shop, not a
             client record.
           </p>
         </div>

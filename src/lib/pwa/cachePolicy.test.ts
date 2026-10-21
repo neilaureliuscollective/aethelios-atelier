@@ -77,6 +77,14 @@ describe("offline cache policy", () => {
     expect(
       shouldCacheResponse({
         method: "GET",
+        pathname: "/work/fix-it-shop/cinematic-loop.mp4",
+        contentType: "video/mp4",
+        sameOrigin: true
+      })
+    ).toBe(false);
+    expect(
+      shouldCacheResponse({
+        method: "GET",
         pathname: "/industry/salon-hero.webp",
         contentType: "image/webp",
         sameOrigin: true

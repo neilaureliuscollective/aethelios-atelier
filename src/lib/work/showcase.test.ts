@@ -15,17 +15,22 @@ describe("Fix It Shop showcase record", () => {
     expect(FIX_IT_SHOP.specialistInquireHref).toContain("source=fix_it_shop");
     expect(FIX_IT_SHOP.media.width / FIX_IT_SHOP.media.height).toBeCloseTo(20 / 13, 5);
     expect(FIX_IT_SHOP.media.silent).toBe(true);
+    expect(FIX_IT_SHOP.media.loopSrc).toBe("/work/fix-it-shop/cinematic-loop.mp4");
     expect(FIX_IT_SHOP.videoDescription).toMatch(/silent 34-second/i);
     expect(FIX_IT_SHOP.videoDescription).toMatch(/illustrative/i);
   });
 
-  it("ships the attached master and a reserved poster without a fabricated replacement", () => {
+  it("ships the attached master, a loop derivative, and a reserved poster", () => {
     const master = "public/work/fix-it-shop/cinematic-showcase.mp4";
+    const loop = "public/work/fix-it-shop/cinematic-loop.mp4";
     const poster = "public/work/fix-it-shop/poster.webp";
     expect(existsSync(master)).toBe(true);
+    expect(existsSync(loop)).toBe(true);
     expect(existsSync(poster)).toBe(true);
     expect(existsSync("public/work/fix-it-shop/poster.jpg")).toBe(true);
     expect(statSync(master).size).toBeGreaterThan(8_000_000);
+    expect(statSync(loop).size).toBeGreaterThan(2_000_000);
+    expect(statSync(loop).size).toBeLessThan(statSync(master).size);
     expect(statSync(poster).size).toBeGreaterThan(20_000);
     expect(statSync(poster).size).toBeLessThan(400_000);
   });
@@ -49,6 +54,8 @@ describe("salon industry imagery", () => {
     const demo = readFileSync("src/lib/offers/demo.ts", "utf8");
     const vale = readFileSync("src/components/marketing/barbers/ValeCrownDemo.tsx", "utf8");
     expect(hero).toContain("SALON_INDUSTRY_ASSETS.specialistHero");
+    expect(hero).toContain("A presence as considered as the work.");
+    expect(hero).not.toContain("A real website, before the illustrative direction.");
     expect(assets).toContain("/industry/salon-hero.webp");
     expect(hero).not.toContain("/atmosphere/hearth");
     expect(demo).not.toMatch(/hearth|storefront|colonnade/);
@@ -57,13 +64,20 @@ describe("salon industry imagery", () => {
   });
 });
 
-describe("poster-first playback", () => {
-  it("does not attach the MP4 until Play and keeps the file out of the service worker", () => {
+describe("inline cinematic playback", () => {
+  it("plays the loop inline without a modal-first Watch path", () => {
     const source = readFileSync("src/components/work/SelectedWork.tsx", "utf8");
     expect(source).toContain('preload="none"');
-    expect(source).toContain("removeAttribute(\"src\")");
-    expect(source).toContain("video.src = project.media.masterSrc");
-    expect(source).not.toMatch(/<source[^>]+cinematic-showcase\.mp4/);
+    expect(source).toContain("video.src = project.media.loopSrc");
+    expect(source).toContain("IntersectionObserver");
+    expect(source).toContain("visibilitychange");
+    expect(source).toContain("prefers-reduced-motion");
+    expect(source).toContain("video.muted = true");
+    expect(source).toContain("playsInline");
+    expect(source).not.toMatch(/<dialog/);
+    expect(source).not.toMatch(/Watch the experience/);
+    expect(source).not.toMatch(/showModal/);
+    expect(source).not.toMatch(/<source[^>]+cinematic-(showcase|loop)\.mp4/);
     expect(source).not.toMatch(/autoPlay|autoplay/);
     const sw = readFileSync("public/sw.js", "utf8");
     expect(sw).not.toMatch(/\.mp4|\/work\//);
@@ -75,5 +89,17 @@ describe("poster-first playback", () => {
     expect(home.indexOf("<CinematicHero")).toBeLessThan(home.indexOf('variant="featured"'));
     expect(home.indexOf('variant="featured"')).toBeLessThan(home.indexOf("<PossibilitiesStage"));
     expect(home).toContain("SelectedWork");
+  });
+
+  it("keeps specialist hero shading local and lighter than the main Atelier wash", () => {
+    const css = readFileSync("src/app/globals.css", "utf8");
+    const specialist = css.slice(css.indexOf(".barbers-hero {"), css.indexOf(".barbers-showcase"));
+    expect(specialist).toMatch(/object-position:\s*8%\s*62%/);
+    expect(specialist).toContain(".barbers-hero .cinematic-shade");
+    expect(specialist).toContain(".barbers-hero .cinematic-copy::before");
+    expect(specialist).not.toMatch(/0\.78/);
+    expect(specialist).not.toMatch(/0\.5\)/);
+    const globalShade = css.slice(css.indexOf(".cinematic-shade {"), css.indexOf(".cinematic-copy {"));
+    expect(globalShade).toMatch(/0\.72/);
   });
 });
