@@ -32,16 +32,16 @@ export const FIX_IT_SHOP = {
     posterSrc: "/work/fix-it-shop/poster.webp",
     posterJpg: "/work/fix-it-shop/poster.jpg",
     previewSrc: "/work/fix-it-shop/poster-preview.webp",
-    width: 1600,
-    height: 1040,
+    width: 1280,
+    height: 832,
     durationSeconds: 34,
-    loopDurationSeconds: 33.1,
+    loopDurationSeconds: 23.1,
     aspect: "20 / 13",
     silent: true,
-    posterTimestamp: "00:02"
+    posterTimestamp: "00:00"
   },
   videoDescription:
-    "A silent 34-second capture of the live Fix It Shop website. It opens on the homepage hero (“A little time. A lot of care.”), moves through the personal-standard story, three process scenes, an interactive visit-guide pace control, and returns to the hero. On-screen disclosures in the footage remain part of the recording: illustrative setting, not the finished location; illustrative process imagery, not Katie, her clients, or the finished space. Appointments stay on GlossGenius. This is not a testimonial and does not invent business results.",
+    "A silent presentation of the live Fix It Shop website, assembled from locked page frames of the original capture. It opens on the homepage hero (“A little time. A lot of care.”), moves through the personal-standard story, three process scenes, an interactive visit-guide pace control, and returns to the hero. On-screen disclosures in the footage remain part of the recording: illustrative setting, not the finished location; illustrative process imagery, not Katie, her clients, or the finished space. Appointments stay on GlossGenius. This is not a testimonial and does not invent business results.",
   distinction: {
     real: "Fix It Shop is a completed public website for a men’s salon.",
     illustrative: "Vale & Crown is a labeled fictional direction used to show how a shop site can move."

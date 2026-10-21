@@ -1,18 +1,24 @@
 import { describe, expect, it } from "vitest";
 import {
+  CINEMATIC_ENTER_RATIO,
+  CINEMATIC_EXIT_RATIO,
   CINEMATIC_LOAD_RATIO,
-  CINEMATIC_PLAY_RATIO,
   classifyPlayError,
   decideCinematicPlayback,
+  isMeaningfullyVisible,
   isStalePlayGeneration,
   prefersStaticPlayback,
-  readSaveData,
-  shouldRestartLoop
+  readSaveData
 } from "@/lib/work/cinematicPlayback";
 
 describe("cinematic playback policy", () => {
-  it("loads near the viewport and plays only when meaningfully visible", () => {
-    expect(CINEMATIC_LOAD_RATIO).toBeLessThan(CINEMATIC_PLAY_RATIO);
+  it("warms near the viewport and uses enter/exit hysteresis", () => {
+    expect(CINEMATIC_LOAD_RATIO).toBeLessThan(CINEMATIC_EXIT_RATIO);
+    expect(CINEMATIC_EXIT_RATIO).toBeLessThan(CINEMATIC_ENTER_RATIO);
+    expect(isMeaningfullyVisible(0.2, false)).toBe(false);
+    expect(isMeaningfullyVisible(0.2, true)).toBe(true);
+    expect(isMeaningfullyVisible(0.4, false)).toBe(true);
+    expect(isMeaningfullyVisible(0.1, true)).toBe(false);
     expect(
       decideCinematicPlayback({
         srcAttached: false,
@@ -99,11 +105,6 @@ describe("cinematic playback policy", () => {
         userRequestedPlay: true
       })
     ).toBe("attach");
-  });
-
-  it("restarts a mismatched ending before native loop would flash black", () => {
-    expect(shouldRestartLoop(33.05, 33.1)).toBe(true);
-    expect(shouldRestartLoop(12, 33.1)).toBe(false);
     expect(isStalePlayGeneration(2, 1)).toBe(true);
     expect(classifyPlayError(new DOMException("blocked", "NotAllowedError"))).toBe("blocked");
     expect(classifyPlayError(new DOMException("paused", "AbortError"))).toBe("aborted");

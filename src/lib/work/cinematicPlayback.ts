@@ -1,7 +1,7 @@
-export const CINEMATIC_LOAD_RATIO = 0.12;
-export const CINEMATIC_PLAY_RATIO = 0.42;
-export const CINEMATIC_LOOP_EPSILON = 0.08;
-export const CINEMATIC_LOOP_RESTART_TIME = 0.04;
+export const CINEMATIC_LOAD_RATIO = 0.01;
+export const CINEMATIC_ENTER_RATIO = 0.34;
+export const CINEMATIC_EXIT_RATIO = 0.14;
+export const CINEMATIC_ROOT_MARGIN = "280px 0px 160px 0px";
 
 export type CinematicPlaybackAction = "idle" | "attach" | "play" | "pause";
 
@@ -11,6 +11,10 @@ export function prefersStaticPlayback(reducedMotion: boolean, saveData: boolean)
 
 export function readSaveData(connection?: { saveData?: boolean } | null) {
   return Boolean(connection?.saveData);
+}
+
+export function isMeaningfullyVisible(ratio: number, wasVisible: boolean) {
+  return wasVisible ? ratio >= CINEMATIC_EXIT_RATIO : ratio >= CINEMATIC_ENTER_RATIO;
 }
 
 export function decideCinematicPlayback(input: {
@@ -36,10 +40,6 @@ export function decideCinematicPlayback(input: {
   }
   if (input.prefersStatic) return "pause";
   return input.meaningfullyVisible ? "play" : "pause";
-}
-
-export function shouldRestartLoop(currentTime: number, duration: number) {
-  return duration > 0 && currentTime >= duration - CINEMATIC_LOOP_EPSILON;
 }
 
 export function isStalePlayGeneration(current: number, started: number) {

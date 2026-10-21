@@ -16,7 +16,8 @@ describe("Fix It Shop showcase record", () => {
     expect(FIX_IT_SHOP.media.width / FIX_IT_SHOP.media.height).toBeCloseTo(20 / 13, 5);
     expect(FIX_IT_SHOP.media.silent).toBe(true);
     expect(FIX_IT_SHOP.media.loopSrc).toBe("/work/fix-it-shop/cinematic-loop.mp4");
-    expect(FIX_IT_SHOP.videoDescription).toMatch(/silent 34-second/i);
+    expect(FIX_IT_SHOP.media.width).toBe(1280);
+    expect(FIX_IT_SHOP.videoDescription).toMatch(/silent presentation/i);
     expect(FIX_IT_SHOP.videoDescription).toMatch(/illustrative/i);
   });
 
@@ -29,7 +30,8 @@ describe("Fix It Shop showcase record", () => {
     expect(existsSync(poster)).toBe(true);
     expect(existsSync("public/work/fix-it-shop/poster.jpg")).toBe(true);
     expect(statSync(master).size).toBeGreaterThan(8_000_000);
-    expect(statSync(loop).size).toBeGreaterThan(2_000_000);
+    expect(statSync(loop).size).toBeGreaterThan(1_000_000);
+    expect(statSync(loop).size).toBeLessThan(4_500_000);
     expect(statSync(loop).size).toBeLessThan(statSync(master).size);
     expect(statSync(poster).size).toBeGreaterThan(20_000);
     expect(statSync(poster).size).toBeLessThan(400_000);
@@ -74,6 +76,9 @@ describe("inline cinematic playback", () => {
     expect(source).toContain("prefers-reduced-motion");
     expect(source).toContain("video.muted = true");
     expect(source).toContain("playsInline");
+    expect(source).toContain("isMeaningfullyVisible");
+    expect(source).toMatch(/\bloop\b/);
+    expect(source).not.toMatch(/currentTime\s*=/);
     expect(source).not.toMatch(/<dialog/);
     expect(source).not.toMatch(/Watch the experience/);
     expect(source).not.toMatch(/showModal/);

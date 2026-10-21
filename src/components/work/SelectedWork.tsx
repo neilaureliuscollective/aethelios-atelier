@@ -3,15 +3,16 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { AppLink } from "@/components/ui/AppLink";
 import {
+  CINEMATIC_ENTER_RATIO,
+  CINEMATIC_EXIT_RATIO,
   CINEMATIC_LOAD_RATIO,
-  CINEMATIC_LOOP_RESTART_TIME,
-  CINEMATIC_PLAY_RATIO,
+  CINEMATIC_ROOT_MARGIN,
   classifyPlayError,
   decideCinematicPlayback,
+  isMeaningfullyVisible,
   isStalePlayGeneration,
   prefersStaticPlayback,
-  readSaveData,
-  shouldRestartLoop
+  readSaveData
 } from "@/lib/work/cinematicPlayback";
 import { FIX_IT_SHOP } from "@/lib/work/fixItShop";
 import styles from "./selectedWork.module.css";
@@ -90,11 +91,6 @@ export function SelectedWork({
           <div className={styles.copyBody}>
             <p className={styles.copyLede}>{project.description}</p>
             {variant === "featured" ? <p className={styles.copyBusiness}>{project.business}</p> : null}
-            <ul className={styles.facts}>
-              {project.facts.map((fact) => (
-                <li key={fact}>{fact}</li>
-              ))}
-            </ul>
             {variant === "editorial" ? (
               <p className={styles.distinction}>
                 <span className={styles.realLabel}>Completed work</span>
@@ -141,7 +137,7 @@ function Poster({ priority }: { priority: boolean }) {
 function CinematicFilm({ priority }: { priority: boolean }) {
   const project = FIX_IT_SHOP;
   const videoRef = useRef<HTMLVideoElement>(null);
-  const frameRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
   const playGeneration = useRef(0);
   const userPausedRef = useRef(false);
   const userRequestedRef = useRef(false);
@@ -149,6 +145,7 @@ function CinematicFilm({ priority }: { priority: boolean }) {
   const prefersStaticRef = useRef(false);
   const nearViewportRef = useRef(false);
   const visibleRef = useRef(false);
+  const decodedRef = useRef(false);
   const descriptionId = useId();
   const [srcAttached, setSrcAttached] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -156,6 +153,7 @@ function CinematicFilm({ priority }: { priority: boolean }) {
   const [fallback, setFallback] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [prefersStatic, setPrefersStatic] = useState(false);
+  const [hasDecodedFrame, setHasDecodedFrame] = useState(false);
 
   function invalidatePlays() {
     playGeneration.current += 1;
@@ -247,9 +245,9 @@ function CinematicFilm({ priority }: { priority: boolean }) {
   }
 
   useEffect(() => {
-    const frame = frameRef.current;
+    const stage = stageRef.current;
     const video = videoRef.current;
-    if (!frame) return;
+    if (!stage) return;
 
     function applyPreferences() {
       const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -282,15 +280,18 @@ function CinematicFilm({ priority }: { priority: boolean }) {
         const entry = entries[0];
         const ratio = entry?.intersectionRatio ?? 0;
         nearViewportRef.current = Boolean(entry?.isIntersecting) && ratio >= CINEMATIC_LOAD_RATIO;
-        visibleRef.current = Boolean(entry?.isIntersecting) && ratio >= CINEMATIC_PLAY_RATIO;
+        visibleRef.current = isMeaningfullyVisible(ratio, visibleRef.current);
+        if (!entry?.isIntersecting && ratio < CINEMATIC_EXIT_RATIO) {
+          visibleRef.current = false;
+        }
         syncPlayback();
       },
       {
-        rootMargin: "96px 0px",
-        threshold: [0, CINEMATIC_LOAD_RATIO, 0.25, CINEMATIC_PLAY_RATIO, 0.6, 0.85, 1]
+        rootMargin: CINEMATIC_ROOT_MARGIN,
+        threshold: [0, CINEMATIC_LOAD_RATIO, CINEMATIC_EXIT_RATIO, 0.22, CINEMATIC_ENTER_RATIO, 0.5, 0.75, 1]
       }
     );
-    observer.observe(frame);
+    observer.observe(stage);
 
     const onVisibility = () => syncPlayback();
     document.addEventListener("visibilitychange", onVisibility);
@@ -308,6 +309,8 @@ function CinematicFilm({ priority }: { priority: boolean }) {
   }, []);
 
   function onPlaying() {
+    decodedRef.current = true;
+    setHasDecodedFrame(true);
     if (userPausedRef.current || document.hidden) {
       videoRef.current?.pause();
       setIsPlaying(false);
@@ -324,19 +327,6 @@ function CinematicFilm({ priority }: { priority: boolean }) {
 
   function onPause() {
     if (!userPausedRef.current) setIsPlaying(false);
-  }
-
-  function restartLoop() {
-    const video = videoRef.current;
-    if (!video || userPausedRef.current) return;
-    video.currentTime = CINEMATIC_LOOP_RESTART_TIME;
-    void requestPlay();
-  }
-
-  function onTimeUpdate() {
-    const video = videoRef.current;
-    if (!video || userPausedRef.current) return;
-    if (shouldRestartLoop(video.currentTime, video.duration)) restartLoop();
   }
 
   function onControl() {
@@ -361,18 +351,19 @@ function CinematicFilm({ priority }: { priority: boolean }) {
       ? project.resumeLabel
       : project.playPreviewLabel;
   const showControl = isPlaying || userPaused || fallback || blocked;
+  const showPoster = !hasDecodedFrame && !isPlaying;
 
   return (
     <div
-      ref={frameRef}
       className={styles.film}
       data-film-surface
       data-src-attached={srcAttached ? "true" : "false"}
       data-film-playing={isPlaying ? "true" : "false"}
       data-user-paused={userPaused ? "true" : "false"}
       data-film-fallback={fallback || prefersStatic || blocked ? "true" : "false"}
+      data-decoded-frame={hasDecodedFrame ? "true" : "false"}
     >
-      <div className={styles.frame}>
+      <div ref={stageRef} className={styles.frame} data-film-stage>
         <p id={descriptionId} className={styles.srOnly}>
           {project.videoDescription}
         </p>
@@ -382,6 +373,7 @@ function CinematicFilm({ priority }: { priority: boolean }) {
           preload="none"
           muted
           playsInline
+          loop
           disablePictureInPicture
           controlsList="nodownload noremoteplayback nofullscreen"
           width={project.media.width}
@@ -390,8 +382,6 @@ function CinematicFilm({ priority }: { priority: boolean }) {
           aria-label="Silent recording of the live Fix It Shop website"
           onPlaying={onPlaying}
           onPause={onPause}
-          onEnded={restartLoop}
-          onTimeUpdate={onTimeUpdate}
           onError={() => {
             setBlocked(false);
             setFallback(true);
@@ -399,11 +389,11 @@ function CinematicFilm({ priority }: { priority: boolean }) {
           }}
           data-showcase-film
         />
-        {isPlaying ? null : (
+        {showPoster ? (
           <div className={styles.posterLayer} aria-hidden="true">
             <Poster priority={priority} />
           </div>
-        )}
+        ) : null}
       </div>
       {showControl ? (
         <button
