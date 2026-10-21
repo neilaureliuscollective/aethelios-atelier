@@ -1,0 +1,79 @@
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { describe, expect, it } from "vitest";
+import { salonAssetPaths, SALON_INDUSTRY_ASSETS } from "@/lib/industry/assets";
+import { VALE_CROWN_DEMO } from "@/lib/offers/demo";
+import { FIX_IT_SHOP } from "@/lib/work/fixItShop";
+
+const ATMOSPHERE = ["/atmosphere/hearth.webp", "/atmosphere/storefront.webp", "/atmosphere/colonnade.webp"];
+
+describe("Fix It Shop showcase record", () => {
+  it("keeps verified public destinations and a 20:13 silent master", () => {
+    expect(FIX_IT_SHOP.liveHref).toBe("https://fixitshop-app.vercel.app/");
+    expect(FIX_IT_SHOP.bookingHref).toBe("https://fixitshop.glossgenius.com/");
+    expect(FIX_IT_SHOP.inquireHref).toBe("/project?source=fix_it_shop");
+    expect(FIX_IT_SHOP.specialistInquireHref).toContain("offer=barbers_salons");
+    expect(FIX_IT_SHOP.specialistInquireHref).toContain("source=fix_it_shop");
+    expect(FIX_IT_SHOP.media.width / FIX_IT_SHOP.media.height).toBeCloseTo(20 / 13, 5);
+    expect(FIX_IT_SHOP.media.silent).toBe(true);
+    expect(FIX_IT_SHOP.videoDescription).toMatch(/silent 34-second/i);
+    expect(FIX_IT_SHOP.videoDescription).toMatch(/illustrative/i);
+  });
+
+  it("ships the attached master and a reserved poster without a fabricated replacement", () => {
+    const master = "public/work/fix-it-shop/cinematic-showcase.mp4";
+    const poster = "public/work/fix-it-shop/poster.webp";
+    expect(existsSync(master)).toBe(true);
+    expect(existsSync(poster)).toBe(true);
+    expect(existsSync("public/work/fix-it-shop/poster.jpg")).toBe(true);
+    expect(statSync(master).size).toBeGreaterThan(8_000_000);
+    expect(statSync(poster).size).toBeGreaterThan(20_000);
+    expect(statSync(poster).size).toBeLessThan(400_000);
+  });
+});
+
+describe("salon industry imagery", () => {
+  it("uses a distinct salon set and does not reuse atmosphere architecture", () => {
+    const paths = [
+      SALON_INDUSTRY_ASSETS.specialistHero.src,
+      VALE_CROWN_DEMO.storyImage.src,
+      ...VALE_CROWN_DEMO.gallery.map((item) => item.src)
+    ];
+    expect(new Set(paths).size).toBe(5);
+    expect(paths).toEqual(expect.arrayContaining(salonAssetPaths()));
+    for (const path of paths) {
+      expect(ATMOSPHERE).not.toContain(path);
+      expect(existsSync(`public${path}`)).toBe(true);
+    }
+    const hero = readFileSync("src/app/services/barbers-salons/page.tsx", "utf8");
+    const assets = readFileSync("src/lib/industry/assets.ts", "utf8");
+    const demo = readFileSync("src/lib/offers/demo.ts", "utf8");
+    const vale = readFileSync("src/components/marketing/barbers/ValeCrownDemo.tsx", "utf8");
+    expect(hero).toContain("SALON_INDUSTRY_ASSETS.specialistHero");
+    expect(assets).toContain("/industry/salon-hero.webp");
+    expect(hero).not.toContain("/atmosphere/hearth");
+    expect(demo).not.toMatch(/hearth|storefront|colonnade/);
+    expect(vale).toContain("storyImage");
+    expect(vale).not.toContain("gallery[0]");
+  });
+});
+
+describe("poster-first playback", () => {
+  it("does not attach the MP4 until Play and keeps the file out of the service worker", () => {
+    const source = readFileSync("src/components/work/SelectedWork.tsx", "utf8");
+    expect(source).toContain('preload="none"');
+    expect(source).toContain("removeAttribute(\"src\")");
+    expect(source).toContain("video.src = project.media.masterSrc");
+    expect(source).not.toMatch(/<source[^>]+cinematic-showcase\.mp4/);
+    expect(source).not.toMatch(/autoPlay|autoplay/);
+    const sw = readFileSync("public/sw.js", "utf8");
+    expect(sw).not.toMatch(/\.mp4|\/work\//);
+    expect(sw).toMatch(/\/brand\//);
+  });
+
+  it("places the homepage showcase after the hero and before possibilities", () => {
+    const home = readFileSync("src/app/page.tsx", "utf8");
+    expect(home.indexOf("<CinematicHero")).toBeLessThan(home.indexOf('variant="featured"'));
+    expect(home.indexOf('variant="featured"')).toBeLessThan(home.indexOf("<PossibilitiesStage"));
+    expect(home).toContain("SelectedWork");
+  });
+});

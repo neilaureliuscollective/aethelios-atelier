@@ -1,3 +1,5 @@
+import { SALON_INDUSTRY_ASSETS } from "@/lib/industry/assets";
+
 export const VALE_CROWN_DEMO = {
   id: "vale_crown_demo",
   name: "Vale & Crown",
@@ -13,18 +15,30 @@ export const VALE_CROWN_DEMO = {
     { name: "Color and gloss", note: "Consultation first. This card does not invent a menu of add-ons." },
     { name: "Beard and finish", note: "A considered tidy, not a separate product line." }
   ],
+  storyImage: {
+    src: SALON_INDUSTRY_ASSETS.valeStory.src,
+    alt: SALON_INDUSTRY_ASSETS.valeStory.alt,
+    width: SALON_INDUSTRY_ASSETS.valeStory.width,
+    height: SALON_INDUSTRY_ASSETS.valeStory.height
+  },
   gallery: [
     {
-      src: "/atmosphere/hearth.webp",
-      alt: "Warm interior used as fictional shop atmosphere, not a photograph of a real client"
+      src: SALON_INDUSTRY_ASSETS.valeCraft.src,
+      alt: SALON_INDUSTRY_ASSETS.valeCraft.alt,
+      width: SALON_INDUSTRY_ASSETS.valeCraft.width,
+      height: SALON_INDUSTRY_ASSETS.valeCraft.height
     },
     {
-      src: "/atmosphere/storefront.webp",
-      alt: "Still-life storefront used as fictional shop photography"
+      src: SALON_INDUSTRY_ASSETS.valeAlcove.src,
+      alt: SALON_INDUSTRY_ASSETS.valeAlcove.alt,
+      width: SALON_INDUSTRY_ASSETS.valeAlcove.width,
+      height: SALON_INDUSTRY_ASSETS.valeAlcove.height
     },
     {
-      src: "/atmosphere/colonnade.webp",
-      alt: "Quiet architectural light used as fictional gallery atmosphere"
+      src: SALON_INDUSTRY_ASSETS.valeDetail.src,
+      alt: SALON_INDUSTRY_ASSETS.valeDetail.alt,
+      width: SALON_INDUSTRY_ASSETS.valeDetail.width,
+      height: SALON_INDUSTRY_ASSETS.valeDetail.height
     }
   ],
   visit: {

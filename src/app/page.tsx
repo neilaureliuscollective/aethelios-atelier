@@ -4,12 +4,14 @@ import { CustomProjectsInvite } from "@/components/marketing/CustomProjectsInvit
 import { PossibilitiesStage } from "@/components/marketing/PossibilitiesStage";
 import { ServiceShowcase } from "@/components/marketing/ServiceShowcase";
 import { Reveal } from "@/components/motion/Reveal";
+import { SelectedWork } from "@/components/work/SelectedWork";
 import { FULL_LOGO } from "@/lib/brand/fullLogo";
 
 export default function HomePage() {
   return (
     <>
       <CinematicHero />
+      <SelectedWork variant="featured" />
 
       <Reveal as="section" className="container section ivory-section" delay={1}>
         <div className="section-head split-head">

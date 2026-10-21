@@ -66,6 +66,22 @@ describe("offline cache policy", () => {
         sameOrigin: true
       })
     ).toBe(true);
+    expect(
+      shouldCacheResponse({
+        method: "GET",
+        pathname: "/work/fix-it-shop/cinematic-showcase.mp4",
+        contentType: "video/mp4",
+        sameOrigin: true
+      })
+    ).toBe(false);
+    expect(
+      shouldCacheResponse({
+        method: "GET",
+        pathname: "/industry/salon-hero.webp",
+        contentType: "image/webp",
+        sameOrigin: true
+      })
+    ).toBe(false);
   });
 
   it("describes a failed write as uncertain rather than definitely not delivered", () => {

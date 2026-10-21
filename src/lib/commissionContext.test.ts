@@ -65,6 +65,40 @@ describe("commission context metadata", () => {
     expect(offer.projectType.value).toBe("website");
     expect(isBookingConnected(offer)).toBe(true);
     expect(offer.vision.value).toMatch(/barber shop or salon/i);
+    expect(offer.context?.showcaseId).toBe("");
+  });
+
+  it("records Fix It Shop as showcase source without forcing the salon offer", () => {
+    const showcase = applyCommissionIntent(
+      createEmptyBrief(),
+      parseCommissionIntent(new URLSearchParams("source=fix_it_shop"))
+    );
+    expect(showcase.context?.showcaseId).toBe("fix_it_shop");
+    expect(showcase.context?.offerId).toBe("");
+    expect(showcase.context?.purpose).toBe("");
+    expect(showcase.context?.route).toBe("");
+    expect(showcase.context?.bookingNeeded).toBeNull();
+    expect(showcase.projectType.value).toBe("");
+    expect(showcase.vision.value).toBe("");
+
+    const specialist = applyCommissionIntent(
+      createEmptyBrief(),
+      parseCommissionIntent(
+        new URLSearchParams("offer=barbers_salons&interest=website&purpose=business&booking=1&source=fix_it_shop")
+      )
+    );
+    expect(specialist.context?.offerId).toBe("barbers_salons");
+    expect(specialist.context?.showcaseId).toBe("fix_it_shop");
+    expect(specialist.context?.purpose).toBe("business");
+    expect(specialist.projectType.value).toBe("website");
+
+    const kept = applyCommissionIntent(
+      applyClientValue(createEmptyBrief(), "vision", "A written brief that must stay."),
+      parseCommissionIntent(new URLSearchParams("source=fix_it_shop"))
+    );
+    expect(kept.vision.value).toBe("A written brief that must stay.");
+    expect(kept.context?.showcaseId).toBe("fix_it_shop");
+    expect(kept.context?.offerId).toBe("");
   });
 
   it("asks booking questions only for the historical type or an explicit request", () => {

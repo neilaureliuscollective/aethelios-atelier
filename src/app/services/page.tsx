@@ -9,6 +9,7 @@ import {
   DemoWebsite,
   DeviceFrame
 } from "@/components/marketing/DeviceFrame";
+import { SelectedWork } from "@/components/work/SelectedWork";
 import { SERVICE_CATALOG } from "@/lib/catalog";
 import { SERVICE_CATEGORY_COPY, serviceBriefHref } from "@/lib/serviceCategories";
 
@@ -99,6 +100,7 @@ export default function ServicesPage() {
               <AppLink className="btn btn-emerald-glass" href={section.href}>
                 {copy.action}
               </AppLink>
+              {section.id === "website" ? <SelectedWork variant="preview" headingLevel="h3" /> : null}
             </div>
             <div className="surface-read service-spec">
               <div className="service-spec-visual" aria-hidden="true">

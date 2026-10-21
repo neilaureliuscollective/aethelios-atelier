@@ -7,9 +7,10 @@ import {
 } from "@/lib/commissionContext";
 import { exampleById } from "@/lib/customProjectExamples";
 import { displayOfferLabel } from "@/lib/offers/barbersSalons";
+import { displayShowcaseLabel } from "@/lib/work/fixItShop";
 import { BRIEF_FIELD_KEYS, type Brief, type BriefFieldKey } from "@/lib/types";
 
-export const CONTEXT_DIFF_KEYS = ["purpose", "route", "exampleId", "bookingNeeded", "offerId"] as const;
+export const CONTEXT_DIFF_KEYS = ["purpose", "route", "exampleId", "bookingNeeded", "offerId", "showcaseId"] as const;
 export type ContextDiffKey = (typeof CONTEXT_DIFF_KEYS)[number];
 
 export const CONTEXT_FIELD_LABELS: Record<ContextDiffKey, string> = {
@@ -17,7 +18,8 @@ export const CONTEXT_FIELD_LABELS: Record<ContextDiffKey, string> = {
   route: "Entry route",
   exampleId: "Starting example",
   bookingNeeded: "Booking required",
-  offerId: "Focused offer"
+  offerId: "Focused offer",
+  showcaseId: "Selected work"
 };
 
 const ROUTE_LABELS: Record<string, string> = {
@@ -59,6 +61,8 @@ export function displayContextValue(key: ContextDiffKey, context: CommissionCont
       return "Not specified";
     case "offerId":
       return displayOfferLabel(context.offerId) || (context.offerId ? context.offerId : "Not specified");
+    case "showcaseId":
+      return displayShowcaseLabel(context.showcaseId) || (context.showcaseId ? context.showcaseId : "Not specified");
   }
 }
 

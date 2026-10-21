@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { AppLink } from "@/components/ui/AppLink";
 import { Reveal } from "@/components/motion/Reveal";
 import { BarbersSalonShowcase } from "@/components/marketing/barbers/BarbersSalonShowcase";
+import { SelectedWork } from "@/components/work/SelectedWork";
+import { SALON_INDUSTRY_ASSETS } from "@/lib/industry/assets";
 import {
   BARBERS_SALON_BENEFITS,
   BARBERS_SALON_FAQ,
@@ -9,9 +11,9 @@ import {
   BARBERS_SALONS_BRIEF_HREF,
   BARBERS_SALONS_CORE_MESSAGE,
   BARBERS_SALONS_OFFER,
-  BARBERS_SALONS_PUBLIC_TERMS,
-  KATIE_FIX_IT_PUBLIC_HREF
+  BARBERS_SALONS_PUBLIC_TERMS
 } from "@/lib/offers/barbersSalons";
+import { INDUSTRY_IMAGE_SOURCES } from "@/lib/work/fixItShop";
 
 export const metadata: Metadata = {
   title: BARBERS_SALONS_OFFER.title,
@@ -23,14 +25,17 @@ export default function BarbersSalonsPage() {
     <div className="barbers-page">
       <section className="cinematic-hero barbers-hero" aria-labelledby="barbers-hero">
         <div className="cinematic-media" aria-hidden="true">
-          <img
-            src="/atmosphere/hearth.webp"
-            alt=""
-            width={1920}
-            height={1080}
-            fetchPriority="high"
-            decoding="async"
-          />
+          <picture>
+            <source srcSet={SALON_INDUSTRY_ASSETS.specialistHero.src} type="image/webp" />
+            <img
+              src={SALON_INDUSTRY_ASSETS.specialistHero.jpg}
+              alt=""
+              width={SALON_INDUSTRY_ASSETS.specialistHero.width}
+              height={SALON_INDUSTRY_ASSETS.specialistHero.height}
+              fetchPriority="high"
+              decoding="async"
+            />
+          </picture>
         </div>
         <div className="cinematic-shade" aria-hidden="true" />
         <div className="cinematic-shell barbers-hero-shell">
@@ -47,33 +52,40 @@ export default function BarbersSalonsPage() {
               <AppLink className="btn btn-gold" href={BARBERS_SALONS_BRIEF_HREF}>
                 Start my website brief
               </AppLink>
-              <AppLink className="btn btn-emerald-glass" href="#demonstration">
-                See what you receive
+              <AppLink className="btn btn-emerald-glass" href="#real-work">
+                See selected work
               </AppLink>
             </div>
           </div>
         </div>
       </section>
 
+      <section className="container section">
+        <div className="section-head">
+          <p className="kicker">Completed work</p>
+          <h2>A real website, before the illustrative direction.</h2>
+          <p className="lede">
+            Fix It Shop is a completed public website for a men’s salon. Vale & Crown, further down
+            this page, is a labeled fictional demonstration — not a client and not a substitute for
+            this work.
+          </p>
+        </div>
+        <SelectedWork variant="editorial" />
+      </section>
+
       <section className="container section" id="demonstration">
         <div className="section-head">
-          <p className="kicker">What you receive</p>
+          <p className="kicker">Illustrative direction</p>
           <h2>A website the professional actually opens.</h2>
           <p className="lede">
             Move through story, work, services, visit details, and the booking handoff. Desktop and
-            phone stay in step. This is a labeled fictional shop, not a live salon and not a client
-            record.
+            phone stay in step. Vale & Crown is a labeled fictional shop, not a live salon and not a
+            client record.
           </p>
         </div>
         <BarbersSalonShowcase />
         <p className="notice" style={{ marginTop: 18 }}>
-          A completed public example of this pattern is{" "}
-          <a href={KATIE_FIX_IT_PUBLIC_HREF} rel="noreferrer">
-            Katie Guidry’s Fix It Shop
-          </a>
-          — a branded site that points to her existing GlossGenius booking. That work is hers. The
-          demonstration above is original sample content and does not copy her imagery or imply a
-          testimonial.
+          {INDUSTRY_IMAGE_SOURCES.generated} {INDUSTRY_IMAGE_SOURCES.references}
         </p>
       </section>
 

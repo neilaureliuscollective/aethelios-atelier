@@ -63,7 +63,12 @@ function Story({ compact, onView }: { compact: boolean; onView: (view: DemoView)
         </button>
       </div>
       <figure className={styles.figure}>
-        <img src={VALE_CROWN_DEMO.gallery[0].src} alt={VALE_CROWN_DEMO.gallery[0].alt} width={800} height={520} />
+        <img
+          src={VALE_CROWN_DEMO.storyImage.src}
+          alt={VALE_CROWN_DEMO.storyImage.alt}
+          width={VALE_CROWN_DEMO.storyImage.width}
+          height={VALE_CROWN_DEMO.storyImage.height}
+        />
       </figure>
     </section>
   );
@@ -73,15 +78,18 @@ function Gallery() {
   return (
     <section className={styles.panel}>
       <p className={styles.kicker}>The work</p>
-      <h3>A gallery of atmosphere, not invented results.</h3>
+      <h3>Service, setting, and tools — not invented results.</h3>
       <div className={styles.gallery}>
         {VALE_CROWN_DEMO.gallery.map((item) => (
           <figure key={item.src}>
-            <img src={item.src} alt={item.alt} width={400} height={280} />
+            <img src={item.src} alt={item.alt} width={item.width} height={item.height} />
           </figure>
         ))}
       </div>
-      <p className={styles.note}>Sample interiors only. No client faces, reviews, or claimed before-and-afters.</p>
+      <p className={styles.note}>
+        Illustrative salon craft only. Not Fix It Shop, not a client premises, and not claimed
+        before-and-afters.
+      </p>
     </section>
   );
 }

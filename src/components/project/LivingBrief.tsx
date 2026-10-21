@@ -2,6 +2,7 @@ import { displayFieldValue, fieldLabel, provenanceLabel } from "@/lib/brief";
 import { displayPurposeLabel } from "@/lib/commissionContext";
 import { OfferReview } from "@/components/project/OfferReview";
 import { displayOfferLabel } from "@/lib/offers/barbersSalons";
+import { displayShowcaseLabel } from "@/lib/work/fixItShop";
 import { historicalProjectTypeNote } from "@/lib/serviceCategories";
 import { INTELLIGENCE_DISPLAY_NAME } from "@/lib/copy";
 import { BRIEF_FIELD_KEYS, type Brief, type Suggestion } from "@/lib/types";
@@ -19,12 +20,19 @@ export function LivingBrief({
     <aside className="surface-glass living-brief" aria-label="Living brief">
       <p className="tiny">Your direction</p>
       <h2 style={{ fontSize: 28 }}>Living brief</h2>
-      {displayPurposeLabel(brief.context?.purpose) || displayOfferLabel(brief.context?.offerId) ? (
+      {displayPurposeLabel(brief.context?.purpose) ||
+      displayOfferLabel(brief.context?.offerId) ||
+      displayShowcaseLabel(brief.context?.showcaseId) ? (
         <p className="notice">
-          Context: {displayOfferLabel(brief.context?.offerId) || displayPurposeLabel(brief.context?.purpose)}
+          Context: {displayOfferLabel(brief.context?.offerId) ||
+            displayPurposeLabel(brief.context?.purpose) ||
+            `${displayShowcaseLabel(brief.context?.showcaseId)} showcase`}
           {brief.context?.route === "custom_project" ? " · other custom project" : ""}
           {brief.context?.exampleId ? ` · started from ${brief.context.exampleId.replaceAll("_", " ")}` : ""}
           {brief.context?.offerId ? " · focused offer" : ""}
+          {brief.context?.showcaseId && (brief.context.offerId || brief.context.purpose)
+            ? ` · from the ${displayShowcaseLabel(brief.context.showcaseId)} showcase`
+            : ""}
           . You can change this before sending.
         </p>
       ) : null}

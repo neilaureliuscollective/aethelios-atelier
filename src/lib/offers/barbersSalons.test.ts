@@ -10,11 +10,14 @@ import {
 
 const PUBLIC_SURFACES = [
   "src/app/services/barbers-salons/page.tsx",
+  "src/app/page.tsx",
   "src/app/services/page.tsx",
   "src/lib/offers/barbersSalons.ts",
   "src/lib/offers/demo.ts",
+  "src/lib/work/fixItShop.ts",
   "src/components/marketing/barbers/ValeCrownDemo.tsx",
   "src/components/marketing/barbers/BarbersSalonShowcase.tsx",
+  "src/components/work/SelectedWork.tsx",
   "src/components/project/OfferImport.tsx",
   "src/components/project/OfferReview.tsx",
   "src/components/pricing/PricingExperience.tsx"

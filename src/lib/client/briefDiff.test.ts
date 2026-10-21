@@ -108,6 +108,7 @@ describe("brief context comparison", () => {
       [createEmptyBrief(), applyBriefContext(createEmptyBrief(), { exampleId: "study_organizer" })],
       [createEmptyBrief(), applyBriefContext(createEmptyBrief(), { bookingNeeded: true })],
       [createEmptyBrief(), applyBriefContext(createEmptyBrief(), { offerId: "barbers_salons" })],
+      [createEmptyBrief(), applyBriefContext(createEmptyBrief(), { showcaseId: "fix_it_shop" })],
       [applyClientValue(createEmptyBrief(), "vision", "A"), applyClientValue(createEmptyBrief(), "vision", "B")]
     ];
     for (const [left, right] of pairs) {

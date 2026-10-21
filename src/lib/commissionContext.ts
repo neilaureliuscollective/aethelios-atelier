@@ -1,4 +1,5 @@
 import { isServiceOfferId, type ServiceOfferId } from "@/lib/offers/ids";
+import { isShowcaseId, type ShowcaseId } from "@/lib/work/ids";
 
 export const COMMISSION_PURPOSES = [
   "business",
@@ -28,6 +29,7 @@ export type CommissionContext = {
   exampleId: CustomProjectExampleId | "";
   bookingNeeded: boolean | null;
   offerId: ServiceOfferId | "";
+  showcaseId: ShowcaseId | "";
 };
 
 export type BriefContextHost = {
@@ -73,7 +75,8 @@ export function emptyCommissionContext(): CommissionContext {
     route: "",
     exampleId: "",
     bookingNeeded: null,
-    offerId: ""
+    offerId: "",
+    showcaseId: ""
   };
 }
 
@@ -98,14 +101,16 @@ export function normalizeCommissionContext(input: unknown): CommissionContext | 
     typeof record.exampleId === "string" && isCustomProjectExampleId(record.exampleId) ? record.exampleId : "";
   const bookingNeeded = record.bookingNeeded === true ? true : record.bookingNeeded === false ? false : null;
   const offerId = typeof record.offerId === "string" && isServiceOfferId(record.offerId) ? record.offerId : "";
-  if (!purpose && !route && !exampleId && bookingNeeded == null && !offerId) return undefined;
+  const showcaseId = typeof record.showcaseId === "string" && isShowcaseId(record.showcaseId) ? record.showcaseId : "";
+  if (!purpose && !route && !exampleId && bookingNeeded == null && !offerId && !showcaseId) return undefined;
   return {
     version: 1,
     purpose,
     route,
     exampleId,
     bookingNeeded,
-    offerId
+    offerId,
+    showcaseId
   };
 }
 
@@ -120,7 +125,8 @@ export function mergeCommissionContext(
     route: patch.route !== undefined ? patch.route : base.route,
     exampleId: patch.exampleId !== undefined ? patch.exampleId : base.exampleId,
     bookingNeeded: patch.bookingNeeded !== undefined ? patch.bookingNeeded : base.bookingNeeded,
-    offerId: patch.offerId !== undefined ? patch.offerId : base.offerId
+    offerId: patch.offerId !== undefined ? patch.offerId : base.offerId,
+    showcaseId: patch.showcaseId !== undefined ? patch.showcaseId : base.showcaseId
   };
 }
 
@@ -181,9 +187,11 @@ export function parseCommissionIntent(params: { get(name: string): string | null
   const interest = params.get("interest") ?? "";
   const bookingRaw = params.get("booking");
   const offerRaw = params.get("offer") ?? "";
+  const sourceRaw = params.get("source") ?? "";
 
   const exampleId = isCustomProjectExampleId(exampleRaw) ? exampleRaw : "";
   const offerId = isServiceOfferId(offerRaw) ? offerRaw : "";
+  const showcaseId = isShowcaseId(sourceRaw) ? sourceRaw : "";
   let purpose: CommissionPurpose | "" = isCommissionPurpose(purposeRaw) ? purposeRaw : "";
   if (!purpose && exampleId === "follow_up_workspace") purpose = "professional_workflow";
   if (!purpose && exampleId === "study_organizer") purpose = "study";
@@ -207,7 +215,8 @@ export function parseCommissionIntent(params: { get(name: string): string | null
       route,
       exampleId,
       bookingNeeded,
-      offerId
+      offerId,
+      showcaseId
     },
     projectType: interest || (offerId === "barbers_salons" ? "website" : undefined),
     applyExampleStarter: Boolean(exampleId)
@@ -221,6 +230,7 @@ export function commissionIntentPresent(intent: CommissionIntent): boolean {
       context.route ||
       context.exampleId ||
       context.offerId ||
+      context.showcaseId ||
       context.bookingNeeded != null ||
       projectType
   );
