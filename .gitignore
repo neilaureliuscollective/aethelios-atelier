@@ -21,6 +21,7 @@ coverage
 tsconfig.tsbuildinfo
 playwright-report
 test-results
+docs/review/mobile-nav
 
 .next-review
 .data-review

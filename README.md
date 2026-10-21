@@ -62,6 +62,7 @@ node scripts/lifestyle-journey.mjs
 node scripts/usage-concurrency.mjs
 node scripts/custom-projects-browser.mjs
 node scripts/launch-journey-api.mjs
+node scripts/mobile-nav-browser.mjs
 ```
 
 ## Configuration
