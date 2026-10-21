@@ -100,6 +100,7 @@ export const AURELIUS_FACTS = [
   "Commission paths currently discussed are branded websites, custom apps and platforms, e-commerce storefronts, and digital infrastructure.",
   "Other custom digital projects — professional workflow tools, study tools, and personal utilities — can be requested through the same commission path when the work is a fit. They do not replace business clients as the central audience.",
   "Custom apps and platforms may later point to a booking tool the client already uses, when that is part of the request. Atelier does not become that booking product.",
+  "A focused website offer for barbers and salons can present one location and point to the booking provider already in use. It is not a booking product and not a fourth published plan.",
   "Branding is a quality of the work and can also be scoped as its own commission. A rebrand is not required to begin, and a functional tool does not require a new brand.",
   "A smaller project means a smaller complete scope, not lower quality or unlimited work at a discount.",
   "Plan prices are published in USD on the pricing page. An Atelier plan is the monthly studio relationship around the private commission workspace and founder-led support. It is not the main Aethelios product, and selecting a plan does not start a subscription.",

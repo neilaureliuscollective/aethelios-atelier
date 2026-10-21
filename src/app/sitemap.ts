@@ -1,6 +1,15 @@
 import type { MetadataRoute } from "next";
 
-const PUBLIC_PATHS = ["/", "/discover", "/pricing", "/services", "/custom-projects", "/approach", "/about"];
+const PUBLIC_PATHS = [
+  "/",
+  "/discover",
+  "/pricing",
+  "/services",
+  "/services/barbers-salons",
+  "/custom-projects",
+  "/approach",
+  "/about"
+];
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const origin = process.env.ATELIER_PUBLIC_ORIGIN?.trim().replace(/\/$/, "") || "http://127.0.0.1:3000";

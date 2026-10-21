@@ -12,6 +12,15 @@ import {
 } from "@/lib/commissionContext";
 import { exampleById } from "@/lib/customProjectExamples";
 import {
+  BARBERS_SALON_FIELD_HINTS,
+  BARBERS_SALON_FIELD_LABELS,
+  BARBERS_SALONS_OFFER,
+  displayOfferLabel,
+  isBarbersSalonOffer,
+  type BarbersSalonStarterKey
+} from "@/lib/offers/barbersSalons";
+import { isServiceOfferId } from "@/lib/offers/ids";
+import {
   asksBookingProvider,
   displayProjectTypeLabel,
   serviceInterestToStoredProjectType
@@ -93,6 +102,8 @@ export const PROJECT_TYPE_LABELS: Record<ProjectType, string> = {
 };
 
 export function briefTitle(brief: Brief) {
+  const offer = displayOfferLabel(brief.context?.offerId);
+  if (offer) return offer;
   const purpose = displayPurposeLabel(brief.context?.purpose);
   const type = brief.projectType.value || "undecided";
   if (isFunctionalPurpose(brief.context?.purpose) && purpose) return purpose;
@@ -163,14 +174,58 @@ function clearMatchingStarter(brief: Brief, exampleId: string | undefined): Brie
   return next;
 }
 
+const OFFER_STARTER_KEYS = [
+  "vision",
+  "audience",
+  "existingWebsite",
+  "bookingProvider",
+  "goals",
+  "priorities",
+  "constraints"
+] as const satisfies readonly BarbersSalonStarterKey[];
+
+function offerStarter(offerId: string | undefined) {
+  return offerId === BARBERS_SALONS_OFFER.id ? BARBERS_SALONS_OFFER.starter : undefined;
+}
+
+export function applyOfferStarters(brief: Brief, offerId: string, previousOfferId = ""): Brief {
+  if (!isServiceOfferId(offerId)) return brief;
+  const starter = offerStarter(offerId);
+  if (!starter) return brief;
+  const previous = offerStarter(previousOfferId);
+  let next = brief;
+  for (const key of OFFER_STARTER_KEYS) {
+    next = applyStarterField(next, key, starter[key], previous?.[key] ?? "");
+  }
+  return next;
+}
+
+export function clearMatchingOfferStarters(brief: Brief, offerId: string | undefined): Brief {
+  const starter = offerStarter(offerId);
+  if (!starter) return brief;
+  let next = brief;
+  for (const key of OFFER_STARTER_KEYS) {
+    if (brief[key].value.trim() === starter[key].trim()) {
+      next = applyClientValue(next, key, "");
+    }
+  }
+  return next;
+}
+
 export function applyCommissionIntent(brief: Brief, intent: CommissionIntent): Brief {
   const previousExample = brief.context?.exampleId || "";
   const nextExample = intent.context.exampleId || "";
+  const previousOffer = brief.context?.offerId || "";
+  const nextOffer = intent.context.offerId || "";
   const purposeChanged = Boolean(intent.context.purpose && intent.context.purpose !== brief.context?.purpose);
   const exampleChanged = Boolean(nextExample && nextExample !== previousExample);
+  const offerChanged = Boolean(nextOffer && nextOffer !== previousOffer);
   let next = brief;
   if ((exampleChanged || (purposeChanged && !nextExample)) && previousExample) {
     next = clearMatchingStarter(next, previousExample);
+  }
+  if ((offerChanged || (purposeChanged && !nextOffer)) && previousOffer && previousOffer !== nextOffer) {
+    next = clearMatchingOfferStarters(next, previousOffer);
   }
   next = applyBriefContext(next, intent.context);
   if (intent.projectType) {
@@ -193,10 +248,16 @@ export function applyCommissionIntent(brief: Brief, intent: CommissionIntent): B
       }
     }
   }
+  if (nextOffer) {
+    next = applyOfferStarters(next, nextOffer, previousOffer);
+  }
   return next;
 }
 
 export function fieldLabel(key: BriefFieldKey, brief: Brief): string {
+  if (isBarbersSalonOffer(brief) && key in BARBERS_SALON_FIELD_LABELS) {
+    return BARBERS_SALON_FIELD_LABELS[key];
+  }
   if (!isCustomProjectRoute(brief) && !isFunctionalPurpose(brief.context?.purpose)) {
     return FIELD_LABELS[key];
   }
@@ -221,6 +282,9 @@ export function fieldLabel(key: BriefFieldKey, brief: Brief): string {
 }
 
 export function fieldHint(key: BriefFieldKey, brief: Brief): string {
+  if (isBarbersSalonOffer(brief) && key in BARBERS_SALON_FIELD_HINTS) {
+    return BARBERS_SALON_FIELD_HINTS[key];
+  }
   if (!isCustomProjectRoute(brief) && !isFunctionalPurpose(brief.context?.purpose)) {
     if (key === "goals" && brief.projectType.value === "custom_apps_platforms") {
       return "What should a useful first version let people do?";
@@ -253,6 +317,7 @@ export function fieldHint(key: BriefFieldKey, brief: Brief): string {
 
 export function fieldsForStep(step: number, brief: Brief): BriefFieldKey[] {
   const functional = isCustomProjectRoute(brief) || isFunctionalPurpose(brief.context?.purpose);
+  const focusedOffer = isBarbersSalonOffer(brief);
   switch (step) {
     case 1:
       return ["vision", "projectType"];
@@ -260,13 +325,13 @@ export function fieldsForStep(step: number, brief: Brief): BriefFieldKey[] {
       return ["audience"];
     case 3: {
       const fields: BriefFieldKey[] = [];
-      if (needsExistingDestination(brief) || functional) fields.push("existingWebsite");
-      if (needsBrandQuestions(brief)) fields.push("references");
+      if (needsExistingDestination(brief) || functional || focusedOffer) fields.push("existingWebsite");
+      if (needsBrandQuestions(brief) || focusedOffer) fields.push("references");
       return fields.length ? fields : ["existingWebsite"];
     }
     case 4: {
       const fields: BriefFieldKey[] = ["goals"];
-      if (isBookingConnected(brief)) fields.push("bookingProvider");
+      if (isBookingConnected(brief) || focusedOffer) fields.push("bookingProvider");
       fields.push("priorities", "timing", "budget", "constraints");
       return fields;
     }

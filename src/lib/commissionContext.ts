@@ -1,3 +1,5 @@
+import { isServiceOfferId, type ServiceOfferId } from "@/lib/offers/ids";
+
 export const COMMISSION_PURPOSES = [
   "business",
   "professional_workflow",
@@ -25,6 +27,7 @@ export type CommissionContext = {
   route: CommissionRoute | "";
   exampleId: CustomProjectExampleId | "";
   bookingNeeded: boolean | null;
+  offerId: ServiceOfferId | "";
 };
 
 export type BriefContextHost = {
@@ -69,7 +72,8 @@ export function emptyCommissionContext(): CommissionContext {
     purpose: "",
     route: "",
     exampleId: "",
-    bookingNeeded: null
+    bookingNeeded: null,
+    offerId: ""
   };
 }
 
@@ -93,13 +97,15 @@ export function normalizeCommissionContext(input: unknown): CommissionContext | 
   const exampleId =
     typeof record.exampleId === "string" && isCustomProjectExampleId(record.exampleId) ? record.exampleId : "";
   const bookingNeeded = record.bookingNeeded === true ? true : record.bookingNeeded === false ? false : null;
-  if (!purpose && !route && !exampleId && bookingNeeded == null) return undefined;
+  const offerId = typeof record.offerId === "string" && isServiceOfferId(record.offerId) ? record.offerId : "";
+  if (!purpose && !route && !exampleId && bookingNeeded == null && !offerId) return undefined;
   return {
     version: 1,
     purpose,
     route,
     exampleId,
-    bookingNeeded
+    bookingNeeded,
+    offerId
   };
 }
 
@@ -113,7 +119,8 @@ export function mergeCommissionContext(
     purpose: patch.purpose !== undefined ? patch.purpose : base.purpose,
     route: patch.route !== undefined ? patch.route : base.route,
     exampleId: patch.exampleId !== undefined ? patch.exampleId : base.exampleId,
-    bookingNeeded: patch.bookingNeeded !== undefined ? patch.bookingNeeded : base.bookingNeeded
+    bookingNeeded: patch.bookingNeeded !== undefined ? patch.bookingNeeded : base.bookingNeeded,
+    offerId: patch.offerId !== undefined ? patch.offerId : base.offerId
   };
 }
 
@@ -173,21 +180,25 @@ export function parseCommissionIntent(params: { get(name: string): string | null
   const exampleRaw = params.get("example") ?? "";
   const interest = params.get("interest") ?? "";
   const bookingRaw = params.get("booking");
+  const offerRaw = params.get("offer") ?? "";
 
   const exampleId = isCustomProjectExampleId(exampleRaw) ? exampleRaw : "";
+  const offerId = isServiceOfferId(offerRaw) ? offerRaw : "";
   let purpose: CommissionPurpose | "" = isCommissionPurpose(purposeRaw) ? purposeRaw : "";
   if (!purpose && exampleId === "follow_up_workspace") purpose = "professional_workflow";
   if (!purpose && exampleId === "study_organizer") purpose = "study";
   if (!purpose && exampleId === "personal_tracker") purpose = "personal";
+  if (!purpose && offerId === "barbers_salons") purpose = "business";
 
   let route: CommissionRoute | "" = isCommissionRoute(routeRaw) ? routeRaw : "";
   if (!route && (isFunctionalPurpose(purpose) || exampleId)) route = "custom_project";
-  if (!route && (purpose === "business" || interest)) route = "business";
+  if (!route && (purpose === "business" || interest || offerId)) route = "business";
 
   let bookingNeeded: boolean | null = null;
   if (bookingRaw === "1" || bookingRaw === "true") bookingNeeded = true;
   if (bookingRaw === "0" || bookingRaw === "false") bookingNeeded = false;
   if (interest === "booking_connected_website") bookingNeeded = true;
+  if (offerId === "barbers_salons" && bookingNeeded == null) bookingNeeded = true;
 
   return {
     context: {
@@ -195,14 +206,22 @@ export function parseCommissionIntent(params: { get(name: string): string | null
       purpose,
       route,
       exampleId,
-      bookingNeeded
+      bookingNeeded,
+      offerId
     },
-    projectType: interest || undefined,
+    projectType: interest || (offerId === "barbers_salons" ? "website" : undefined),
     applyExampleStarter: Boolean(exampleId)
   };
 }
 
 export function commissionIntentPresent(intent: CommissionIntent): boolean {
   const { context, projectType } = intent;
-  return Boolean(context.purpose || context.route || context.exampleId || context.bookingNeeded != null || projectType);
+  return Boolean(
+    context.purpose ||
+      context.route ||
+      context.exampleId ||
+      context.offerId ||
+      context.bookingNeeded != null ||
+      projectType
+  );
 }

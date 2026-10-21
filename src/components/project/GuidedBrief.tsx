@@ -34,8 +34,15 @@ import { CONSENT_TEXT, INTELLIGENCE_DISPLAY_NAME, displayIntelligenceLabel } fro
 import { AppLink } from "@/components/ui/AppLink";
 import { DraftCompare } from "@/components/project/DraftCompare";
 import { DiscoveryImport } from "@/components/project/DiscoveryImport";
+import { OfferImport } from "@/components/project/OfferImport";
 import { PlanInterest } from "@/components/project/PlanInterest";
 import { LivingBrief } from "@/components/project/LivingBrief";
+import { checkBookingDestination } from "@/lib/offers/bookingDestination";
+import {
+  BARBERS_SALON_DESIRED_SECTIONS,
+  BARBERS_SALON_PROFESSIONAL_TYPES,
+  isBarbersSalonOffer
+} from "@/lib/offers/barbersSalons";
 import { SaveStatusBar } from "@/components/status/SaveStatus";
 import { api, ApiError } from "@/lib/client/api";
 import { actionErrorMessage } from "@/lib/client/asyncAction";
@@ -820,6 +827,7 @@ export function GuidedBrief({
               onApply={applyImportedBrief}
             />
           ) : null}
+          <OfferImport brief={brief} blocked={Boolean(comparing)} onApply={applyImportedBrief} />
           {!isFunctionalPurpose(brief.context?.purpose) ? (
             <PlanInterest brief={brief} blocked={Boolean(comparing)} onApply={applyPlanNote} />
           ) : null}
@@ -917,10 +925,69 @@ export function GuidedBrief({
               {historicalProjectTypeNote(brief.projectType.value) ? (
                 <p className="notice">{historicalProjectTypeNote(brief.projectType.value)}</p>
               ) : null}
+              {step === 2 && isBarbersSalonOffer(brief) ? (
+                <div style={{ marginTop: 18 }}>
+                  <p className="lbl" id="professional-type-label">
+                    Professional type
+                  </p>
+                  <div className="chips" role="group" aria-labelledby="professional-type-label">
+                    {BARBERS_SALON_PROFESSIONAL_TYPES.map((option) => (
+                      <button
+                        key={option}
+                        className="chip"
+                        type="button"
+                        aria-pressed={brief.audience.value === option}
+                        onClick={() => updateField("audience", option)}
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="muted" style={{ marginTop: 8 }}>
+                    Unknown is fine. Choosing a type does not change the offer.
+                  </p>
+                </div>
+              ) : null}
+              {step === 4 && isBarbersSalonOffer(brief) ? (
+                <div style={{ marginTop: 18 }}>
+                  <p className="lbl" id="desired-sections-label">
+                    Desired sections
+                  </p>
+                  <div className="chips" role="group" aria-labelledby="desired-sections-label">
+                    {BARBERS_SALON_DESIRED_SECTIONS.map((option) => {
+                      const selected = brief.priorities.value.includes(option);
+                      return (
+                        <button
+                          key={option}
+                          className="chip"
+                          type="button"
+                          aria-pressed={selected}
+                          onClick={() => {
+                            const current = brief.priorities.value
+                              .split(/\n|·|,/)
+                              .map((part) => part.trim())
+                              .filter(Boolean);
+                            const next = selected
+                              ? current.filter((item) => item !== option)
+                              : [...current, option];
+                            updateField("priorities", next.join(" · "));
+                          }}
+                        >
+                          {option}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="notice" style={{ marginTop: 12 }}>
+                    {checkBookingDestination(brief.bookingProvider.value).message}
+                  </p>
+                </div>
+              ) : null}
               {step === 4 && isBookingConnected(brief) ? (
                 <p className="notice">
-                  Custom apps and platforms may later link to the booking destination you already use. That
-                  does not build a scheduler or move payments into Atelier.
+                  {isBarbersSalonOffer(brief)
+                    ? "The booking field records the destination already in use. Atelier does not fetch that page, embed it unless later tested, or move appointments here."
+                    : "Custom apps and platforms may later link to the booking destination you already use. That does not build a scheduler or move payments into Atelier."}
                 </p>
               ) : null}
               <div className="row brief-actions">

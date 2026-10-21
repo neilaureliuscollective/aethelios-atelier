@@ -121,6 +121,35 @@ export default function ServicesPage() {
         );
       })}
 
+      <Reveal as="article" className="service-feature surface-ivory" delay={1}>
+        <div>
+          <p className="tiny">Focused service</p>
+          <h2>Atelier for Barbers & Salons</h2>
+          <p className="lede">
+            A branded website and installable web app for one shop or salon, connected to the
+            booking system already in use. This is a descriptive service page under Atelier, not a
+            fourth general plan.
+          </p>
+          <AppLink className="btn btn-emerald-glass" href="/services/barbers-salons">
+            See the barber and salon offer
+          </AppLink>
+        </div>
+        <div className="surface-read service-spec">
+          <h3>What this is</h3>
+          <ul>
+            <li>A custom public presence with a clear booking action</li>
+            <li>The professional keeps appointments and appointment payments</li>
+            <li>The same founder review path as other commissions</li>
+          </ul>
+          <h3>What this is not</h3>
+          <ul>
+            <li>A booking-software product or new company</li>
+            <li>A replacement for published Atelier plans</li>
+            <li>An autonomous website generator</li>
+          </ul>
+        </div>
+      </Reveal>
+
       <Reveal as="article" className="service-feature surface-ivory custom-invite-block" delay={1}>
         <div>
           <p className="tiny">Secondary route</p>

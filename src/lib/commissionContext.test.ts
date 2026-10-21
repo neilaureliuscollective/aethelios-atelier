@@ -53,6 +53,20 @@ describe("commission context metadata", () => {
     expect(fieldsForStep(4, tool)).not.toContain("references");
   });
 
+  it("starts the barbers and salons offer as a business website with booking", () => {
+    const offer = applyCommissionIntent(
+      createEmptyBrief(),
+      parseCommissionIntent(new URLSearchParams("offer=barbers_salons"))
+    );
+    expect(offer.context?.offerId).toBe("barbers_salons");
+    expect(offer.context?.purpose).toBe("business");
+    expect(offer.context?.route).toBe("business");
+    expect(offer.context?.bookingNeeded).toBe(true);
+    expect(offer.projectType.value).toBe("website");
+    expect(isBookingConnected(offer)).toBe(true);
+    expect(offer.vision.value).toMatch(/barber shop or salon/i);
+  });
+
   it("asks booking questions only for the historical type or an explicit request", () => {
     const historical = normalizeBrief({
       projectType: { key: "projectType", value: "booking_connected_website", provenance: "client_statement" }

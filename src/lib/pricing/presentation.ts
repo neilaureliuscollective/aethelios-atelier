@@ -339,7 +339,8 @@ const FOUNDER_CHECKLIST = [
   "Write the actual inclusion and exclusion lists for each plan — do not inherit companion usage budgets.",
   "Confirm tax treatment, billing commencement, minimum commitments, and cancellation in a later legal pass.",
   "Keep billing disabled until a separate, authorized payment implementation exists.",
-  "Do not mark remaining commercial terms approved merely because prices are displayed."
+  "Do not mark remaining commercial terms approved merely because prices are displayed.",
+  "The Barbers & Salons focused offer still has an unapproved commercial proposal in src/lib/offers/barbersSalonsReview.ts. Do not publish those amounts until Neil approves them."
 ];
 
 export function buildPricingPresentation(input?: {
