@@ -1,5 +1,5 @@
 import { aureliusStatus, unavailableNotice } from "@/lib/aurelius/boundary";
-import { blobTextOrUnavailable, documentExcerpt } from "@/lib/cofounder/documents";
+import { blobTextOrUnavailable, documentExcerpt, selectedDocumentSources } from "@/lib/cofounder/documents";
 import { companionSystemPrompt } from "@/lib/cofounder/instructions";
 import { buildAuthorizedModelContext, looksLikeCrossTenantProbe } from "@/lib/cofounder/isolation";
 import { formatEstimate, prepareEstimate } from "@/lib/cofounder/estimates";
@@ -520,8 +520,9 @@ export class CompanionTalk {
     if (name === "read_authorized_document") {
       const parsed = readDocumentSchema.safeParse(args);
       if (!parsed.success) return { ok: false, result: { error: "invalid_tool_input" } };
-      const document = context.documents.find((item) => item.id === parsed.data.documentId);
-      if (!document) return { ok: false, result: { error: "document_not_in_workspace" } };
+      const authorized = selectedDocumentSources(context.documents, context.profile.sourceDocumentIds);
+      const document = authorized.find((item) => item.id === parsed.data.documentId);
+      if (!document) return { ok: false, result: { error: "document_not_authorized" } };
       const blob = document.blobId ? await this.store.companion.getBlob(document.blobId) : null;
       if (blob && blob.businessId !== context.business.id) {
         return { ok: false, result: { error: "document_not_in_workspace" } };

@@ -400,6 +400,7 @@ describe("companion workspace isolation", () => {
       createdAt: new Date().toISOString(),
       indexStatus: "none"
     });
+    await workspace.selectSourceDocuments(ctx.business.id, owner, ["doc_hours"]);
     const fresh = await workspace.requireMembership(ctx.business.id, owner);
     const excerpt = await talk.executeTool(
       "read_authorized_document",

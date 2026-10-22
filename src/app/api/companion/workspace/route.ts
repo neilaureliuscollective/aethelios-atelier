@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { canMutateWorkspace } from "@/lib/cofounder/workspace";
 import { requireCompanion, requireCompanionWrite } from "@/lib/cofounder/http";
+import { pendingDocumentCandidates } from "@/lib/cofounder/profile";
 import { clientSafeDocuments, clientSafeProfile } from "@/lib/cofounder/isolation";
 import { CompanionUsage } from "@/lib/cofounder/usage";
 import { voiceCapability } from "@/lib/cofounder/voice";
@@ -24,6 +25,7 @@ export async function GET(request: Request) {
       profile: clientSafeProfile(context.profile),
       rawProfile: context.profile,
       documents: clientSafeDocuments(context.documents),
+      documentCandidates: pendingDocumentCandidates(context.profile),
       projects: context.projects,
       memoryPending: context.memoryPending,
       businesses,
@@ -68,14 +70,28 @@ export async function PATCH(request: Request) {
     if (body.fields) {
       for (const [key, value] of Object.entries(body.fields)) {
         if (key in fields && value && typeof value === "object") {
+          const current = fields[key as keyof typeof fields];
           const incoming = value as { value?: string; kind?: "confirmed" | "preference" };
-          fields[key as keyof typeof fields] = {
-            ...fields[key as keyof typeof fields],
-            value: incoming.value ?? fields[key as keyof typeof fields].value,
-            kind: incoming.kind ?? fields[key as keyof typeof fields].kind,
-            source: "owner",
-            updatedAt: new Date().toISOString()
-          };
+          const nextValue = incoming.value ?? current.value;
+          const valueChanged = incoming.value !== undefined && incoming.value !== current.value;
+          fields[key as keyof typeof fields] = valueChanged
+            ? {
+                ...current,
+                value: nextValue,
+                kind: incoming.kind ?? current.kind,
+                source: "owner",
+                updatedAt: new Date().toISOString(),
+                sourceDocumentId: undefined,
+                sourcePage: undefined,
+                sourceExcerpt: undefined,
+                sourceStatus: undefined
+              }
+            : {
+                ...current,
+                value: nextValue,
+                kind: incoming.kind ?? current.kind,
+                updatedAt: new Date().toISOString()
+              };
         }
       }
     }

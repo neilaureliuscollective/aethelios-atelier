@@ -1,8 +1,7 @@
 import { z } from "zod";
-import { assertDocumentQuota } from "@/lib/cofounder/documents";
+import { assertDocumentQuota, DOCUMENT_UPLOAD_MAX_BYTES, inferDocumentMime } from "@/lib/cofounder/documents";
 import { requireCompanionWrite } from "@/lib/cofounder/http";
 import { CompanionStudio } from "@/lib/cofounder/studio";
-import { CompanionWorkspace } from "@/lib/cofounder/workspace";
 import { handleError, json, readJson } from "@/lib/http";
 
 export const runtime = "nodejs";
@@ -20,15 +19,16 @@ export async function POST(request: Request) {
     const body = uploadSchema.parse(await readJson(request));
     const { auth, store, context } = await requireCompanionWrite(body.businessId);
     const bytes = Uint8Array.from(Buffer.from(body.bytesBase64, "base64"));
+    const mime = inferDocumentMime(body.mime, body.title);
     if (body.kind === "logo") {
       const document = await new CompanionStudio(store).uploadLogo(context.business.id, auth.user, {
         title: body.title,
-        mime: body.mime,
+        mime,
         bytes
       });
       return json({ ok: true, document });
     }
-    if (bytes.byteLength > 2_000_000) {
+    if (bytes.byteLength > DOCUMENT_UPLOAD_MAX_BYTES) {
       return json({ ok: false, error: "too_large", message: "Documents are limited to 2 MB." }, 400);
     }
     assertDocumentQuota({
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     const blob = await store.companion.putBlob({
       id: `blob_${crypto.randomUUID()}`,
       businessId: context.business.id,
-      mime: body.mime,
+      mime,
       bytes,
       createdAt: new Date().toISOString()
     });
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
       id: `doc_${crypto.randomUUID()}`,
       businessId: context.business.id,
       title: body.title,
-      mime: body.mime,
+      mime,
       status: "ready",
       blobId: blob.id,
       source: "owner_upload",
@@ -67,21 +67,9 @@ const deleteSchema = z.object({
 export async function PATCH(request: Request) {
   try {
     const body = deleteSchema.parse(await readJson(request));
-    const { auth, store, context } = await requireCompanionWrite(body.businessId);
-    await new CompanionWorkspace(store).requireMutable(context.business.id, auth.user);
-    const document = await store.companion.getDocument(body.documentId);
-    if (!document || document.businessId !== context.business.id) {
-      return json({ ok: false, error: "not_found", message: "Document not found." }, 404);
-    }
-    const next = {
-      ...document,
-      status: "deleted" as const,
-      deletedAt: new Date().toISOString(),
-      providerFileId: undefined
-    };
-    await store.companion.updateDocument(next);
-    if (document.blobId) await store.companion.deleteBlob(document.blobId);
-    return json({ ok: true, document: next });
+    const { auth, workspace, context } = await requireCompanionWrite(body.businessId);
+    const result = await workspace.deleteDocument(context.business.id, auth.user, body.documentId);
+    return json({ ok: true, document: result.document, profile: result.profile });
   } catch (error) {
     return handleError(error);
   }

@@ -1,4 +1,5 @@
-import { confirmedFacts, preferences } from "@/lib/cofounder/profile";
+import { selectedDocumentSources } from "@/lib/cofounder/documents";
+import { confirmedFacts, pendingDocumentCandidates, preferences } from "@/lib/cofounder/profile";
 import type {
   AuthorizedBusinessContext,
   BusinessDocument,
@@ -47,8 +48,13 @@ export function clientSafeDocuments(documents: BusinessDocument[]) {
       title: doc.title,
       status: doc.status,
       source: doc.source,
+      mime: doc.mime,
       createdAt: doc.createdAt
     }));
+}
+
+export function authorizedTalkDocuments(profile: BusinessProfile, documents: BusinessDocument[]) {
+  return selectedDocumentSources(documents, profile.sourceDocumentIds);
 }
 
 export function buildAuthorizedModelContext(input: {
@@ -61,13 +67,22 @@ export function buildAuthorizedModelContext(input: {
     businessName: input.context.business.name,
     membershipRole: input.context.membership.role,
     profile: clientSafeProfile(input.context.profile),
-    documents: clientSafeDocuments(input.context.documents),
+    documents: clientSafeDocuments(authorizedTalkDocuments(input.context.profile, input.context.documents)),
     projects: input.context.projects,
     pendingMemory: input.context.memoryPending.map((item) => ({
       id: item.id,
       fieldKey: item.fieldKey,
       proposedValue: item.proposedValue,
       status: item.status
+    })),
+    pendingDocumentFacts: pendingDocumentCandidates(input.context.profile).map((item) => ({
+      id: item.id,
+      fieldKey: item.fieldKey,
+      documentId: item.documentId,
+      pageNumber: item.pageNumber,
+      proposedValue: item.proposedValue,
+      status: item.status,
+      trusted: false as const
     })),
     extra: input.extra ?? {},
     history: input.history.slice(-16).map((item) => ({
