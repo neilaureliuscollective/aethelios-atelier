@@ -121,6 +121,7 @@ describe("pricing presentation", () => {
     expect(pub.comparison.find((row) => row.id === "difference")?.values.partnership).toMatch(/quoted setup/i);
     expect(pub.faq.find((item) => item.id === "unlimited")?.answer).toMatch(/nothing here is an unlimited/i);
     expect(pub.faq.find((item) => item.id === "aethelios")?.answer).toMatch(/not the main Aethelios product/i);
+    expect(pub.faq.find((item) => item.id === "subscription")?.answer).toMatch(/without an account/i);
   });
 
   it("keeps cards, comparison, and FAQs in agreement", () => {

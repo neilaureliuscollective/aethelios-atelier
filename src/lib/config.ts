@@ -2,6 +2,7 @@ import "server-only";
 import path from "node:path";
 import { z } from "zod";
 import { CONSENT_TEXT } from "@/lib/copy";
+import { publicInquiryState } from "@/lib/inquiry/destination";
 import {
   authjsAuthAllowed,
   hostedEphemeralPersistenceReason,
@@ -270,6 +271,7 @@ export function publicRuntimeConfig() {
       voiceCommissioned: false,
       billingActivated: false,
       note: "Companion entitlements are server-checked. Client flags do not grant access. Commercial prices stay out of this public config until billing is reviewed. Live voice stays gated until provider duration evidence exists."
-    }
+    },
+    inquiry: publicInquiryState()
   };
 }

@@ -282,7 +282,7 @@ function faq(): PricingFaq[] {
       id: "subscription",
       question: "Do I need a monthly plan to explore or request work?",
       answer:
-        "No. You can browse Discovery, begin a brief, and request a custom commission without a subscription. Selecting a plan only carries a discussion note into the brief if you choose to keep it."
+        "No. You can browse Discovery, begin a brief, or send an inquiry without an account or a subscription. Selecting a plan only carries a discussion note into the brief if you choose to keep it."
     },
     {
       id: "charges",
@@ -318,7 +318,7 @@ function faq(): PricingFaq[] {
       id: "workspace",
       question: "What is the private workspace?",
       answer:
-        "Signed-in clients use Commissions to resume briefs, read founder responses, and review proposals. Business Studio is the separate signed-in place for brand and studio work. Neither requires a plan to open a brief."
+        "You can send an inquiry or a brief without creating an account. Signed-in clients may later use Commissions to resume work and read founder responses. Business Studio is an optional signed-in workspace, not a product you must learn to hire the studio."
     },
     {
       id: "aethelios",

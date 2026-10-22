@@ -1,6 +1,9 @@
 export const CONSENT_TEXT =
   "I consent to send this brief to Neil Stutes for personal review. This is a request, not a booking, quote, agreement, or payment. Scope, timing, and price are confirmed only after founder review.";
 
+export const INQUIRY_CONSENT_TEXT =
+  "I consent to send this inquiry to Neil Stutes for personal review. This is a request, not a booking, quote, agreement, or payment. Scope, timing, and price are confirmed only after founder review.";
+
 export const PROPOSAL_AGREEMENT_TEXT =
   "I agree that this exact proposal version is the scope for this commission. This records agreement to the written deliverables, exclusions, client responsibilities, milestones, and founder-set price. It is not a payment, booking, invoice, or collected charge. Payments are not taken in Atelier.";
 

@@ -36,6 +36,7 @@ import { DraftCompare } from "@/components/project/DraftCompare";
 import { DiscoveryImport } from "@/components/project/DiscoveryImport";
 import { OfferImport } from "@/components/project/OfferImport";
 import { PlanInterest } from "@/components/project/PlanInterest";
+import { InquiryForm } from "@/components/project/InquiryForm";
 import { LivingBrief } from "@/components/project/LivingBrief";
 import { checkBookingDestination } from "@/lib/offers/bookingDestination";
 import {
@@ -1027,8 +1028,9 @@ export function GuidedBrief({
             <>
               <h1 className="brief-heading">Review before anything is sent.</h1>
               <p className="lede">
-                Consent applies to the exact saved revision shown here. Later edits will not change a submitted
-                snapshot. Guest drafts cannot be sent until you sign in, review, and adopt them.
+                {project
+                  ? "Consent applies to the exact saved revision shown here. Later edits will not change a submitted snapshot."
+                  : "No account is required. Consent applies to this device draft. Sending it is a request for Neil’s review, not a booking or payment."}
               </p>
               <LivingBrief brief={brief} suggestions={suggestions} onResolve={project ? resolveSuggestion : undefined} />
               <label className="notice" style={{ display: "block", marginTop: 18 }}>
@@ -1064,33 +1066,46 @@ export function GuidedBrief({
                   <AppLink href={`/workspace/${project?.id ?? ""}`}>View receipt</AppLink>
                 </article>
               ) : null}
+              {!project ? (
+                <div className="inquiry-brief-send" style={{ marginTop: 22 }}>
+                  <p className="tiny">Send this draft</p>
+                  <InquiryForm
+                    source="brief"
+                    brief={brief}
+                    consent={consent}
+                    showConsent={false}
+                    needLabel="Anything to add for Neil (optional)"
+                    submitLabel="Send inquiry"
+                  />
+                </div>
+              ) : null}
               <div className="row brief-actions">
                 <button className="btn btn-ghost" type="button" onClick={() => setStep(4)}>
                   Edit the current working draft
                 </button>
-                {pendingCommand ? (
+                {project && pendingCommand ? (
                   <button className="btn btn-gold" type="button" disabled={submitPending} onClick={() => void retryPending()}>
                     {submitPending ? "Retrying…" : "Retry earlier send"}
                   </button>
-                ) : (
+                ) : null}
+                {project && !pendingCommand ? (
                   <button
                     className="btn btn-gold"
                     type="button"
                     disabled={
                       submitPending ||
-                      (Boolean(project) && (Boolean(queueRef.current?.hasUnconfirmedEdits) || Boolean(draftSnap?.status && draftSnap.status !== "saved")))
+                      Boolean(queueRef.current?.hasUnconfirmedEdits) ||
+                      Boolean(draftSnap?.status && draftSnap.status !== "saved")
                     }
                     onClick={() => void submitReviewedRevision()}
                   >
                     {submitPending
                       ? "Sending…"
-                      : project
-                        ? confirmedCommand
-                          ? "Send this newly reviewed revision"
-                          : "Send to Neil"
-                        : "Sign in to send"}
+                      : confirmedCommand
+                        ? "Send this newly reviewed revision"
+                        : "Send to Neil"}
                   </button>
-                )}
+                ) : null}
               </div>
             </>
           )}
@@ -1101,7 +1116,7 @@ export function GuidedBrief({
           <p className="notice" style={{ marginTop: 12 }}>
             Client statements, optional suggestions, and unresolved details stay distinct. Nothing is sent until you
             review and consent.
-            {user ? "" : " Sign-in will not silently adopt this draft."}
+            {user ? "" : " You can send this draft without creating an account."}
           </p>
         </div>
       </div>

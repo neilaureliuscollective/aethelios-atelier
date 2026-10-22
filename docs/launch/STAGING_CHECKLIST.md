@@ -12,6 +12,7 @@ Copy `.env.example` to `.env.local`. Keep:
 - `ATELIER_ISOLATED_LOCAL=true`
 - `ATELIER_OPENAI_ENABLED=false`
 - `ATELIER_BILLING_ENABLED=false`
+- `ATELIER_INQUIRY_CAPTURE=true` only on an isolated machine
 - `ATELIER_PRICING_LOCAL_REVIEW=true` only on an isolated machine
 
 Generate `ATELIER_SESSION_SECRET` before any non-development session work.

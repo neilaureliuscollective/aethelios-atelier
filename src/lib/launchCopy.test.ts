@@ -22,6 +22,8 @@ const CUSTOMER_FILES = [
   "src/components/marketing/PossibilitiesStage.tsx",
   "src/components/marketing/HeroComposition.tsx",
   "src/components/project/GuidedBrief.tsx",
+  "src/components/project/InquiryForm.tsx",
+  "src/app/inquire/page.tsx",
   "src/components/project/PlanInterest.tsx",
   "src/components/project/DiscoveryImport.tsx",
   "src/components/shell/SiteHeader.tsx",
@@ -94,6 +96,16 @@ describe("launch copy acceptance", () => {
     expect(nextRovingIndex(2, "Home", 4)).toBe(0);
     expect(nextRovingIndex(1, "End", 4)).toBe(3);
     expect(nextRovingIndex(1, "Enter", 4)).toBeNull();
+  });
+
+  it("lets a guest send an inquiry without signing in", () => {
+    const brief = readFileSync("src/components/project/GuidedBrief.tsx", "utf8");
+    const inquire = readFileSync("src/app/inquire/page.tsx", "utf8");
+    const header = readFileSync("src/components/shell/SiteHeader.tsx", "utf8");
+    expect(brief).toContain("InquiryForm");
+    expect(brief).not.toContain("Sign in to send");
+    expect(inquire).toContain("No account is required");
+    expect(header).toContain('href: "/inquire"');
   });
 
   it("does not wrap the project-type group in a label", () => {

@@ -43,12 +43,19 @@ export function PricingExperience({ presentation }: { presentation: PricingPrese
             built, and remains accountable for price and timing. You can explore, write, and request
             a commission without buying a monthly plan.
           </p>
+          <p className="notice pricing-honesty">
+            These are starting amounts in USD. Nothing on this page is checkout, a collected charge,
+            or a started subscription. A written proposal confirms remaining terms before work begins.
+          </p>
           <div className="hero-actions">
             <AppLink className="btn btn-emerald-glass" href="/discover">
               Explore your project
             </AppLink>
             <AppLink className="btn btn-gold" href="/project">
               Begin a brief
+            </AppLink>
+            <AppLink className="btn btn-ghost" href="/inquire">
+              Send an inquiry
             </AppLink>
           </div>
         </div>
@@ -336,6 +343,9 @@ export function PricingExperience({ presentation }: { presentation: PricingPrese
               </AppLink>
               <AppLink className="btn btn-gold" href="/project">
                 Begin a brief
+              </AppLink>
+              <AppLink className="btn btn-ghost" href="/inquire">
+                Send an inquiry
               </AppLink>
             </div>
           </div>

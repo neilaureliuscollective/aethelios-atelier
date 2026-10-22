@@ -52,11 +52,14 @@ Public pages run without these. Set them when you want hosted persistence:
 | `ATELIER_OPENAI_ENABLED` | `false` until spend is authorized |
 | `ATELIER_BILLING_ENABLED` | `false` |
 | `ATELIER_PUBLIC_ORIGIN` | Canonical `https://` origin once the domain is assigned |
+| `ATELIER_INQUIRY_TO` | Real inbox that should receive guest inquiries |
+| `AUTH_RESEND_KEY` / `AUTH_RESEND_FROM` | Required for the site to send inquiries directly |
 
 Do **not** set on Vercel:
 
 - `ATELIER_ALLOW_SIMULATED_AUTH`
 - `ATELIER_ISOLATED_LOCAL`
+- `ATELIER_INQUIRY_CAPTURE`
 - `ATELIER_PERSISTENCE_ADAPTER=sqlite_local`
 - Stripe keys
 

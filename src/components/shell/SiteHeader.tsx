@@ -15,7 +15,8 @@ const links = [
   { href: "/services", label: "Services" },
   { href: "/pricing", label: "Pricing" },
   { href: "/approach", label: "Approach" },
-  { href: "/about", label: "About" }
+  { href: "/about", label: "About" },
+  { href: "/inquire", label: "Inquire" }
 ];
 
 const workspaceLinks = [
@@ -132,6 +133,11 @@ export function SiteHeader({ user }: { user: User | null }) {
               Public site
             </AppLink>
           ) : null}
+          {!compact ? (
+            <AppLink className="btn btn-gold" href={user ? "/project/new" : "/project"}>
+              Begin your project
+            </AppLink>
+          ) : null}
           {user ? (
             <AppLink className="btn btn-ghost" href="/account">
               {user.displayName}
@@ -141,11 +147,6 @@ export function SiteHeader({ user }: { user: User | null }) {
               Sign in
             </AppLink>
           )}
-          {!compact ? (
-            <AppLink className="btn btn-gold" href={user ? "/project/new" : "/project"}>
-              Begin your project
-            </AppLink>
-          ) : null}
           <button
             ref={toggleRef}
             className="menu-toggle"
