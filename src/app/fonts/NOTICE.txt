@@ -1,0 +1,8 @@
+SIL Open Font License 1.1 cuts used by Atelier:
+
+- Cormorant Garamond (Catharsis Fonts / Christian Thalmann)
+- Figtree (Erik Kennedy / Google Fonts)
+- Outfit (Rick Slobbe / Smartsheet Inc.)
+- Syne (Bonjour Monde / The Syne Project Authors)
+
+Files are latin woff2 from Fontsource. Hosted builds must not fetch Google Fonts.

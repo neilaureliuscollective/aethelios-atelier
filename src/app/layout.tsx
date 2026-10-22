@@ -1,23 +1,9 @@
 import type { Metadata, Viewport } from "next";
+import { body, display, hearth, signal } from "@/app/fonts";
 import { MotionPreferences } from "@/components/motion/MotionPreferences";
-import { Cormorant_Garamond, Figtree } from "next/font/google";
 import { RegisterPwa } from "@/components/pwa/RegisterPwa";
 import { SessionShell } from "@/components/shell/SessionShell";
 import "./globals.css";
-
-const display = Cormorant_Garamond({
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-  variable: "--font-display-loaded",
-  display: "swap"
-});
-
-const body = Figtree({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-body-loaded",
-  display: "swap"
-});
 
 const publicOrigin = (() => {
   const value = process.env.ATELIER_PUBLIC_ORIGIN?.trim();
@@ -82,7 +68,7 @@ export const runtime = "nodejs";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${display.variable} ${body.variable}`}>
+    <html lang="en" className={`${display.variable} ${body.variable} ${hearth.variable} ${signal.variable}`}>
       <body>
         <MotionPreferences />
         <a className="skip-link" href="#main">
