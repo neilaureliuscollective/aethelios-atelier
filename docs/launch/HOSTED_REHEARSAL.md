@@ -22,12 +22,45 @@ Local `.env.local` on this machine: `ATELIER_AUTH_ADAPTER=simulated`, `ATELIER_P
 | Two-account isolation | Foreign workspace → `403 {ok:false,error:"forbidden"}`; missing asset on own workspace → `404 {ok:false,error:"not_found"}`; signed-out → `401 {ok:false,error:"unauthenticated"}` | Local simulated two-account proof | No | Two real provider accounts on the hosted origin. A 500 is not isolation evidence. |
 | Logout / return | Sign-out invalidates the session; reopen + sign-in recovers the same draft export | Local simulated sign-out / sign-in | No | Hosted provider logout and return to the same origin. |
 | Provider capabilities | Fail-closed OpenAI / voice; no second auth or storage platform | `ATELIER_OPENAI_ENABLED=false`; billing off | No | Spend approval before any paid AI or voice call. Not required to finish this local phase. |
-| GitHub Actions `check` | Workflow exists | — | No | Billing / spending limit. On `f5fe496`, run `39480896036` finished in two seconds with no steps. Annotation: recent account payments failed or the spending limit must be increased. A never-started job is not a passing suite. |
-| Vercel preview | Hosting adapter exists | Preview deploys are not this row | No | A successful deployment is not functional acceptance. |
+| GitHub Actions `check` | Workflow exists | — | PR #25 `check` run `39777597733` on `cursor/no-account-inquiry-6a72` completed SUCCESS at 2026-10-22 07:22 America/Chicago | Earlier account-billing blocks on older SHAs are not this row. |
+| Vercel preview | Hosting adapter exists | Preview deploys are not this row | No | A READY Vercel check is not public access. See Mode A rehearsal below. |
 | Business website journey | Homepage / Discover / project intake, save, submit, founder proposal, exact-revision acceptance | Local simulated identities and SQLite | No | Repeat the same journey with two real provider accounts on the hosted origin. |
 | Custom workflow journey | Secondary `/custom-projects` route, tailored intake without brand or booking, context-scoped proposal | Local simulated identities and SQLite | No | Repeat with a real provider account. Context must still reach the founder snapshot and proposal seed. |
 
-## Precise remaining authorized hosted rehearsal
+## Mode A hosted conversion rehearsal — 2026-10-22 (America/Chicago)
+
+Mode A is a public conversion site plus no-account inquiry. Companion auth, Postgres, and paid AI are not required for this row.
+
+Checked at 07:32–07:41 America/Chicago against:
+
+- Preview: `https://aethelios-atelier-git-cursor-no-account-in-f71e42-stutes-legacy.vercel.app`
+- Team default: `https://aethelios-atelier-stutes-legacy.vercel.app`
+- Custom hosts attempted: `atelier.aethelios.com`, `aetheliosatelier.com`, `www.aetheliosatelier.com`
+
+| Concern | Result | Evidence |
+| --- | --- | --- |
+| CI `check` | Verified | GitHub Actions run `39777597733` SUCCESS. |
+| Vercel build | READY, not public | Vercel status SUCCESS. `GET /`, `/inquire`, `/pricing`, `/founder`, and `POST /api/inquiries` return `302`/`401` `Protected by Vercel Authentication`. |
+| Public conversion pages | Missing or blocked | Browser on `/inquire` and `/` shows only the Vercel login wall (email / Google / GitHub / ChatGPT / SAML / passkey). A stranger cannot see the Atelier form. |
+| Inquiry delivery | Missing or blocked | Inquiry contract not reachable on hosted origins. Local capture is refused on Vercel by design. Inbox + Resend still unnamed. |
+| Custom domain | Missing or blocked | Hostnames do not resolve (`curl` code `000`). |
+
+This is not an Atelier code defect. Deployment Protection is enabled on the Vercel project, so preview and the team `*.vercel.app` hostname are SSO-gated. Until that gate is opened for the public origin, no prospect can start a project.
+
+### Remaining founder actions for Mode A
+
+An authorized operator — not this agent — must:
+
+1. Review and merge [PR #25](https://github.com/neilaureliuscollective/aethelios-atelier/pull/25) (CI is green; this agent cannot merge).
+2. Disable Vercel Deployment Protection on the public production hostname, or assign a custom domain that is not SSO-gated. Keep preview protection if you want; production must be reachable without a Vercel login.
+3. Set `ATELIER_INQUIRY_TO` to a real mailbox you check. Do not invent one here.
+4. For direct send (preferred): set `AUTH_RESEND_KEY` and `AUTH_RESEND_FROM`. Do not copy `ATELIER_INQUIRY_CAPTURE` to Vercel.
+5. Assign the public domain (none of the attempted hostnames resolve today).
+6. From a phone that is not signed into Vercel, complete `/inquire` and confirm the message arrives.
+
+Until steps 2–6 happen, hosted inquiry is not live. Local rehearsal on this branch already proves the form and fail-closed hosted capture refusal.
+
+## Precise remaining authorized companion rehearsal (not Mode A)
 
 An authorized operator — not this agent — must, on a dedicated Atelier environment:
 
