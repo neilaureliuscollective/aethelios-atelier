@@ -108,6 +108,7 @@ export function mapProfile(row: Row): BusinessProfile {
       approvedRates: [],
       brandAssets: [],
       sourceDocumentIds: [],
+      documentCandidates: [],
       updatedAt: asString(row.updated_at)
     }),
     businessId: asString(row.business_id),

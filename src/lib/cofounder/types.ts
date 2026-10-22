@@ -49,12 +49,44 @@ export const PROFILE_FIELD_KEYS = [
 ] as const;
 export type ProfileFieldKey = (typeof PROFILE_FIELD_KEYS)[number];
 
+export const DOCUMENT_CANDIDATE_STATUSES = ["pending", "confirmed", "edited", "rejected"] as const;
+export type DocumentCandidateStatus = (typeof DOCUMENT_CANDIDATE_STATUSES)[number];
+
+export const SOURCE_STATUSES = ["live", "stale", "deselected"] as const;
+export type SourceStatus = (typeof SOURCE_STATUSES)[number];
+
 export type ProfileField = {
   key: ProfileFieldKey;
   value: string;
   kind: FactKind;
   source?: string;
   updatedAt?: string;
+  sourceDocumentId?: string;
+  sourcePage?: number;
+  sourceExcerpt?: string;
+  sourceStatus?: SourceStatus;
+};
+
+export type DocumentFactCandidate = {
+  id: string;
+  documentId: string;
+  documentTitle: string;
+  fieldKey: ProfileFieldKey;
+  fieldLabel: string;
+  proposedValue: string;
+  excerpt: string;
+  pageNumber: number;
+  pageLabel: string;
+  provenance: string;
+  status: DocumentCandidateStatus;
+  createdAt: string;
+  resolvedAt?: string;
+  resolvedBy?: string;
+  ownerEdited?: boolean;
+  conflict?: {
+    currentValue: string;
+    currentSource?: string;
+  };
 };
 
 export type ApprovedRate = {
@@ -82,6 +114,7 @@ export type BusinessProfile = {
   approvedRates: ApprovedRate[];
   brandAssets: BrandAssetRef[];
   sourceDocumentIds: string[];
+  documentCandidates: DocumentFactCandidate[];
   updatedAt: string;
   updatedBy?: string;
 };

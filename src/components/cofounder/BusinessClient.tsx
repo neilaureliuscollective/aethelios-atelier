@@ -7,7 +7,8 @@ import { actionErrorMessage } from "@/lib/client/asyncAction";
 import { ownerFence } from "@/lib/client/ownerFence";
 import { useSession } from "@/components/shell/SessionShell";
 import { LIFESTYLE_PROJECT, lifestyleMissingCopy } from "@/lib/cofounder/lifestyle";
-import type { ApprovedRate, BusinessProfile, MemoryProposal, UsageSnapshot } from "@/lib/cofounder/types";
+import type { ApprovedRate, BusinessProfile, DocumentFactCandidate, MemoryProposal, UsageSnapshot } from "@/lib/cofounder/types";
+import { DocumentIntake, type IntakeDocument } from "@/components/cofounder/DocumentIntake";
 import styles from "./companion.module.css";
 
 const FIELD_LABELS: Record<string, string> = {
@@ -26,7 +27,8 @@ export function BusinessClient() {
   const [profile, setProfile] = useState<BusinessProfile | null>(null);
   const [usage, setUsage] = useState<UsageSnapshot | null>(null);
   const [pending, setPending] = useState<MemoryProposal[]>([]);
-  const [documents, setDocuments] = useState<Array<{ id: string; title: string; status: string }>>([]);
+  const [documents, setDocuments] = useState<IntakeDocument[]>([]);
+  const [candidates, setCandidates] = useState<DocumentFactCandidate[]>([]);
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [rateLabel, setRateLabel] = useState("Hourly strategy");
   const [rateCents, setRateCents] = useState("15000");
@@ -38,13 +40,15 @@ export function BusinessClient() {
       rawProfile: BusinessProfile;
       usage: UsageSnapshot;
       memoryPending: MemoryProposal[];
-      documents: Array<{ id: string; title: string; status: string }>;
+      documents: IntakeDocument[];
+      documentCandidates: DocumentFactCandidate[];
     }>("/api/companion/workspace");
     if (!ownerFence.isCurrent(gen, user?.id ?? null)) return;
     setProfile(data.rawProfile);
     setUsage(data.usage);
     setPending(data.memoryPending);
     setDocuments(data.documents);
+    setCandidates(data.documentCandidates ?? []);
   }
 
   useEffect(() => {
@@ -81,25 +85,6 @@ export function BusinessClient() {
     setProfile({ ...profile, approvedRates: [...profile.approvedRates, rate] });
   }
 
-  async function uploadDocument(file: File, kind: "logo" | "document") {
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    let binary = "";
-    bytes.forEach((value) => {
-      binary += String.fromCharCode(value);
-    });
-    await api("/api/companion/documents", {
-      method: "POST",
-      body: JSON.stringify({
-        title: file.name,
-        mime: file.type || (kind === "logo" ? "image/png" : "text/plain"),
-        bytesBase64: btoa(binary),
-        kind
-      })
-    });
-    setStatus(kind === "logo" ? "Original logo stored." : "Source document stored for this workspace only.");
-    await load();
-  }
-
   return (
     <CompanionShell
       title="Workspace context"
@@ -124,6 +109,8 @@ export function BusinessClient() {
                 <span className={styles.meta}>
                   {field.kind}
                   {field.source ? ` · ${field.source}` : ""}
+                  {field.sourcePage ? ` · ${field.sourcePage}` : ""}
+                  {field.sourceStatus && field.sourceStatus !== "live" ? ` · ${field.sourceStatus}` : ""}
                   {field.updatedAt ? ` · updated ${new Date(field.updatedAt).toLocaleString()}` : ""}
                 </span>
                 <textarea
@@ -181,25 +168,11 @@ export function BusinessClient() {
             <button className="btn btn-ghost" type="button" onClick={() => addRate()}>
               Add approved rate (cents)
             </button>
-            <p className={styles.label}>Source documents</p>
-            {documents.length === 0 ? <p className="muted">No selected source documents yet.</p> : null}
-            {documents.map((doc) => (
-              <p key={doc.id} className={styles.meta}>
-                {doc.title} · {doc.status}
-              </p>
-            ))}
-            <label className={styles.label} htmlFor="source-doc">
-              Upload a text source
-            </label>
-            <input
-              id="source-doc"
-              className={styles.file}
-              type="file"
-              accept="text/*,.md,.json,.csv"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) void uploadDocument(file, "document").catch((err) => setError(actionErrorMessage(err, "Upload failed.")));
-              }}
+            <DocumentIntake
+              documents={documents}
+              sourceDocumentIds={profile.sourceDocumentIds}
+              candidates={candidates}
+              onChanged={load}
             />
             <p className={styles.label}>Pending memory</p>
             {pending.length === 0 ? <p className="muted">No suggestions waiting.</p> : null}

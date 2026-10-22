@@ -1,5 +1,16 @@
 import { emptyProfile, normalizeProfile } from "@/lib/cofounder/profile";
 import { resolvePlanId } from "@/lib/cofounder/entitlements";
+import {
+  applyConfirmedIntake,
+  candidateFromDraft,
+  draftIntakeChange,
+  rejectDocumentCandidatesForSource,
+  refreshFieldSourceStatuses
+} from "@/lib/cofounder/intake";
+import {
+  assertSelectableSourceDocumentIds,
+  extractDocumentPages
+} from "@/lib/cofounder/documents";
 import { isLifestyleOwner, lifestyleProfileFields, LIFESTYLE_PROJECT } from "@/lib/cofounder/lifestyle";
 import { canonicalOwnedBusiness, DEFAULT_WORKSPACE_NAME } from "@/lib/cofounder/provision";
 import { ForbiddenError, NotFoundError, UniqueConstraintError } from "@/lib/domain/errors";
@@ -149,21 +160,34 @@ export class CompanionWorkspace {
 
   async updateProfile(businessId: string, user: User, patch: Partial<BusinessProfile>) {
     const context = await this.requireMutable(businessId, user);
-    const next = normalizeProfile({
+    const documents = await this.store.companion.listDocuments(businessId);
+    const live = documents.filter((doc) => doc.status !== "deleted");
+    const sourceDocumentIds =
+      patch.sourceDocumentIds !== undefined
+        ? assertSelectableSourceDocumentIds(live, patch.sourceDocumentIds)
+        : context.profile.sourceDocumentIds;
+    let next = normalizeProfile({
       ...context.profile,
       ...patch,
       fields: { ...context.profile.fields, ...patch.fields },
       approvedRates: patch.approvedRates ?? context.profile.approvedRates,
       brandAssets: patch.brandAssets ?? context.profile.brandAssets,
-      sourceDocumentIds: patch.sourceDocumentIds ?? context.profile.sourceDocumentIds,
+      sourceDocumentIds,
+      documentCandidates: patch.documentCandidates ?? context.profile.documentCandidates,
       businessId,
       updatedAt: now(),
       updatedBy: user.id
     });
-    await this.store.companion.upsertProfile(next);
-    const business = { ...context.business, name: next.fields.name.value || context.business.name, updatedAt: next.updatedAt };
-    await this.store.companion.updateBusiness(business);
-    return next;
+    next = refreshFieldSourceStatuses(
+      next,
+      new Set(live.map((doc) => doc.id)),
+      new Set(sourceDocumentIds)
+    );
+    return this.persistProfile(context, next);
+  }
+
+  async selectSourceDocuments(businessId: string, user: User, sourceDocumentIds: string[]) {
+    return this.updateProfile(businessId, user, { sourceDocumentIds });
   }
 
   async proposeMemory(
@@ -261,6 +285,198 @@ export class CompanionWorkspace {
     const blob = await this.store.companion.getBlob(document.blobId);
     if (!blob || blob.businessId !== businessId) throw new NotFoundError("Document bytes were not stored.");
     return { document, blob };
+  }
+
+  async previewDocument(businessId: string, user: User, documentId: string) {
+    const context = await this.requireMembership(businessId, user);
+    const { document, blob } = await this.getDocumentBytes(businessId, user, documentId);
+    return {
+      document,
+      extracted: extractDocumentPages(document.mime, blob.bytes, document.title),
+      profile: context.profile
+    };
+  }
+
+  async proposeDocumentIntake(
+    businessId: string,
+    user: User,
+    input: {
+      documentId: string;
+      fieldKey: string;
+      pageNumber: number;
+      excerpt: string;
+      proposedValue?: string;
+    }
+  ) {
+    const context = await this.requireMutable(businessId, user);
+    const preview = await this.previewDocument(businessId, user, input.documentId);
+    const draft = draftIntakeChange({
+      document: preview.document,
+      profile: context.profile,
+      extracted: preview.extracted,
+      fieldKey: input.fieldKey,
+      pageNumber: input.pageNumber,
+      excerpt: input.excerpt,
+      proposedValue: input.proposedValue
+    });
+    const candidate = candidateFromDraft(draft, {
+      id: companionId("cand"),
+      createdAt: now()
+    });
+    const profile = await this.persistProfile(context, {
+      ...context.profile,
+      documentCandidates: [candidate, ...context.profile.documentCandidates.filter((item) => item.id !== candidate.id)],
+      updatedAt: now(),
+      updatedBy: user.id
+    });
+    return { draft, candidate, profile };
+  }
+
+  async resolveDocumentIntake(
+    businessId: string,
+    user: User,
+    input: {
+      documentId: string;
+      candidateId?: string;
+      fieldKey: string;
+      pageNumber: number;
+      excerpt: string;
+      proposedValue?: string;
+      action: "confirm" | "edit" | "reject";
+      ownerEdited?: boolean;
+      conflictResolution?: "replace" | "keep";
+      selectSource?: boolean;
+    }
+  ) {
+    const context = await this.requireMutable(businessId, user);
+    if (input.action === "reject") {
+      const candidate = this.requireCandidate(context.profile, input.candidateId, input.documentId);
+      const next = {
+        ...candidate,
+        status: "rejected" as const,
+        resolvedAt: now(),
+        resolvedBy: user.id
+      };
+      const profile = await this.persistProfile(context, {
+        ...context.profile,
+        documentCandidates: context.profile.documentCandidates.map((item) =>
+          item.id === next.id ? next : item
+        ),
+        updatedAt: now(),
+        updatedBy: user.id
+      });
+      return { candidate: next, profile };
+    }
+
+    const preview = await this.previewDocument(businessId, user, input.documentId);
+    const draft = draftIntakeChange({
+      document: preview.document,
+      profile: context.profile,
+      extracted: preview.extracted,
+      fieldKey: input.fieldKey,
+      pageNumber: input.pageNumber,
+      excerpt: input.excerpt,
+      proposedValue: input.proposedValue
+    });
+    const existing = input.candidateId
+      ? this.requireCandidate(context.profile, input.candidateId, input.documentId)
+      : undefined;
+    const candidate =
+      existing ??
+      candidateFromDraft(draft, {
+        id: companionId("cand"),
+        createdAt: now()
+      });
+    const withCandidate = existing
+      ? context.profile
+      : { ...context.profile, documentCandidates: [candidate, ...context.profile.documentCandidates] };
+    const applied = applyConfirmedIntake(withCandidate, draft, user.id, {
+      ownerEdited: input.action === "edit" || input.ownerEdited,
+      conflictResolution: input.conflictResolution,
+      selectSource: input.selectSource,
+      candidate
+    });
+    const profile = await this.persistProfile(context, applied.profile);
+    const resolved = profile.documentCandidates.find((item) => item.id === candidate.id) ?? candidate;
+    return { draft, candidate: resolved, confirmation: applied.confirmation, profile };
+  }
+
+  async confirmDocumentIntake(
+    businessId: string,
+    user: User,
+    input: {
+      documentId: string;
+      candidateId?: string;
+      fieldKey: string;
+      pageNumber: number;
+      excerpt: string;
+      proposedValue?: string;
+      ownerEdited?: boolean;
+      conflictResolution?: "replace" | "keep";
+      selectSource?: boolean;
+    }
+  ) {
+    return this.resolveDocumentIntake(businessId, user, {
+      ...input,
+      action: input.ownerEdited ? "edit" : "confirm"
+    });
+  }
+
+  async deleteDocument(businessId: string, user: User, documentId: string) {
+    const context = await this.requireMutable(businessId, user);
+    const document = await this.store.companion.getDocument(documentId);
+    if (!document || document.businessId !== businessId) {
+      throw new NotFoundError("Document not found.");
+    }
+    const nextDocument = {
+      ...document,
+      status: "deleted" as const,
+      deletedAt: now(),
+      providerFileId: undefined
+    };
+    await this.store.companion.updateDocument(nextDocument);
+    if (document.blobId) await this.store.companion.deleteBlob(document.blobId);
+    const live = (await this.store.companion.listDocuments(businessId)).filter((item) => item.status !== "deleted");
+    const selected = context.profile.sourceDocumentIds.filter((id) => id !== documentId);
+    const scrubbed = refreshFieldSourceStatuses(
+      rejectDocumentCandidatesForSource(context.profile, documentId, user.id),
+      new Set(live.map((item) => item.id)),
+      new Set(selected)
+    );
+    const profile = await this.persistProfile(context, {
+      ...scrubbed,
+      updatedAt: now(),
+      updatedBy: user.id
+    });
+    return { document: nextDocument, profile };
+  }
+
+  private requireCandidate(profile: BusinessProfile, candidateId: string | undefined, documentId: string) {
+    if (!candidateId) {
+      throw new NotFoundError("Document fact candidate not found.");
+    }
+    const candidate = profile.documentCandidates.find((item) => item.id === candidateId);
+    if (!candidate || candidate.documentId !== documentId) {
+      throw new NotFoundError("Document fact candidate not found.");
+    }
+    return candidate;
+  }
+
+  private async persistProfile(context: AuthorizedBusinessContext, profile: BusinessProfile) {
+    const next = normalizeProfile({
+      ...profile,
+      businessId: context.business.id,
+      updatedAt: profile.updatedAt || now(),
+      updatedBy: profile.updatedBy
+    });
+    await this.store.companion.upsertProfile(next);
+    const business = {
+      ...context.business,
+      name: next.fields.name.value || context.business.name,
+      updatedAt: next.updatedAt
+    };
+    await this.store.companion.updateBusiness(business);
+    return next;
   }
 
   async authorizedProjectStatus(businessId: string, user: User, projectId?: string) {
