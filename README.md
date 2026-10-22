@@ -65,6 +65,8 @@ node scripts/launch-journey-api.mjs
 node scripts/mobile-nav-browser.mjs
 ```
 
+Guest inquiries do not require an account. Open `/inquire` or finish a brief and send it from the review step.
+
 ## Configuration
 
 See `.env.example`. Fail-closed rules:
@@ -74,6 +76,7 @@ See `.env.example`. Fail-closed rules:
 - Auth requires `ATELIER_AUTH_ADAPTER=simulated` on an isolated local machine until a real provider exists. Hosted platforms always refuse simulated auth. Auth.js (Google / Resend) is integrated and stays fail-closed until credentials exist (`docs/AUTH.md`).
 - Aethelios stays unavailable unless `ATELIER_OPENAI_ENABLED=true` **and** `OPENAI_API_KEY` are set. Live model calls are not made by default and were not used in this implementation. Internal identifiers may still use the older `aurelius` name; visitor-facing copy maps that to Aethelios.
 - Billing is not activated. Do not set Stripe keys.
+- Guest inquiries: set `ATELIER_INQUIRY_TO` to a real inbox. Hosted delivery uses Resend (`AUTH_RESEND_KEY` + `AUTH_RESEND_FROM`). Isolated local machines may set `ATELIER_INQUIRY_CAPTURE=true` to store rehearsal inquiries in `.data/inquiries.jsonl` without sending mail. Capture is refused on Vercel.
 
 Local data is stored in `.data/` (gitignored). That file is not a hosted database.
 
@@ -88,8 +91,9 @@ Approved logo and icon live in `public/brand/original/`. Optimized derivatives a
 - Authorized OpenAI spend (`ATELIER_OPENAI_ENABLED` + key)
 - Final service pricing
 - Production domain assignment after the first Vercel import
-- Notifications (not implemented; the UI says so)
+- Guest inquiry delivery on a hosted site (`ATELIER_INQUIRY_TO` plus Resend, or a documented mailto fallback)
 - Billing / Stripe (explicitly inactive)
+- Founder-reply notifications (still not implemented; inquiries email Neil when configured)
 
 ## Architecture
 

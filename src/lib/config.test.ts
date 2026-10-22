@@ -33,6 +33,8 @@ describe("fail-closed configuration", () => {
     expect(JSON.stringify(pub)).not.toContain("299");
     expect(JSON.stringify(pub)).not.toContain("249");
     expect(pub.companion.billingActivated).toBe(false);
+    expect(pub.inquiry).toBeDefined();
+    expect(JSON.stringify(pub.inquiry)).not.toContain("@");
   });
 
   it("refuses simulated auth when hosted environment flags are present", () => {

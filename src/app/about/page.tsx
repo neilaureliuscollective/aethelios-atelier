@@ -35,6 +35,9 @@ export default function AboutPage() {
         <AppLink className="btn btn-gold" href="/project">
           Begin a brief
         </AppLink>
+        <AppLink className="btn btn-ghost" href="/inquire">
+          Send an inquiry
+        </AppLink>
       </div>
     </section>
   );

@@ -9,8 +9,21 @@ import { LivingBrief } from "@/components/project/LivingBrief";
 import { useSession } from "@/components/shell/SessionShell";
 import type { FounderQueueItem, FounderProjectView } from "@/lib/types";
 
+type FounderInquiry = {
+  id: string;
+  receiptId: string;
+  createdAt: string;
+  name: string;
+  email: string;
+  business: string;
+  need: string;
+  source: string;
+  delivery: string;
+};
+
 export function FounderHome() {
   const [queue, setQueue] = useState<FounderQueueItem[] | null>(null);
+  const [inquiries, setInquiries] = useState<FounderInquiry[] | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -20,6 +33,17 @@ export function FounderHome() {
         setQueue(data.queue);
       } catch (err) {
         setError(actionErrorMessage(err, "Founder access denied."));
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const data = await api<{ inquiries: FounderInquiry[] }>("/api/inquiries");
+        setInquiries(data.inquiries);
+      } catch {
+        setInquiries([]);
       }
     })();
   }, []);
@@ -38,10 +62,28 @@ export function FounderHome() {
       <p className="kicker">Private founder workspace</p>
       <h1>Review queue</h1>
       <p className="lede">
-        Only submitted commissions appear here. Starting review is a deliberate action. Private notes
-        never appear on client surfaces. Attention includes proposals waiting, missing content, revisions,
-        and the next milestone.
+        Guest inquiries appear first when local capture or the inquiry log has them. Submitted
+        commissions still require an account. Starting review is a deliberate action. Private notes
+        never appear on client surfaces.
       </p>
+      {inquiries && inquiries.length ? (
+        <div className="stack" style={{ marginTop: 20, marginBottom: 28 }}>
+          <p className="tiny">Guest inquiries</p>
+          {inquiries.map((item) => (
+            <article className="surface-ivory workspace-card" key={item.id}>
+              <p className="tiny">
+                {item.source} · {item.delivery} · {item.receiptId}
+              </p>
+              <h2 style={{ fontSize: 24 }}>{item.name}</h2>
+              <p className="muted">
+                {item.email}
+                {item.business ? ` · ${item.business}` : ""}
+              </p>
+              <p>{item.need}</p>
+            </article>
+          ))}
+        </div>
+      ) : null}
       <div className="stack" style={{ marginTop: 20 }}>
         {queue === null ? (
           <p className="notice">Loading the review queue…</p>
