@@ -107,6 +107,16 @@ export function readGoogleOAuth(env: Env = process.env): { id: string; secret: s
   };
 }
 
+export function readOpenAiApiKey(env: Env = process.env): string {
+  return (
+    env.OPENAI_API_KEY ||
+    env.ATELIER_OPENAI_API_KEY ||
+    env.OPENAI_KEY ||
+    env.AUTH_OPENAI_KEY ||
+    ""
+  ).trim();
+}
+
 export function readResendEmail(env: Env = process.env): { apiKey: string; from: string } {
   return {
     apiKey: (env.AUTH_RESEND_KEY || env.RESEND_API_KEY || "").trim(),

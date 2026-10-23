@@ -9,6 +9,7 @@ import {
   hostedPlatformName,
   readAuthSecret,
   readDatabaseUrl,
+  readOpenAiApiKey,
   simulatedAuthAllowed,
   type AuthjsProviderState
 } from "@/lib/runtime/hosted";
@@ -274,6 +275,10 @@ export function publicRuntimeConfig() {
       billingActivated: false,
       note: "Companion entitlements are server-checked. Client flags do not grant access. Commercial prices stay out of this public config until billing is reviewed. Live voice stays gated until provider duration evidence exists."
     },
-    inquiry: publicInquiryState()
+    inquiry: publicInquiryState(),
+    voice: {
+      transcribeReady: Boolean(readOpenAiApiKey()),
+      note: "Homepage speech-to-text uses the OpenAI key only. It does not turn on live sketch AI."
+    }
   };
 }

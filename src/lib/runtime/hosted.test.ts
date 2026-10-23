@@ -5,6 +5,7 @@ import {
   hostedEphemeralPersistenceReason,
   parseOriginHostname,
   readDatabaseUrl,
+  readOpenAiApiKey,
   simulatedAuthAllowed
 } from "@/lib/runtime/hosted";
 
@@ -221,5 +222,19 @@ describe("isolated-local simulator gate", () => {
     expect(readDatabaseUrl({ POSTGRES_URL: "postgres://vercel", DATABASE_URL: "postgres://generic" })).toBe(
       "postgres://vercel"
     );
+  });
+
+  it("reads hosted OpenAI keys from the common Vercel names", () => {
+    expect(readOpenAiApiKey({})).toBe("");
+    expect(readOpenAiApiKey({ OPENAI_API_KEY: " sk-main " })).toBe("sk-main");
+    expect(readOpenAiApiKey({ ATELIER_OPENAI_API_KEY: "sk-atelier" })).toBe("sk-atelier");
+    expect(readOpenAiApiKey({ OPENAI_KEY: "sk-short" })).toBe("sk-short");
+    expect(readOpenAiApiKey({ AUTH_OPENAI_KEY: "sk-auth" })).toBe("sk-auth");
+    expect(
+      readOpenAiApiKey({
+        OPENAI_API_KEY: "sk-main",
+        ATELIER_OPENAI_API_KEY: "sk-atelier"
+      })
+    ).toBe("sk-main");
   });
 });

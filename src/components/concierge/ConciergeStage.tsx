@@ -6,6 +6,7 @@ import { INTELLIGENCE_DISPLAY_NAME } from "@/lib/copy";
 import { ConciergeOrb } from "./ConciergeOrb";
 import { PresentationCanvas } from "./PresentationCanvas";
 import { StageAtmosphere } from "./StageAtmosphere";
+import { appendTranscript, useOrbTranscription } from "./useOrbTranscription";
 import styles from "./concierge.module.css";
 
 const PROMPTS = [
@@ -35,6 +36,9 @@ export function ConciergeStage() {
   const [workspace, setWorkspace] = useState<Workspace>(document ? "canvas" : messages.length ? "chat" : "idle");
   const [orbSize, setOrbSize] = useState<"hero" | "docked">(document || messages.length ? "docked" : "hero");
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const voice = useOrbTranscription();
+  const voiceListening = voice.phase === "starting" || voice.phase === "recording";
+  const voiceBusy = voiceListening || voice.phase === "transcribing";
 
   useEffect(() => {
     if (document) {
@@ -50,23 +54,30 @@ export function ConciergeStage() {
     window.requestAnimationFrame(() => inputRef.current?.focus());
   }
 
-  function engageOrb() {
-    if (pending) return;
-    if (input.trim()) {
-      void send(input);
+  function submitText(value: string) {
+    if (voiceBusy) voice.cancel();
+    void send(value);
+  }
+
+  async function engageOrb() {
+    if (pending || voice.phase === "transcribing") return;
+    if (voiceListening) {
+      const spoken = await voice.stop();
+      if (spoken) setInput(appendTranscript(input, spoken));
+      focusComposer();
       return;
     }
-    if (workspace === "idle") {
+    if (input.trim()) {
+      submitText(input);
+      return;
+    }
+    if (workspace === "idle" || workspace === "listening") {
       setWorkspace("listening");
       setOrbSize("hero");
-      focusComposer();
+      await voice.start();
       return;
     }
-    if (workspace === "listening") {
-      focusComposer();
-      return;
-    }
-    setOrbSize((current) => (current === "hero" ? "docked" : "hero"));
+    await voice.start();
   }
 
   const orbCentered = workspace === "idle" || workspace === "listening";
@@ -103,8 +114,8 @@ export function ConciergeStage() {
             </h1>
             {orbCentered ? (
               <p className={styles.lede}>
-                Tap the orb to begin. Describe the business you actually run, and {INTELLIGENCE_DISPLAY_NAME}{" "}
-                composes a live presentation beside you — a sketch, not a commission.
+                Tap the orb to speak, or type below. {INTELLIGENCE_DISPLAY_NAME} writes what you said into the
+                box and composes a live presentation beside you — a sketch, not a commission.
               </p>
             ) : null}
           </div>
@@ -128,28 +139,32 @@ export function ConciergeStage() {
           <div className={styles.orbDock}>
             <ConciergeOrb
               size={orbSize}
-              state={orbCentered && workspace === "listening" ? "listening" : orbState}
-              label={
-                input.trim()
-                  ? `Send this to ${INTELLIGENCE_DISPLAY_NAME}`
-                  : workspace === "idle"
-                    ? `Begin with ${INTELLIGENCE_DISPLAY_NAME}`
-                    : workspace === "listening"
-                      ? `Speak to ${INTELLIGENCE_DISPLAY_NAME}, or type below`
-                      : `Resize the ${INTELLIGENCE_DISPLAY_NAME} orb`
+              state={
+                voiceListening ? "listening" : voice.phase === "transcribing" ? "thinking" : orbState
               }
-              onToggle={engageOrb}
+              label={
+                voiceListening
+                  ? `Stop speaking and write it for ${INTELLIGENCE_DISPLAY_NAME}`
+                  : voice.phase === "transcribing"
+                    ? `Hearing your words for ${INTELLIGENCE_DISPLAY_NAME}`
+                    : input.trim()
+                      ? `Send this to ${INTELLIGENCE_DISPLAY_NAME}`
+                      : `Speak to ${INTELLIGENCE_DISPLAY_NAME}`
+              }
+              onToggle={() => void engageOrb()}
             />
             <p className={styles.orbStatus} aria-live="polite">
-              {orbState === "composing"
-                ? `${INTELLIGENCE_DISPLAY_NAME} is composing`
-                : orbState === "thinking"
-                  ? `${INTELLIGENCE_DISPLAY_NAME} is listening through what you said`
-                  : workspace === "listening"
-                    ? "Listening · type or send an invitation"
-                    : workspace === "idle"
-                      ? `Tap the orb to begin with ${INTELLIGENCE_DISPLAY_NAME}`
-                      : `${INTELLIGENCE_DISPLAY_NAME} is ready`}
+              {voice.phase === "transcribing"
+                ? "Hearing that into words…"
+                : voiceListening
+                  ? "Listening · tap the orb when you are done speaking"
+                  : orbState === "composing"
+                    ? `${INTELLIGENCE_DISPLAY_NAME} is composing`
+                    : orbState === "thinking"
+                      ? `${INTELLIGENCE_DISPLAY_NAME} is listening through what you said`
+                      : workspace === "idle"
+                        ? `Tap the orb to speak with ${INTELLIGENCE_DISPLAY_NAME}`
+                        : `${INTELLIGENCE_DISPLAY_NAME} is ready`}
             </p>
           </div>
 
@@ -159,7 +174,7 @@ export function ConciergeStage() {
                 className={styles.whisper}
                 onSubmit={(event) => {
                   event.preventDefault();
-                  void send(input);
+                  submitText(input);
                 }}
               >
                 <label htmlFor="concierge-idle-input">Or type to {INTELLIGENCE_DISPLAY_NAME}</label>
@@ -171,16 +186,17 @@ export function ConciergeStage() {
                   onKeyDown={(event) => {
                     if (event.key === "Enter" && !event.shiftKey) {
                       event.preventDefault();
-                      void send(input);
+                      submitText(input);
                     }
                   }}
                   placeholder="I run a quiet studio in…"
                 />
+                {voice.error || error ? <p className="notice notice-warn">{voice.error || error}</p> : null}
               </form>
               <p className={styles.invitesLabel}>Try speaking as a founder would</p>
               <div className={styles.prompts}>
                 {PROMPTS.map((prompt) => (
-                  <button key={prompt} className={styles.prompt} type="button" onClick={() => void send(prompt)}>
+                  <button key={prompt} className={styles.prompt} type="button" onClick={() => submitText(prompt)}>
                     {prompt}
                   </button>
                 ))}
@@ -213,7 +229,7 @@ export function ConciergeStage() {
                   className={styles.composer}
                   onSubmit={(event) => {
                     event.preventDefault();
-                    void send(input);
+                    submitText(input);
                   }}
                 >
                   <label htmlFor="concierge-input">Continue with {INTELLIGENCE_DISPLAY_NAME}</label>
@@ -224,7 +240,7 @@ export function ConciergeStage() {
                     onChange={(event) => setInput(event.target.value)}
                     placeholder="Add a fact, a place, or ask to make it quieter."
                   />
-                  {error ? <p className="notice notice-warn">{error}</p> : null}
+                  {voice.error || error ? <p className="notice notice-warn">{voice.error || error}</p> : null}
                 </form>
               </div>
             </div>

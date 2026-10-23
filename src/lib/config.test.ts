@@ -33,8 +33,24 @@ describe("fail-closed configuration", () => {
     expect(JSON.stringify(pub)).not.toContain("299");
     expect(JSON.stringify(pub)).not.toContain("249");
     expect(pub.companion.billingActivated).toBe(false);
+    expect(pub.voice.transcribeReady).toBe(true);
     expect(pub.inquiry).toBeDefined();
     expect(JSON.stringify(pub.inquiry)).not.toContain("@");
+  });
+
+  it("lets homepage voice use an aliased OpenAI key without unlocking sketch AI", () => {
+    process.env.ATELIER_PERSISTENCE_ADAPTER = "memory";
+    process.env.ATELIER_AUTH_ADAPTER = "simulated";
+    process.env.ATELIER_OPENAI_ENABLED = "true";
+    delete process.env.OPENAI_API_KEY;
+    process.env.ATELIER_OPENAI_API_KEY = "sk-alias-not-for-sketch";
+    const config = loadConfig();
+    expect(config.aurelius.ready).toBe(false);
+    expect(config.aurelius.missing).toMatch(/OPENAI_API_KEY/);
+    const pub = publicRuntimeConfig();
+    expect(pub.aurelius.ready).toBe(false);
+    expect(pub.voice.transcribeReady).toBe(true);
+    expect(JSON.stringify(pub)).not.toContain("sk-alias");
   });
 
   it("refuses simulated auth when hosted environment flags are present", () => {
