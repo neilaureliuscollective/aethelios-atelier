@@ -13,7 +13,9 @@ import {
   isBarbersSalonOffer,
   type BarbersSalonStarterKey
 } from "@/lib/offers/barbersSalons";
-import { BARBERS_SALONS_OFFER_ID, type ServiceOfferId } from "@/lib/offers/ids";
+import { COMMERCE_FIELD_LABELS, commerceOfferById, isCommerceOffer } from "@/lib/offers/commerce";
+import { BARBERS_SALONS_OFFER_ID, isCommerceOfferId, type ServiceOfferId } from "@/lib/offers/ids";
+import { focusedOfferById, offerStarterById } from "@/lib/offers/registry";
 import { checkBookingDestination } from "@/lib/offers/bookingDestination";
 import { BRIEF_FIELD_KEYS, type Brief, type BriefFieldKey } from "@/lib/types";
 
@@ -39,10 +41,7 @@ export type OfferImportProposal = {
   }>;
 };
 
-export function offerStarterById(offerId: string) {
-  if (offerId === BARBERS_SALONS_OFFER.id) return BARBERS_SALONS_OFFER.starter;
-  return undefined;
-}
+export { offerStarterById };
 
 export function matchingOfferStarterValue(brief: Brief, key: BriefFieldKey, offerId: string | undefined) {
   const starter = offerId ? offerStarterById(offerId) : undefined;
@@ -74,8 +73,9 @@ export function applyOfferStarterField(
 export { applyOfferStarters, clearMatchingOfferStarters };
 
 export function proposeOfferImport(brief: Brief, offerId: ServiceOfferId = BARBERS_SALONS_OFFER_ID): OfferImportProposal {
-  const offer = offerId === BARBERS_SALONS_OFFER.id ? BARBERS_SALONS_OFFER : undefined;
+  const offer = focusedOfferById(offerId);
   const starter = offer?.starter ?? BARBERS_SALONS_OFFER.starter;
+  const labels = isCommerceOfferId(offerId) ? COMMERCE_FIELD_LABELS : BARBERS_SALON_FIELD_LABELS;
   return {
     offerId,
     title: offer?.title ?? BARBERS_SALONS_OFFER.title,
@@ -86,7 +86,7 @@ export function proposeOfferImport(brief: Brief, offerId: ServiceOfferId = BARBE
       return [
         {
           key,
-          label: BARBERS_SALON_FIELD_LABELS[key],
+          label: labels[key],
           current,
           proposed,
           defaultDecision: current && current !== proposed ? "skip" : "append"
@@ -103,9 +103,15 @@ export function applyOfferImportDecisions(
 ): Brief {
   const starter = offerStarterById(offerId);
   if (!starter) return brief;
-  let next = applyBriefContext(brief, { offerId, purpose: "business", route: "business", bookingNeeded: true });
+  const commerce = isCommerceOfferId(offerId);
+  let next = applyBriefContext(brief, {
+    offerId,
+    purpose: "business",
+    route: "business",
+    bookingNeeded: commerce ? false : true
+  });
   if (!next.projectType.value.trim()) {
-    next = applyClientValue(next, "projectType", "website");
+    next = applyClientValue(next, "projectType", commerce ? "ecommerce_storefronts" : "website");
   }
   for (const key of OFFER_STARTER_KEYS) {
     const decision = decisions[key] ?? "skip";
@@ -130,11 +136,31 @@ export function barbersSalonReviewSummary(brief: Brief) {
   return {
     offerId: BARBERS_SALONS_OFFER_ID,
     offerTitle: BARBERS_SALONS_OFFER.title,
+    kind: "barbers_salons" as const,
     bookingDestination: brief.bookingProvider.value.trim() || "Not yet captured",
     bookingCheck: booking,
     assets: brief.references.value.trim() || "Not yet captured",
     scope: [brief.goals.value.trim(), brief.priorities.value.trim()].filter(Boolean).join(" · ") || "Not yet captured",
     location: brief.constraints.value.trim() || "Not yet captured",
+    unresolved
+  };
+}
+
+export function commerceReviewSummary(brief: Brief) {
+  if (!isCommerceOffer(brief)) return null;
+  const offer = commerceOfferById(brief.context?.offerId);
+  const unresolved = BRIEF_FIELD_KEYS.filter((key) => {
+    if (key === "budget" || key === "timing" || key === "projectType") return false;
+    return !brief[key].value.trim();
+  }).map((key) => key);
+  return {
+    offerId: offer?.id ?? brief.context?.offerId ?? "",
+    offerTitle: offer?.title ?? "Atelier Commerce",
+    kind: "commerce" as const,
+    commerceSetup: brief.bookingProvider.value.trim() || "Not yet captured",
+    assets: brief.references.value.trim() || "Not yet captured",
+    scope: [brief.goals.value.trim(), brief.priorities.value.trim()].filter(Boolean).join(" · ") || "Not yet captured",
+    constraints: brief.constraints.value.trim() || "Not yet captured",
     unresolved
   };
 }

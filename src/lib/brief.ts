@@ -11,15 +11,16 @@ import {
   type CommissionIntent
 } from "@/lib/commissionContext";
 import { exampleById } from "@/lib/customProjectExamples";
-import {
-  BARBERS_SALON_FIELD_HINTS,
-  BARBERS_SALON_FIELD_LABELS,
-  BARBERS_SALONS_OFFER,
-  displayOfferLabel,
-  isBarbersSalonOffer,
-  type BarbersSalonStarterKey
-} from "@/lib/offers/barbersSalons";
+import { isBarbersSalonOffer, type BarbersSalonStarterKey } from "@/lib/offers/barbersSalons";
+import { isCommerceOffer } from "@/lib/offers/commerce";
 import { isServiceOfferId } from "@/lib/offers/ids";
+import {
+  displayFocusedOfferLabel,
+  focusedOfferFieldHints,
+  focusedOfferFieldLabels,
+  isFocusedOffer,
+  offerStarterById
+} from "@/lib/offers/registry";
 import {
   asksBookingProvider,
   displayProjectTypeLabel,
@@ -102,7 +103,7 @@ export const PROJECT_TYPE_LABELS: Record<ProjectType, string> = {
 };
 
 export function briefTitle(brief: Brief) {
-  const offer = displayOfferLabel(brief.context?.offerId);
+  const offer = displayFocusedOfferLabel(brief.context?.offerId);
   if (offer) return offer;
   const purpose = displayPurposeLabel(brief.context?.purpose);
   const type = brief.projectType.value || "undecided";
@@ -185,7 +186,7 @@ const OFFER_STARTER_KEYS = [
 ] as const satisfies readonly BarbersSalonStarterKey[];
 
 function offerStarter(offerId: string | undefined) {
-  return offerId === BARBERS_SALONS_OFFER.id ? BARBERS_SALONS_OFFER.starter : undefined;
+  return offerId ? offerStarterById(offerId) : undefined;
 }
 
 export function applyOfferStarters(brief: Brief, offerId: string, previousOfferId = ""): Brief {
@@ -255,8 +256,9 @@ export function applyCommissionIntent(brief: Brief, intent: CommissionIntent): B
 }
 
 export function fieldLabel(key: BriefFieldKey, brief: Brief): string {
-  if (isBarbersSalonOffer(brief) && key in BARBERS_SALON_FIELD_LABELS) {
-    return BARBERS_SALON_FIELD_LABELS[key];
+  const offerLabels = focusedOfferFieldLabels(brief);
+  if (offerLabels && key in offerLabels && offerLabels[key]) {
+    return offerLabels[key];
   }
   if (!isCustomProjectRoute(brief) && !isFunctionalPurpose(brief.context?.purpose)) {
     return FIELD_LABELS[key];
@@ -282,8 +284,9 @@ export function fieldLabel(key: BriefFieldKey, brief: Brief): string {
 }
 
 export function fieldHint(key: BriefFieldKey, brief: Brief): string {
-  if (isBarbersSalonOffer(brief) && key in BARBERS_SALON_FIELD_HINTS) {
-    return BARBERS_SALON_FIELD_HINTS[key];
+  const offerHints = focusedOfferFieldHints(brief);
+  if (offerHints && key in offerHints && offerHints[key]) {
+    return offerHints[key];
   }
   if (!isCustomProjectRoute(brief) && !isFunctionalPurpose(brief.context?.purpose)) {
     if (key === "goals" && brief.projectType.value === "custom_apps_platforms") {
@@ -317,7 +320,7 @@ export function fieldHint(key: BriefFieldKey, brief: Brief): string {
 
 export function fieldsForStep(step: number, brief: Brief): BriefFieldKey[] {
   const functional = isCustomProjectRoute(brief) || isFunctionalPurpose(brief.context?.purpose);
-  const focusedOffer = isBarbersSalonOffer(brief);
+  const focusedOffer = isFocusedOffer(brief);
   switch (step) {
     case 1:
       return ["vision", "projectType"];
@@ -331,7 +334,9 @@ export function fieldsForStep(step: number, brief: Brief): BriefFieldKey[] {
     }
     case 4: {
       const fields: BriefFieldKey[] = ["goals"];
-      if (isBookingConnected(brief) || focusedOffer) fields.push("bookingProvider");
+      if (isBookingConnected(brief) || isBarbersSalonOffer(brief) || isCommerceOffer(brief)) {
+        fields.push("bookingProvider");
+      }
       fields.push("priorities", "timing", "budget", "constraints");
       return fields;
     }

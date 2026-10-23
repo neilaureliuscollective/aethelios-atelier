@@ -9,6 +9,7 @@ describe("atelierSurfaceForPath", () => {
     expect(atelierSurfaceForPath("/")).toBe("luminous");
     expect(atelierSurfaceForPath("/services")).toBe("luminous");
     expect(atelierSurfaceForPath("/services/barbers-salons")).toBe("luminous");
+    expect(atelierSurfaceForPath("/services/commerce")).toBe("luminous");
     expect(atelierSurfaceForPath("/discover")).toBe("luminous");
     expect(atelierSurfaceForPath("/account")).toBe("workroom");
   });

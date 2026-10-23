@@ -534,7 +534,7 @@ function ServiceScopeNote({ interest }: { interest: DiscoveryDraft["serviceInter
     interest === "custom_apps_platforms"
       ? "This preview still illustrates a website direction. A custom app or platform would be scoped separately with Neil — selecting this interest does not create a working app."
       : interest === "ecommerce_storefronts"
-        ? "This preview still illustrates a website direction. Commerce, inventory, and payments would be scoped separately — this is not a working storefront."
+        ? "This preview still illustrates a website direction. Atelier Commerce can source a first assortment and launch a storefront the client owns — this preview is not a working store."
         : interest === "digital_infrastructure"
           ? "This preview still illustrates a website direction. Infrastructure and operations would be scoped separately — this is not a running system."
           : "These previews illustrate a website direction. Neil would still confirm scope, systems, and whether a booking tool should be connected later.";

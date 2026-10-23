@@ -6,7 +6,7 @@ import {
   type CommissionContext
 } from "@/lib/commissionContext";
 import { exampleById } from "@/lib/customProjectExamples";
-import { displayOfferLabel } from "@/lib/offers/barbersSalons";
+import { displayFocusedOfferLabel } from "@/lib/offers/registry";
 import { displayShowcaseLabel } from "@/lib/work/fixItShop";
 import { BRIEF_FIELD_KEYS, type Brief, type BriefFieldKey } from "@/lib/types";
 
@@ -60,7 +60,7 @@ export function displayContextValue(key: ContextDiffKey, context: CommissionCont
       if (context.bookingNeeded === false) return "No";
       return "Not specified";
     case "offerId":
-      return displayOfferLabel(context.offerId) || (context.offerId ? context.offerId : "Not specified");
+      return displayFocusedOfferLabel(context.offerId) || (context.offerId ? context.offerId : "Not specified");
     case "showcaseId":
       return displayShowcaseLabel(context.showcaseId) || (context.showcaseId ? context.showcaseId : "Not specified");
   }

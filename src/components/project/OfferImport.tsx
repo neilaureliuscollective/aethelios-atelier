@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { fieldDecisionLabel, type FieldDecision } from "@/lib/copy";
-import { BARBERS_SALONS_OFFER, isBarbersSalonOffer } from "@/lib/offers/barbersSalons";
+import { isServiceOfferId } from "@/lib/offers/ids";
+import { isFocusedOffer, offerImportNotice } from "@/lib/offers/registry";
 import { applyOfferImportDecisions, dismissOfferImport, proposeOfferImport } from "@/lib/offers/intake";
 import { parseCommissionIntent } from "@/lib/commissionContext";
 import type { Brief, BriefFieldKey } from "@/lib/types";
@@ -34,7 +35,7 @@ export function OfferImport({
 
   const offerId = brief.context?.offerId || searchOffer;
   const proposal = useMemo(
-    () => (offerId === BARBERS_SALONS_OFFER.id ? proposeOfferImport(brief, BARBERS_SALONS_OFFER.id) : null),
+    () => (isServiceOfferId(offerId) ? proposeOfferImport(brief, offerId) : null),
     [brief, offerId]
   );
 
@@ -65,7 +66,7 @@ export function OfferImport({
       setMessage("Resolve the recovery comparison before changing imported offer details.");
       return;
     }
-    onApply(applyOfferImportDecisions(brief, decisions, BARBERS_SALONS_OFFER.id));
+    onApply(applyOfferImportDecisions(brief, decisions, isServiceOfferId(offerId) ? offerId : "barbers_salons"));
     setOpen(false);
     setMessage("Offer details updated on this brief. Review them before sending. Nothing was purchased or scheduled.");
   }
@@ -81,15 +82,14 @@ export function OfferImport({
     <aside className="surface-glass plan-interest" style={{ padding: 16, marginBottom: 18 }}>
       <p className="tiny">Focused offer</p>
       <p>
-        {proposal.title}. This is a request for a branded website connected to the booking system
-        already in use. It does not buy a plan or create an appointment.
+        {proposal.title}. {offerImportNotice(proposal.offerId)}
       </p>
       <p className="muted">
         Imported notes are offered for review. You can add them to existing wording, replace that
         wording, leave it unchanged, or dismiss the offer context.
       </p>
-      {isBarbersSalonOffer(brief) ? (
-        <p className="notice">This brief is marked as {BARBERS_SALONS_OFFER.title}.</p>
+      {isFocusedOffer(brief) ? (
+        <p className="notice">This brief is marked as {proposal.title}.</p>
       ) : (
         <p className="notice">Offer details are available to review. They have not overwritten this brief.</p>
       )}

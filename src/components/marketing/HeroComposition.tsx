@@ -1,5 +1,6 @@
 import { AppLink } from "@/components/ui/AppLink";
 import { DemoWebsite, DeviceFrame } from "@/components/marketing/DeviceFrame";
+import { ATELIER_COMMERCE_HREF } from "@/lib/offers/commerce";
 import { SERVICE_CATEGORY_COPY, serviceBriefHref } from "@/lib/serviceCategories";
 
 /** Dimensional product frame using a real website demonstration, not a screenshot of this UI. */
@@ -17,7 +18,7 @@ export function HeroComposition() {
         <AppLink className="chip chip-control" href={serviceBriefHref("custom_apps_platforms")}>
           {SERVICE_CATEGORY_COPY.custom_apps_platforms.title}
         </AppLink>
-        <AppLink className="chip chip-control" href={serviceBriefHref("ecommerce_storefronts")}>
+        <AppLink className="chip chip-control" href={ATELIER_COMMERCE_HREF}>
           {SERVICE_CATEGORY_COPY.ecommerce_storefronts.title}
         </AppLink>
         <AppLink className="chip chip-control" href={serviceBriefHref("digital_infrastructure")}>

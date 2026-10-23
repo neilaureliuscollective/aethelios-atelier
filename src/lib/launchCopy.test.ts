@@ -15,6 +15,8 @@ const CUSTOMER_FILES = [
   "src/app/error.tsx",
   "src/app/services/page.tsx",
   "src/app/services/barbers-salons/page.tsx",
+  "src/app/services/commerce/page.tsx",
+  "src/lib/offers/commerce.ts",
   "src/lib/offers/barbersSalons.ts",
   "src/components/project/OfferImport.tsx",
   "src/lib/catalog.ts",
@@ -69,10 +71,16 @@ describe("launch copy acceptance", () => {
     expect(showcase).toContain("serviceBriefHref");
     expect(services).toContain("serviceBriefHref");
     expect(services).toContain("/services/barbers-salons");
+    expect(services).toContain("/services/commerce");
     const barbers = readFileSync("src/app/services/barbers-salons/page.tsx", "utf8");
     expect(barbers).toContain('href={BARBERS_SALONS_BRIEF_HREF}');
     expect(barbers).toContain("Start my website brief");
     expect(barbers).not.toMatch(/\$79|20 minutes|two launch revision/i);
+    const commerce = readFileSync("src/app/services/commerce/page.tsx", "utf8");
+    expect(commerce).toContain("COMMERCE_LAUNCH_BRIEF_HREF");
+    expect(commerce).toContain("COMMERCE_FOUNDATION_BRIEF_HREF");
+    expect(commerce).toContain("Start a Commerce Launch brief");
+    expect(commerce).not.toMatch(/\$8,000|\$12,000|winning products/i);
     expect(serviceBriefHref("custom_apps_platforms")).toContain("purpose=business");
     expect(serviceBriefHref("digital_infrastructure")).toContain("purpose=business");
   });

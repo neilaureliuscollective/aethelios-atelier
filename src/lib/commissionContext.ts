@@ -1,4 +1,4 @@
-import { isServiceOfferId, type ServiceOfferId } from "@/lib/offers/ids";
+import { isCommerceOfferId, isServiceOfferId, type ServiceOfferId } from "@/lib/offers/ids";
 import { isShowcaseId, type ShowcaseId } from "@/lib/work/ids";
 
 export const COMMISSION_PURPOSES = [
@@ -196,7 +196,7 @@ export function parseCommissionIntent(params: { get(name: string): string | null
   if (!purpose && exampleId === "follow_up_workspace") purpose = "professional_workflow";
   if (!purpose && exampleId === "study_organizer") purpose = "study";
   if (!purpose && exampleId === "personal_tracker") purpose = "personal";
-  if (!purpose && offerId === "barbers_salons") purpose = "business";
+  if (!purpose && (offerId === "barbers_salons" || isCommerceOfferId(offerId))) purpose = "business";
 
   let route: CommissionRoute | "" = isCommissionRoute(routeRaw) ? routeRaw : "";
   if (!route && (isFunctionalPurpose(purpose) || exampleId)) route = "custom_project";
@@ -207,6 +207,7 @@ export function parseCommissionIntent(params: { get(name: string): string | null
   if (bookingRaw === "0" || bookingRaw === "false") bookingNeeded = false;
   if (interest === "booking_connected_website") bookingNeeded = true;
   if (offerId === "barbers_salons" && bookingNeeded == null) bookingNeeded = true;
+  if (isCommerceOfferId(offerId) && bookingNeeded == null) bookingNeeded = false;
 
   return {
     context: {
@@ -218,7 +219,9 @@ export function parseCommissionIntent(params: { get(name: string): string | null
       offerId,
       showcaseId
     },
-    projectType: interest || (offerId === "barbers_salons" ? "website" : undefined),
+    projectType:
+      interest ||
+      (offerId === "barbers_salons" ? "website" : isCommerceOfferId(offerId) ? "ecommerce_storefronts" : undefined),
     applyExampleStarter: Boolean(exampleId)
   };
 }
