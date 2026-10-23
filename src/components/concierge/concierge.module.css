@@ -749,6 +749,56 @@
   color: var(--concierge-muted);
 }
 
+.handoff,
+.handoffForm,
+.handoffReceipt {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(232, 213, 163, 0.14);
+}
+
+.handoffLead,
+.handoffReceipt p {
+  margin: 0 0 12px;
+  color: var(--concierge-ink);
+}
+
+.handoffForm {
+  display: grid;
+  gap: 12px;
+}
+
+.handoffForm label {
+  display: grid;
+  gap: 6px;
+  color: var(--concierge-muted);
+  font-size: 13px;
+}
+
+.handoffForm input {
+  width: 100%;
+  border: 1px solid rgba(232, 213, 163, 0.2);
+  border-radius: 12px;
+  background: rgba(8, 12, 11, 0.45);
+  color: var(--concierge-ink);
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.handoffActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.honey {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
 @keyframes orb-breathe {
   0%, 100% { transform: scale(1); filter: saturate(1); }
   50% { transform: scale(1.03); filter: saturate(1.12); }

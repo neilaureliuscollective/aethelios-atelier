@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { ConciergeHandoff } from "@/components/concierge/ConciergeHandoff";
 import { ConciergeOrb } from "@/components/concierge/ConciergeOrb";
 import { SlideView } from "@/components/concierge/SlideView";
 import { aetheliosDockVisible } from "@/lib/aethelios/presence";
@@ -95,6 +96,7 @@ export function AetheliosDock() {
               </button>
             ) : null}
           </form>
+          <ConciergeHandoff />
         </section>
       ) : null}
       <div className={styles.orbWrap}>

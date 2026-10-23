@@ -26,7 +26,7 @@ const inputSchema = z.object({
   email: z.string().trim().email().max(INQUIRY_LIMITS.email),
   business: z.string().trim().max(INQUIRY_LIMITS.business).optional().default(""),
   need: z.string().trim().min(8).max(INQUIRY_LIMITS.need),
-  source: z.enum(["brief", "inquire"]).default("inquire"),
+  source: z.enum(["brief", "inquire", "concierge"]).default("inquire"),
   consent: z.literal(true),
   honeypot: z.string().max(INQUIRY_LIMITS.honey).optional().default(""),
   brief: z.unknown().optional(),
