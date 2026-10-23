@@ -2,6 +2,7 @@
 
 import { DEFAULT_THEME } from "@/lib/concierge/slideField";
 import type { PresentationDocument, SitePreview } from "@/lib/concierge/types";
+import { ConciergeHandoff } from "./ConciergeHandoff";
 import { SitePreviewFrame } from "./SitePreviewFrame";
 import { SlideView } from "./SlideView";
 import styles from "./concierge.module.css";
@@ -24,10 +25,14 @@ export function PresentationCanvas({
     <div className={styles.canvasWrap}>
       <div className={styles.canvasHead}>
         <div>
-          <p className={styles.kicker}>Live canvas</p>
-          <h2>{document?.title ?? "Waiting for a business to describe"}</h2>
-          <p>{document?.thesis ?? "When you talk about the work, Aethelios composes a presentation here."}</p>
+          <p className={styles.kicker}>Live document</p>
+          <h2>{document?.title ?? "Your direction"}</h2>
+          <p>
+            {document?.thesis ??
+              "When you describe the business, Aethelios writes a document here. You can send it to Neil."}
+          </p>
         </div>
+        <ConciergeHandoff />
       </div>
       <div className={styles.stageFrame} data-theme={theme.mood} data-preview={preview ? "site" : "slides"}>
         <div className={styles.stageScale}>
@@ -40,9 +45,9 @@ export function PresentationCanvas({
               slide={{
                 id: "slide_composing",
                 layout: "hero",
-                kicker: "Aethelios · composing",
-                headline: "The room is assembling.",
-                subhead: "A live presentation is forming from what you said.",
+                kicker: "Aethelios · document",
+                headline: "A direction is being written.",
+                subhead: "Keep talking. This becomes a document you can send to Neil.",
                 enter: "fade",
                 emphasis: "headline"
               }}

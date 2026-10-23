@@ -141,6 +141,23 @@ function paintFallback(
   }
 }
 
+function preferCanvas2d() {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(pointer: coarse)").matches;
+}
+
+function webgl2WithAlpha(canvas: HTMLCanvasElement) {
+  const gl = canvas.getContext("webgl2", {
+    alpha: true,
+    antialias: false,
+    premultipliedAlpha: true,
+    powerPreference: "high-performance",
+    failIfMajorPerformanceCaveat: true
+  });
+  if (!gl || !gl.getContextAttributes()?.alpha) return null;
+  return gl;
+}
+
 export function ArchitectOrb({
   state,
   inputRef,
@@ -151,13 +168,23 @@ export function ArchitectOrb({
 }: ArchitectOrbProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stateRef = useRef(state);
-  const [backend, setBackend] = useState<"gl" | "canvas2d">("gl");
+  const paintedRef = useRef(false);
+  const [backend, setBackend] = useState<"gl" | "canvas2d">("canvas2d");
+  const [painted, setPainted] = useState(false);
 
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
 
   useEffect(() => {
+    if (preferCanvas2d()) return;
+    const probe = document.createElement("canvas");
+    if (webgl2WithAlpha(probe)) setBackend("gl");
+  }, []);
+
+  useEffect(() => {
+    paintedRef.current = false;
+    setPainted(false);
     const canvas = canvasRef.current;
     if (!canvas) return;
     const reducedMedia = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -168,15 +195,7 @@ export function ArchitectOrb({
     reducedMedia.addEventListener("change", onMotion);
 
     const use2d = backend === "canvas2d";
-    const gl = use2d
-      ? null
-      : canvas.getContext("webgl2", {
-          alpha: true,
-          antialias: false,
-          premultipliedAlpha: true,
-          powerPreference: "high-performance",
-          failIfMajorPerformanceCaveat: true
-        });
+    const gl = use2d ? null : webgl2WithAlpha(canvas);
     const mix: Record<keyof OrbStateMix, SpringValue> = {
       idle: { value: 1, vel: 0 },
       listen: { value: 0, vel: 0 },
@@ -240,6 +259,10 @@ export function ArchitectOrb({
           now / 1000,
           reduced
         );
+        if (!paintedRef.current) {
+          paintedRef.current = true;
+          setPainted(true);
+        }
         if (!reduced && visible) frame = window.requestAnimationFrame(draw);
       };
       if (reduced) draw(0);
@@ -316,6 +339,10 @@ export function ArchitectOrb({
       gl.uniform1f(uniforms.speak, mix.speak.value);
       gl.uniform1f(uniforms.reduced, reduced ? 1 : 0);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
+      if (!paintedRef.current) {
+        paintedRef.current = true;
+        setPainted(true);
+      }
       if (!reduced && visible) frame = window.requestAnimationFrame(draw);
     };
 
@@ -341,6 +368,8 @@ export function ArchitectOrb({
       className={`rta-orb${compact ? " is-compact" : ""}${className ? ` ${className}` : ""}`}
       width={640}
       height={640}
+      data-ready={painted ? "true" : "false"}
+      style={{ opacity: painted ? 1 : 0 }}
       role="img"
       aria-label={`${label} voice presence, ${state}`}
     />

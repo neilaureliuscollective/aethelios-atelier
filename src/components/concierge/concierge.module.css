@@ -223,10 +223,10 @@
 
 .orb {
   position: relative;
-  width: var(--orb-size, 280px);
-  height: var(--orb-size, 280px);
+  width: var(--orb-size, 268px);
+  height: var(--orb-size, 268px);
   border-radius: 50%;
-  overflow: visible;
+  overflow: hidden;
   transition: width 420ms ease, height 420ms ease, transform 420ms ease;
   box-shadow: none;
   background: transparent;
@@ -244,9 +244,9 @@
 }
 
 .stage[data-orb="hero"] .orb,
-.orb[data-size="hero"] { --orb-size: min(420px, 70vw); }
+.orb[data-size="hero"] { --orb-size: clamp(212px, 38vmin, 300px); }
 .stage[data-orb="docked"] .orb,
-.orb[data-size="docked"] { --orb-size: 72px; }
+.orb[data-size="docked"] { --orb-size: 88px; }
 
 .stage[data-workspace="listening"] .shell,
 .stage[data-workspace="idle"] .shell {
@@ -459,6 +459,7 @@
 }
 
 .stage[data-workspace="idle"] .canvasWrap,
+.stage[data-workspace="listening"] .canvasWrap,
 .stage[data-workspace="chat"] .canvasWrap {
   display: none;
 }
@@ -466,8 +467,18 @@
 .canvasHead {
   display: flex;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
   align-items: end;
+}
+
+.canvasHead .handoff,
+.canvasHead .handoffForm,
+.canvasHead .handoffReceipt {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+  max-width: 22rem;
 }
 
 .canvasHead h2 {

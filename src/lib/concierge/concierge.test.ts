@@ -108,6 +108,10 @@ describe("concierge homepage seating", () => {
     const css = readFileSync("src/components/concierge/concierge.module.css", "utf8");
     expect(css).toContain("perspective(720px)");
     expect(css).toContain("rotateX(58deg)");
+    expect(css).toContain("overflow: hidden");
+    expect(css).toContain("clamp(212px, 38vmin, 300px)");
+    expect(css).not.toContain("70vw");
+    expect(css).toMatch(/listening[\s\S]*canvasWrap[\s\S]*display: none/);
     expect(stage).not.toContain("colonnade.webp");
     expect(stage).not.toContain("Talk with Aethelios");
     expect(stage).not.toMatch(/btn-gold/);
@@ -135,6 +139,13 @@ describe("concierge homepage seating", () => {
     expect(architect).toContain('setBackend("canvas2d")');
     expect(architect).toContain("failIfMajorPerformanceCaveat");
     expect(architect).toContain("webglcontextlost");
+    expect(architect).toContain("getContextAttributes");
+    expect(architect).toContain("pointer: coarse");
+    expect(architect).toContain('data-ready');
+    const canvas = readFileSync("src/components/concierge/PresentationCanvas.tsx", "utf8");
+    expect(canvas).toContain("ConciergeHandoff");
+    expect(canvas).toContain("Live document");
+    expect(canvas).not.toContain("The room is assembling.");
     const transcribe = readFileSync("src/lib/concierge/transcribe.ts", "utf8");
     expect(transcribe).toContain("gpt-transcribe");
     expect(transcribe).toContain("whisper-1");
