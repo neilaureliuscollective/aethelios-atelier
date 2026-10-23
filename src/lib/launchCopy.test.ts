@@ -6,6 +6,7 @@ import { serviceBriefHref } from "@/lib/serviceCategories";
 
 const CUSTOMER_FILES = [
   "src/app/page.tsx",
+  "src/components/marketing/AtelierManifesto.tsx",
   "src/components/concierge/ConciergeStage.tsx",
   "src/components/aethelios/AetheliosDock.tsx",
   "src/lib/concierge/compose.ts",

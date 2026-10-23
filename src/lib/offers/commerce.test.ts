@@ -16,6 +16,7 @@ const PUBLIC_SURFACES = [
   "src/app/services/commerce/page.tsx",
   "src/app/services/page.tsx",
   "src/app/page.tsx",
+  "src/components/marketing/AtelierManifesto.tsx",
   "src/lib/offers/commerce.ts",
   "src/lib/catalog.ts",
   "src/components/project/OfferImport.tsx",
