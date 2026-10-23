@@ -254,7 +254,7 @@ describe("discovery selection", () => {
     expect(hasVisitorAnswers(sample)).toBe(true);
     expect(sample.activeDirectionId).toBe("hearth");
     expect(sample.paletteId).toBe("hearth_linen");
-    expect(sample.businessName).toBe("Northridge");
+    expect(sample.businessName).toBe("Coteau Field");
     const kept = createDraft({ businessName: "Meridian Sitting Room" });
     expect(hasVisitorAnswers(kept)).toBe(true);
   });

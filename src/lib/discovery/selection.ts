@@ -45,14 +45,14 @@ export function hasVisitorAnswers(draft: DiscoveryDraft): boolean {
 
 export function createSampleExplorationDraft(): DiscoveryDraft {
   return createDraft({
-    businessName: "Northridge",
+    businessName: "Coteau Field",
     businessType: "independent",
     intent: "clearer_presence",
-    intentNote: "A public presence for a custom home studio.",
-    audience: "People looking for a timber home that belongs to its land.",
+    intentNote: "A public presence for a Lafayette custom-home builder.",
+    audience: "Families building in Lafayette, Youngsville, and the parish.",
     customerFeeling: "grounded",
     qualities: ["refined", "grounded"],
-    headline: "Homes in harmony with place",
+    headline: "Homes built for this parish.",
     activeDirectionId: "hearth",
     paletteId: "hearth_linen",
     visualDirectionId: "material",

@@ -62,7 +62,7 @@ describe("discovery experience elevation contracts", () => {
     const empty = createDraft();
     const applied = resolveSampleVisit(empty, null);
     expect(applied.applied).toBe(true);
-    expect(applied.draft.businessName).toBe("Northridge");
+    expect(applied.draft.businessName).toBe("Coteau Field");
     expect(hasVisitorAnswers(applied.draft)).toBe(true);
 
     const visitor = createDraft({ businessName: "Meridian Sitting Room" });
@@ -146,7 +146,7 @@ describe("discovery experience elevation contracts", () => {
 
   it("does not treat the labeled sample as a live generated client project", () => {
     const sample = createSampleExplorationDraft();
-    expect(sample.businessName).toBe("Northridge");
+    expect(sample.businessName).toBe("Coteau Field");
     expect(sample.businessName.toLowerCase()).not.toContain("lifestyle");
     expect(sample.businessName.toLowerCase()).not.toContain("aethelios");
     const entrance = readOwned("src/components/discovery/Entrance.tsx");
