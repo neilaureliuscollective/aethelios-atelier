@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import { usePathname } from "next/navigation";
+import { ConciergeHandoff } from "@/components/concierge/ConciergeHandoff";
 import { ConciergeOrb } from "@/components/concierge/ConciergeOrb";
 import { SlideView } from "@/components/concierge/SlideView";
 import { useOrbVoice } from "@/components/concierge/useOrbVoice";
@@ -109,6 +110,7 @@ export function AetheliosDock() {
               </button>
             ) : null}
           </form>
+          <ConciergeHandoff />
         </section>
       ) : null}
       <div className={styles.orbWrap}>

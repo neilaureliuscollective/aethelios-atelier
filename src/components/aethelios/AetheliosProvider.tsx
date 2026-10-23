@@ -10,6 +10,7 @@ import { INTELLIGENCE_DISPLAY_NAME } from "@/lib/copy";
 export type AetheliosMessage = { id: string; role: "user" | "assistant"; body: string };
 
 type AetheliosValue = {
+  sessionId: string;
   messages: AetheliosMessage[];
   document: PresentationDocument | null;
   preview: SitePreview | null;
@@ -38,6 +39,10 @@ export function useAethelios() {
 }
 
 export function AetheliosProvider({ children }: { children: ReactNode }) {
+  const sessionId = useMemo(
+    () => (typeof crypto !== "undefined" && crypto.randomUUID ? `talk_${crypto.randomUUID()}` : `talk_${Date.now()}`),
+    []
+  );
   const [messages, setMessages] = useState<AetheliosMessage[]>([]);
   const [document, setDocument] = useState<PresentationDocument | null>(null);
   const [preview, setPreview] = useState<SitePreview | null>(null);
@@ -140,6 +145,7 @@ export function AetheliosProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(
     () => ({
+      sessionId,
       messages,
       document,
       preview,
@@ -156,7 +162,7 @@ export function AetheliosProvider({ children }: { children: ReactNode }) {
       send,
       abort
     }),
-    [abort, document, error, input, messages, orbState, panelOpen, pending, preview, send, slideIndex, streaming]
+    [abort, document, error, input, messages, orbState, panelOpen, pending, preview, send, sessionId, slideIndex, streaming]
   );
 
   return <AetheliosContext.Provider value={value}>{children}</AetheliosContext.Provider>;

@@ -1,6 +1,6 @@
 import type { InquiryBriefLine } from "@/lib/inquiry/summary";
 
-export type InquirySource = "brief" | "inquire";
+export type InquirySource = "brief" | "inquire" | "concierge";
 
 export type InquiryDeliveryKind = "email" | "capture";
 

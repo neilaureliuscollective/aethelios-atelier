@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useAethelios } from "@/components/aethelios/AetheliosProvider";
 import { INTELLIGENCE_DISPLAY_NAME } from "@/lib/copy";
+import { ConciergeHandoff } from "./ConciergeHandoff";
 import { ConciergeOrb } from "./ConciergeOrb";
 import { PresentationCanvas } from "./PresentationCanvas";
 import { StageAtmosphere } from "./StageAtmosphere";
@@ -241,6 +242,7 @@ export function ConciergeStage() {
                   />
                   {voice.error || error ? <p className="notice notice-warn">{voice.error || error}</p> : null}
                 </form>
+                <ConciergeHandoff />
               </div>
             </div>
           )}
