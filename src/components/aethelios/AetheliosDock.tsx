@@ -112,7 +112,7 @@ export function AetheliosDock() {
         </section>
       ) : null}
       <div className={styles.orbWrap}>
-        <audio ref={voice.audioRef} autoPlay playsInline hidden />
+        <audio ref={voice.audioRef} autoPlay playsInline className={styles.voiceOut} />
         <ConciergeOrb
           size="docked"
           liveLevelRef={voice.levelRef}

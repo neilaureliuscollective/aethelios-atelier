@@ -16,6 +16,62 @@ function extractSpokenText(payload: { type?: string; transcript?: string; delta?
   return payload.transcript ?? payload.delta ?? "";
 }
 
+function unlockSpokenAudio(audio: HTMLAudioElement | null) {
+  if (!audio) return;
+  audio.muted = false;
+  audio.volume = 1;
+  audio.setAttribute("playsinline", "true");
+  audio.setAttribute("webkit-playsinline", "true");
+  void audio.play().catch(() => undefined);
+}
+
+function waitForIce(peer: RTCPeerConnection, timeoutMs = 2500) {
+  return new Promise<void>((resolve) => {
+    if (peer.iceGatheringState === "complete") {
+      resolve();
+      return;
+    }
+    const finish = () => {
+      peer.removeEventListener("icegatheringstatechange", onState);
+      window.clearTimeout(timer);
+      resolve();
+    };
+    const onState = () => {
+      if (peer.iceGatheringState === "complete") finish();
+    };
+    const timer = window.setTimeout(finish, timeoutMs);
+    peer.addEventListener("icegatheringstatechange", onState);
+  });
+}
+
+function askOrbToSpeak(channel: RTCDataChannel) {
+  const greet = () => {
+    if (channel.readyState !== "open") return;
+    channel.send(
+      JSON.stringify({
+        type: "session.update",
+        session: {
+          modalities: ["audio", "text"],
+          turn_detection: { type: "server_vad", create_response: true, interrupt_response: true },
+          input_audio_transcription: { model: "whisper-1" }
+        }
+      })
+    );
+    channel.send(
+      JSON.stringify({
+        type: "response.create",
+        response: {
+          modalities: ["audio", "text"],
+          instructions:
+            "Speak first. Greet them in one short spoken sentence and invite them to tell you about their business."
+        }
+      })
+    );
+  };
+  if (channel.readyState === "open") greet();
+  else channel.addEventListener("open", greet, { once: true });
+}
+
 export function useOrbVoice(options?: { onHeard?: (text: string) => void }) {
   const [phase, setPhase] = useState<SpokenPhase>("idle");
   const [error, setError] = useState("");
@@ -124,9 +180,7 @@ export function useOrbVoice(options?: { onHeard?: (text: string) => void }) {
     generationRef.current = generation;
     setError("");
     setPhase("starting");
-    if (audioRef.current) {
-      void audioRef.current.play().catch(() => undefined);
-    }
+    unlockSpokenAudio(audioRef.current);
     try {
       if (!navigator.mediaDevices?.getUserMedia || typeof RTCPeerConnection === "undefined") {
         throw new Error("This browser cannot hold a live spoken conversation. Type instead.");
@@ -145,15 +199,30 @@ export function useOrbVoice(options?: { onHeard?: (text: string) => void }) {
       remoteRef.current = remote;
       if (audioRef.current) {
         audioRef.current.srcObject = remote;
-        void audioRef.current.play().catch(() => undefined);
+        unlockSpokenAudio(audioRef.current);
       }
       peer.ontrack = (event) => {
         if (generationRef.current !== generation) return;
-        event.streams[0]?.getTracks().forEach((track) => remote.addTrack(track));
-        if (event.track) remote.addTrack(event.track);
+        const incoming = event.streams[0];
+        if (incoming) {
+          remoteRef.current = incoming;
+          if (audioRef.current) {
+            audioRef.current.srcObject = incoming;
+            unlockSpokenAudio(audioRef.current);
+          }
+          return;
+        }
+        if (event.track && !remote.getTracks().includes(event.track)) {
+          remote.addTrack(event.track);
+          if (audioRef.current) {
+            audioRef.current.srcObject = remote;
+            unlockSpokenAudio(audioRef.current);
+          }
+        }
       };
       const channel = peer.createDataChannel("oai-events");
       channelRef.current = channel;
+      askOrbToSpeak(channel);
       channel.onmessage = (event) => {
         if (generationRef.current !== generation) return;
         try {
@@ -178,19 +247,7 @@ export function useOrbVoice(options?: { onHeard?: (text: string) => void }) {
         return;
       }
       await peer.setLocalDescription(offer);
-      await new Promise<void>((resolve) => {
-        if (peer.iceGatheringState === "complete") {
-          resolve();
-          return;
-        }
-        const onState = () => {
-          if (peer.iceGatheringState === "complete") {
-            peer.removeEventListener("icegatheringstatechange", onState);
-            resolve();
-          }
-        };
-        peer.addEventListener("icegatheringstatechange", onState);
-      });
+      await waitForIce(peer);
       if (generationRef.current !== generation) {
         cleanup();
         return;
@@ -209,7 +266,8 @@ export function useOrbVoice(options?: { onHeard?: (text: string) => void }) {
         return;
       }
       await peer.setRemoteDescription({ type: "answer", sdp: data.sdp });
-      watchLevels(stream, remote);
+      unlockSpokenAudio(audioRef.current);
+      watchLevels(stream, remoteRef.current ?? remote);
       setPhase("listening");
     } catch (err) {
       if (generationRef.current === generation) {

@@ -130,7 +130,7 @@ export function ConciergeStage() {
 
         <div className={styles.left}>
           <div className={styles.orbDock}>
-            <audio ref={voice.audioRef} autoPlay playsInline hidden />
+            <audio ref={voice.audioRef} autoPlay playsInline className={styles.voiceOut} />
             <ConciergeOrb
               size={orbSize}
               liveLevelRef={voice.levelRef}

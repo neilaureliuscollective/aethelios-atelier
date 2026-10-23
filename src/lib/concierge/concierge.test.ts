@@ -115,6 +115,8 @@ describe("concierge homepage seating", () => {
     expect(voice).toContain("getUserMedia");
     expect(voice).toContain("RTCPeerConnection");
     expect(voice).toContain("/api/concierge/voice");
+    expect(voice).toContain("response.create");
+    expect(voice).toContain("Speak first");
     expect(voice).not.toContain("SpeechRecognition");
     expect(voice).not.toContain("webkitSpeechRecognition");
     const session = readFileSync("src/lib/concierge/voiceSession.ts", "utf8");

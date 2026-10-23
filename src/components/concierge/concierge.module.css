@@ -153,10 +153,19 @@
 }
 
 .orbDock {
+  position: relative;
   display: grid;
   justify-items: center;
   align-content: center;
   gap: 14px;
+}
+
+.voiceOut {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0.01;
+  pointer-events: none;
 }
 
 .stage[data-workspace="chat"] .orbDock,
