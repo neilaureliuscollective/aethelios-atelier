@@ -28,9 +28,10 @@ const schema = z.object({
   publicOrigin: z.string().optional().default(""),
   openAiEnabled: z.string().optional().default("false"),
   openAiKey: z.string().optional().default(""),
-  openAiModel: z.string().default("gpt-4o-mini"),
+  openAiModel: z.string().default("gpt-6.1-sol"),
+  openAiCodeModel: z.string().default("gpt-6-astra"),
   openAiTimeoutMs: z.coerce.number().int().positive().default(25_000),
-  openAiMaxOutputTokens: z.coerce.number().int().positive().default(900),
+  openAiMaxOutputTokens: z.coerce.number().int().positive().default(16_000),
   openAiDailyLimit: z.coerce.number().int().positive().default(24),
   billingEnabled: z.string().optional().default("false")
 });
@@ -101,9 +102,10 @@ function readEnv() {
           : ""),
     openAiEnabled: process.env.ATELIER_OPENAI_ENABLED ?? "false",
     openAiKey: process.env.OPENAI_API_KEY ?? "",
-    openAiModel: process.env.OPENAI_MODEL ?? "gpt-4o-mini",
+    openAiModel: process.env.OPENAI_MODEL ?? "gpt-6.1-sol",
+    openAiCodeModel: process.env.OPENAI_CODE_MODEL ?? "gpt-6-astra",
     openAiTimeoutMs: process.env.ATELIER_OPENAI_TIMEOUT_MS ?? "25000",
-    openAiMaxOutputTokens: process.env.ATELIER_OPENAI_MAX_OUTPUT_TOKENS ?? "900",
+    openAiMaxOutputTokens: process.env.ATELIER_OPENAI_MAX_OUTPUT_TOKENS ?? "16000",
     openAiDailyLimit: process.env.ATELIER_OPENAI_DAILY_LIMIT_PER_PROJECT ?? "24",
     billingEnabled: process.env.ATELIER_BILLING_ENABLED ?? "false"
   });

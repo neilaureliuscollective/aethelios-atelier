@@ -4,6 +4,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { usePathname, useRouter } from "next/navigation";
 import { atelierSurfaceForPath } from "@/lib/atelierSurface";
 import type { Route } from "next";
+import { AetheliosDock } from "@/components/aethelios/AetheliosDock";
+import { AetheliosProvider } from "@/components/aethelios/AetheliosProvider";
 import { SiteHeader } from "@/components/shell/SiteHeader";
 import { SiteFooter } from "@/components/shell/SiteFooter";
 import { SimulatedBanner } from "@/components/shell/SimulatedBanner";
@@ -90,13 +92,16 @@ export function SessionShell({ children }: { children: React.ReactNode }) {
 
   return (
     <SessionContext.Provider value={value}>
-      <div className="app-root" data-surface={surface}>
-        <div className="atmosphere" aria-hidden="true" />
-        {auth ? <SimulatedBanner auth={auth} user={user} /> : null}
-        <SiteHeader user={user} />
-        <main id="main">{children}</main>
-        <SiteFooter />
-      </div>
+      <AetheliosProvider>
+        <div className="app-root" data-surface={surface}>
+          <div className="atmosphere" aria-hidden="true" />
+          {auth ? <SimulatedBanner auth={auth} user={user} /> : null}
+          <SiteHeader user={user} />
+          <main id="main">{children}</main>
+          <SiteFooter />
+          <AetheliosDock />
+        </div>
+      </AetheliosProvider>
     </SessionContext.Provider>
   );
 }

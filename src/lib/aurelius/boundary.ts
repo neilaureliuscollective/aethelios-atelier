@@ -4,7 +4,7 @@ import { aureliusSystemPrompt } from "@/lib/aurelius/instructions";
 import {
   addUnresolvedQuestionSchema,
   proposeBriefUpdateSchema,
-  TOOL_DEFINITIONS
+  RESPONSE_TOOL_DEFINITIONS
 } from "@/lib/aurelius/tools";
 import { SERVICE_CATALOG } from "@/lib/catalog";
 import { INTELLIGENCE_DISPLAY_NAME } from "@/lib/copy";
@@ -140,57 +140,63 @@ export class AureliusBoundary {
     };
 
     try {
-      const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-        { role: "system", content: aureliusSystemPrompt() },
-        {
-          role: "system",
-          content: `Authorized project ${input.project.id}. Durable brief:\n${JSON.stringify(
-            briefForModel(input.project.brief)
-          )}${await this.authorizedBusinessNote(input.project)}`
-        },
-        ...history.map((item) => ({
-          role: (item.authorKind === "client" ? "user" : "assistant") as "user" | "assistant",
-          content: item.body
-        }))
-      ];
+      const startingInput: Array<Record<string, unknown>> = history.map((item) => ({
+        role: item.authorKind === "client" ? "user" : "assistant",
+        content: item.body
+      }));
+      const instructions = [
+        aureliusSystemPrompt(),
+        `Authorized project ${input.project.id}. Durable brief:\n${JSON.stringify(
+          briefForModel(input.project.brief)
+        )}${await this.authorizedBusinessNote(input.project)}`
+      ].join("\n\n");
 
-      let completion = await client.chat.completions.create(
-        {
-          model: config.openAiModel,
-          temperature: 0.4,
-          max_tokens: config.openAiMaxOutputTokens,
-          tools: TOOL_DEFINITIONS,
-          messages
-        },
-        { signal: input.signal }
-      );
+      let previousResponseId: string | undefined;
+      let pendingOutputs: Array<{ type: "function_call_output"; call_id: string; output: string }> = [];
+      let pendingFunctionCalls: Array<Record<string, unknown>> = [];
+      let text = "";
 
       for (let hop = 0; hop < 4; hop += 1) {
-        const msg = completion.choices[0]?.message;
-        if (!msg?.tool_calls?.length) break;
-        messages.push(msg);
-        for (const call of msg.tool_calls) {
-          const output = await runTools(call.function.name, call.function.arguments);
-          messages.push({
-            role: "tool",
-            tool_call_id: call.id,
-            content: output
-          });
-        }
-        completion = await client.chat.completions.create(
+        const continuation =
+          hop === 0
+            ? { input: startingInput }
+            : previousResponseId
+              ? { previous_response_id: previousResponseId, input: pendingOutputs }
+              : { input: [...pendingFunctionCalls, ...pendingOutputs] };
+        const response = await client.responses.create(
           {
             model: config.openAiModel,
-            temperature: 0.4,
-            max_tokens: config.openAiMaxOutputTokens,
-            tools: TOOL_DEFINITIONS,
-            messages
-          },
+            instructions,
+            tools: RESPONSE_TOOL_DEFINITIONS,
+            reasoning: { effort: "low" },
+            ...continuation
+          } as never,
           { signal: input.signal }
         );
+        const typed = response as {
+          id?: string;
+          output_text?: string;
+          output?: Array<{ type?: string; name?: string; arguments?: string; call_id?: string }>;
+        };
+        if (typed.id) previousResponseId = typed.id;
+        if (typed.output_text?.trim()) text = typed.output_text.trim();
+        const calls = (typed.output ?? []).filter((item) => item.type === "function_call" && item.name);
+        if (!calls.length) break;
+        pendingOutputs = [];
+        pendingFunctionCalls = [];
+        for (const call of calls) {
+          const output = await runTools(call.name ?? "", call.arguments ?? "{}");
+          pendingOutputs.push({
+            type: "function_call_output",
+            call_id: call.call_id ?? call.name ?? "tool",
+            output
+          });
+          pendingFunctionCalls.push(call);
+        }
       }
 
-      const text =
-        completion.choices[0]?.message?.content?.trim() ||
+      text =
+        text ||
         "I captured that. Review the living brief — suggestions stay pending until you accept them.";
       const saved = await this.store.addMessage({
         id: `msg_${crypto.randomUUID()}`,

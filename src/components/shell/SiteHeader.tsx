@@ -46,6 +46,7 @@ export function SiteHeader({ user }: { user: User | null }) {
   const [open, setOpen] = useState(false);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const companion = pathname.startsWith("/companion");
+  const home = pathname === "/";
   const compact =
     companion ||
     pathname.startsWith("/project") ||
@@ -133,7 +134,7 @@ export function SiteHeader({ user }: { user: User | null }) {
               Public site
             </AppLink>
           ) : null}
-          {!compact ? (
+          {!compact && !home ? (
             <AppLink className="btn btn-gold" href={user ? "/project/new" : "/project"}>
               Begin your project
             </AppLink>
