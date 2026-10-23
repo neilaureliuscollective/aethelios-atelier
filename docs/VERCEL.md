@@ -52,8 +52,8 @@ Public pages run without these. Set them when you want hosted persistence:
 | `ATELIER_OPENAI_ENABLED` | `false` until spend is authorized |
 | `ATELIER_BILLING_ENABLED` | `false` |
 | `ATELIER_PUBLIC_ORIGIN` | Canonical `https://` origin once the domain is assigned |
-| `ATELIER_INQUIRY_TO` | Real inbox that should receive guest inquiries |
-| `AUTH_RESEND_KEY` / `AUTH_RESEND_FROM` | Required for the site to send inquiries directly |
+| `ATELIER_INQUIRY_TO` | Real inbox that should receive guest inquiries. On Resend’s free test domain this must be the same email used to create the Resend account. |
+| `AUTH_RESEND_KEY` / `AUTH_RESEND_FROM` | Required for the site to send inquiries directly. Without a purchased domain, `AUTH_RESEND_FROM` must be exactly `Aethelios Atelier <beth.t@example.com>`. |
 
 Do **not** set on Vercel:
 

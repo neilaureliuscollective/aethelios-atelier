@@ -42,7 +42,7 @@ export type InquiryAccepted = {
 
 export type InquiryUnavailable = {
   ok: false;
-  error: "unconfigured";
+  error: "unconfigured" | "delivery_failed";
   message: string;
   mailto?: string;
 };

@@ -9,6 +9,7 @@ import {
   resolveInquiryDelivery
 } from "@/lib/inquiry/destination";
 import { inquiryRateLimited, resetInquiryRateLimitForTests } from "@/lib/inquiry/rateLimit";
+import { explainResendFailure } from "@/lib/inquiry/send";
 import { resetInquiryServiceForTests, submitInquiry } from "@/lib/inquiry/service";
 import { formatInquiryText, summarizeBrief } from "@/lib/inquiry/summary";
 
@@ -122,6 +123,43 @@ describe("inquiry submission", () => {
     if (!result.ok) {
       expect(result.mailto).toMatch(/^mailto:neil%40stutes\.co\?/);
       expect(result.mailto).toContain("Need+a+storefront");
+    }
+  });
+
+  it("maps Resend testing-mode failures without leaking the raw body", () => {
+    expect(
+      explainResendFailure(403, JSON.stringify({ message: "You can only send testing emails to your own email address." }))
+    ).toMatch(/same email/i);
+    expect(explainResendFailure(401, "Invalid API key")).toMatch(/API key/i);
+    expect(explainResendFailure(422, "Invalid from field")).toMatch(/beth.t@example.com/);
+    expect(explainResendFailure(500, "secret token re_abc")).not.toContain("re_abc");
+  });
+
+  it("offers mailto when Resend rejects a hosted send", async () => {
+    process.env.VERCEL = "1";
+    process.env.ATELIER_INQUIRY_TO = "neil@stutes.co";
+    process.env.AUTH_RESEND_KEY = "re_test";
+    process.env.AUTH_RESEND_FROM = "Aethelios Atelier <beth.t@example.com>";
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ message: "You can only send testing emails to your own email address." }), {
+        status: 403
+      })) as typeof fetch;
+    try {
+      const result = await submitInquiry({
+        name: "Ada Lovelace",
+        email: "ada@client.test",
+        need: "Need a storefront that stays honest.",
+        source: "inquire",
+        consent: true
+      });
+      expect(result).toMatchObject({ ok: false, error: "delivery_failed" });
+      if (!result.ok) {
+        expect(result.message).toMatch(/same email/i);
+        expect(result.mailto).toMatch(/^mailto:neil%40stutes\.co\?/);
+      }
+    } finally {
+      globalThis.fetch = originalFetch;
     }
   });
 
