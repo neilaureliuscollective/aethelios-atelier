@@ -381,10 +381,15 @@
 
 .messages {
   overflow: auto;
+  overscroll-behavior: contain;
   display: grid;
   gap: 10px;
   align-content: start;
   min-height: 140px;
+  /* A fixed window: a long spoken conversation scrolls here instead of growing the page. */
+  max-height: min(46vh, 440px);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(226, 201, 136, 0.3) transparent;
 }
 
 .bubble {
@@ -1032,6 +1037,8 @@
 
 .caption {
   max-width: 34rem;
+  /* Reserve three lines so each new turn never shifts the page. */
+  min-height: calc(1.5em * 3);
   margin: 4px auto 0;
   font-size: 15px;
   line-height: 1.5;

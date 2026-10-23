@@ -3,8 +3,9 @@ precision highp float;
 layout(location = 0) in vec4 a_particle;
 uniform vec2 u_res;
 uniform float u_time;
-uniform float u_input;
-uniform float u_output;
+uniform float u_spin;
+uniform float u_wave;
+uniform float u_energy;
 uniform float u_listen;
 uniform float u_think;
 uniform float u_speak;
@@ -13,24 +14,26 @@ out float v_depth;
 out float v_gold;
 out float v_alpha;
 
+// Spin and wave arrive already integrated (phase += speed * dt on the CPU),
+// so voice energy changes the pace of the swirl without ever snapping it.
 void main() {
   vec3 p = a_particle.xyz;
   float seed = a_particle.w;
-  float energy = u_speak * 1.1 + u_output * 0.95 + u_input * 0.8;
-  float speed = 0.42 + energy * 1.15;
-  float band = p.y * 2.4 + sin(p.y * 7.4 + u_time * (1.05 + energy * 1.6)) * (0.24 + energy * 0.2);
-  float angle = u_reduced > 0.5 ? p.y * 2.2 : u_time * speed + band;
+  float energy = u_energy;
+  float band = p.y * 2.4 + sin(p.y * 7.4 + u_wave) * (0.22 + energy * 0.06);
+  float angle = u_reduced > 0.5 ? p.y * 2.2 : u_spin + band;
   float c = cos(angle);
   float s = sin(angle);
-  float lift = sin(u_time * 1.15 + p.y * 3.1) * (0.014 + energy * 0.03);
+  float lift = u_reduced > 0.5 ? 0.0 : sin(u_time * 1.15 + p.y * 3.1) * (0.012 + energy * 0.012);
   vec3 q = vec3(p.x * c - p.z * s, p.y + lift, p.x * s + p.z * c);
-  float breath = u_reduced > 0.5 ? 0.0 : 0.03 * sin(u_time * 0.9);
-  float radius = 0.86 + breath + u_output * 0.08 + u_input * 0.06 + u_speak * 0.05 - u_think * 0.03;
+  float breath = u_reduced > 0.5 ? 0.0 : 0.018 * sin(u_time * 0.8);
+  float ripple = u_reduced > 0.5 ? 0.0 : sin(q.y * 4.2 - u_wave * 1.4) * energy * 0.016;
+  float radius = 0.84 + breath + energy * 0.045 + ripple - u_think * 0.03;
   q *= radius;
   v_depth = clamp(q.z * 0.5 + 0.5, 0.0, 1.0);
-  v_gold = clamp(1.0 - abs(q.y) / 0.09, 0.0, 1.0);
-  float rim = u_listen * u_input * clamp(abs(q.y) * 1.4, 0.0, 1.0);
-  v_alpha = 0.12 + v_depth * 0.7 + v_gold * 0.22 + u_speak * u_output * 0.14 + rim * 0.22;
+  v_gold = clamp(1.0 - abs(q.y) / (0.085 + energy * 0.02), 0.0, 1.0);
+  float rim = u_listen * energy * clamp(abs(q.y) * 1.4, 0.0, 1.0);
+  v_alpha = 0.12 + v_depth * 0.7 + v_gold * (0.22 + energy * 0.12) + u_speak * energy * 0.1 + rim * 0.16;
   gl_Position = vec4(q.x, q.y, 0.0, 1.0);
   gl_PointSize = max(1.0, (1.1 + v_depth * 2.2 + v_gold * 0.8 + seed * 0.4) * (u_res.y / 520.0));
 }

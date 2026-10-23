@@ -16,7 +16,6 @@ export type AetheliosVoice = {
   phase: SpokenPhase;
   error: string;
   ready: boolean | null;
-  hearing: boolean;
   levelRef: { current: number };
   inputLevelRef: { current: number };
   outputLevelRef: { current: number };
@@ -210,14 +209,13 @@ export function AetheliosProvider({ children }: { children: ReactNode }) {
       phase: engine.phase,
       error: engine.error,
       ready: engine.ready,
-      hearing: engine.hearing,
       levelRef: engine.levelRef,
       inputLevelRef: engine.inputLevelRef,
       outputLevelRef: engine.outputLevelRef,
       start: engine.start,
       stop: stopVoice
     }),
-    [engine.error, engine.hearing, engine.inputLevelRef, engine.levelRef, engine.outputLevelRef, engine.phase, engine.ready, engine.start, stopVoice]
+    [engine.error, engine.inputLevelRef, engine.levelRef, engine.outputLevelRef, engine.phase, engine.ready, engine.start, stopVoice]
   );
 
   const orbState: OrbState = pending ? (document ? "composing" : "thinking") : panelOpen ? "listening" : "idle";
