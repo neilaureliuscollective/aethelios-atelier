@@ -104,5 +104,18 @@ describe("concierge homepage seating", () => {
     expect(stage).not.toContain("colonnade.webp");
     expect(stage).not.toContain("Talk with Aethelios");
     expect(stage).not.toMatch(/btn-gold/);
+    expect(stage).toContain("useOrbTranscription");
+    expect(stage).not.toContain("SpeechRecognition");
+    expect(stage).not.toContain("webkitSpeechRecognition");
+    const voice = readFileSync("src/components/concierge/useOrbTranscription.ts", "utf8");
+    expect(voice).toContain("getUserMedia");
+    expect(voice).toContain("/api/concierge/transcribe");
+    expect(voice).not.toContain("SpeechRecognition");
+    expect(voice).not.toContain("webkitSpeechRecognition");
+    const transcribe = readFileSync("src/lib/concierge/transcribe.ts", "utf8");
+    expect(transcribe).toContain("whisper-1");
+    expect(transcribe).toContain("readOpenAiApiKey");
+    expect(transcribe).not.toContain("ATELIER_OPENAI_ENABLED");
+    expect(transcribe).not.toContain("aureliusStatus");
   });
 });

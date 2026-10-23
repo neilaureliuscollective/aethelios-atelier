@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { ConciergeOrb } from "@/components/concierge/ConciergeOrb";
 import { SlideView } from "@/components/concierge/SlideView";
+import { appendTranscript, useOrbTranscription } from "@/components/concierge/useOrbTranscription";
 import { aetheliosDockVisible } from "@/lib/aethelios/presence";
 import { INTELLIGENCE_DISPLAY_NAME } from "@/lib/copy";
 import { useAethelios } from "./AetheliosProvider";
@@ -25,6 +26,8 @@ export function AetheliosDock() {
     send,
     abort
   } = useAethelios();
+  const voice = useOrbTranscription();
+  const voiceListening = voice.phase === "starting" || voice.phase === "recording";
 
   if (!aetheliosDockVisible(pathname)) return null;
 
@@ -72,6 +75,7 @@ export function AetheliosDock() {
             className={styles.composer}
             onSubmit={(event) => {
               event.preventDefault();
+              if (voiceListening || voice.phase === "transcribing") voice.cancel();
               void send(input);
             }}
           >
@@ -83,12 +87,13 @@ export function AetheliosDock() {
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey) {
                   event.preventDefault();
+                  if (voiceListening || voice.phase === "transcribing") voice.cancel();
                   void send(input);
                 }
               }}
               placeholder="Describe the business, or continue from here."
             />
-            {error ? <p className="notice notice-warn">{error}</p> : null}
+            {voice.error || error ? <p className="notice notice-warn">{voice.error || error}</p> : null}
             {pending ? (
               <button className="btn btn-ghost btn-compact" type="button" onClick={abort}>
                 Interrupt
@@ -100,17 +105,45 @@ export function AetheliosDock() {
       <div className={styles.orbWrap}>
         <ConciergeOrb
           size="docked"
-          state={orbState}
-          label={panelOpen ? `Hide ${INTELLIGENCE_DISPLAY_NAME}` : `Talk with ${INTELLIGENCE_DISPLAY_NAME} from this page`}
+          state={voiceListening ? "listening" : voice.phase === "transcribing" ? "thinking" : orbState}
+          label={
+            voiceListening
+              ? `Stop speaking and write it for ${INTELLIGENCE_DISPLAY_NAME}`
+              : voice.phase === "transcribing"
+                ? `Hearing your words for ${INTELLIGENCE_DISPLAY_NAME}`
+                : input.trim() && !panelOpen
+                  ? `Send this to ${INTELLIGENCE_DISPLAY_NAME}`
+                  : `Speak with ${INTELLIGENCE_DISPLAY_NAME} from this page`
+          }
           onToggle={() => {
-            if (input.trim() && !panelOpen) {
-              void send(input);
-              return;
-            }
-            setPanelOpen(!panelOpen);
+            void (async () => {
+              if (pending || voice.phase === "transcribing") return;
+              if (voiceListening) {
+                const spoken = await voice.stop();
+                if (spoken) setInput(appendTranscript(input, spoken));
+                setPanelOpen(true);
+                return;
+              }
+              if (input.trim() && !panelOpen) {
+                void send(input);
+                return;
+              }
+              if (panelOpen && input.trim()) {
+                setPanelOpen(false);
+                return;
+              }
+              setPanelOpen(true);
+              if (!input.trim()) await voice.start();
+            })();
           }}
         />
-        <p className={styles.caption}>{INTELLIGENCE_DISPLAY_NAME}</p>
+        <p className={styles.caption}>
+          {voice.phase === "transcribing"
+            ? "Hearing…"
+            : voiceListening
+              ? "Listening"
+              : INTELLIGENCE_DISPLAY_NAME}
+        </p>
       </div>
     </div>
   );
