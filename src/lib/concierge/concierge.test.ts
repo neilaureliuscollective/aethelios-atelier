@@ -105,12 +105,17 @@ describe("concierge homepage seating", () => {
     expect(stage).toContain("Meet {INTELLIGENCE_DISPLAY_NAME}");
     expect(stage).toContain("StageAtmosphere");
     expect(stage).toContain("sanctum");
+    const css = readFileSync("src/components/concierge/concierge.module.css", "utf8");
+    expect(css).toContain("perspective(720px)");
+    expect(css).toContain("rotateX(58deg)");
     expect(stage).not.toContain("colonnade.webp");
     expect(stage).not.toContain("Talk with Aethelios");
     expect(stage).not.toMatch(/btn-gold/);
     expect(stage).toContain("useOrbVoice");
     expect(stage).toContain("answers out loud");
     expect(stage).toContain("playsInline");
+    const atmosphere = readFileSync("src/components/concierge/StageAtmosphere.tsx", "utf8");
+    expect(atmosphere).toContain("paintChamber");
     expect(stage).not.toContain("SpeechRecognition");
     expect(stage).not.toContain("webkitSpeechRecognition");
     const voice = readFileSync("src/components/concierge/useOrbVoice.ts", "utf8");

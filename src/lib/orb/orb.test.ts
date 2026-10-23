@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { paintChamber } from "@/lib/concierge/atmosphere";
 import { hexToRgb, ORB_EMERALD, springStep, stateWeights } from "./orb";
 
 describe("Architect orb motion", () => {
@@ -23,8 +24,17 @@ describe("Architect orb motion", () => {
     expect(glass).toContain("uv *= 0.56");
     expect(glass).toContain("sin(u_time * 0.11)");
     const atmosphere = readFileSync("src/lib/concierge/atmosphere.ts", "utf8");
-    expect(atmosphere).toContain("meridian");
-    expect(atmosphere).toContain("aces(col * 0.92)");
+    expect(atmosphere).toContain("float z = 1.0 / fy");
+    expect(atmosphere).toContain("paintChamber");
+    expect(atmosphere).toContain("vanishingX");
+    expect(atmosphere).not.toContain("meridian");
     expect(atmosphere).not.toContain("aces(col * 1.18)");
+  });
+
+  it("paints a perspective hall instead of a flat glow", () => {
+    const source = paintChamber.toString();
+    expect(source).toContain("vanishingX");
+    expect(source).toContain("horizonY");
+    expect(source).toContain("aisles");
   });
 });

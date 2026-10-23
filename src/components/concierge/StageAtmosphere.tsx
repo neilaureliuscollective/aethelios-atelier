@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { ATMOSPHERE_FRAG, ATMOSPHERE_VERT } from "@/lib/concierge/atmosphere";
+import { ATMOSPHERE_FRAG, ATMOSPHERE_VERT, paintChamber } from "@/lib/concierge/atmosphere";
 import styles from "./concierge.module.css";
 
 function compile(gl: WebGL2RenderingContext, type: number, source: string) {
@@ -28,13 +28,59 @@ export function StageAtmosphere() {
       reduced = reducedMedia.matches;
     };
     reducedMedia.addEventListener("change", onMotion);
-    const gl = canvas.getContext("webgl2", { alpha: false, antialias: false, powerPreference: "high-performance" });
-    if (!gl) return;
+
+    const run2d = () => {
+      const context = canvas.getContext("2d");
+      if (!context) return () => undefined;
+      let frame = 0;
+      let running = true;
+      const draw = (now: number) => {
+        if (!running) return;
+        const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+        const width = Math.max(1, Math.floor(canvas.clientWidth * dpr));
+        const height = Math.max(1, Math.floor(canvas.clientHeight * dpr));
+        if (canvas.width !== width || canvas.height !== height) {
+          canvas.width = width;
+          canvas.height = height;
+        }
+        paintChamber(context, width, height, now / 1000, reduced);
+        if (!reduced) frame = window.requestAnimationFrame(draw);
+      };
+      if (reduced) draw(0);
+      else frame = window.requestAnimationFrame(draw);
+      return () => {
+        running = false;
+        window.cancelAnimationFrame(frame);
+      };
+    };
+
+    const gl = canvas.getContext("webgl2", {
+      alpha: false,
+      antialias: false,
+      powerPreference: "high-performance",
+      failIfMajorPerformanceCaveat: true
+    });
+    if (!gl) {
+      const stop = run2d();
+      return () => {
+        reducedMedia.removeEventListener("change", onMotion);
+        stop?.();
+      };
+    }
+    const hide = () => {
+      canvas.style.opacity = "0";
+    };
     const vert = compile(gl, gl.VERTEX_SHADER, ATMOSPHERE_VERT);
     const frag = compile(gl, gl.FRAGMENT_SHADER, ATMOSPHERE_FRAG);
-    if (!vert || !frag) return;
+    if (!vert || !frag) {
+      hide();
+      return () => reducedMedia.removeEventListener("change", onMotion);
+    }
     const program = gl.createProgram();
-    if (!program) return;
+    if (!program) {
+      hide();
+      return () => reducedMedia.removeEventListener("change", onMotion);
+    }
     gl.attachShader(program, vert);
     gl.attachShader(program, frag);
     gl.linkProgram(program);
@@ -42,7 +88,8 @@ export function StageAtmosphere() {
     gl.deleteShader(frag);
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
       gl.deleteProgram(program);
-      return;
+      hide();
+      return () => reducedMedia.removeEventListener("change", onMotion);
     }
     const buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);

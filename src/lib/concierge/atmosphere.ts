@@ -23,28 +23,8 @@ float hash(vec3 p) {
   return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
 }
 
-float noise(vec3 x) {
-  vec3 i = floor(x);
-  vec3 f = fract(x);
-  f = f * f * (3.0 - 2.0 * f);
-  return mix(
-    mix(mix(hash(i), hash(i + vec3(1.0, 0.0, 0.0)), f.x),
-        mix(hash(i + vec3(0.0, 1.0, 0.0)), hash(i + vec3(1.0, 1.0, 0.0)), f.x), f.y),
-    mix(mix(hash(i + vec3(0.0, 0.0, 1.0)), hash(i + vec3(1.0, 0.0, 1.0)), f.x),
-        mix(hash(i + vec3(0.0, 1.0, 1.0)), hash(i + vec3(1.0, 1.0, 1.0)), f.x), f.y),
-    f.z
-  );
-}
-
-float fbm(vec3 p) {
-  float sum = 0.0;
-  float amp = 0.55;
-  for (int i = 0; i < 5; i++) {
-    sum += amp * noise(p);
-    p = p * 2.03 + 11.7;
-    amp *= 0.51;
-  }
-  return sum;
+float line(float v, float w) {
+  return smoothstep(w, 0.0, abs(v));
 }
 
 vec3 aces(vec3 x) {
@@ -54,37 +34,159 @@ vec3 aces(vec3 x) {
 void main() {
   float aspect = u_res.x / max(u_res.y, 1.0);
   vec2 uv = v_uv;
-  vec2 p = (uv - 0.5) * vec2(aspect, 1.0);
-  float t = u_time * 0.035;
+  vec2 p = (uv - vec2(0.5, 0.5)) * vec2(aspect, 1.0);
+  float t = u_reduced > 0.5 ? 0.4 : u_time * 0.018;
+  p.x += sin(t * 0.31) * 0.01;
+  p.y += cos(t * 0.24) * 0.006;
 
-  vec3 obsidian = vec3(0.02, 0.027, 0.024);
-  vec3 charcoal = vec3(0.047, 0.067, 0.059);
-  vec3 deep = vec3(0.043, 0.176, 0.133);
-  vec3 gold = vec3(0.780, 0.643, 0.353);
-  vec3 pale = vec3(0.886, 0.788, 0.533);
+  vec3 obsidian = vec3(0.015, 0.018, 0.016);
+  vec3 stone = vec3(0.038, 0.046, 0.042);
+  vec3 gold = vec3(0.70, 0.56, 0.28);
+  vec3 pale = vec3(0.86, 0.76, 0.50);
+  vec3 deep = vec3(0.03, 0.09, 0.07);
 
-  float fog = fbm(vec3(p * 0.85 + vec2(0.0, t * 0.18), t * 0.12));
-  float well = smoothstep(0.34, 0.04, length(p - vec2(0.0, 0.02)));
-  float lamp = smoothstep(0.22, 0.0, length(p - vec2(0.0, -0.08)));
-  float floorDisc = exp(-pow((p.y - 0.18) * 6.2, 2.0)) * exp(-pow(p.x * 1.55, 2.0));
-  float grain = (hash(vec3(uv * u_res.xy, floor(u_time * 8.0))) - 0.5) * 0.02;
-  float vignette = smoothstep(1.18, 0.22, length(p * vec2(0.78, 1.05)));
-
-  float r1 = length(p * vec2(1.0, 1.18) - vec2(0.0, 0.04));
-  float ring1 = smoothstep(0.012, 0.0, abs(r1 - 0.42));
-  float ring2 = smoothstep(0.01, 0.0, abs(r1 - 0.62));
-  float meridian = pow(max(0.0, cos(atan(p.y - 0.02, p.x) * 6.0 + t * 0.4)), 42.0);
-  meridian *= smoothstep(0.72, 0.18, r1) * smoothstep(0.08, 0.2, r1);
-
+  float horizon = 0.05;
   vec3 col = obsidian;
-  col = mix(col, charcoal, fog * 0.28);
-  col += deep * well * 0.16;
-  col += gold * lamp * 0.07;
-  col += pale * floorDisc * 0.08;
-  col += gold * (ring1 * 0.1 + ring2 * 0.06 + meridian * 0.08);
+
+  if (p.y < horizon) {
+    float fy = max(horizon - p.y, 0.012);
+    float z = 1.0 / fy;
+    float x = p.x * z;
+    float fog = exp(-z * 0.055);
+
+    col = mix(obsidian, stone, fog * 0.7);
+    col += deep * exp(-pow(x * 0.2, 2.0)) * fog * 0.22;
+
+    float jointX = line(fract(x * 0.16 + 0.5) - 0.5, 0.03);
+    float jointZ = line(fract(z * 0.075 + t * 0.12) - 0.5, 0.028);
+    col += gold * max(jointX, jointZ) * fog * 0.62;
+
+    float aisle = exp(-pow(x * 0.24, 2.0)) * fog;
+    col += gold * aisle * 0.06;
+
+    float well = exp(-pow(x * 0.62, 2.0) - pow((z - 3.1) * 0.36, 2.0));
+    col = mix(col, obsidian * 1.8, well * 0.62);
+    col += deep * well * 0.28;
+    col += gold * well * 0.08;
+
+    float rib = line(fract(abs(x) * 0.1) - 0.5, 0.08);
+    col = mix(col, obsidian * 0.35, rib * fog * 0.7);
+    col += gold * line(fract(abs(x) * 0.1) - 0.5, 0.012) * fog * 0.38;
+  } else {
+    float uy = max(p.y - horizon, 0.012);
+    float z = 1.0 / (uy * 1.12);
+    float x = p.x * z;
+    float fog = exp(-z * 0.06);
+
+    col = mix(obsidian, stone * 0.8, fog * 0.34);
+
+    float vault = line(fract(x * 0.12 + 0.5) - 0.5, 0.022);
+    float coffer = line(fract(z * 0.06) - 0.5, 0.02);
+    col += gold * vault * fog * 0.32;
+    col += gold * coffer * fog * 0.16;
+
+    float shaft = exp(-pow(p.x * 3.1, 2.0)) * smoothstep(0.18, 0.64, p.y);
+    col += pale * shaft * 0.07;
+    col += gold * shaft * 0.045;
+
+    float oculus = exp(-pow(p.x * 4.2, 2.0) - pow((p.y - 0.38) * 3.6, 2.0));
+    col += pale * oculus * 0.06;
+  }
+
+  float wall = smoothstep(0.62, 1.05, abs(p.x) / max(aspect * 0.52, 0.25));
+  col = mix(col, obsidian * 0.55, wall * 0.62);
+  float slit = pow(max(0.0, cos((p.x / max(aspect, 0.2)) * 11.0)), 64.0);
+  col += gold * slit * (1.0 - wall) * 0.035;
+
+  float vignette = smoothstep(1.2, 0.18, length(p * vec2(0.72, 1.05)));
   col *= vignette;
-  col += grain;
-  if (u_reduced > 0.5) col = mix(obsidian, col, 0.7);
-  fragColor = vec4(aces(col * 0.92), 1.0);
+  col += (hash(vec3(uv * u_res.xy, floor(u_time * 6.0))) - 0.5) * 0.018;
+  if (u_reduced > 0.5) col = mix(obsidian, col, 0.72);
+  fragColor = vec4(aces(col * 0.9), 1.0);
 }
 `;
+
+export function paintChamber(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  time: number,
+  reduced = false
+) {
+  const t = reduced ? 0.4 : time * 0.018;
+  context.fillStyle = "#050706";
+  context.fillRect(0, 0, width, height);
+
+  const horizonY = height * 0.47;
+  const vanishingX = width * 0.5 + Math.sin(t * 0.31) * width * 0.008;
+
+  const floor = context.createLinearGradient(0, horizonY, 0, height);
+  floor.addColorStop(0, "#0a100e");
+  floor.addColorStop(1, "#050706");
+  context.fillStyle = floor;
+  context.fillRect(0, horizonY, width, height - horizonY);
+
+  const vault = context.createLinearGradient(0, 0, 0, horizonY);
+  vault.addColorStop(0, "#070a08");
+  vault.addColorStop(0.7, "#080c0b");
+  vault.addColorStop(1, "#0a100e");
+  context.fillStyle = vault;
+  context.fillRect(0, 0, width, horizonY);
+
+  context.save();
+  context.beginPath();
+  context.rect(0, horizonY, width, height - horizonY);
+  context.clip();
+  context.strokeStyle = "rgba(199, 164, 90, 0.28)";
+  context.lineWidth = 1;
+  const aisles = 11;
+  for (let i = 0; i <= aisles; i += 1) {
+    const edge = ((i / aisles) * 2 - 1) * width * 1.35;
+    context.beginPath();
+    context.moveTo(vanishingX, horizonY);
+    context.lineTo(vanishingX + edge, height + 40);
+    context.stroke();
+  }
+  for (let i = 1; i <= 8; i += 1) {
+    const y = horizonY + Math.pow(i / 8, 1.65) * (height - horizonY);
+    const span = ((y - horizonY) / (height - horizonY)) * width * 1.4;
+    context.beginPath();
+    context.moveTo(vanishingX - span, y);
+    context.lineTo(vanishingX + span, y);
+    context.stroke();
+  }
+  const well = context.createRadialGradient(vanishingX, horizonY + height * 0.08, 8, vanishingX, horizonY + height * 0.1, width * 0.28);
+  well.addColorStop(0, "rgba(11, 70, 53, 0.28)");
+  well.addColorStop(1, "rgba(5, 7, 6, 0)");
+  context.fillStyle = well;
+  context.fillRect(0, horizonY, width, height - horizonY);
+  context.restore();
+
+  context.save();
+  context.beginPath();
+  context.rect(0, 0, width, horizonY);
+  context.clip();
+  context.strokeStyle = "rgba(199, 164, 90, 0.2)";
+  context.lineWidth = 1;
+  for (let i = 0; i <= 9; i += 1) {
+    const edge = ((i / 9) * 2 - 1) * width * 1.1;
+    context.beginPath();
+    context.moveTo(vanishingX, horizonY);
+    context.lineTo(vanishingX + edge, -40);
+    context.stroke();
+  }
+  const shaft = context.createLinearGradient(vanishingX, 0, vanishingX, horizonY);
+  shaft.addColorStop(0, "rgba(226, 201, 136, 0.08)");
+  shaft.addColorStop(1, "rgba(226, 201, 136, 0)");
+  context.fillStyle = shaft;
+  context.fillRect(vanishingX - width * 0.08, 0, width * 0.16, horizonY);
+  context.restore();
+
+  const sides = context.createLinearGradient(0, 0, width, 0);
+  sides.addColorStop(0, "rgba(5, 7, 6, 0.72)");
+  sides.addColorStop(0.18, "rgba(5, 7, 6, 0)");
+  sides.addColorStop(0.82, "rgba(5, 7, 6, 0)");
+  sides.addColorStop(1, "rgba(5, 7, 6, 0.72)");
+  context.fillStyle = sides;
+  context.fillRect(0, 0, width, height);
+}
