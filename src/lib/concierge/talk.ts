@@ -1,6 +1,6 @@
+import { aetheliosCanvasPrompt } from "@/lib/aethelios/persona";
 import { aureliusStatus } from "@/lib/aurelius/boundary";
 import { loadConfig } from "@/lib/config";
-import { INTELLIGENCE_DISPLAY_NAME } from "@/lib/copy";
 import { composePresentation, composeReply } from "./compose";
 import { containsForbiddenPayload } from "./contract";
 import { extractBusinessSketch } from "./extract";
@@ -38,13 +38,7 @@ async function refineWithModel(input: {
       messages: [
         {
           role: "system",
-          content: [
-            `You are ${INTELLIGENCE_DISPLAY_NAME}, composing a display-only presentation canvas.`,
-            "Return JSON that matches the supplied draft. You may refine title, thesis, and slide copy.",
-            "Never invent prices, client results, testimonials, or completed work.",
-            "Never return HTML, JSX, CSS, JavaScript, URLs to remote images, or executable strings.",
-            "Keep the same slide ids and layouts. Keep version 1."
-          ].join(" ")
+          content: aetheliosCanvasPrompt()
         },
         ...input.history.slice(-6),
         {

@@ -1,6 +1,6 @@
+import { aetheliosPreviewPrompt } from "@/lib/aethelios/persona";
 import { aureliusStatus } from "@/lib/aurelius/boundary";
 import { loadConfig } from "@/lib/config";
-import { INTELLIGENCE_DISPLAY_NAME } from "@/lib/copy";
 import type { BusinessSketch, SitePreview } from "./types";
 
 const HTML_START = /<!doctype html|<html[\s>]/i;
@@ -54,15 +54,7 @@ export async function generateSitePreview(input: {
     {
       model,
       reasoning: { effort: "medium" },
-      instructions: [
-        `You are ${INTELLIGENCE_DISPLAY_NAME}, writing a single-file website for an in-app device-frame preview.`,
-        "Return one complete HTML document only: <!doctype html> through </html>.",
-        "Inline CSS in a <style> tag. Optional script must stay inside this document.",
-        "No remote scripts, no remote fonts, no remote images, no forms that post off-origin.",
-        "This is an illustrative sketch, not a finished website, quote, booking tool, or commission.",
-        "Never invent prices, client results, testimonials, or completed work.",
-        "Do not mention that you are an AI. Use the business facts that were given."
-      ].join(" "),
+      instructions: aetheliosPreviewPrompt(),
       input: [
         {
           role: "user",

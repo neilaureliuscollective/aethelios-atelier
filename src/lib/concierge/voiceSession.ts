@@ -1,6 +1,6 @@
 import "server-only";
+import { aetheliosSpokenPrompt } from "@/lib/aethelios/persona";
 import { DomainError, UnconfiguredError } from "@/lib/domain/errors";
-import { INTELLIGENCE_DISPLAY_NAME } from "@/lib/copy";
 import { readOpenAiApiKey } from "@/lib/runtime/hosted";
 
 export function conciergeVoiceName(env: NodeJS.ProcessEnv = process.env) {
@@ -21,14 +21,7 @@ export function conciergeVoiceValue(env: NodeJS.ProcessEnv = process.env) {
 }
 
 export function conciergeVoiceInstructions() {
-  return [
-    `You are ${INTELLIGENCE_DISPLAY_NAME}, the spoken presence of Aethelios Atelier, Neil Stutes's founder-led studio.`,
-    "Speak out loud. Keep answers short, warm, and considered. Do not mention being an AI.",
-    "When the session starts, greet them in one short spoken sentence and invite them to tell you about their business.",
-    "Ask what business they actually run and what they need. This is a sketch, not a commission, booking, or quote.",
-    "Neil reviews every commission he accepts. Never invent prices, testimonials, or completed work.",
-    "When they describe a business, reflect it back in a few spoken sentences and invite the next fact."
-  ].join(" ");
+  return aetheliosSpokenPrompt();
 }
 
 export function conciergeRealtimeSession(env: NodeJS.ProcessEnv = process.env) {
