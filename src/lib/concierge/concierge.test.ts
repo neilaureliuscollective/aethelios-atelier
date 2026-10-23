@@ -93,8 +93,15 @@ describe("concierge homepage seating", () => {
     const renderer = readFileSync("src/components/concierge/SlideView.tsx", "utf8");
     expect(renderer).not.toContain("dangerouslySetInnerHTML");
     expect(renderer).not.toContain("eval(");
+    expect(renderer).toContain("SlideField");
+    expect(renderer).toContain("data-layout");
+    const orb = readFileSync("src/components/concierge/ConciergeOrb.tsx", "utf8");
+    expect(orb).toContain("ArchitectOrb");
+    expect(orb).not.toContain("gl_FragColor");
     const stage = readFileSync("src/components/concierge/ConciergeStage.tsx", "utf8");
     expect(stage).toContain("Meet {INTELLIGENCE_DISPLAY_NAME}");
+    expect(stage).toContain("StageAtmosphere");
+    expect(stage).not.toContain("colonnade.webp");
     expect(stage).not.toContain("Talk with Aethelios");
     expect(stage).not.toMatch(/btn-gold/);
   });

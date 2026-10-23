@@ -11,6 +11,15 @@ export type ConciergeHistoryItem = {
   content: string;
 };
 
+export type SitePreview = {
+  version: 1;
+  id: string;
+  title: string;
+  html: string;
+  model: string;
+  labeled: "illustrative_sketch";
+};
+
 export type ConciergeStreamEvent =
   | { type: "user"; text: string }
   | { type: "delta"; text: string }
@@ -18,6 +27,8 @@ export type ConciergeStreamEvent =
   | { type: "canvas.slide"; slide: PresentationSlide }
   | { type: "canvas.replace"; document: PresentationDocument }
   | { type: "canvas.complete"; document: PresentationDocument }
+  | { type: "preview.open" }
+  | { type: "preview.ready"; preview: SitePreview }
   | { type: "done"; reply: string; liveAi: boolean; presented: boolean }
   | { type: "error"; message: string };
 

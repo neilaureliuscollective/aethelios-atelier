@@ -24,6 +24,8 @@ describe("Aethelios presence surfaces", () => {
     expect(shell).toContain("AetheliosDock");
     expect(home).toContain("<ConciergeStage");
     expect(stage).toContain("useAethelios");
+    expect(stage).toContain("StageAtmosphere");
+    expect(stage).not.toContain("colonnade.webp");
     expect(stage).not.toContain("Talk with Aethelios");
     expect(stage).not.toMatch(/btn-gold/);
     expect(stage).toContain("INTELLIGENCE_DISPLAY_NAME");

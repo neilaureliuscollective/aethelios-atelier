@@ -7,12 +7,14 @@ import { extractBusinessSketch } from "./extract";
 import { shouldOpenCanvas } from "./intent";
 import { mergePresentation } from "./merge";
 import { presentationSchema } from "./schema";
-import type { ConciergeHistoryItem, ConciergeStreamEvent, PresentationDocument } from "./types";
+import { generateSitePreview } from "./sitePreview";
+import type { ConciergeHistoryItem, ConciergeStreamEvent, PresentationDocument, SitePreview } from "./types";
 
 export type ConciergeTalkInput = {
   message: string;
   history?: ConciergeHistoryItem[];
   document?: PresentationDocument;
+  preview?: SitePreview;
   signal?: AbortSignal;
   onEvent?: (event: ConciergeStreamEvent) => void;
 };
@@ -31,8 +33,7 @@ async function refineWithModel(input: {
   const completion = await client.chat.completions.create(
     {
       model: config.openAiModel,
-      temperature: 0.4,
-      max_tokens: Math.min(config.openAiMaxOutputTokens, 900),
+      reasoning_effort: "low",
       response_format: { type: "json_object" },
       messages: [
         {
@@ -106,9 +107,29 @@ export async function runConciergeTurn(input: ConciergeTalkInput) {
     }
   }
 
+  let preview = presented ? input.preview : undefined;
+  if (presented && aureliusStatus().ready && !input.signal?.aborted) {
+    input.onEvent?.({ type: "preview.open" });
+    try {
+      const next = await generateSitePreview({
+        message: input.message,
+        sketch,
+        existing: input.preview,
+        signal: input.signal
+      });
+      if (next) {
+        liveAi = true;
+        preview = next;
+        input.onEvent?.({ type: "preview.ready", preview: next });
+      }
+    } catch {
+      preview = input.preview;
+    }
+  }
+
   if (document && presented) {
     input.onEvent?.({ type: "canvas.complete", document });
   }
   input.onEvent?.({ type: "done", reply, liveAi, presented });
-  return { reply, liveAi, presented, document: presented ? document : input.document };
+  return { reply, liveAi, presented, document: presented ? document : input.document, preview };
 }

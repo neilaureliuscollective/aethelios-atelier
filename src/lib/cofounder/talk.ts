@@ -737,7 +737,7 @@ export class CompanionTalk {
           model: input.config.openAiModel,
           instructions: companionSystemPrompt(),
           tools: COMPANION_TOOL_DEFINITIONS,
-          max_output_tokens: input.config.openAiMaxOutputTokens,
+          reasoning: { effort: "low" },
           stream: streamed,
           ...continuation
         },
@@ -833,8 +833,7 @@ export class CompanionTalk {
       const completion = await input.client.chat.completions.create(
         {
           model: input.config.openAiModel,
-          temperature: 0.4,
-          max_tokens: input.config.openAiMaxOutputTokens,
+          reasoning_effort: "low",
           tools: input.tools,
           messages
         },

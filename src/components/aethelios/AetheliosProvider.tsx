@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useMemo, useRef, useState, type
 import type { OrbState } from "@/components/concierge/ConciergeOrb";
 import { applySlide, mergePresentation } from "@/lib/concierge/merge";
 import { parseConciergeChunk } from "@/lib/concierge/stream";
-import type { ConciergeHistoryItem, PresentationDocument } from "@/lib/concierge/types";
+import type { ConciergeHistoryItem, PresentationDocument, SitePreview } from "@/lib/concierge/types";
 import { INTELLIGENCE_DISPLAY_NAME } from "@/lib/copy";
 
 export type AetheliosMessage = { id: string; role: "user" | "assistant"; body: string };
@@ -12,6 +12,7 @@ export type AetheliosMessage = { id: string; role: "user" | "assistant"; body: s
 type AetheliosValue = {
   messages: AetheliosMessage[];
   document: PresentationDocument | null;
+  preview: SitePreview | null;
   slideIndex: number;
   setSlideIndex: (index: number) => void;
   pending: boolean;
@@ -39,6 +40,7 @@ export function useAethelios() {
 export function AetheliosProvider({ children }: { children: ReactNode }) {
   const [messages, setMessages] = useState<AetheliosMessage[]>([]);
   const [document, setDocument] = useState<PresentationDocument | null>(null);
+  const [preview, setPreview] = useState<SitePreview | null>(null);
   const [slideIndex, setSlideIndex] = useState(0);
   const [pending, setPending] = useState(false);
   const [streaming, setStreaming] = useState("");
@@ -68,7 +70,12 @@ export function AetheliosProvider({ children }: { children: ReactNode }) {
         const response = await fetch("/api/concierge/talk", {
           method: "POST",
           headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-          body: JSON.stringify({ message: text, history, document: document ?? undefined }),
+          body: JSON.stringify({
+            message: text,
+            history,
+            document: document ?? undefined,
+            preview: preview ?? undefined
+          }),
           signal: controller.signal
         });
         if (!response.ok || !response.body) {
@@ -100,6 +107,9 @@ export function AetheliosProvider({ children }: { children: ReactNode }) {
             if (event.type === "canvas.replace") {
               setDocument((current) => mergePresentation(current, event.document) ?? event.document);
             }
+            if (event.type === "preview.ready") {
+              setPreview(event.preview);
+            }
             if (event.type === "canvas.complete") {
               setDocument((current) => mergePresentation(current, event.document) ?? event.document);
               setSlideIndex(0);
@@ -119,7 +129,7 @@ export function AetheliosProvider({ children }: { children: ReactNode }) {
         if (abortRef.current === controller) setPending(false);
       }
     },
-    [document, history, pending]
+    [document, history, pending, preview]
   );
 
   const abort = useCallback(() => {
@@ -132,6 +142,7 @@ export function AetheliosProvider({ children }: { children: ReactNode }) {
     () => ({
       messages,
       document,
+      preview,
       slideIndex,
       setSlideIndex,
       pending,
@@ -145,7 +156,7 @@ export function AetheliosProvider({ children }: { children: ReactNode }) {
       send,
       abort
     }),
-    [abort, document, error, input, messages, orbState, panelOpen, pending, send, slideIndex, streaming]
+    [abort, document, error, input, messages, orbState, panelOpen, pending, preview, send, slideIndex, streaming]
   );
 
   return <AetheliosContext.Provider value={value}>{children}</AetheliosContext.Provider>;

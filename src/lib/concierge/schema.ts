@@ -84,8 +84,18 @@ export const conciergeHistorySchema = z.object({
   content: z.string().min(1).max(2000)
 });
 
+export const sitePreviewSchema = z.object({
+  version: z.literal(1),
+  id: z.string().min(1),
+  title: z.string().min(1),
+  html: z.string().min(1),
+  model: z.string().min(1),
+  labeled: z.literal("illustrative_sketch")
+});
+
 export const conciergeTalkRequestSchema = z.object({
   message: z.string().min(1).max(2000),
   history: z.array(conciergeHistorySchema).max(8).optional(),
-  document: presentationSchema.optional()
+  document: presentationSchema.optional(),
+  preview: sitePreviewSchema.optional()
 });

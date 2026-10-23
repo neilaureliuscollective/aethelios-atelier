@@ -5,6 +5,7 @@ import { useAethelios } from "@/components/aethelios/AetheliosProvider";
 import { INTELLIGENCE_DISPLAY_NAME } from "@/lib/copy";
 import { ConciergeOrb } from "./ConciergeOrb";
 import { PresentationCanvas } from "./PresentationCanvas";
+import { StageAtmosphere } from "./StageAtmosphere";
 import styles from "./concierge.module.css";
 
 const PROMPTS = [
@@ -19,6 +20,7 @@ export function ConciergeStage() {
   const {
     messages,
     document,
+    preview,
     slideIndex,
     setSlideIndex,
     pending,
@@ -77,10 +79,10 @@ export function ConciergeStage() {
       aria-labelledby="concierge-heading"
     >
       <div className={styles.media} aria-hidden="true">
-        <img src="/atmosphere/colonnade.webp" alt="" width={1920} height={1080} />
+        <StageAtmosphere />
+        <div className={styles.shade} />
+        <div className={styles.field} />
       </div>
-      <div className={styles.shade} aria-hidden="true" />
-      <div className={styles.field} aria-hidden="true" />
       <div className={styles.shell}>
         <header className={styles.intro}>
           <div>
@@ -229,7 +231,7 @@ export function ConciergeStage() {
           )}
         </div>
 
-        <PresentationCanvas document={document} index={slideIndex} onSelect={setSlideIndex} />
+        <PresentationCanvas document={document} preview={preview} index={slideIndex} onSelect={setSlideIndex} />
       </div>
     </section>
   );

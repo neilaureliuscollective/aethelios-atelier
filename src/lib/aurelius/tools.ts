@@ -12,6 +12,51 @@ export const addUnresolvedQuestionSchema = z.object({
   question: z.string().min(1).max(400)
 });
 
+export const RESPONSE_TOOL_DEFINITIONS = [
+  {
+    type: "function" as const,
+    name: "read_brief",
+    description: "Read the current living brief for this authorized project only.",
+    parameters: { type: "object", properties: {}, additionalProperties: false }
+  },
+  {
+    type: "function" as const,
+    name: "list_services",
+    description: "List approved service options and nonbinding pricing status.",
+    parameters: { type: "object", properties: {}, additionalProperties: false }
+  },
+  {
+    type: "function" as const,
+    name: "propose_brief_update",
+    description:
+      "Propose a brief field update. The owner must accept, edit, or reject it. Never marks content approved.",
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      required: ["fieldKey", "proposedValue"],
+      properties: {
+        fieldKey: { type: "string", enum: [...BRIEF_FIELD_KEYS] },
+        proposedValue: { type: "string" },
+        rationale: { type: "string" }
+      }
+    }
+  },
+  {
+    type: "function" as const,
+    name: "add_unresolved_question",
+    description: "Record an unresolved question on a brief field without overwriting the owner’s words.",
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      required: ["fieldKey", "question"],
+      properties: {
+        fieldKey: { type: "string", enum: [...BRIEF_FIELD_KEYS] },
+        question: { type: "string" }
+      }
+    }
+  }
+];
+
 export const TOOL_DEFINITIONS = [
   {
     type: "function" as const,
