@@ -115,7 +115,8 @@ export function AetheliosDock() {
         <audio ref={voice.audioRef} autoPlay playsInline className={styles.voiceOut} />
         <ConciergeOrb
           size="docked"
-          liveLevelRef={voice.levelRef}
+          liveInputRef={voice.inputLevelRef}
+          liveOutputRef={voice.outputLevelRef}
           state={voice.phase === "speaking" ? "speaking" : voiceLive ? "listening" : orbState}
           label={
             voiceLive

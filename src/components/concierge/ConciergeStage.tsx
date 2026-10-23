@@ -83,6 +83,7 @@ export function ConciergeStage() {
       aria-labelledby="concierge-heading"
     >
       <div className={styles.media} aria-hidden="true">
+        <div className={styles.sanctum} />
         <StageAtmosphere />
         <div className={styles.shade} />
         <div className={styles.field} />
@@ -133,7 +134,8 @@ export function ConciergeStage() {
             <audio ref={voice.audioRef} autoPlay playsInline className={styles.voiceOut} />
             <ConciergeOrb
               size={orbSize}
-              liveLevelRef={voice.levelRef}
+              liveInputRef={voice.inputLevelRef}
+              liveOutputRef={voice.outputLevelRef}
               state={
                 voice.phase === "speaking"
                   ? "speaking"

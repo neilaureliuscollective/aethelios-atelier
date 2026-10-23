@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { rmsFromTimeDomain, SPEECH_RMS } from "@/lib/concierge/voiceListen";
+import { envelopeToward } from "@/lib/orb/orb";
+import { rmsFromTimeDomain, speechGain, SPEECH_RMS } from "@/lib/concierge/voiceListen";
 
 export type SpokenPhase = "idle" | "starting" | "listening" | "speaking";
 
@@ -77,6 +78,9 @@ export function useOrbVoice(options?: { onHeard?: (text: string) => void }) {
   const generationRef = useRef(0);
   const startingRef = useRef(false);
   const levelRef = useRef(0);
+  const inputLevelRef = useRef(0);
+  const outputLevelRef = useRef(0);
+  const lastLevelAt = useRef(0);
   const onHeardRef = useRef(options?.onHeard);
   onHeardRef.current = options?.onHeard;
 
@@ -107,6 +111,8 @@ export function useOrbVoice(options?: { onHeard?: (text: string) => void }) {
     peerRef.current = null;
     if (audioRef.current) audioRef.current.srcObject = null;
     levelRef.current = 0;
+    inputLevelRef.current = 0;
+    outputLevelRef.current = 0;
     setHearing(false);
     setPhase("idle");
   }, []);
@@ -146,12 +152,17 @@ export function useOrbVoice(options?: { onHeard?: (text: string) => void }) {
     }
     const localSamples = new Uint8Array(localAnalyser.fftSize);
     const remoteSamples = new Uint8Array(remoteAnalyser.fftSize);
-    const tick = () => {
+    lastLevelAt.current = performance.now();
+    const tick = (now: number) => {
+      const dt = Math.min(0.05, (now - lastLevelAt.current) / 1000);
+      lastLevelAt.current = now;
       localAnalyser.getByteTimeDomainData(localSamples);
       remoteAnalyser.getByteTimeDomainData(remoteSamples);
       const localRms = rmsFromTimeDomain(localSamples);
       const remoteRms = rmsFromTimeDomain(remoteSamples);
-      levelRef.current = Math.max(localRms, remoteRms);
+      inputLevelRef.current = envelopeToward(inputLevelRef.current, speechGain(localRms), dt, 0.06, 0.2);
+      outputLevelRef.current = envelopeToward(outputLevelRef.current, speechGain(remoteRms), dt, 0.05, 0.22);
+      levelRef.current = Math.max(inputLevelRef.current, outputLevelRef.current);
       const loudIn = localRms >= SPEECH_RMS;
       setHearing((current) => (current === loudIn ? current : loudIn));
       setPhase((current) => {
@@ -273,5 +284,5 @@ export function useOrbVoice(options?: { onHeard?: (text: string) => void }) {
     cleanup();
   }, [cleanup]);
 
-  return { phase, error, ready, hearing, levelRef, audioRef, start, stop };
+  return { phase, error, ready, hearing, levelRef, inputLevelRef, outputLevelRef, audioRef, start, stop };
 }

@@ -2,6 +2,10 @@ export const SPEECH_RMS = 0.045;
 export const SILENCE_MS = 1300;
 export const MAX_RECORD_MS = 18_000;
 
+export function speechGain(rms: number) {
+  return Math.max(0, Math.min(1, (rms - 0.018) / 0.14));
+}
+
 export function rmsFromTimeDomain(bytes: Uint8Array) {
   if (!bytes.length) return 0;
   let sum = 0;

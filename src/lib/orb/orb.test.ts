@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { paintChamber } from "@/lib/concierge/atmosphere";
 import { hexToRgb, ORB_EMERALD, springStep, stateWeights } from "./orb";
 
 describe("Architect orb motion", () => {
@@ -15,8 +16,25 @@ describe("Architect orb motion", () => {
   it("falls back to a painted orb when WebGL2 cannot run", () => {
     const source = readFileSync("src/components/orb/ArchitectOrb.tsx", "utf8");
     expect(source).toContain("paintFallback");
+    expect(source).toContain("0.46");
     expect(source).toContain('setBackend("canvas2d")');
     expect(source).toContain("failIfMajorPerformanceCaveat");
     expect(source).not.toContain("gl_FragColor");
+    const glass = readFileSync("src/lib/orb/glassShader.ts", "utf8");
+    expect(glass).toContain("uv *= 0.56");
+    expect(glass).toContain("sin(u_time * 0.11)");
+    const atmosphere = readFileSync("src/lib/concierge/atmosphere.ts", "utf8");
+    expect(atmosphere).toContain("float z = 1.0 / fy");
+    expect(atmosphere).toContain("paintChamber");
+    expect(atmosphere).toContain("vanishingX");
+    expect(atmosphere).not.toContain("meridian");
+    expect(atmosphere).not.toContain("aces(col * 1.18)");
+  });
+
+  it("paints a perspective hall instead of a flat glow", () => {
+    const source = paintChamber.toString();
+    expect(source).toContain("vanishingX");
+    expect(source).toContain("horizonY");
+    expect(source).toContain("aisles");
   });
 });

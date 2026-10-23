@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { rmsFromTimeDomain, shouldFinishRecording, SILENCE_MS, MAX_RECORD_MS } from "./voiceListen";
+import { rmsFromTimeDomain, shouldFinishRecording, speechGain, SILENCE_MS, MAX_RECORD_MS } from "./voiceListen";
 
 describe("orb hearing", () => {
   it("measures silence versus a loud cycle", () => {
@@ -7,6 +7,10 @@ describe("orb hearing", () => {
     const loud = new Uint8Array(32);
     for (let i = 0; i < loud.length; i += 1) loud[i] = i % 2 ? 255 : 1;
     expect(rmsFromTimeDomain(loud)).toBeGreaterThan(0.5);
+    expect(speechGain(0)).toBe(0);
+    expect(speechGain(0.16)).toBeGreaterThan(0.8);
+    expect(speechGain(0.04)).toBeGreaterThan(0);
+    expect(speechGain(0.04)).toBeLessThan(0.3);
   });
 
   it("finishes after speech plus a pause, or when the clip is too long", () => {

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { ArchitectOrb, type RtaCallState } from "@/components/orb/ArchitectOrb";
-import { clamp01 } from "@/lib/orb/orb";
+import { clamp01, envelopeToward } from "@/lib/orb/orb";
 import styles from "./concierge.module.css";
 
 export type OrbState = "idle" | "listening" | "thinking" | "composing" | "speaking";
@@ -20,47 +20,59 @@ export function ConciergeOrb({
   label,
   onToggle,
   size = "hero",
+  liveInputRef,
+  liveOutputRef,
   liveLevelRef
 }: {
   state: OrbState;
   label: string;
   onToggle: () => void;
   size?: "hero" | "docked";
+  liveInputRef?: { current: number };
+  liveOutputRef?: { current: number };
   liveLevelRef?: { current: number };
 }) {
   const inputRef = useRef(0.08);
   const outputRef = useRef(0.06);
+  const lastAt = useRef(0);
 
   useEffect(() => {
     let frame = 0;
-    const started = performance.now();
+    lastAt.current = performance.now();
     const tick = (now: number) => {
-      const t = (now - started) / 1000;
-      if (state === "listening" && liveLevelRef) {
-        const live = clamp01(liveLevelRef.current);
-        inputRef.current = clamp01(0.16 + live * 0.82);
-        outputRef.current = clamp01(0.08 + live * 0.28);
-      } else if (state === "listening") {
-        inputRef.current = clamp01(0.28 + Math.sin(t * 3.1) * 0.22);
-        outputRef.current = clamp01(0.08 + Math.sin(t * 1.4) * 0.04);
-      } else if (state === "speaking") {
-        inputRef.current = clamp01(0.1 + Math.sin(t * 1.6) * 0.05);
-        outputRef.current = clamp01(0.42 + Math.sin(t * 5.2) * 0.28);
+      const dt = Math.min(0.05, (now - lastAt.current) / 1000);
+      lastAt.current = now;
+      const t = now / 1000;
+      const liveIn = clamp01(liveInputRef?.current ?? 0);
+      const liveOut = clamp01(liveOutputRef?.current ?? (state === "speaking" ? liveLevelRef?.current ?? 0 : 0));
+      const liveEither = Math.max(liveIn, liveOut, clamp01(liveLevelRef?.current ?? 0));
+      const hasLive = Boolean(liveInputRef || liveOutputRef || liveLevelRef);
+      let nextIn = inputRef.current;
+      let nextOut = outputRef.current;
+      if (hasLive && (state === "listening" || state === "speaking")) {
+        nextIn = 0.1 + liveIn * 0.78 + (state === "speaking" ? liveOut * 0.08 : 0);
+        nextOut = 0.08 + liveOut * 0.82 + (state === "listening" ? liveIn * 0.12 : 0);
+        if (liveEither < 0.04) {
+          nextIn = 0.1 + Math.sin(t * 0.7) * 0.02;
+          nextOut = 0.07 + Math.sin(t * 0.55) * 0.015;
+        }
       } else if (state === "composing") {
-        inputRef.current = clamp01(0.16 + Math.sin(t * 2.2) * 0.08);
-        outputRef.current = clamp01(0.34 + Math.sin(t * 3.6) * 0.16);
+        nextIn = 0.14 + Math.sin(t * 0.9) * 0.04;
+        nextOut = 0.22 + Math.sin(t * 1.05) * 0.06;
       } else if (state === "thinking") {
-        inputRef.current = clamp01(0.12 + Math.sin(t * 1.8) * 0.06);
-        outputRef.current = clamp01(0.2 + Math.sin(t * 2.4) * 0.1);
+        nextIn = 0.11 + Math.sin(t * 0.75) * 0.03;
+        nextOut = 0.16 + Math.sin(t * 0.85) * 0.04;
       } else {
-        inputRef.current = clamp01(0.08 + Math.sin(t * 0.9) * 0.03);
-        outputRef.current = clamp01(0.06 + Math.sin(t * 0.7) * 0.02);
+        nextIn = 0.07 + Math.sin(t * 0.45) * 0.02;
+        nextOut = 0.05 + Math.sin(t * 0.38) * 0.015;
       }
+      inputRef.current = envelopeToward(inputRef.current, clamp01(nextIn), dt, 0.07, 0.22);
+      outputRef.current = envelopeToward(outputRef.current, clamp01(nextOut), dt, 0.06, 0.24);
       frame = window.requestAnimationFrame(tick);
     };
     frame = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(frame);
-  }, [liveLevelRef, state]);
+  }, [liveInputRef, liveLevelRef, liveOutputRef, state]);
 
   return (
     <button className={styles.orbButton} type="button" onClick={onToggle} aria-label={label}>

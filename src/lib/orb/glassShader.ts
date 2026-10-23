@@ -83,12 +83,17 @@ bool hitSphere(vec3 ro, vec3 rd, float r, out float t0, out float t1) {
 void main() {
   vec2 uv = (v_uv * 2.0 - 1.0);
   uv.x *= u_res.x / max(u_res.y, 1.0);
+  uv *= 0.56;
 
-  float breath = u_reduced > 0.5 ? 0.0 : 0.018 * sin(u_time * 0.85);
-  float radius = 0.78 + breath + u_output * 0.034 - u_think * 0.045;
-  float drift = u_reduced > 0.5 ? 0.4 : u_time * 0.07;
-  vec3 ro = vec3(sin(drift) * 0.055, 0.04 + cos(drift * 0.71) * 0.03, 2.52);
-  vec3 rd = normalize(vec3(uv, -1.55));
+  float breath = u_reduced > 0.5 ? 0.0 : 0.01 * sin(u_time * 0.55);
+  float radius = 0.82 + breath + u_output * 0.03 - u_think * 0.03;
+  float drift = u_reduced > 0.5 ? 0.4 : u_time * 0.035;
+  vec3 ro = vec3(
+    sin(drift) * 0.02 + sin(drift * 1.6) * u_output * 0.028,
+    0.03 + cos(drift * 0.82) * 0.014 + cos(drift * 1.9) * u_output * 0.02,
+    2.48
+  );
+  vec3 rd = normalize(vec3(uv, -1.6));
 
   float t0, t1;
   vec3 color = u_obsidian * 0.15;
@@ -110,11 +115,15 @@ void main() {
     vec3 refrDir = refract(rd, n, 0.92);
     if (dot(refrDir, refrDir) < 0.01) refrDir = reflect(rd, n);
 
-    float chord = max(t1 - tHit, 0.02);
+      float chord = max(t1 - tHit, 0.02);
       vec3 volume = vec3(0.0);
-    float flow = 0.11 + u_think * 0.38 + u_speak * 0.06;
-    vec3 advect = vec3(0.0, u_time * flow, u_time * 0.07);
-    float warp = 0.045 * u_output;
+    float flow = 0.028 + u_think * 0.08 + u_speak * 0.045 + u_output * 0.05;
+    vec3 advect = vec3(
+      sin(u_time * 0.11) * (0.03 + u_speak * 0.05),
+      u_time * flow,
+      u_time * 0.022 + cos(u_time * 0.09) * 0.03
+    );
+    float warp = 0.03 + u_output * 0.05;
 
     for (int i = 0; i < 4; i++) {
       float ft = (float(i) + 0.5) / 4.0;
@@ -123,10 +132,10 @@ void main() {
       float field = fbm(samplePos * 2.35 + advect);
       float ribbon = smoothstep(0.32, 0.72, field);
       float caustic = smoothstep(0.5, 0.84, fbm(samplePos * 3.4 + advect * 1.3));
-      vec3 layer = mix(u_obsidian * 1.4, u_deep, 0.55 + ribbon * 0.45);
-      layer = mix(layer, u_emerald, ribbon * 0.72);
-      layer = mix(layer, u_gold, caustic * (0.28 + u_output * 0.4) * (1.0 - u_listen * 0.2));
-      layer += u_goldPale * caustic * (0.08 + u_output * 0.2);
+      vec3 layer = mix(u_obsidian * 1.55, u_deep, 0.38 + ribbon * 0.32);
+      layer = mix(layer, u_emerald, ribbon * 0.42);
+      layer = mix(layer, u_gold, caustic * (0.34 + u_output * 0.42) * (1.0 - u_listen * 0.15));
+      layer += u_goldPale * caustic * (0.1 + u_output * 0.22);
       volume += layer * (0.16 + ft * 0.1);
     }
 
@@ -135,7 +144,7 @@ void main() {
 
     float rip = 0.0;
     if (u_listen > 0.01) {
-      float ring = sin(length(pos.xy) * 16.0 - u_time * 4.2);
+      float ring = sin(length(pos.xy) * 11.0 - u_time * 1.5);
       rip = smoothstep(0.35, 1.0, fres) * ring * u_input * u_listen;
     }
 
