@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { usePathname, useRouter } from "next/navigation";
 import { atelierSurfaceForPath } from "@/lib/atelierSurface";
 import type { Route } from "next";
+import { ConciergeRoot } from "@/components/concierge/ConciergeRoot";
 import { SiteHeader } from "@/components/shell/SiteHeader";
 import { SiteFooter } from "@/components/shell/SiteFooter";
 import { SimulatedBanner } from "@/components/shell/SimulatedBanner";
@@ -35,6 +36,7 @@ export function SessionShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const surface = atelierSurfaceForPath(pathname);
+  const isRta = surface === "rta";
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [generation, setGeneration] = useState(0);
@@ -91,11 +93,12 @@ export function SessionShell({ children }: { children: React.ReactNode }) {
   return (
     <SessionContext.Provider value={value}>
       <div className="app-root" data-surface={surface}>
-        <div className="atmosphere" aria-hidden="true" />
-        {auth ? <SimulatedBanner auth={auth} user={user} /> : null}
-        <SiteHeader user={user} />
+        {!isRta ? <div className="atmosphere" aria-hidden="true" /> : null}
+        {!isRta && auth ? <SimulatedBanner auth={auth} user={user} /> : null}
+        {!isRta ? <SiteHeader user={user} /> : null}
         <main id="main">{children}</main>
-        <SiteFooter />
+        {!isRta ? <SiteFooter /> : null}
+        {!isRta ? <ConciergeRoot /> : null}
       </div>
     </SessionContext.Provider>
   );

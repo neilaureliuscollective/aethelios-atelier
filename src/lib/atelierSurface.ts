@@ -1,7 +1,8 @@
-export type AtelierSurface = "luminous" | "studio" | "workroom" | "atelier";
+export type AtelierSurface = "luminous" | "studio" | "workroom" | "atelier" | "rta";
 
 export function atelierSurfaceForPath(pathname: string | null): AtelierSurface {
   if (!pathname) return "luminous";
+  if (pathname === "/rta" || pathname.startsWith("/rta/")) return "rta";
   if (pathname.startsWith("/companion")) return "atelier";
   if (pathname.startsWith("/discover")) return "luminous";
   if (

@@ -40,4 +40,10 @@ Additive workspace for a client business: membership-checked profile, Talk, Stud
 
 See `docs/COFOUNDER.md`.
 
+## Public concierge
+
+The marketing-site concierge is a separate, visitor-facing path. It reuses the OpenAI fail-closed gate and the existing inquiry pipeline. It does not replace Companion Talk or the commission-brief assistant.
+
+See `docs/AETHELIOS_CONCIERGE.md` and `docs/research/AETHELIOS_CONCIERGE.md`.
+
 Hosted deployment steps: `docs/VERCEL.md`.

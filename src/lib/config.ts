@@ -272,6 +272,11 @@ export function publicRuntimeConfig() {
       billingActivated: false,
       note: "Companion entitlements are server-checked. Client flags do not grant access. Commercial prices stay out of this public config until billing is reviewed. Live voice stays gated until provider duration evidence exists."
     },
-    inquiry: publicInquiryState()
+    inquiry: publicInquiryState(),
+    concierge: {
+      live: config.aurelius.ready,
+      routes: ["/concierge"],
+      note: "Public concierge uses the same OpenAI gate as other Aethelios replies. When live model calls are off, answers come from verified studio information. The dock widget uses the device speech service. RTA spoken audio uses OpenAI Cedar through the Speech API when live OpenAI is authorized, otherwise the browser speech service. Events stay first-party and do not include message content or audio."
+    }
   };
 }

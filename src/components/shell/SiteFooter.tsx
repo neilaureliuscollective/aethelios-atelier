@@ -14,6 +14,8 @@ export function SiteFooter() {
           <AppLink href="/services">Services</AppLink>
           <AppLink href="/pricing">Pricing</AppLink>
           <AppLink href="/approach">Approach</AppLink>
+          <AppLink href="/concierge">Aethelios</AppLink>
+          <AppLink href="/rta">RTA</AppLink>
           <AppLink href="/custom-projects">Other projects</AppLink>
           <AppLink href="/project">Begin a brief</AppLink>
         </nav>

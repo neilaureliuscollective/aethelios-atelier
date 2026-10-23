@@ -108,6 +108,24 @@ describe("inquiry submission", () => {
     expect(retry.ok && retry.receiptId).toBe(result.ok && result.receiptId);
   });
 
+  it("accepts a concierge inquiry source and keeps it labeled as a request", async () => {
+    isolatedCapture();
+    const result = await submitInquiry({
+      name: "Ada Lovelace",
+      email: "ada@client.test",
+      business: "Northridge",
+      need: "Business: salon\nChallenge: almost no inquiries",
+      source: "concierge",
+      consent: true,
+      idempotencyKey: "inq-key-concierge-1"
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.note).toMatch(/not a hosted delivery/i);
+      expect(result.note).toMatch(/not a booking/i);
+    }
+  });
+
   it("does not claim a hosted send when only a real inbox exists", async () => {
     delete process.env.ATELIER_INQUIRY_CAPTURE;
     delete process.env.VERCEL;
