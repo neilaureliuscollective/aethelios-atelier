@@ -1957,11 +1957,24 @@ a.chip {
   place-items: center;
   padding: 28px 20px 32px;
   background:
-    radial-gradient(720px 420px at 50% 38%, rgba(11, 70, 53, 0.22), transparent 58%),
-    radial-gradient(900px 540px at 80% 110%, rgba(199, 164, 90, 0.06), transparent 52%),
+    radial-gradient(980px 520px at 50% 40%, rgba(11, 70, 53, 0.16), transparent 58%),
     #000;
   color: var(--ivory);
   overflow: hidden;
+}
+.rta-stage::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  width: min(46vw, 420px);
+  height: 70px;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at center, rgba(36, 131, 104, 0.16), transparent 70%);
+  pointer-events: none;
+}
+.rta-stage.is-min::after {
+  display: none;
 }
 .rta-stage.is-min {
   position: fixed;
@@ -1983,13 +1996,14 @@ a.chip {
   left: 0;
   right: 0;
   text-align: center;
-  letter-spacing: 0.28em;
+  letter-spacing: 0.34em;
   text-transform: uppercase;
-  font-size: 12px;
+  font-size: 11px;
+  opacity: 0.62;
 }
 .rta-brand p {
   margin: 0;
-  color: color-mix(in srgb, var(--ivory) 72%, transparent);
+  color: color-mix(in srgb, var(--ivory) 58%, transparent);
 }
 .rta-brand p:last-child {
   margin-top: 6px;
@@ -2004,8 +2018,8 @@ a.chip {
   cursor: pointer;
 }
 .rta-orb {
-  width: min(52vw, 420px);
-  height: min(52vw, 420px);
+  width: min(64vw, 520px);
+  height: min(64vw, 520px);
   display: block;
 }
 .rta-orb.is-compact,
@@ -2019,13 +2033,15 @@ a.chip {
 }
 .rta-status {
   margin: 0;
-  font-size: 28px;
-  letter-spacing: 0.04em;
+  font-size: 24px;
+  letter-spacing: 0.06em;
+  font-weight: 400;
+  color: color-mix(in srgb, var(--ivory) 86%, transparent);
 }
 .rta-presence {
   margin: 8px 0 0;
-  color: color-mix(in srgb, var(--ivory) 70%, transparent);
-  font-size: 18px;
+  color: color-mix(in srgb, var(--ivory) 58%, transparent);
+  font-size: 17px;
 }
 .rta-hint,
 .rta-live,
@@ -2123,8 +2139,8 @@ a.chip {
 }
 @media (max-width: 720px) {
   .rta-orb {
-    width: min(72vw, 320px);
-    height: min(72vw, 320px);
+    width: min(78vw, 380px);
+    height: min(78vw, 380px);
   }
   .rta-transcript {
     width: 100%;

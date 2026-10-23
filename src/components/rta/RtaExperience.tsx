@@ -24,6 +24,7 @@ import {
   type ConciergeTurnResult
 } from "@/lib/concierge/types";
 import { RTA_HISTORY_LIMIT, RTA_MESSAGE_MAX, RTA_STORAGE_KEY } from "@/lib/rta/limits";
+import { envelopeToward } from "@/lib/rta/orb";
 import {
   chunkSpokenText,
   mergeTranscript,
@@ -80,8 +81,10 @@ export function RtaExperience() {
   const [error, setError] = useState("");
   const [composer, setComposer] = useState("");
   const [liveLine, setLiveLine] = useState("");
-  const levelRef = useRef(0);
+  const inputRef = useRef(0);
+  const outputRef = useRef(0);
   const pulseRef = useRef(0);
+  const levelClock = useRef(0);
   const recRef = useRef<SpeechRec | null>(null);
   const finalsRef = useRef<string[]>([]);
   const flushTimer = useRef<number>(0);
@@ -347,20 +350,24 @@ export function RtaExperience() {
 
   useEffect(() => {
     let frame = 0;
+    levelClock.current = performance.now();
     const tick = (now: number) => {
+      const dt = Math.min(0.05, (now - (levelClock.current || now)) / 1000);
+      levelClock.current = now;
       pulseRef.current *= 0.86;
+      const listening = state === "listening" && !mutedRef.current;
+      let rawIn = 0;
+      let rawOut = 0;
       if (speakingRef.current) {
-        levelRef.current = speakEnvelope(now, pulseRef.current);
-      } else if (state === "listening" && analyserRef.current && sampleRef.current) {
+        rawOut = speakEnvelope(now, pulseRef.current);
+      } else if (listening && analyserRef.current && sampleRef.current) {
         const analyser = analyserRef.current;
         const samples = sampleRef.current;
         analyser.getByteTimeDomainData(samples as never);
-        levelRef.current = Math.max(rmsFromTimeDomain(samples), pulseRef.current);
-      } else if (state === "thinking") {
-        levelRef.current = 0.1 + 0.04 * Math.sin(now / 180);
-      } else {
-        levelRef.current *= 0.94;
+        rawIn = Math.max(rmsFromTimeDomain(samples), pulseRef.current * 0.25);
       }
+      inputRef.current = envelopeToward(inputRef.current, rawIn, dt);
+      outputRef.current = envelopeToward(outputRef.current, rawOut, dt);
       frame = window.requestAnimationFrame(tick);
     };
     frame = window.requestAnimationFrame(tick);
@@ -454,7 +461,12 @@ export function RtaExperience() {
         }}
         aria-label={started ? (minimized ? "Expand Aethelios RTA" : "Aethelios is in the call") : "Start talking with Aethelios"}
       >
-        <ArchitectOrb state={started ? state : "idle"} levelRef={levelRef} compact={minimized} />
+        <ArchitectOrb
+          state={started ? state : "idle"}
+          inputRef={inputRef}
+          outputRef={outputRef}
+          compact={minimized}
+        />
       </button>
 
       {!minimized ? (

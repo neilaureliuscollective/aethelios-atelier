@@ -3,51 +3,66 @@ export const ORB_DEEP = "#0B4635";
 export const ORB_GOLD = "#C7A45A";
 export const ORB_GOLD_PALE = "#E2C988";
 export const ORB_OBSIDIAN = "#080C0B";
-export const ORB_PARTICLE_COUNT = 1800;
 
-export type OrbParticleKind = "emerald" | "gold";
+export type RtaCallState = "idle" | "listening" | "thinking" | "speaking" | "ended";
 
-export type OrbParticle = {
-  x: number;
-  y: number;
-  z: number;
-  kind: OrbParticleKind;
-  shade: number;
+export type OrbLevels = {
+  input: number;
+  output: number;
 };
 
-export function fibonacciSphere(count: number): Array<{ x: number; y: number; z: number }> {
-  const points: Array<{ x: number; y: number; z: number }> = [];
-  const golden = Math.PI * (3 - Math.sqrt(5));
-  const n = Math.max(1, count);
-  for (let i = 0; i < n; i += 1) {
-    const y = n === 1 ? 0 : 1 - (i / (n - 1)) * 2;
-    const radius = Math.sqrt(Math.max(0, 1 - y * y));
-    const theta = golden * i;
-    points.push({
-      x: Math.cos(theta) * radius,
-      y,
-      z: Math.sin(theta) * radius
-    });
-  }
-  return points;
+export type OrbStateMix = {
+  idle: number;
+  listen: number;
+  think: number;
+  speak: number;
+};
+
+export type SpringValue = {
+  value: number;
+  vel: number;
+};
+
+export function hexToRgb(hex: string): [number, number, number] {
+  const value = hex.replace("#", "");
+  const n = Number.parseInt(value, 16);
+  return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
 }
 
-export function assignOrbKind(y: number, index: number): OrbParticleKind {
-  const band = 0.15 + 0.03 * Math.sin(index * 0.37);
-  if (Math.abs(y) < band) return "gold";
-  if (index % 31 === 0 || index % 47 === 0) return "gold";
-  return "emerald";
+export function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value));
 }
 
-export function buildOrbParticles(count = ORB_PARTICLE_COUNT): OrbParticle[] {
-  return fibonacciSphere(count).map((point, index) => ({
-    ...point,
-    kind: assignOrbKind(point.y, index),
-    shade: (index * 13) % 100 / 100
-  }));
+export function envelopeToward(
+  current: number,
+  target: number,
+  dt: number,
+  attack = 0.045,
+  release = 0.24
+): number {
+  const tau = target > current ? attack : release;
+  const k = 1 - Math.exp(-Math.max(dt, 0) / Math.max(tau, 0.001));
+  return clamp01(current + (target - current) * k);
 }
 
-export function goldShare(particles: OrbParticle[]): number {
-  if (!particles.length) return 0;
-  return particles.filter((particle) => particle.kind === "gold").length / particles.length;
+export function springStep(
+  spring: SpringValue,
+  target: number,
+  dt: number,
+  stiffness = 180,
+  damping = 22
+): SpringValue {
+  const acc = (target - spring.value) * stiffness - spring.vel * damping;
+  const vel = spring.vel + acc * dt;
+  return { value: spring.value + vel * dt, vel };
 }
+
+export function stateWeights(state: RtaCallState): OrbStateMix {
+  return {
+    idle: state === "idle" || state === "ended" ? 1 : 0,
+    listen: state === "listening" ? 1 : 0,
+    think: state === "thinking" ? 1 : 0,
+    speak: state === "speaking" ? 1 : 0
+  };
+}
+

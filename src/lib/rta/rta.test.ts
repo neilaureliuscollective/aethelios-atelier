@@ -3,7 +3,7 @@ import { atelierSurfaceForPath } from "@/lib/atelierSurface";
 import { conciergeVisibleOnPath, conciergePageContext } from "@/lib/concierge/pages";
 import { conciergeRateLimited, resetConciergeRateLimitForTests } from "@/lib/concierge/rateLimit";
 import { clipHistory, sanitizeConciergeMessage } from "@/lib/concierge/safety";
-import { assignOrbKind, buildOrbParticles, goldShare, ORB_PARTICLE_COUNT } from "@/lib/rta/orb";
+import { envelopeToward, hexToRgb, ORB_EMERALD, springStep, stateWeights } from "@/lib/rta/orb";
 import { RTA_HISTORY_LIMIT, RTA_MESSAGE_MAX, RTA_RATE_MAX } from "@/lib/rta/limits";
 import {
   chunkSpokenText,
@@ -88,15 +88,24 @@ describe("Aethelios RTA conversation limits", () => {
   });
 });
 
-describe("Architect orb construction", () => {
-  it("builds a particle sphere with a gold band and black showing through", () => {
-    const particles = buildOrbParticles();
-    expect(particles).toHaveLength(ORB_PARTICLE_COUNT);
-    expect(goldShare(particles)).toBeGreaterThan(0.12);
-    expect(goldShare(particles)).toBeLessThan(0.45);
-    expect(assignOrbKind(0, 3)).toBe("gold");
-    expect(assignOrbKind(0.9, 3)).toBe("emerald");
-    expect(particles.every((particle) => particle.x ** 2 + particle.y ** 2 + particle.z ** 2 <= 1.05)).toBe(true);
+describe("Architect orb motion", () => {
+  it("keeps brand emerald and treats amplitude as depth, not a snap", () => {
+    expect(hexToRgb(ORB_EMERALD)).toEqual([36 / 255, 131 / 255, 104 / 255]);
+    const rising = envelopeToward(0.1, 0.9, 0.02, 0.045, 0.24);
+    const falling = envelopeToward(0.9, 0.1, 0.02, 0.045, 0.24);
+    expect(rising).toBeGreaterThan(0.1);
+    expect(rising).toBeLessThan(0.55);
+    expect(falling).toBeLessThan(0.9);
+    expect(falling).toBeGreaterThan(0.7);
+  });
+
+  it("springs listen and speak as separate states", () => {
+    expect(stateWeights("listening")).toEqual({ idle: 0, listen: 1, think: 0, speak: 0 });
+    expect(stateWeights("speaking")).toEqual({ idle: 0, listen: 0, think: 0, speak: 1 });
+    expect(stateWeights("thinking")).toEqual({ idle: 0, listen: 0, think: 1, speak: 0 });
+    const next = springStep({ value: 0, vel: 0 }, 1, 0.016);
+    expect(next.value).toBeGreaterThan(0);
+    expect(next.value).toBeLessThan(1);
   });
 
   it("reads microphone amplitude from time-domain samples", () => {

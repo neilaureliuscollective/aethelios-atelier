@@ -80,6 +80,6 @@ export function rmsFromTimeDomain(samples: ArrayLike<number>): number {
 }
 
 export function speakEnvelope(nowMs: number, pulse = 0): number {
-  const wave = 0.22 + 0.1 * Math.sin(nowMs / 90) + 0.06 * Math.sin(nowMs / 37);
-  return Math.min(1, wave + pulse);
+  const wave = 0.18 + 0.07 * Math.sin(nowMs / 220) + 0.04 * Math.sin(nowMs / 91);
+  return Math.min(1, wave + pulse * 0.55);
 }

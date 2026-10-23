@@ -47,15 +47,14 @@ A filled, lit volume whose surface displaces with output audio. Beautiful, gener
 
 What we chose for RTA
 
-**Canvas 2D Fibonacci particle sphere** — 1800 points, emerald body, gold equatorial band and sparks, no fill so `#080C0B` shows through. Matches the Architect **mock-up** (green + gold + black), not the static filled disc.
+**WebGL2 liquid-glass volume** — one analytic sphere, refracted interior, Fresnel gold rim, ACES tonemap, soft bloom. Atelier emerald/deep fill with gold as caustic, not a dotted equator. Canvas 2D stacked gradients only if WebGL2 is missing. No particle sphere, no hoop, no constant spin.
 
 Audio drive
 
-- **Listening:** Web Audio `AnalyserNode` on the microphone, RMS of time-domain samples. Levels stay in a ref so React does not re-render at 60fps.
-- **Speaking:** TTS is outside the audio graph, so we use a sine envelope plus `SpeechSynthesisUtterance.onboundary` pulses. The orb brightens and breathes on words.
-- **Idle / thinking:** slow rotation and a quieter breath. `prefers-reduced-motion` paints one still frame of the same particle field.
-
-Rejected for this phase: adding Three.js, copying ElevenLabs’ shader, or shipping the SVG as the live orb.
+- **Listening:** mic RMS → `inputRef`, rim ripples only.
+- **Speaking:** TTS envelope + `onboundary` → `outputRef`, interior warp and core brightness.
+- **Thinking:** interior swirl, no fake audio.
+- Levels use attack/release. State mixes spring. Amplitude changes depth, not spin rate.
 
 ## 4. Experience
 
@@ -69,7 +68,8 @@ Same `POST /api/concierge/talk` engine with `mode: "rta"`. Inquiry and safety pa
 | --- | --- |
 | `src/app/rta/page.tsx` | Route |
 | `src/components/rta/RtaExperience.tsx` | Call UI, continuous speech, mute/transcript/minimize |
-| `src/components/rta/ArchitectOrb.tsx` | Particle orb |
+| `src/components/rta/ArchitectOrb.tsx` | Liquid-glass WebGL2 orb |
+| `src/lib/rta/glassShader.ts` | Fragment/vertex program |
 | `src/lib/rta/*` | Limits, speech helpers, orb math, tests |
 | `docs/research/AETHELIOS_RTA.md` | This note |
 
