@@ -1,15 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { GLASS_FRAG, GLASS_VERT } from "@/lib/orb/glassShader";
+import {
+  createParticleCloud,
+  paintParticleOrb,
+  PARTICLE_COUNT_2D,
+  PARTICLE_COUNT_GL
+} from "@/lib/orb/particleField";
+import { PARTICLE_FRAG, PARTICLE_VERT } from "@/lib/orb/particleShader";
 import {
   clamp01,
   hexToRgb,
-  ORB_DEEP,
   ORB_EMERALD,
-  ORB_GOLD,
   ORB_GOLD_PALE,
-  ORB_OBSIDIAN,
   springStep,
   stateWeights,
   type OrbStateMix,
@@ -30,14 +33,6 @@ type ArchitectOrbProps = {
   className?: string;
 };
 
-const COLOR_UNIFORMS = {
-  u_deep: hexToRgb(ORB_DEEP),
-  u_emerald: hexToRgb(ORB_EMERALD),
-  u_gold: hexToRgb(ORB_GOLD),
-  u_goldPale: hexToRgb(ORB_GOLD_PALE),
-  u_obsidian: hexToRgb(ORB_OBSIDIAN)
-} as const;
-
 function compile(gl: WebGL2RenderingContext, type: number, source: string) {
   const shader = gl.createShader(type);
   if (!shader) return null;
@@ -51,8 +46,8 @@ function compile(gl: WebGL2RenderingContext, type: number, source: string) {
 }
 
 function createProgram(gl: WebGL2RenderingContext) {
-  const vert = compile(gl, gl.VERTEX_SHADER, GLASS_VERT);
-  const frag = compile(gl, gl.FRAGMENT_SHADER, GLASS_FRAG);
+  const vert = compile(gl, gl.VERTEX_SHADER, PARTICLE_VERT);
+  const frag = compile(gl, gl.FRAGMENT_SHADER, PARTICLE_FRAG);
   if (!vert || !frag) return null;
   const program = gl.createProgram();
   if (!program) return null;
@@ -78,74 +73,6 @@ function springMix(current: Record<keyof OrbStateMix, SpringValue>, target: OrbS
   });
 }
 
-function paintFallback(
-  context: CanvasRenderingContext2D,
-  size: number,
-  state: RtaCallState,
-  input: number,
-  output: number,
-  time: number,
-  reduced: boolean
-) {
-  const cx = size / 2;
-  const cy = size / 2;
-  const breath = reduced ? 0 : 0.01 * Math.sin(time * 0.55);
-  const radius = size * (0.46 + breath + output * 0.028 - (state === "thinking" ? 0.018 : 0));
-  context.clearRect(0, 0, size, size);
-
-  const floor = context.createRadialGradient(cx, cy + radius * 0.92, 4, cx, cy + radius * 1.05, radius * 1.2);
-  floor.addColorStop(0, "rgba(36, 131, 104, 0.16)");
-  floor.addColorStop(1, "rgba(8, 12, 11, 0)");
-  context.fillStyle = floor;
-  context.fillRect(0, 0, size, size);
-
-  const bloom = context.createRadialGradient(cx, cy, radius * 0.2, cx, cy, radius * 1.55);
-  bloom.addColorStop(0, `rgba(36, 131, 104, ${0.16 + output * 0.16})`);
-  bloom.addColorStop(0.55, `rgba(11, 70, 53, ${0.1 + input * 0.08})`);
-  bloom.addColorStop(1, "rgba(8, 12, 11, 0)");
-  context.fillStyle = bloom;
-  context.fillRect(0, 0, size, size);
-
-  const body = context.createRadialGradient(cx - radius * 0.28, cy - radius * 0.34, radius * 0.04, cx, cy, radius);
-  body.addColorStop(0, `rgba(255, 246, 220, ${0.62 + output * 0.22})`);
-  body.addColorStop(0.14, `rgba(226, 201, 136, ${0.34 + output * 0.16})`);
-  body.addColorStop(0.4, `rgba(11, 70, 53, ${0.78 + output * 0.1})`);
-  body.addColorStop(0.74, "rgba(8, 16, 14, 0.96)");
-  body.addColorStop(1, "rgba(8, 12, 11, 0.18)");
-  context.fillStyle = body;
-  context.beginPath();
-  context.arc(cx, cy, radius, 0, Math.PI * 2);
-  context.fill();
-
-  const sheen = context.createRadialGradient(cx - radius * 0.3, cy - radius * 0.36, 2, cx, cy, radius * 0.62);
-  sheen.addColorStop(0, "rgba(255, 246, 220, 0.5)");
-  sheen.addColorStop(0.28, "rgba(199, 164, 90, 0.16)");
-  sheen.addColorStop(1, "rgba(199, 164, 90, 0)");
-  context.fillStyle = sheen;
-  context.beginPath();
-  context.arc(cx, cy, radius * 0.9, 0, Math.PI * 2);
-  context.fill();
-
-  context.strokeStyle = `rgba(226, 201, 136, ${0.22 + output * 0.2})`;
-  context.lineWidth = Math.max(1, size * 0.006);
-  context.beginPath();
-  context.arc(cx, cy, radius * 0.985, 0, Math.PI * 2);
-  context.stroke();
-
-  if (state === "listening" && !reduced) {
-    context.strokeStyle = `rgba(226, 201, 136, ${0.18 + input * 0.35})`;
-    context.lineWidth = 1.4;
-    context.beginPath();
-    context.arc(cx, cy, radius * (1.02 + input * 0.06), 0, Math.PI * 2);
-    context.stroke();
-  }
-}
-
-function preferCanvas2d() {
-  if (typeof window === "undefined") return false;
-  return window.matchMedia("(pointer: coarse)").matches;
-}
-
 function webgl2WithAlpha(canvas: HTMLCanvasElement) {
   const gl = canvas.getContext("webgl2", {
     alpha: true,
@@ -169,18 +96,12 @@ export function ArchitectOrb({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stateRef = useRef(state);
   const paintedRef = useRef(false);
-  const [backend, setBackend] = useState<"gl" | "canvas2d">("canvas2d");
+  const [backend, setBackend] = useState<"gl" | "canvas2d">("gl");
   const [painted, setPainted] = useState(false);
 
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
-
-  useEffect(() => {
-    if (preferCanvas2d()) return;
-    const probe = document.createElement("canvas");
-    if (webgl2WithAlpha(probe)) setBackend("gl");
-  }, []);
 
   useEffect(() => {
     paintedRef.current = false;
@@ -243,6 +164,7 @@ export function ArchitectOrb({
         document.removeEventListener("visibilitychange", onVis);
         return;
       }
+      const cloud = createParticleCloud(compact ? 1400 : PARTICLE_COUNT_2D);
       const draw = (now: number) => {
         if (!running) return;
         const dt = Math.min(0.05, (now - last) / 1000);
@@ -250,8 +172,9 @@ export function ArchitectOrb({
         springMix(mix, stateWeights(stateRef.current), dt);
         const { size } = resize(2);
         context.setTransform(canvas.width / size, 0, 0, canvas.height / size, 0, 0);
-        paintFallback(
+        paintParticleOrb(
           context,
+          cloud,
           size,
           stateRef.current,
           clamp01(inputRef.current),
@@ -289,36 +212,30 @@ export function ArchitectOrb({
       setBackend("canvas2d");
     };
     canvas.addEventListener("webglcontextlost", onLost);
+    const cloud = createParticleCloud(compact ? 7000 : PARTICLE_COUNT_GL);
     const buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, cloud, gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 0, 0);
     gl.useProgram(program);
     gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 
     const uniforms = {
       res: loc(gl, program, "u_res"),
       time: loc(gl, program, "u_time"),
       input: loc(gl, program, "u_input"),
       output: loc(gl, program, "u_output"),
-      idle: loc(gl, program, "u_idle"),
       listen: loc(gl, program, "u_listen"),
       think: loc(gl, program, "u_think"),
       speak: loc(gl, program, "u_speak"),
       reduced: loc(gl, program, "u_reduced"),
-      deep: loc(gl, program, "u_deep"),
       emerald: loc(gl, program, "u_emerald"),
-      gold: loc(gl, program, "u_gold"),
-      goldPale: loc(gl, program, "u_goldPale"),
-      obsidian: loc(gl, program, "u_obsidian")
+      goldPale: loc(gl, program, "u_goldPale")
     };
-    gl.uniform3fv(uniforms.deep, COLOR_UNIFORMS.u_deep);
-    gl.uniform3fv(uniforms.emerald, COLOR_UNIFORMS.u_emerald);
-    gl.uniform3fv(uniforms.gold, COLOR_UNIFORMS.u_gold);
-    gl.uniform3fv(uniforms.goldPale, COLOR_UNIFORMS.u_goldPale);
-    gl.uniform3fv(uniforms.obsidian, COLOR_UNIFORMS.u_obsidian);
+    gl.uniform3fv(uniforms.emerald, hexToRgb(ORB_EMERALD));
+    gl.uniform3fv(uniforms.goldPale, hexToRgb(ORB_GOLD_PALE));
 
     const draw = (now: number) => {
       if (!running) return;
@@ -333,12 +250,11 @@ export function ArchitectOrb({
       gl.uniform1f(uniforms.time, reduced ? 0.4 : now / 1000);
       gl.uniform1f(uniforms.input, clamp01(inputRef.current));
       gl.uniform1f(uniforms.output, clamp01(outputRef.current));
-      gl.uniform1f(uniforms.idle, mix.idle.value);
       gl.uniform1f(uniforms.listen, mix.listen.value);
       gl.uniform1f(uniforms.think, mix.think.value);
       gl.uniform1f(uniforms.speak, mix.speak.value);
       gl.uniform1f(uniforms.reduced, reduced ? 1 : 0);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      gl.drawArrays(gl.POINTS, 0, cloud.length / 4);
       if (!paintedRef.current) {
         paintedRef.current = true;
         setPainted(true);
@@ -359,7 +275,7 @@ export function ArchitectOrb({
       gl.deleteBuffer(buffer);
       gl.deleteProgram(program);
     };
-  }, [backend, inputRef, outputRef]);
+  }, [backend, compact, inputRef, outputRef]);
 
   return (
     <canvas

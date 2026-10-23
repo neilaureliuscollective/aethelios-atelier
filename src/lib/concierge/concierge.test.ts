@@ -140,7 +140,8 @@ describe("concierge homepage seating", () => {
     expect(architect).toContain("failIfMajorPerformanceCaveat");
     expect(architect).toContain("webglcontextlost");
     expect(architect).toContain("getContextAttributes");
-    expect(architect).toContain("pointer: coarse");
+    expect(architect).toContain("paintParticleOrb");
+    expect(architect).toContain("gl.POINTS");
     expect(architect).toContain('data-ready');
     const canvas = readFileSync("src/components/concierge/PresentationCanvas.tsx", "utf8");
     expect(canvas).toContain("ConciergeHandoff");
