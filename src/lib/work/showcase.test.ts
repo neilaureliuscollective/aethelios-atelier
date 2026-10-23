@@ -91,9 +91,13 @@ describe("inline cinematic playback", () => {
 
   it("places the homepage showcase after the hero and before possibilities", () => {
     const home = readFileSync("src/app/page.tsx", "utf8");
-    expect(home.indexOf("<ConciergeStage")).toBeLessThan(home.indexOf('variant="featured"'));
+    expect(home.indexOf("<ConciergeStage")).toBeLessThan(home.indexOf("<AtelierManifesto"));
+    expect(home.indexOf("<AtelierManifesto")).toBeLessThan(home.indexOf('variant="featured"'));
     expect(home.indexOf('variant="featured"')).toBeLessThan(home.indexOf("<PossibilitiesStage"));
     expect(home).toContain("SelectedWork");
+    const manifesto = readFileSync("src/components/marketing/AtelierManifesto.tsx", "utf8");
+    expect(manifesto).toContain('href="#selected-work"');
+    expect(manifesto).toContain("serviceBriefHref");
   });
 
   it("keeps specialist hero shading local and lighter than the main Atelier wash", () => {

@@ -1,4 +1,5 @@
 import { AppLink } from "@/components/ui/AppLink";
+import { AtelierManifesto } from "@/components/marketing/AtelierManifesto";
 import { ConciergeStage } from "@/components/concierge/ConciergeStage";
 import { CustomProjectsInvite } from "@/components/marketing/CustomProjectsInvite";
 import { PossibilitiesStage } from "@/components/marketing/PossibilitiesStage";
@@ -11,6 +12,7 @@ export default function HomePage() {
   return (
     <>
       <ConciergeStage />
+      <AtelierManifesto />
       <SelectedWork variant="featured" />
 
       <Reveal as="section" className="container section ivory-section" delay={1}>
@@ -30,7 +32,7 @@ export default function HomePage() {
       <Reveal as="section" className="container section" delay={1}>
         <div className="section-head split-head">
           <div>
-            <p className="kicker">Our services</p>
+            <p className="kicker">Services</p>
             <h2 id="services-heading">Four ways a commission can begin.</h2>
           </div>
           <p className="lede">
@@ -45,7 +47,7 @@ export default function HomePage() {
 
       <Reveal as="section" className="container section" delay={2}>
         <div className="section-head">
-          <p className="kicker">Our approach</p>
+          <p className="kicker">Neil’s approach</p>
           <h2 id="path-heading">A more considered way to build.</h2>
           <p className="lede">
             Nothing is sent until you review the brief and consent. Sending a brief is a request.
@@ -80,8 +82,8 @@ export default function HomePage() {
             <h2 id="founder-heading">Reviewed and built by Neil Stutes.</h2>
             <p className="lede lede-bright">
               Aethelios Atelier is founder-led studio work, separate from the main Aethelios product.
-              I read every brief I accept, and I remain accountable for scope, price, and delivery. You
-              can explore without a subscription.
+              Neil reads every brief he accepts and remains accountable for scope, price, and delivery.
+              You can explore without a subscription.
             </p>
             <AppLink className="btn btn-gold" href="/project">
               Begin a brief
