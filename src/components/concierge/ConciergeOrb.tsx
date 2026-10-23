@@ -52,11 +52,13 @@ function compile(gl: WebGLRenderingContext, type: number, source: string) {
 export function ConciergeOrb({
   state,
   label,
-  onToggle
+  onToggle,
+  size = "hero"
 }: {
   state: OrbState;
   label: string;
   onToggle: () => void;
+  size?: "hero" | "docked";
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -112,7 +114,7 @@ export function ConciergeOrb({
 
   return (
     <button className={styles.orbButton} type="button" onClick={onToggle} aria-label={label}>
-      <div className={styles.orb} data-state={state} ref={wrapRef}>
+      <div className={styles.orb} data-state={state} data-size={size} ref={wrapRef}>
         <span className={styles.orbRing} aria-hidden="true" />
         <span className={styles.orbFallback} aria-hidden="true" />
         <canvas ref={canvasRef} className={styles.orbCanvas} aria-hidden="true" />

@@ -93,5 +93,9 @@ describe("concierge homepage seating", () => {
     const renderer = readFileSync("src/components/concierge/SlideView.tsx", "utf8");
     expect(renderer).not.toContain("dangerouslySetInnerHTML");
     expect(renderer).not.toContain("eval(");
+    const stage = readFileSync("src/components/concierge/ConciergeStage.tsx", "utf8");
+    expect(stage).toContain("Meet {INTELLIGENCE_DISPLAY_NAME}");
+    expect(stage).not.toContain("Talk with Aethelios");
+    expect(stage).not.toMatch(/btn-gold/);
   });
 });

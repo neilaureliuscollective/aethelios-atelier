@@ -185,8 +185,56 @@
   transition: width 420ms ease, height 420ms ease, transform 420ms ease;
 }
 
-.stage[data-orb="hero"] .orb { --orb-size: min(300px, 64vw); }
-.stage[data-orb="docked"] .orb { --orb-size: 72px; }
+.stage[data-orb="hero"] .orb,
+.orb[data-size="hero"] { --orb-size: min(420px, 70vw); }
+.stage[data-orb="docked"] .orb,
+.orb[data-size="docked"] { --orb-size: 72px; }
+
+.stage[data-workspace="listening"] .shell,
+.stage[data-workspace="idle"] .shell {
+  grid-template-rows: auto 1fr auto;
+  justify-items: center;
+  text-align: center;
+}
+
+.orbEntry {
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+  width: min(560px, 100%);
+}
+
+.whisper {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+}
+
+.whisper label,
+.invitesLabel {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--concierge-muted);
+}
+
+.whisper textarea {
+  width: 100%;
+  min-height: 56px;
+  resize: none;
+  border-radius: 18px;
+  border: 1px solid rgba(232, 213, 163, 0.22);
+  background: rgba(7, 10, 9, 0.42);
+  color: var(--concierge-ink);
+  padding: 14px 16px;
+  font: inherit;
+  text-align: center;
+}
+
+.stage[data-workspace="listening"] .left,
+.stage[data-workspace="idle"] .left {
+  justify-items: center;
+}
 
 .orbCanvas,
 .orbFallback {
