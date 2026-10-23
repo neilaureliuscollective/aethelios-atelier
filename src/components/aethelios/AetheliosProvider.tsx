@@ -6,7 +6,7 @@ import { useOrbVoice, type SpokenPhase } from "@/components/concierge/useOrbVoic
 import { applySlide, mergePresentation } from "@/lib/concierge/merge";
 import { parseConciergeChunk } from "@/lib/concierge/stream";
 import type { ConciergeHistoryItem, PresentationDocument, SitePreview } from "@/lib/concierge/types";
-import { appendTranscript, documentSourceFromTalk, shouldCommitSpoken } from "@/lib/concierge/voiceText";
+import { documentSourceFromTalk, shouldCommitSpoken } from "@/lib/concierge/voiceText";
 import { INTELLIGENCE_DISPLAY_NAME } from "@/lib/copy";
 import styles from "@/components/concierge/concierge.module.css";
 
@@ -39,11 +39,14 @@ type AetheliosValue = {
   panelOpen: boolean;
   setPanelOpen: (open: boolean) => void;
   orbState: OrbState;
-  send: (message: string, options?: { compose?: boolean }) => Promise<void>;
+  send: (message: string, options?: SendOptions) => Promise<void>;
   composeDocument: () => Promise<void>;
   abort: () => void;
   voice: AetheliosVoice;
 };
+
+/** quiet: compose from turns already on screen without echoing them as a new bubble. */
+type SendOptions = { compose?: boolean; quiet?: boolean };
 
 const AetheliosContext = createContext<AetheliosValue | null>(null);
 
@@ -71,7 +74,7 @@ export function AetheliosProvider({ children }: { children: ReactNode }) {
   const [panelOpen, setPanelOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const inputLatest = useRef("");
-  const sendLatest = useRef<(message: string, options?: { compose?: boolean }) => Promise<void>>(
+  const sendLatest = useRef<(message: string, options?: SendOptions) => Promise<void>>(
     async () => undefined
   );
   const pendingLatest = useRef(false);
@@ -83,12 +86,12 @@ export function AetheliosProvider({ children }: { children: ReactNode }) {
   if (messages.length) greetedRef.current = true;
 
   const history = useMemo<ConciergeHistoryItem[]>(
-    () => messages.slice(-8).map((item) => ({ role: item.role, content: item.body })),
+    () => messages.slice(-8).map((item) => ({ role: item.role, content: item.body.slice(0, 2000) })),
     [messages]
   );
 
   const send = useCallback(
-    async (message: string, options?: { compose?: boolean }) => {
+    async (message: string, options?: SendOptions) => {
       const text = message.trim();
       if (!text) return;
       if (pendingLatest.current && !options?.compose) return;
@@ -96,7 +99,9 @@ export function AetheliosProvider({ children }: { children: ReactNode }) {
       setError("");
       setStreaming("");
       setPanelOpen(true);
-      setMessages((current) => [...current, { id: `user_${current.length}`, role: "user", body: text }]);
+      if (!options?.quiet) {
+        setMessages((current) => [...current, { id: `user_${current.length}`, role: "user", body: text }]);
+      }
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
@@ -171,8 +176,8 @@ export function AetheliosProvider({ children }: { children: ReactNode }) {
 
   const engine = useOrbVoice({
     shouldGreet: () => !greetedRef.current,
-    onHeard: (spoken) => {
-      setInput(appendTranscript(inputLatest.current, spoken));
+    onTurn: (role, spoken) => {
+      setMessages((current) => [...current, { id: `spoken_${role}_${current.length}`, role, body: spoken }]);
     }
   });
 
@@ -183,11 +188,17 @@ export function AetheliosProvider({ children }: { children: ReactNode }) {
   const composeDocument = useCallback(async () => {
     engine.stop();
     const spokenTurns = messagesLatest.current.filter((item) => item.role === "user").map((item) => item.body);
-    const source = documentSourceFromTalk(inputLatest.current, spokenTurns);
-    await sendLatest.current(
-      shouldCommitSpoken(source) ? source : documentSourceFromTalk("", []),
-      { compose: true }
-    );
+    const typed = inputLatest.current.trim();
+    const source = documentSourceFromTalk(typed, spokenTurns);
+    const usable = shouldCommitSpoken(source);
+    if (typed && usable) {
+      setMessages((current) => [...current, { id: `user_${current.length}`, role: "user", body: typed }]);
+      setInput("");
+    }
+    await sendLatest.current(usable ? source : documentSourceFromTalk("", []), {
+      compose: true,
+      quiet: usable
+    });
   }, [engine]);
 
   const abort = useCallback(() => {

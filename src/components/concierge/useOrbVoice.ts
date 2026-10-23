@@ -2,25 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { envelopeToward } from "@/lib/orb/orb";
+import { spokenTurnFrom } from "@/lib/concierge/voiceText";
 import { holdSpokenPhase, rmsFromTimeDomain, speechGain, SPEECH_RMS } from "@/lib/concierge/voiceListen";
 
 export type SpokenPhase = "idle" | "starting" | "listening" | "speaking";
 
 export type OrbVoiceOptions = {
-  onHeard?: (text: string) => void;
+  /** A finished spoken turn: the visitor's transcribed words, or what Aethelios said aloud. */
+  onTurn?: (role: "user" | "assistant", text: string) => void;
   shouldGreet?: () => boolean;
 };
-
-function extractSpokenText(payload: { type?: string; transcript?: string; delta?: string; text?: string }) {
-  const type = payload.type ?? "";
-  if (type.includes("transcription.completed") || type.includes("audio_transcript.done")) {
-    return payload.transcript ?? payload.text ?? "";
-  }
-  if (type.includes("audio_transcript.delta") || type.includes("transcript.delta")) {
-    return payload.delta ?? "";
-  }
-  return payload.transcript ?? payload.delta ?? "";
-}
 
 function unlockSpokenAudio(audio: HTMLAudioElement | null) {
   if (!audio) return;
@@ -109,8 +100,8 @@ export function useOrbVoice(options?: OrbVoiceOptions) {
   const inputLevelRef = useRef(0);
   const outputLevelRef = useRef(0);
   const lastLevelAt = useRef(0);
-  const onHeardRef = useRef(options?.onHeard);
-  onHeardRef.current = options?.onHeard;
+  const onTurnRef = useRef(options?.onTurn);
+  onTurnRef.current = options?.onTurn;
   const shouldGreetRef = useRef(options?.shouldGreet);
   shouldGreetRef.current = options?.shouldGreet;
 
@@ -283,13 +274,10 @@ export function useOrbVoice(options?: OrbVoiceOptions) {
           const payload = JSON.parse(String(event.data)) as {
             type?: string;
             transcript?: string;
-            delta?: string;
             text?: string;
           };
-          const next = extractSpokenText(payload);
-          if (next && (payload.type ?? "").includes("input_audio_transcription")) {
-            onHeardRef.current?.(next);
-          }
+          const turn = spokenTurnFrom(payload);
+          if (turn) onTurnRef.current?.(turn.role, turn.text);
         } catch {
           /* non-JSON control frames are ignored */
         }

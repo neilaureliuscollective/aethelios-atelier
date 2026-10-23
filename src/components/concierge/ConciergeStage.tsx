@@ -5,7 +5,6 @@ import { useAethelios } from "@/components/aethelios/AetheliosProvider";
 import { shouldOpenCanvas } from "@/lib/concierge/intent";
 import { orbPresenceLabel } from "@/lib/concierge/voiceListen";
 import { INTELLIGENCE_DISPLAY_NAME } from "@/lib/copy";
-import { ConciergeHandoff } from "./ConciergeHandoff";
 import { ConciergeOrb } from "./ConciergeOrb";
 import { PresentationCanvas } from "./PresentationCanvas";
 import { StageAtmosphere } from "./StageAtmosphere";
@@ -42,16 +41,26 @@ export function ConciergeStage() {
   const [writing, setWriting] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const voiceLive = voice.phase !== "idle";
+  const lastSpoken = messages.at(-1);
 
   useEffect(() => {
     if (document || writing) {
       setWorkspace("canvas");
       setOrbSize("docked");
-    } else if (messages.length || pending) {
+    } else if ((messages.length || pending) && !voiceLive) {
       setWorkspace("chat");
       setOrbSize("docked");
     }
-  }, [document, messages.length, pending, writing]);
+  }, [document, messages.length, pending, voiceLive, writing]);
+
+  useEffect(() => {
+    if (!writing) return;
+    // On a phone the document stacks first; bring it into view as it starts writing.
+    if (!window.matchMedia("(max-width: 980px)").matches) return;
+    globalThis.document
+      ?.getElementById("live-document")
+      ?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+  }, [writing]);
 
   useEffect(() => {
     if (document) setWriting(false);
@@ -174,6 +183,11 @@ export function ConciergeStage() {
                 hasDocument: Boolean(document)
               })}
             </p>
+            {voiceLive && lastSpoken ? (
+              <p className={styles.caption} aria-live="polite" data-role={lastSpoken.role}>
+                {lastSpoken.role === "user" ? "You" : INTELLIGENCE_DISPLAY_NAME}: {lastSpoken.body}
+              </p>
+            ) : null}
           </div>
 
           {orbCentered ? (
@@ -210,7 +224,6 @@ export function ConciergeStage() {
                   Compose a document
                 </button>
               </div>
-              <ConciergeHandoff />
               <p className={styles.invitesLabel}>Try speaking as a founder would</p>
               <div className={styles.prompts}>
                 {PROMPTS.map((prompt) => (
@@ -256,18 +269,32 @@ export function ConciergeStage() {
                     ref={inputRef}
                     value={input}
                     onChange={(event) => setInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && !event.shiftKey) {
+                        event.preventDefault();
+                        submitText(input);
+                      }
+                    }}
                     placeholder="Add a fact, a place, or ask to make it quieter."
                   />
+                  <button
+                    className={styles.composerSend}
+                    type="submit"
+                    disabled={pending || !input.trim()}
+                    aria-label={`Send to ${INTELLIGENCE_DISPLAY_NAME}`}
+                  >
+                    ↑
+                  </button>
                   {voice.error || error ? <p className="notice notice-warn">{voice.error || error}</p> : null}
                 </form>
                 <button
-                  className="btn btn-ghost"
+                  className={`btn ${document ? "btn-ghost" : "btn-emerald-glass"} ${styles.composeButton}`}
                   type="button"
                   onClick={() => void writeDocument()}
+                  disabled={pending}
                 >
-                  Compose a document
+                  {document ? "Update the document" : "Compose a document"}
                 </button>
-                <ConciergeHandoff />
               </div>
             </div>
           )}

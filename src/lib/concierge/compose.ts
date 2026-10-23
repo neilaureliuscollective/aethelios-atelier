@@ -78,28 +78,54 @@ const KIND_COPY: Record<
     path: "Start a brief from this conversation when you are ready."
   },
   unknown: {
-    subject: "a business that is still being named",
-    promise: "We can still compose a direction from what you have said, and leave blanks where facts are missing.",
-    craft: "Aethelios will not invent prices, clients, or completed work.",
-    rooms: ["What is known", "What still needs you"],
-    path: "Keep talking, or move the sketch into Discover or a brief."
+    subject: "a business with its own point of view",
+    promise: "A digital presence that says exactly what you do, who it is for, and how to begin — in your voice, not a template's.",
+    craft: "Aethelios writes from what you said and leaves room for what only you know. Neil fills the gaps with you.",
+    rooms: ["What you do", "How someone begins"],
+    path: "Send this to Neil and he will take it from here."
   }
 };
+
+const GENERIC_SOURCE = /^write a first document from this conversation\.?$/i;
+
+/** The visitor's own words, trimmed to a quotable length. */
+function visitorWords(raw: string) {
+  const text = raw
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line && !GENERIC_SOURCE.test(line))
+    .join(" ");
+  if (text.length < 18) return null;
+  if (text.length <= 260) return text;
+  const cut = text.slice(0, 260);
+  return `${cut.slice(0, cut.lastIndexOf(" ")).replace(/[,;:]$/, "")}…`;
+}
 
 function slidesFor(sketch: BusinessSketch): PresentationSlide[] {
   const copy = KIND_COPY[sketch.kind];
   const label = sketchLabel(sketch);
   const place = sketch.place ? ` in ${sketch.place}` : "";
+  const words = visitorWords(sketch.raw);
+  const headline = sketch.name ?? (sketch.kind === "unknown" ? "Your business, considered." : label.replace(/^this /, ""));
   return [
     {
       id: "slide_hero",
       layout: "hero",
-      kicker: `${INTELLIGENCE_DISPLAY_NAME} · document`,
-      headline: sketch.name ? sketch.name : label.replace(/^this /, ""),
-      subhead: qualityLine(sketch, `${copy.subject}${place}.`),
+      kicker: `${INTELLIGENCE_DISPLAY_NAME} · direction`,
+      headline: headline.slice(0, 1).toUpperCase() + headline.slice(1),
+      subhead: qualityLine(sketch, `For ${copy.subject}${place}.`),
       body: copy.promise,
       enter: "rise",
       emphasis: "headline"
+    },
+    {
+      id: "slide_words",
+      layout: "quote",
+      kicker: "In your words",
+      quote: words ?? "Add a sentence about the business and it will appear here, in your own words.",
+      attribution: words ? "You, to Aethelios" : INTELLIGENCE_DISPLAY_NAME,
+      enter: "fade",
+      emphasis: "quote"
     },
     {
       id: "slide_manifesto",
@@ -108,9 +134,9 @@ function slidesFor(sketch: BusinessSketch): PresentationSlide[] {
       headline: "A presence that matches the work.",
       body: copy.craft,
       bullets: [
-        "Confirmed facts stay labeled as facts.",
-        "Suggestions stay suggestions.",
-        "Nothing here is a quote, booking, or finished website."
+        "Built around the booking, payment, and tools you already use.",
+        "Your facts and your voice — nothing invented.",
+        "Reviewed personally by Neil Stutes, the founder."
       ],
       enter: "fade",
       emphasis: "none"
@@ -118,38 +144,24 @@ function slidesFor(sketch: BusinessSketch): PresentationSlide[] {
     {
       id: "slide_split",
       layout: "split",
-      kicker: "Two rooms",
-      headline: "What the first site has to hold.",
+      kicker: "What the site holds",
+      headline: "Two rooms the first site has to get right.",
       columns: [
         { title: copy.rooms[0], body: "The craft, the atmosphere, and the words you already use." },
-        { title: copy.rooms[1], body: "A next step that is a request — not an invented checkout." }
+        { title: copy.rooms[1], body: "One clear next step, so a visitor knows exactly how to begin." }
       ],
       enter: "split",
       emphasis: "none"
     },
     {
-      id: "slide_stats",
-      layout: "stats",
-      kicker: "How this conversation is held",
-      headline: "A sketch has a shape before it has a contract.",
-      stats: [
-        { value: "01", label: "Listen to the business you actually run" },
-        { value: "02", label: "Compose a direction you can see" },
-        { value: "03", label: "Move it into a brief Neil can review" }
-      ],
-      body: "These are process marks, not client results.",
-      enter: "rise",
-      emphasis: "stat"
-    },
-    {
       id: "slide_path",
       layout: "path",
-      kicker: "From this room",
+      kicker: "What happens next",
       headline: copy.path,
       steps: [
-        { title: "Stay here", body: "Keep talking. The document revises as you add facts." },
-        { title: "Discover a direction", body: "Turn the sketch into a labeled exploration." },
-        { title: "Begin a brief", body: "Write what is true. Sending is a request, not a booking." }
+        { title: "Send it to Neil", body: "Your name and email are all it takes. No account, no payment." },
+        { title: "Neil reviews it", body: "He reads the direction and this conversation personally." },
+        { title: "A proposal, if it fits", body: "Scope, price, and timing come from Neil — nothing is assumed." }
       ],
       enter: "fade",
       emphasis: "none"
@@ -157,10 +169,9 @@ function slidesFor(sketch: BusinessSketch): PresentationSlide[] {
     {
       id: "slide_next",
       layout: "next",
-      kicker: "Next",
-      headline: "When you want this to leave the sketch.",
-      body: `${INTELLIGENCE_DISPLAY_NAME} can keep composing here. Neil Stutes reviews every commission he accepts.`,
-      cta: { label: "Begin a brief", href: "/project" },
+      kicker: "Ready when you are",
+      headline: "Send this direction to Neil.",
+      body: `Keep talking and ${INTELLIGENCE_DISPLAY_NAME} will keep refining it, or send it now from the bar below. Neil Stutes reviews every commission he accepts.`,
       enter: "rise",
       emphasis: "none"
     }
@@ -195,7 +206,11 @@ export function composePresentation(
   return {
     version: 1,
     id: existing?.id ?? idFor("canvas"),
-    title: sketch.name ? `${sketch.name} · direction` : `${sketchLabel(sketch)} · direction`,
+    title: sketch.name
+      ? `${sketch.name} · direction`
+      : sketch.kind === "unknown" && !sketch.place
+        ? "Your direction"
+        : `${sketchLabel(sketch).replace(/^this /, "Your ")} · direction`,
     thesis: qualityLine(sketch, KIND_COPY[sketch.kind].promise),
     theme,
     slides
