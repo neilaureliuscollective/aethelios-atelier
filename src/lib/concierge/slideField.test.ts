@@ -12,12 +12,15 @@ describe("slide field signatures", () => {
     expect(seedFromId("slide_hero")).not.toBe(seedFromId("slide_next"));
   });
 
-  it("keeps the field renderer display-only", () => {
-    const field = readFileSync("src/components/concierge/SlideField.tsx", "utf8");
+  it("keeps the written document display-only", () => {
     const view = readFileSync("src/components/concierge/SlideView.tsx", "utf8");
-    expect(field).not.toContain("dangerouslySetInnerHTML");
+    const canvas = readFileSync("src/components/concierge/PresentationCanvas.tsx", "utf8");
+    expect(view).not.toContain("dangerouslySetInnerHTML");
+    expect(view).not.toContain("SlideField");
     expect(view).toContain("data-layout={slide.layout}");
     expect(view).toContain("data-mood={theme.mood}");
     expect(view).toContain("data-accent={theme.accent}");
+    expect(canvas).toContain("atelier-brief");
+    expect(canvas).not.toContain("SlideField");
   });
 });

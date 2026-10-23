@@ -13,24 +13,8 @@ function qualityLine(sketch: BusinessSketch, fallback: string) {
   return `${fallback} You asked for something ${sketch.qualities.slice(0, 2).join(" and ")}.`;
 }
 
-function themeFor(sketch: BusinessSketch, instruction: string): PresentationTheme {
-  const text = `${sketch.raw} ${instruction}`.toLowerCase();
-  if (/\b(luxury|gold|editorial|quiet)\b/.test(text)) {
-    return { mood: "obsidian", accent: "gold", density: "editorial" };
-  }
-  if (/\b(warm|ember|hearth)\b/.test(text)) {
-    return { mood: "ember", accent: "gold", density: "cinematic" };
-  }
-  if (/\b(modern|emerald|signal)\b/.test(text)) {
-    return { mood: "aurora", accent: "emerald", density: "cinematic" };
-  }
-  if (sketch.kind === "salon" || sketch.kind === "studio") {
-    return { mood: "obsidian", accent: "gold", density: "editorial" };
-  }
-  if (sketch.kind === "barber" || sketch.kind === "shop") {
-    return { mood: "ember", accent: "gold", density: "cinematic" };
-  }
-  return { mood: "obsidian", accent: "emerald", density: "cinematic" };
+export function atelierDocumentTheme(): PresentationTheme {
+  return { mood: "obsidian", accent: "gold", density: "editorial" };
 }
 
 const KIND_COPY: Record<
@@ -110,7 +94,7 @@ function slidesFor(sketch: BusinessSketch): PresentationSlide[] {
     {
       id: "slide_hero",
       layout: "hero",
-      kicker: `${INTELLIGENCE_DISPLAY_NAME} · live sketch`,
+      kicker: `${INTELLIGENCE_DISPLAY_NAME} · document`,
       headline: sketch.name ? sketch.name : label.replace(/^this /, ""),
       subhead: qualityLine(sketch, `${copy.subject}${place}.`),
       body: copy.promise,
@@ -163,7 +147,7 @@ function slidesFor(sketch: BusinessSketch): PresentationSlide[] {
       kicker: "From this room",
       headline: copy.path,
       steps: [
-        { title: "Stay here", body: "Keep talking. The canvas revises as you add facts." },
+        { title: "Stay here", body: "Keep talking. The document revises as you add facts." },
         { title: "Discover a direction", body: "Turn the sketch into a labeled exploration." },
         { title: "Begin a brief", body: "Write what is true. Sending is a request, not a booking." }
       ],
@@ -194,7 +178,7 @@ export function composePresentation(
   const sketch = extractBusinessSketch(
     [existing?.thesis, existing?.title, message].filter(Boolean).join("\n")
   );
-  const theme = themeFor(sketch, message);
+  const theme = atelierDocumentTheme();
   const slides = slidesFor(sketch);
   if (isRevisionRequest(message, Boolean(existing)) && existing) {
     return {

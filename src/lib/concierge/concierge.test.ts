@@ -38,6 +38,9 @@ describe("concierge display contract", () => {
     expect(presentationSchema.safeParse(deck).success).toBe(true);
     expect(deck.slides).toHaveLength(6);
     expect(deck.title).toMatch(/Northridge/);
+    expect(deck.theme.mood).toBe("obsidian");
+    expect(deck.theme.accent).toBe("gold");
+    expect(JSON.stringify(deck.theme)).not.toMatch(/ember/);
     expect(JSON.stringify(deck)).not.toMatch(/\$79|testimonial|dangerouslySetInnerHTML|<script/i);
     expect(composeReply(sketch, true)).toMatch(/sketch/);
   });
@@ -93,7 +96,7 @@ describe("concierge homepage seating", () => {
     const renderer = readFileSync("src/components/concierge/SlideView.tsx", "utf8");
     expect(renderer).not.toContain("dangerouslySetInnerHTML");
     expect(renderer).not.toContain("eval(");
-    expect(renderer).toContain("SlideField");
+    expect(renderer).not.toContain("SlideField");
     expect(renderer).toContain("data-layout");
     const orb = readFileSync("src/components/concierge/ConciergeOrb.tsx", "utf8");
     expect(orb).toContain("ArchitectOrb");
@@ -111,6 +114,8 @@ describe("concierge homepage seating", () => {
     expect(css).toContain("overflow: hidden");
     expect(css).toContain("clamp(212px, 38vmin, 300px)");
     expect(css).toContain("atelier-hall.jpg");
+    expect(css).toContain(".brief");
+    expect(css).not.toContain('data-mood="ember"');
     expect(existsSync("public/atmosphere/atelier-hall.jpg")).toBe(true);
     expect(css).not.toContain("70vw");
     expect(css).not.toContain("colonnade.webp");
@@ -156,6 +161,8 @@ describe("concierge homepage seating", () => {
     const canvas = readFileSync("src/components/concierge/PresentationCanvas.tsx", "utf8");
     expect(canvas).toContain("ConciergeHandoff");
     expect(canvas).toContain("Live document");
+    expect(canvas).toContain("atelier-brief");
+    expect(canvas).not.toContain("SlideField");
     expect(canvas).not.toContain("The room is assembling.");
     const transcribe = readFileSync("src/lib/concierge/transcribe.ts", "utf8");
     expect(transcribe).toContain("gpt-transcribe");

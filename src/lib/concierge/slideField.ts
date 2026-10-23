@@ -146,5 +146,5 @@ export function seedFromId(id: string) {
 export const DEFAULT_THEME: PresentationTheme = {
   mood: "obsidian",
   accent: "gold",
-  density: "cinematic"
+  density: "editorial"
 };

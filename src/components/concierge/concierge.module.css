@@ -525,8 +525,7 @@
 
 .stageScale {
   width: 100%;
-  aspect-ratio: 16 / 9;
-  transform-style: preserve-3d;
+  min-height: min(52vh, 640px);
 }
 
 .stageFrame[data-preview="site"] .stageScale {
@@ -562,75 +561,53 @@
   display: none;
 }
 
+.brief {
+  display: grid;
+  gap: 0;
+  padding: 28px 26px 88px;
+  max-height: min(64vh, 740px);
+  overflow: auto;
+  background:
+    linear-gradient(180deg, rgba(226, 201, 136, 0.05), transparent 18%),
+    #080c0b;
+}
+
+.briefSection + .briefSection {
+  margin-top: 22px;
+  padding-top: 22px;
+  border-top: 1px solid rgba(232, 213, 163, 0.12);
+}
+
+.briefSection[data-active="true"] {
+  outline: 1px solid rgba(226, 201, 136, 0.18);
+  outline-offset: 10px;
+  border-radius: 12px;
+}
+
 .slide {
-  position: absolute;
-  inset: 0;
+  position: relative;
   isolation: isolate;
-  overflow: hidden;
-  background:
-    radial-gradient(80% 90% at 88% 10%, rgba(226, 201, 136, 0.16), transparent 42%),
-    linear-gradient(160deg, #0d1613, #050807 62%);
-}
-
-.slideField {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-  z-index: 0;
-}
-
-.slideDepth {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-  background:
-    linear-gradient(180deg, rgba(5, 8, 7, 0.08), transparent 28%, transparent 58%, rgba(5, 8, 7, 0.55)),
-    radial-gradient(70% 80% at 80% 20%, rgba(226, 201, 136, 0.1), transparent 48%);
-  box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.28);
+  overflow: visible;
+  background: transparent;
 }
 
 .slideCopy {
   position: relative;
-  z-index: 2;
-  height: 100%;
-  padding: clamp(22px, 4vw, 48px);
-  padding-bottom: 84px;
   display: grid;
-  align-content: center;
+  align-content: start;
   align-items: start;
-  gap: 14px;
+  gap: 12px;
 }
 
-.slide[data-layout="hero"] .slideCopy {
-  width: min(56%, 34rem);
-}
-
+.slide[data-layout="hero"] .slideCopy,
 .slide[data-layout="manifesto"] .slideCopy,
 .slide[data-layout="quote"] .slideCopy,
-.slide[data-layout="next"] .slideCopy {
-  width: min(72%, 40rem);
-}
-
+.slide[data-layout="next"] .slideCopy,
 .slide[data-layout="split"] .slideCopy,
 .slide[data-layout="stats"] .slideCopy,
 .slide[data-layout="path"] .slideCopy,
 .slide[data-layout="timeline"] .slideCopy {
-  width: 100%;
-}
-
-.slide[data-mood="ember"] .slideDepth {
-  background:
-    linear-gradient(180deg, rgba(18, 10, 6, 0.1), transparent 30%, rgba(8, 5, 3, 0.5)),
-    radial-gradient(70% 80% at 82% 8%, rgba(199, 164, 90, 0.2), transparent 50%);
-}
-
-.slide[data-mood="aurora"] .slideDepth {
-  background:
-    linear-gradient(180deg, rgba(6, 16, 14, 0.08), transparent 30%, rgba(4, 10, 9, 0.5)),
-    radial-gradient(70% 80% at 12% 8%, rgba(63, 143, 116, 0.24), transparent 50%);
+  width: min(100%, 42rem);
 }
 
 .slide[data-enter="rise"] { animation: slide-rise 640ms ease both; }
@@ -648,11 +625,10 @@
 .slide h3 {
   margin: 0;
   font-family: var(--font-display-loaded), Palatino, serif;
-  font-size: clamp(28px, 4.4vw, 56px);
-  line-height: 0.98;
+  font-size: clamp(26px, 3.4vw, 40px);
+  line-height: 1.05;
   font-weight: 500;
-  max-width: 16ch;
-  text-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  max-width: 22ch;
 }
 
 .slide[data-emphasis="headline"] h3,
@@ -772,47 +748,27 @@
 
 .film {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  overflow: auto;
-  position: absolute;
-  left: 14px;
-  right: 14px;
-  bottom: 12px;
-  z-index: 2;
+  padding: 0 22px 18px;
 }
 
 .thumb {
   appearance: none;
-  min-width: 104px;
-  height: 60px;
-  border-radius: 10px;
-  border: 1px solid rgba(232, 213, 163, 0.16);
-  background:
-    radial-gradient(80% 120% at 80% 0%, rgba(226, 201, 136, 0.16), transparent 46%),
-    rgba(16, 24, 22, 0.8);
-  color: var(--concierge-ink);
+  border-radius: 999px;
+  border: 1px solid rgba(232, 213, 163, 0.2);
+  background: transparent;
+  color: var(--concierge-muted);
   font-size: 11px;
-  text-align: left;
-  padding: 8px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 7px 12px;
   cursor: pointer;
-  overflow: hidden;
-}
-
-.thumb[data-layout="split"] {
-  background:
-    linear-gradient(90deg, rgba(36, 131, 104, 0.18), transparent 48%, rgba(226, 201, 136, 0.16)),
-    rgba(16, 24, 22, 0.8);
-}
-
-.thumb[data-layout="stats"],
-.thumb[data-layout="path"] {
-  background:
-    linear-gradient(90deg, rgba(226, 201, 136, 0.08) 33%, transparent 33%, transparent 66%, rgba(226, 201, 136, 0.08) 66%),
-    rgba(16, 24, 22, 0.8);
 }
 
 .thumb[data-active="true"] {
   border-color: var(--concierge-gold);
+  color: var(--concierge-gold);
 }
 
 .fine {
