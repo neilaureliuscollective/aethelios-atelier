@@ -19,12 +19,14 @@ export function ConciergeOrb({
   state,
   label,
   onToggle,
-  size = "hero"
+  size = "hero",
+  liveLevelRef
 }: {
   state: OrbState;
   label: string;
   onToggle: () => void;
   size?: "hero" | "docked";
+  liveLevelRef?: { current: number };
 }) {
   const inputRef = useRef(0.08);
   const outputRef = useRef(0.06);
@@ -34,7 +36,11 @@ export function ConciergeOrb({
     const started = performance.now();
     const tick = (now: number) => {
       const t = (now - started) / 1000;
-      if (state === "listening") {
+      if (state === "listening" && liveLevelRef) {
+        const live = clamp01(liveLevelRef.current);
+        inputRef.current = clamp01(0.16 + live * 0.82);
+        outputRef.current = clamp01(0.08 + live * 0.28);
+      } else if (state === "listening") {
         inputRef.current = clamp01(0.28 + Math.sin(t * 3.1) * 0.22);
         outputRef.current = clamp01(0.08 + Math.sin(t * 1.4) * 0.04);
       } else if (state === "speaking") {
@@ -54,7 +60,7 @@ export function ConciergeOrb({
     };
     frame = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(frame);
-  }, [state]);
+  }, [liveLevelRef, state]);
 
   return (
     <button className={styles.orbButton} type="button" onClick={onToggle} aria-label={label}>

@@ -46,14 +46,25 @@ export async function transcribeAudio(input: { bytes: Buffer; type: string; file
     type
   });
   const client = new OpenAI({ apiKey, timeout: 30_000 });
-  const result = await client.audio.transcriptions.create({
-    file,
-    model: process.env.OPENAI_TRANSCRIBE_MODEL || "whisper-1",
-    language: "en"
-  });
-  const text = typeof result.text === "string" ? result.text.trim() : "";
-  if (!text) {
-    throw new DomainError("Nothing could be heard. Tap the orb and speak again, or type.", "invalid", 400);
+  const preferred = process.env.OPENAI_TRANSCRIBE_MODEL || "gpt-transcribe";
+  const models = preferred === "whisper-1" ? ["whisper-1"] : [preferred, "whisper-1"];
+  let lastError: unknown;
+  for (const model of models) {
+    try {
+      const result = await client.audio.transcriptions.create({
+        file,
+        model: model as "whisper-1",
+        language: "en"
+      });
+      const text = typeof result.text === "string" ? result.text.trim() : "";
+      if (!text) {
+        throw new DomainError("Nothing could be heard. Speak again, or type.", "invalid", 400);
+      }
+      return text;
+    } catch (error) {
+      lastError = error;
+      if (error instanceof DomainError) throw error;
+    }
   }
-  return text;
+  throw lastError instanceof Error ? lastError : new DomainError("That speech could not be transcribed.", "invalid", 502);
 }

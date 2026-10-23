@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { usePathname } from "next/navigation";
 import { ConciergeOrb } from "@/components/concierge/ConciergeOrb";
 import { SlideView } from "@/components/concierge/SlideView";
@@ -26,7 +27,14 @@ export function AetheliosDock() {
     send,
     abort
   } = useAethelios();
-  const voice = useOrbTranscription();
+  const latestInput = useRef(input);
+  latestInput.current = input;
+  const voice = useOrbTranscription({
+    onTranscript: (spoken) => {
+      setInput(appendTranscript(latestInput.current, spoken));
+      setPanelOpen(true);
+    }
+  });
   const voiceListening = voice.phase === "starting" || voice.phase === "recording";
 
   if (!aetheliosDockVisible(pathname)) return null;
@@ -105,6 +113,7 @@ export function AetheliosDock() {
       <div className={styles.orbWrap}>
         <ConciergeOrb
           size="docked"
+          liveLevelRef={voice.levelRef}
           state={voiceListening ? "listening" : voice.phase === "transcribing" ? "thinking" : orbState}
           label={
             voiceListening
