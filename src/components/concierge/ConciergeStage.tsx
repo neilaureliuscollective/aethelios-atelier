@@ -40,6 +40,8 @@ export function ConciergeStage() {
   const [orbSize, setOrbSize] = useState<"hero" | "docked">(document || messages.length ? "docked" : "hero");
   const [writing, setWriting] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const messagesRef = useRef<HTMLDivElement | null>(null);
+  const pinnedRef = useRef(true);
   const voiceLive = voice.phase !== "idle";
   const lastSpoken = messages.at(-1);
 
@@ -65,6 +67,13 @@ export function ConciergeStage() {
   useEffect(() => {
     if (document) setWriting(false);
   }, [document]);
+
+  // New turns scroll inside the conversation panel only — never the page —
+  // and only while the visitor is reading the latest line.
+  useEffect(() => {
+    const panel = messagesRef.current;
+    if (panel && pinnedRef.current) panel.scrollTop = panel.scrollHeight;
+  }, [messages.length, streaming]);
 
   function submitText(value: string, compose = false) {
     if (voiceLive) voice.stop();
@@ -183,9 +192,9 @@ export function ConciergeStage() {
                 hasDocument: Boolean(document)
               })}
             </p>
-            {voiceLive && lastSpoken ? (
-              <p className={styles.caption} aria-live="polite" data-role={lastSpoken.role}>
-                {lastSpoken.role === "user" ? "You" : INTELLIGENCE_DISPLAY_NAME}: {lastSpoken.body}
+            {voiceLive ? (
+              <p className={styles.caption} aria-live="polite" data-role={lastSpoken?.role}>
+                {lastSpoken ? `${lastSpoken.role === "user" ? "You" : INTELLIGENCE_DISPLAY_NAME}: ${lastSpoken.body}` : null}
               </p>
             ) : null}
           </div>
@@ -239,7 +248,15 @@ export function ConciergeStage() {
           ) : (
             <div className={styles.rail}>
               <div className={`${styles.chat} on-glass`}>
-                <div className={styles.messages} aria-live="polite">
+                <div
+                  className={styles.messages}
+                  aria-live="polite"
+                  ref={messagesRef}
+                  onScroll={(event) => {
+                    const panel = event.currentTarget;
+                    pinnedRef.current = panel.scrollHeight - panel.scrollTop - panel.clientHeight < 48;
+                  }}
+                >
                   {messages.map((message) => (
                     <div
                       key={message.id}

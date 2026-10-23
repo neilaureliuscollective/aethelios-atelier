@@ -2,7 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  advanceOrbMotion,
+  createOrbMotion,
   createParticleCloud,
+  orbEnergyTarget,
   paintParticleOrb,
   PARTICLE_COUNT_2D,
   PARTICLE_COUNT_GL
@@ -67,9 +70,13 @@ function loc(gl: WebGL2RenderingContext, program: WebGLProgram, name: string) {
   return gl.getUniformLocation(program, name);
 }
 
+/** Critically damped: states glide into each other without overshoot or wobble. */
+const STATE_STIFFNESS = 64;
+const STATE_DAMPING = 16;
+
 function springMix(current: Record<keyof OrbStateMix, SpringValue>, target: OrbStateMix, dt: number) {
   (Object.keys(target) as Array<keyof OrbStateMix>).forEach((key) => {
-    current[key] = springStep(current[key], target[key], dt);
+    current[key] = springStep(current[key], target[key], dt, STATE_STIFFNESS, STATE_DAMPING);
   });
 }
 
@@ -112,6 +119,7 @@ export function ArchitectOrb({
     let reduced = reducedMedia.matches;
     const onMotion = () => {
       reduced = reducedMedia.matches;
+      if (!reduced) schedule();
     };
     reducedMedia.addEventListener("change", onMotion);
 
@@ -125,17 +133,48 @@ export function ArchitectOrb({
     };
     let frame = 0;
     let running = true;
-    let visible = true;
+    let onScreen = true;
     let last = performance.now();
+    const origin = last;
+    let motion = createOrbMotion();
+    let draw: (now: number) => void = () => undefined;
 
+    // Pausing off-screen saves the battery; resuming must restart the loop,
+    // or the orb stays frozen once someone scrolls away and back.
+    const canRun = () => running && !reduced && onScreen && document.visibilityState !== "hidden";
+    const queue = () => {
+      frame = window.requestAnimationFrame((now) => {
+        frame = 0;
+        draw(now);
+      });
+    };
+    const keepGoing = () => {
+      if (!frame && canRun()) queue();
+    };
+    const schedule = () => {
+      if (frame || !canRun()) return;
+      last = performance.now();
+      queue();
+    };
     const observer = new IntersectionObserver((entries) => {
-      visible = entries.some((entry) => entry.isIntersecting);
+      onScreen = entries.some((entry) => entry.isIntersecting);
+      schedule();
     });
     observer.observe(canvas);
-    const onVis = () => {
-      visible = document.visibilityState !== "hidden";
-    };
+    const onVis = () => schedule();
     document.addEventListener("visibilitychange", onVis);
+
+    const step = (now: number) => {
+      const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
+      last = now;
+      springMix(mix, stateWeights(stateRef.current), dt);
+      motion = advanceOrbMotion(
+        motion,
+        dt,
+        orbEnergyTarget(mix.speak.value, clamp01(inputRef.current), clamp01(outputRef.current))
+      );
+      return (now - origin) / 1000;
+    };
 
     const resize = (dprCap: number) => {
       const dpr = Math.min(window.devicePixelRatio || 1, dprCap);
@@ -165,11 +204,9 @@ export function ArchitectOrb({
         return;
       }
       const cloud = createParticleCloud(compact ? 1400 : PARTICLE_COUNT_2D);
-      const draw = (now: number) => {
+      draw = (now: number) => {
         if (!running) return;
-        const dt = Math.min(0.05, (now - last) / 1000);
-        last = now;
-        springMix(mix, stateWeights(stateRef.current), dt);
+        const time = step(now);
         const { size } = resize(2);
         context.setTransform(canvas.width / size, 0, 0, canvas.height / size, 0, 0);
         paintParticleOrb(
@@ -177,19 +214,18 @@ export function ArchitectOrb({
           cloud,
           size,
           stateRef.current,
-          clamp01(inputRef.current),
-          clamp01(outputRef.current),
-          now / 1000,
+          motion,
+          time,
           reduced
         );
         if (!paintedRef.current) {
           paintedRef.current = true;
           setPainted(true);
         }
-        if (!reduced && visible) frame = window.requestAnimationFrame(draw);
+        keepGoing();
       };
-      if (reduced) draw(0);
-      else frame = window.requestAnimationFrame(draw);
+      if (reduced) draw(performance.now());
+      else schedule();
       return () => {
         running = false;
         window.cancelAnimationFrame(frame);
@@ -225,8 +261,9 @@ export function ArchitectOrb({
     const uniforms = {
       res: loc(gl, program, "u_res"),
       time: loc(gl, program, "u_time"),
-      input: loc(gl, program, "u_input"),
-      output: loc(gl, program, "u_output"),
+      spin: loc(gl, program, "u_spin"),
+      wave: loc(gl, program, "u_wave"),
+      energy: loc(gl, program, "u_energy"),
       listen: loc(gl, program, "u_listen"),
       think: loc(gl, program, "u_think"),
       speak: loc(gl, program, "u_speak"),
@@ -237,19 +274,18 @@ export function ArchitectOrb({
     gl.uniform3fv(uniforms.emerald, hexToRgb(ORB_EMERALD));
     gl.uniform3fv(uniforms.goldPale, hexToRgb(ORB_GOLD_PALE));
 
-    const draw = (now: number) => {
+    draw = (now: number) => {
       if (!running) return;
-      const dt = Math.min(0.05, (now - last) / 1000);
-      last = now;
-      springMix(mix, stateWeights(stateRef.current), dt);
+      const time = step(now);
       const { width, height } = resize(1.75);
       gl.viewport(0, 0, width, height);
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.uniform2f(uniforms.res, width, height);
-      gl.uniform1f(uniforms.time, reduced ? 0.4 : now / 1000);
-      gl.uniform1f(uniforms.input, clamp01(inputRef.current));
-      gl.uniform1f(uniforms.output, clamp01(outputRef.current));
+      gl.uniform1f(uniforms.time, reduced ? 0.4 : time);
+      gl.uniform1f(uniforms.spin, motion.spin);
+      gl.uniform1f(uniforms.wave, motion.wave);
+      gl.uniform1f(uniforms.energy, motion.energy);
       gl.uniform1f(uniforms.listen, mix.listen.value);
       gl.uniform1f(uniforms.think, mix.think.value);
       gl.uniform1f(uniforms.speak, mix.speak.value);
@@ -259,11 +295,11 @@ export function ArchitectOrb({
         paintedRef.current = true;
         setPainted(true);
       }
-      if (!reduced && visible) frame = window.requestAnimationFrame(draw);
+      keepGoing();
     };
 
-    if (reduced) draw(0);
-    else frame = window.requestAnimationFrame(draw);
+    if (reduced) draw(performance.now());
+    else schedule();
 
     return () => {
       running = false;

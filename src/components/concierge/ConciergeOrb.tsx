@@ -66,8 +66,9 @@ export function ConciergeOrb({
         nextIn = 0.07 + Math.sin(t * 0.45) * 0.02;
         nextOut = 0.05 + Math.sin(t * 0.38) * 0.015;
       }
-      inputRef.current = envelopeToward(inputRef.current, clamp01(nextIn), dt, 0.07, 0.22);
-      outputRef.current = envelopeToward(outputRef.current, clamp01(nextOut), dt, 0.06, 0.24);
+      // Rise with the voice, settle slowly: weight instead of syllable-by-syllable flicker.
+      inputRef.current = envelopeToward(inputRef.current, clamp01(nextIn), dt, 0.12, 0.42);
+      outputRef.current = envelopeToward(outputRef.current, clamp01(nextOut), dt, 0.1, 0.45);
       frame = window.requestAnimationFrame(tick);
     };
     frame = window.requestAnimationFrame(tick);
