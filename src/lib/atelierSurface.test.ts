@@ -51,6 +51,10 @@ describe("atelierSurfaceForPath", () => {
     );
     expect(css).not.toMatch(/--garnet/);
     expect(css).toMatch(/--ink-glass-fill:/);
+    expect(css).toMatch(/--cinema-grain:/);
+    expect(css).toMatch(
+      /\.app-root\[data-surface="luminous"\] \{[\s\S]*?radial-gradient\(120% 80% at 50% -8%/
+    );
     expect(css).toMatch(/backdrop-filter:\s*var\(--ink-glass-filter\)/);
   });
 });

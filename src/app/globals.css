@@ -94,16 +94,23 @@ img { max-width: 100%; height: auto; display: block; }
   --border: color-mix(in srgb, var(--gold) 28%, transparent);
   --border-soft: color-mix(in srgb, var(--ivory) 10%, transparent);
   --shadow: 0 28px 64px rgba(0, 0, 0, 0.45);
+  --cinema-void: #080c0b;
+  --cinema-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
+  --cinema-grid:
+    linear-gradient(rgba(226, 201, 136, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(226, 201, 136, 0.04) 1px, transparent 1px);
   --ink-glass-fill:
-    linear-gradient(180deg, rgba(226, 201, 136, 0.1) 0%, rgba(36, 131, 104, 0.22) 40%, transparent 72%),
-    color-mix(in srgb, var(--smoked) 82%, var(--deep) 10%);
+    radial-gradient(120% 80% at 50% -8%, rgba(226, 201, 136, 0.09), transparent 46%),
+    radial-gradient(90% 75% at 100% 110%, rgba(36, 131, 104, 0.2), transparent 58%),
+    radial-gradient(80% 70% at 0% 90%, rgba(11, 70, 53, 0.16), transparent 52%),
+    color-mix(in srgb, var(--smoked) 90%, #080c0b);
   --ink-glass-border: color-mix(in srgb, var(--gold-pale) 26%, transparent);
   --ink-glass-filter: blur(28px) saturate(1.4);
   --ink-glass-shadow:
     0 24px 48px rgba(0, 0, 0, 0.42),
     0 2px 8px rgba(0, 0, 0, 0.28),
-    inset 0 1px 0 rgba(243, 240, 231, 0.2),
-    inset 0 -40px 56px rgba(36, 131, 104, 0.24);
+    inset 0 1px 0 rgba(243, 240, 231, 0.18),
+    inset 0 -48px 64px rgba(36, 131, 104, 0.16);
   color-scheme: dark;
 }
 .app-root[data-surface="workroom"],
@@ -171,10 +178,11 @@ img { max-width: 100%; height: auto; display: block; }
 }
 .app-root[data-surface="luminous"] .atmosphere {
   background:
-    radial-gradient(920px 520px at 88% -8%, rgba(226, 201, 136, 0.14), transparent 58%),
-    radial-gradient(700px 520px at 8% 8%, rgba(36, 131, 104, 0.18), transparent 62%),
-    radial-gradient(880px 560px at 50% 108%, rgba(11, 70, 53, 0.28), transparent 56%),
-    linear-gradient(180deg, #080c0b 0%, #050807 100%);
+    radial-gradient(ellipse 78% 48% at 86% -6%, rgba(226, 201, 136, 0.1), transparent 60%),
+    radial-gradient(ellipse 52% 46% at 10% 8%, rgba(36, 131, 104, 0.14), transparent 66%),
+    radial-gradient(ellipse 58% 36% at 72% 42%, rgba(36, 131, 104, 0.05), transparent 72%),
+    radial-gradient(ellipse 90% 48% at 50% 110%, rgba(11, 70, 53, 0.2), transparent 58%),
+    var(--cinema-void, #080c0b);
 }
 .app-root[data-surface="workroom"] .atmosphere,
 .app-root[data-surface="atelier"] .atmosphere {
@@ -193,10 +201,20 @@ img { max-width: 100%; height: auto; display: block; }
   opacity: 0.85;
 }
 .app-root[data-surface="luminous"] .atmosphere::before {
-  opacity: 0.9;
+  opacity: 1;
   background:
-    linear-gradient(118deg, transparent 44%, rgba(232, 213, 163, 0.06) 45.5%, transparent 48%),
-    linear-gradient(90deg, rgba(5, 8, 7, 0.55), transparent 18%, transparent 82%, rgba(5, 8, 7, 0.62));
+    radial-gradient(ellipse 80% 55% at 50% 0%, transparent 42%, rgba(5, 8, 7, 0.42) 100%),
+    linear-gradient(118deg, transparent 34%, rgba(226, 201, 136, 0.045) 43%, rgba(36, 131, 104, 0.05) 50%, transparent 60%);
+}
+.app-root[data-surface="luminous"] .atmosphere::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.38;
+  background-image: var(--cinema-grain), var(--cinema-grid);
+  background-size: 180px 180px, 88px 88px, 88px 88px;
+  mix-blend-mode: overlay;
 }
 .app-root[data-surface="workroom"] .atmosphere::before,
 .app-root[data-surface="atelier"] .atmosphere::before {
@@ -1092,6 +1110,7 @@ a.chip {
 .step-nav,
 .surface-obsidian,
 .pricing-review-banner {
+  position: relative;
   isolation: isolate;
   transform: translateZ(0);
   background: var(--ink-glass-fill, var(--ink));
@@ -1099,6 +1118,35 @@ a.chip {
   backdrop-filter: var(--ink-glass-filter);
   -webkit-backdrop-filter: var(--ink-glass-filter);
   box-shadow: var(--ink-glass-shadow);
+}
+.app-root[data-surface="luminous"] .surface-ivory::after,
+.app-root[data-surface="luminous"] .service-tile::after,
+.app-root[data-surface="luminous"] .possibilities-panel::after,
+.app-root[data-surface="luminous"] .step-nav::after,
+.app-root[data-surface="luminous"] .surface-obsidian::after,
+.app-root[data-surface="luminous"] .pricing-review-banner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.28;
+  background-image:
+    radial-gradient(70% 50% at 50% 0%, rgba(243, 240, 231, 0.1), transparent 52%),
+    var(--cinema-grain),
+    var(--cinema-grid);
+  background-size: auto, 160px 160px, 72px 72px, 72px 72px;
+  mix-blend-mode: soft-light;
+}
+.app-root[data-surface="luminous"] .surface-ivory > *,
+.app-root[data-surface="luminous"] .service-tile > *,
+.app-root[data-surface="luminous"] .possibilities-panel > *,
+.app-root[data-surface="luminous"] .step-nav > *,
+.app-root[data-surface="luminous"] .surface-obsidian > *,
+.app-root[data-surface="luminous"] .pricing-review-banner > * {
+  position: relative;
+  z-index: 1;
 }
 .surface-ivory {
   border-radius: var(--radius);
