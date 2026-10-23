@@ -1,4 +1,5 @@
 import { AppLink } from "@/components/ui/AppLink";
+import { ConciergeOpenButton } from "@/components/concierge/ConciergeOpenButton";
 import { HeroShowcase } from "@/components/marketing/HeroShowcase";
 import { FULL_LOGO } from "@/lib/brand/fullLogo";
 
@@ -57,6 +58,7 @@ export function CinematicHero() {
             <AppLink className="btn btn-gold" href="/project">
               Begin your project
             </AppLink>
+            <ConciergeOpenButton className="btn btn-ghost">Talk with Aethelios</ConciergeOpenButton>
           </div>
           <ul className="trust-row" aria-label="How a commission is held">
             <li>Strategy & architecture</li>

@@ -1753,3 +1753,185 @@ a.chip {
     background: #121a17;
   }
 }
+
+.concierge-launcher {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 16px 0 8px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent);
+  background: color-mix(in srgb, var(--obsidian) 86%, #0b4635 14%);
+  color: var(--gold-pale);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+.concierge-launcher:focus-visible {
+  outline: 2px solid #7dffd0;
+  outline-offset: 3px;
+}
+.concierge-launcher-mark {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #f0ddb0, #c7a45a);
+  color: #1c160a;
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+.concierge-dock {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: calc(72px + env(safe-area-inset-bottom));
+  z-index: 41;
+  width: min(420px, calc(100vw - 24px));
+}
+.concierge-panel {
+  display: flex;
+  flex-direction: column;
+  max-height: min(720px, calc(100dvh - 120px));
+  padding: 18px 18px 14px;
+  border: 1px solid color-mix(in srgb, var(--gold) 28%, var(--border));
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.38);
+}
+.concierge-panel-inline {
+  max-height: none;
+  margin-top: 8px;
+}
+.concierge-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+.concierge-head h2 {
+  font-family: var(--font-display);
+  font-size: 32px;
+  margin: 0 0 6px;
+  font-weight: 500;
+}
+.concierge-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.concierge-head-actions .btn {
+  white-space: nowrap;
+}
+.concierge-thread {
+  overflow: auto;
+  display: grid;
+  gap: 12px;
+  min-height: 160px;
+  padding-right: 4px;
+}
+.concierge-msg {
+  padding: 12px 14px 10px;
+  border-radius: 14px;
+  border: 1px solid var(--border-soft);
+}
+.concierge-msg p {
+  margin: 0 0 8px;
+  white-space: pre-wrap;
+}
+.concierge-msg p:last-child {
+  margin-bottom: 0;
+}
+.concierge-msg-assistant {
+  background: color-mix(in srgb, var(--bg-panel) 80%, #0b4635 20%);
+}
+.concierge-msg-user {
+  background: color-mix(in srgb, var(--bg-raised) 88%, var(--gold) 12%);
+}
+.concierge-suggestions,
+.concierge-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.concierge-chip {
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 14px;
+}
+.concierge-chip:focus-visible,
+.concierge-composer textarea:focus-visible {
+  outline: 2px solid #7dffd0;
+  outline-offset: 2px;
+}
+.concierge-composer {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: end;
+  margin-top: 14px;
+}
+.concierge-composer textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 52px;
+  max-height: 140px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text);
+}
+.concierge-privacy,
+.concierge-pending {
+  margin: 10px 0 0;
+  color: var(--text-muted);
+}
+.concierge-voice {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+.concierge-voice-live {
+  border-color: var(--gold);
+  color: var(--gold-pale);
+}
+.concierge-inquiry {
+  overflow: auto;
+}
+.concierge-inline-host {
+  width: min(760px, 100%);
+  margin: 0 auto 48px;
+  padding: 0 20px;
+}
+.concierge-page {
+  padding-bottom: 8px;
+}
+
+@media (max-width: 720px) {
+  .concierge-dock {
+    inset: 8px;
+    bottom: 8px;
+    width: auto;
+  }
+  .concierge-panel-dock {
+    max-height: calc(100dvh - 16px);
+    height: calc(100dvh - 16px);
+  }
+  .concierge-launcher span:last-child {
+    font-size: 14px;
+  }
+  .hero-actions .btn-ghost {
+    width: 100%;
+  }
+}

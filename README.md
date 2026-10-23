@@ -95,6 +95,8 @@ Approved logo and icon live in `public/brand/original/`. Optimized derivatives a
 - Billing / Stripe (explicitly inactive)
 - Founder-reply notifications (still not implemented; inquiries email Neil when configured)
 
+Aethelios on the public site is a digital concierge (launcher + `/concierge`). It uses verified studio knowledge when live OpenAI is off, and the same fail-closed OpenAI gate when it is on. See [docs/AETHELIOS_CONCIERGE.md](docs/AETHELIOS_CONCIERGE.md).
+
 ## Architecture
 
 See `docs/ARCHITECTURE.md`.

@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { usePathname, useRouter } from "next/navigation";
 import { atelierSurfaceForPath } from "@/lib/atelierSurface";
 import type { Route } from "next";
+import { ConciergeRoot } from "@/components/concierge/ConciergeRoot";
 import { SiteHeader } from "@/components/shell/SiteHeader";
 import { SiteFooter } from "@/components/shell/SiteFooter";
 import { SimulatedBanner } from "@/components/shell/SimulatedBanner";
@@ -96,6 +97,7 @@ export function SessionShell({ children }: { children: React.ReactNode }) {
         <SiteHeader user={user} />
         <main id="main">{children}</main>
         <SiteFooter />
+        <ConciergeRoot />
       </div>
     </SessionContext.Provider>
   );

@@ -1,4 +1,5 @@
 import { AppLink } from "@/components/ui/AppLink";
+import { ConciergeOpenButton } from "@/components/concierge/ConciergeOpenButton";
 import { CinematicHero } from "@/components/marketing/CinematicHero";
 import { CustomProjectsInvite } from "@/components/marketing/CustomProjectsInvite";
 import { PossibilitiesStage } from "@/components/marketing/PossibilitiesStage";
@@ -70,6 +71,26 @@ export default function HomePage() {
               </article>
             </AppLink>
           ))}
+        </div>
+      </Reveal>
+
+      <Reveal as="section" className="container section" delay={2}>
+        <div className="section-head split-head">
+          <div>
+            <p className="kicker">Aethelios</p>
+            <h2 id="concierge-heading">A digital concierge for the work before the brief.</h2>
+          </div>
+          <p className="lede">
+            Aethelios is an AI guide for this studio — not a person, and not a substitute for Neil.
+            He helps you name the problem, see which path may fit, and prepare a request when you
+            are ready. You can leave without sending anything.
+          </p>
+        </div>
+        <div className="row">
+          <ConciergeOpenButton className="btn btn-gold">Talk with Aethelios</ConciergeOpenButton>
+          <AppLink className="btn btn-ghost" href="/concierge">
+            Open the dedicated view
+          </AppLink>
         </div>
       </Reveal>
 
