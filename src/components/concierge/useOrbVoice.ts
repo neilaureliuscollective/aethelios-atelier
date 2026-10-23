@@ -49,19 +49,9 @@ function askOrbToSpeak(channel: RTCDataChannel) {
     if (channel.readyState !== "open") return;
     channel.send(
       JSON.stringify({
-        type: "session.update",
-        session: {
-          modalities: ["audio", "text"],
-          turn_detection: { type: "server_vad", create_response: true, interrupt_response: true },
-          input_audio_transcription: { model: "whisper-1" }
-        }
-      })
-    );
-    channel.send(
-      JSON.stringify({
         type: "response.create",
         response: {
-          modalities: ["audio", "text"],
+          output_modalities: ["audio"],
           instructions:
             "Speak first. Greet them in one short spoken sentence and invite them to tell you about their business."
         }

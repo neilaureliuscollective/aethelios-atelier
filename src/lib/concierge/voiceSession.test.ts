@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { UnconfiguredError } from "@/lib/domain/errors";
 import {
+  conciergeRealtimeSession,
   conciergeVoiceInstructions,
   conciergeVoiceReady,
+  conciergeVoiceValue,
   createConciergeVoiceSession
 } from "./voiceSession";
 
@@ -21,24 +23,55 @@ describe("homepage spoken orb", () => {
     expect(conciergeVoiceReady()).toBe(false);
     expect(conciergeVoiceInstructions()).toMatch(/Aethelios/);
     expect(conciergeVoiceInstructions()).toMatch(/Speak out loud/);
+    expect(conciergeRealtimeSession().type).toBe("realtime");
+    expect(conciergeRealtimeSession().audio.output.voice).toBe("verse");
   });
 
-  it("hands an SDP offer to the OpenAI realtime voice path", async () => {
+  it("uses a commissioned OpenAI voice id when one is set", () => {
+    process.env.OPENAI_VOICE_NAME = "voice_atelier_orb";
+    expect(conciergeVoiceValue()).toEqual({ id: "voice_atelier_orb" });
+  });
+
+  it("hands an SDP offer to the current OpenAI realtime calls path", async () => {
     process.env.OPENAI_API_KEY = "sk-test-voice";
     process.env.OPENAI_VOICE_NAME = "verse";
     const calls: string[] = [];
-    const fetchImpl = (async (url: string) => {
+    const fetchImpl = (async (url: string, init?: RequestInit) => {
       calls.push(String(url));
-      if (String(url).includes("/realtime/sessions") && !String(url).includes("/calls")) {
-        return Response.json({ client_secret: { value: "secret_guest" } });
-      }
+      const body = init?.body;
+      expect(body).toBeInstanceOf(FormData);
+      const form = body as FormData;
+      expect(String(form.get("sdp"))).toContain("offer-from-orb");
+      expect(String(form.get("session"))).toContain("verse");
+      expect(String(form.get("session"))).toContain("realtime");
       return new Response("v=0\r\nanswer", { status: 200, headers: { "Content-Type": "application/sdp" } });
     }) as typeof fetch;
     const session = await createConciergeVoiceSession("v=0\r\noffer-from-orb", fetchImpl);
     expect(session.sdp).toContain("answer");
     expect(session.voice).toBe("verse");
-    expect(calls.some((url) => url.includes("/realtime/sessions"))).toBe(true);
-    expect(calls.some((url) => url.includes("/realtime/calls"))).toBe(true);
+    expect(calls).toEqual(["https://api.openai.com/v1/realtime/calls"]);
+    expect(calls.some((url) => url.includes("/realtime/sessions"))).toBe(false);
+  });
+
+  it("falls back to a client secret, then a live session, if the calls form is gone", async () => {
+    process.env.OPENAI_API_KEY = "sk-test-voice";
+    const calls: string[] = [];
+    const fetchImpl = (async (url: string) => {
+      calls.push(String(url));
+      if (String(url).includes("/realtime/calls") && calls.filter((item) => item.includes("/calls")).length === 1) {
+        return Response.json({ error: { message: "not here" } }, { status: 404 });
+      }
+      if (String(url).includes("/realtime/client_secrets")) {
+        return Response.json({ value: "ek_guest" });
+      }
+      if (String(url).includes("/realtime/calls")) {
+        return new Response("v=0\r\nsecret-answer", { status: 200, headers: { "Content-Type": "application/sdp" } });
+      }
+      return Response.json({ error: { message: "unused" } }, { status: 500 });
+    }) as typeof fetch;
+    const session = await createConciergeVoiceSession("v=0\r\noffer-from-orb", fetchImpl);
+    expect(session.sdp).toContain("secret-answer");
+    expect(calls.some((url) => url.includes("/realtime/client_secrets"))).toBe(true);
   });
 
   it("fails closed when no key is present", async () => {
