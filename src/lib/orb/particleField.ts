@@ -28,14 +28,17 @@ export function swirlParticle(
   z: number,
   time: number,
   speak: number,
-  output: number
+  output: number,
+  input = 0
 ) {
-  const speed = 0.13 + speak * 0.46 + output * 0.3;
-  const band = y * 2.55 + Math.sin(y * 8.2 + time * (0.55 + speak * 1.25)) * 0.2;
+  const energy = speak * 1.1 + output * 0.95 + input * 0.8;
+  const speed = 0.42 + energy * 1.15;
+  const band = y * 2.4 + Math.sin(y * 7.4 + time * (1.05 + energy * 1.6)) * (0.24 + energy * 0.2);
   const angle = time * speed + band;
   const c = Math.cos(angle);
   const s = Math.sin(angle);
-  return { x: x * c - z * s, y, z: x * s + z * c };
+  const lift = Math.sin(time * 1.15 + y * 3.1) * (0.014 + energy * 0.03);
+  return { x: x * c - z * s, y: y + lift, z: x * s + z * c };
 }
 
 export function paintParticleOrb(
@@ -53,8 +56,8 @@ export function paintParticleOrb(
   const speak = state === "speaking" ? 1 : 0;
   const listen = state === "listening" ? 1 : 0;
   const think = state === "thinking" ? 1 : 0;
-  const breath = reduced ? 0 : 0.012 * Math.sin(time * 0.55);
-  const radius = size * (0.44 + breath + output * 0.03 - think * 0.02);
+  const breath = reduced ? 0 : 0.03 * Math.sin(time * 0.9);
+  const radius = size * (0.44 + breath + output * 0.08 + input * 0.06 + speak * 0.05 - think * 0.02);
   context.clearRect(0, 0, size, size);
   context.save();
   context.beginPath();
@@ -76,7 +79,7 @@ export function paintParticleOrb(
     const oy = cloud[i * 4 + 1]!;
     const oz = cloud[i * 4 + 2]!;
     const seed = cloud[i * 4 + 3]!;
-    const p = reduced ? { x: ox, y: oy, z: oz } : swirlParticle(ox, oy, oz, time, speak, output);
+    const p = reduced ? { x: ox, y: oy, z: oz } : swirlParticle(ox, oy, oz, time, speak, output, input);
     const depth = clamp01(p.z * 0.5 + 0.5);
     if (depth < 0.12) continue;
     const px = cx + p.x * radius;

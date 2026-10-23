@@ -29,5 +29,9 @@ describe("Aethelios presence surfaces", () => {
     expect(stage).not.toContain("Talk with Aethelios");
     expect(stage).not.toMatch(/btn-gold/);
     expect(stage).toContain("INTELLIGENCE_DISPLAY_NAME");
+    expect(stage).toContain("Compose a document");
+    const provider = readFileSync("src/components/aethelios/AetheliosProvider.tsx", "utf8");
+    expect(provider).toContain("useOrbVoice");
+    expect(provider).toContain("shouldCommitSpoken");
   });
 });

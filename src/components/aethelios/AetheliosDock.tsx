@@ -1,12 +1,9 @@
 "use client";
 
-import { useRef } from "react";
 import { usePathname } from "next/navigation";
 import { ConciergeHandoff } from "@/components/concierge/ConciergeHandoff";
 import { ConciergeOrb } from "@/components/concierge/ConciergeOrb";
 import { SlideView } from "@/components/concierge/SlideView";
-import { useOrbVoice } from "@/components/concierge/useOrbVoice";
-import { appendTranscript } from "@/lib/concierge/voiceText";
 import { aetheliosDockVisible } from "@/lib/aethelios/presence";
 import { INTELLIGENCE_DISPLAY_NAME } from "@/lib/copy";
 import { useAethelios } from "./AetheliosProvider";
@@ -27,16 +24,9 @@ export function AetheliosDock() {
     setPanelOpen,
     orbState,
     send,
-    abort
+    abort,
+    voice
   } = useAethelios();
-  const latestInput = useRef(input);
-  latestInput.current = input;
-  const voice = useOrbVoice({
-    onHeard: (spoken) => {
-      setInput(appendTranscript(latestInput.current, spoken));
-      setPanelOpen(true);
-    }
-  });
   const voiceLive = voice.phase !== "idle";
 
   if (!aetheliosDockVisible(pathname)) return null;
@@ -104,6 +94,13 @@ export function AetheliosDock() {
               placeholder="Describe the business, or continue from here."
             />
             {voice.error || error ? <p className="notice notice-warn">{voice.error || error}</p> : null}
+            <button
+              className="btn btn-ghost btn-compact"
+              type="button"
+              onClick={() => void send(input.trim() || "Write a first document from what I have said so far.")}
+            >
+              Compose a document
+            </button>
             {pending ? (
               <button className="btn btn-ghost btn-compact" type="button" onClick={abort}>
                 Interrupt
@@ -114,7 +111,6 @@ export function AetheliosDock() {
         </section>
       ) : null}
       <div className={styles.orbWrap}>
-        <audio ref={voice.audioRef} autoPlay playsInline className={styles.voiceOut} />
         <ConciergeOrb
           size="docked"
           liveInputRef={voice.inputLevelRef}

@@ -6,6 +6,11 @@ import { rmsFromTimeDomain, speechGain, SPEECH_RMS } from "@/lib/concierge/voice
 
 export type SpokenPhase = "idle" | "starting" | "listening" | "speaking";
 
+export type OrbVoiceOptions = {
+  onHeard?: (text: string) => void;
+  shouldGreet?: () => boolean;
+};
+
 function extractSpokenText(payload: { type?: string; transcript?: string; delta?: string; text?: string }) {
   const type = payload.type ?? "";
   if (type.includes("transcription.completed") || type.includes("audio_transcript.done")) {
@@ -45,7 +50,30 @@ function waitForIce(peer: RTCPeerConnection, timeoutMs = 2500) {
   });
 }
 
-function askOrbToSpeak(channel: RTCDataChannel) {
+function pinSpokenEnglish(channel: RTCDataChannel) {
+  const pin = () => {
+    if (channel.readyState !== "open") return;
+    channel.send(
+      JSON.stringify({
+        type: "session.update",
+        session: {
+          type: "realtime",
+          audio: {
+            input: {
+              transcription: { model: "whisper-1", language: "en" }
+            }
+          }
+        }
+      })
+    );
+  };
+  if (channel.readyState === "open") pin();
+  else channel.addEventListener("open", pin, { once: true });
+}
+
+function askOrbToSpeak(channel: RTCDataChannel, shouldGreet: boolean) {
+  pinSpokenEnglish(channel);
+  if (!shouldGreet) return;
   const greet = () => {
     if (channel.readyState !== "open") return;
     channel.send(
@@ -54,7 +82,7 @@ function askOrbToSpeak(channel: RTCDataChannel) {
         response: {
           output_modalities: ["audio"],
           instructions:
-            "Speak first. Greet them in one short spoken sentence and invite them to tell you about their business."
+            "Speak first, in English only. Greet them in one short spoken English sentence and invite them to tell you about their business. Never switch languages."
         }
       })
     );
@@ -63,7 +91,7 @@ function askOrbToSpeak(channel: RTCDataChannel) {
   else channel.addEventListener("open", greet, { once: true });
 }
 
-export function useOrbVoice(options?: { onHeard?: (text: string) => void }) {
+export function useOrbVoice(options?: OrbVoiceOptions) {
   const [phase, setPhase] = useState<SpokenPhase>("idle");
   const [error, setError] = useState("");
   const [ready, setReady] = useState<boolean | null>(null);
@@ -83,6 +111,8 @@ export function useOrbVoice(options?: { onHeard?: (text: string) => void }) {
   const lastLevelAt = useRef(0);
   const onHeardRef = useRef(options?.onHeard);
   onHeardRef.current = options?.onHeard;
+  const shouldGreetRef = useRef(options?.shouldGreet);
+  shouldGreetRef.current = options?.shouldGreet;
 
   const cleanup = useCallback(() => {
     generationRef.current += 1;
@@ -137,6 +167,11 @@ export function useOrbVoice(options?: { onHeard?: (text: string) => void }) {
   const watchLevels = useCallback((local: MediaStream, remote: MediaStream) => {
     const AudioCtx = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AudioCtx) return;
+    window.cancelAnimationFrame(frameRef.current);
+    if (contextRef.current) {
+      void contextRef.current.close().catch(() => undefined);
+      contextRef.current = null;
+    }
     const context = new AudioCtx();
     contextRef.current = context;
     void context.resume().catch(() => undefined);
@@ -211,6 +246,7 @@ export function useOrbVoice(options?: { onHeard?: (text: string) => void }) {
             audioRef.current.srcObject = incoming;
             unlockSpokenAudio(audioRef.current);
           }
+          if (localRef.current) watchLevels(localRef.current, incoming);
           return;
         }
         if (event.track && !remote.getTracks().includes(event.track)) {
@@ -219,11 +255,12 @@ export function useOrbVoice(options?: { onHeard?: (text: string) => void }) {
             audioRef.current.srcObject = remote;
             unlockSpokenAudio(audioRef.current);
           }
+          watchLevels(stream, remote);
         }
       };
       const channel = peer.createDataChannel("oai-events");
       channelRef.current = channel;
-      askOrbToSpeak(channel);
+      askOrbToSpeak(channel, shouldGreetRef.current?.() ?? true);
       channel.onmessage = (event) => {
         if (generationRef.current !== generation) return;
         try {

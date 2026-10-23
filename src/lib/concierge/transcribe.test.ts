@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { DomainError, UnconfiguredError } from "@/lib/domain/errors";
 import { resetInquiryRateLimitForTests } from "@/lib/inquiry/rateLimit";
 import { GET, POST } from "@/app/api/concierge/transcribe/route";
-import { appendTranscript } from "./voiceText";
+import { appendTranscript, shouldCommitSpoken } from "./voiceText";
 import { extensionForType, transcribeAudio, transcribeConfigured, TRANSCRIBE_MAX_BYTES } from "./transcribe";
 
 const original = { ...process.env };
@@ -46,6 +46,8 @@ describe("homepage voice transcription", () => {
     expect(extensionForType("audio/mpeg")).toBe("mp3");
     expect(appendTranscript("", "I run a barbershop in Austin.")).toBe("I run a barbershop in Austin.");
     expect(appendTranscript("I run a shop.", "It is in Austin.")).toBe("I run a shop. It is in Austin.");
+    expect(shouldCommitSpoken("hello")).toBe(false);
+    expect(shouldCommitSpoken("I run a barbershop in Austin.")).toBe(true);
   });
 
   it("GET reports not ready and POST refuses audio when the key is missing", async () => {

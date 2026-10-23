@@ -17,7 +17,9 @@
 .shade,
 .field,
 .atmosphere,
-.sanctum {
+.sanctum,
+.hall,
+.well {
   position: absolute;
   inset: 0;
   pointer-events: none;
@@ -28,6 +30,18 @@
   height: 100%;
   display: block;
   background: transparent;
+  opacity: 0.34;
+}
+
+.hall {
+  background: #050706 url("/atmosphere/atelier-hall.jpg") center 42% / cover no-repeat;
+  opacity: 0.78;
+  mask-image: radial-gradient(ellipse 48% 54% at 50% 44%, transparent 0 26%, rgba(0, 0, 0, 0.4) 46%, #000 76%);
+  -webkit-mask-image: radial-gradient(ellipse 48% 54% at 50% 44%, transparent 0 26%, rgba(0, 0, 0, 0.4) 46%, #000 76%);
+}
+
+.well {
+  background: radial-gradient(circle at 50% 44%, #030504 0 17%, rgba(3, 5, 4, 0.86) 27%, transparent 52%);
 }
 
 .sanctum {
