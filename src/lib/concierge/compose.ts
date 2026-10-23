@@ -1,3 +1,4 @@
+import { aetheliosComposeReply } from "@/lib/aethelios/persona";
 import { INTELLIGENCE_DISPLAY_NAME } from "@/lib/copy";
 import { extractBusinessSketch, sketchLabel } from "./extract";
 import { isRevisionRequest } from "./intent";
@@ -183,11 +184,7 @@ function slidesFor(sketch: BusinessSketch): PresentationSlide[] {
 }
 
 export function composeReply(sketch: BusinessSketch, presented: boolean) {
-  const label = sketchLabel(sketch);
-  if (!presented) {
-    return `I can keep this in conversation. If you describe the business — what you run, where, and what the public face should feel like — I will open a presentation beside us and compose it live.`;
-  }
-  return `I am composing a presentation for ${label}. It is a visual sketch from what you said, not a finished website or a quote. Keep talking and I will revise the canvas.`;
+  return aetheliosComposeReply(sketchLabel(sketch), presented);
 }
 
 export function composePresentation(

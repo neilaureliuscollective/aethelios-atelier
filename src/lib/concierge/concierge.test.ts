@@ -123,7 +123,7 @@ describe("concierge homepage seating", () => {
     expect(session).toContain("/v1/realtime/calls");
     expect(session).not.toContain("/v1/realtime/sessions");
     expect(session).toContain("verse");
-    expect(session).toContain("Speak out loud");
+    expect(session).toContain("aetheliosSpokenPrompt");
     const architect = readFileSync("src/components/orb/ArchitectOrb.tsx", "utf8");
     expect(architect).toContain('setBackend("canvas2d")');
     expect(architect).toContain("failIfMajorPerformanceCaveat");
