@@ -6,9 +6,9 @@ const INJECTION =
 const SECRETS =
   /\b(api[\s_-]?key|secret key|password|private key|internal (instructions|prompt|notes)|environment variable|AUTH_SECRET|OPENAI_API_KEY)\b/i;
 
-export function sanitizeConciergeMessage(input: unknown): string {
+export function sanitizeConciergeMessage(input: unknown, max = CONCIERGE_MESSAGE_MAX): string {
   if (typeof input !== "string") return "";
-  return input.replace(/\0/g, "").replace(/\s+/g, " ").trim().slice(0, CONCIERGE_MESSAGE_MAX);
+  return input.replace(/\0/g, "").replace(/\s+/g, " ").trim().slice(0, max);
 }
 
 export function looksLikePromptInjection(text: string): boolean {
@@ -27,18 +27,20 @@ export function looksLikeMaliciousInput(text: string): boolean {
 }
 
 export function clipHistory(
-  history: Array<{ role?: unknown; body?: unknown }> | undefined
+  history: Array<{ role?: unknown; body?: unknown }> | undefined,
+  limit = CONCIERGE_HISTORY_LIMIT,
+  max = CONCIERGE_MESSAGE_MAX
 ): Array<{ role: "user" | "assistant"; body: string }> {
   if (!Array.isArray(history)) return [];
   return history
     .map((item) => {
       const role = item?.role === "assistant" ? ("assistant" as const) : item?.role === "user" ? ("user" as const) : null;
-      const body = sanitizeConciergeMessage(item?.body);
+      const body = sanitizeConciergeMessage(item?.body, max);
       if (!role || !body) return null;
       return { role, body };
     })
     .filter((item): item is { role: "user" | "assistant"; body: string } => Boolean(item))
-    .slice(-CONCIERGE_HISTORY_LIMIT);
+    .slice(-limit);
 }
 
 export function wrapUntrustedUserText(text: string): string {

@@ -11,6 +11,7 @@ describe("atelierSurfaceForPath", () => {
     expect(atelierSurfaceForPath("/services/barbers-salons")).toBe("luminous");
     expect(atelierSurfaceForPath("/discover")).toBe("luminous");
     expect(atelierSurfaceForPath("/account")).toBe("workroom");
+    expect(atelierSurfaceForPath("/rta")).toBe("rta");
   });
 
   it("keeps inactive workspace nav and on-glass ghost buttons on the ivory-on-emerald tokens", () => {

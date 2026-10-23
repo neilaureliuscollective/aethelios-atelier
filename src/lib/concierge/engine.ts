@@ -9,7 +9,8 @@ import { conciergePageContext } from "@/lib/concierge/pages";
 import { wrapUntrustedUserText } from "@/lib/concierge/safety";
 import { emptyConciergeFacts, type ConciergeFacts, type ConciergeTurnResult } from "@/lib/concierge/types";
 import { attachSpokenText } from "@/lib/concierge/voice";
-import { CONCIERGE_SPOKEN_RULE } from "@/lib/concierge/identity";
+import { CONCIERGE_SPOKEN_RULE, RTA_SPOKEN_RULE } from "@/lib/concierge/identity";
+import { RTA_HISTORY_SEND, RTA_MAX_TOKENS, RTA_SPOKEN_CHARS, RTA_SPOKEN_SENTENCES } from "@/lib/rta/limits";
 
 export type ConciergeModelClient = {
   chat: {
@@ -55,11 +56,14 @@ export class ConciergeEngine {
     facts?: ConciergeFacts;
     pagePath: string;
     spoken?: boolean;
+    mode?: "concierge" | "rta";
     signal?: AbortSignal;
   }): Promise<ConciergeTurnResult> {
+    const rta = input.mode === "rta";
+    const speakOpts = rta ? { maxSentences: RTA_SPOKEN_SENTENCES, maxChars: RTA_SPOKEN_CHARS } : undefined;
     const facts = applyExtraction(emptyConciergeFacts(input.facts), input.message);
     const status = aureliusStatus();
-    const curated = curatedTurn({ message: input.message, facts, liveAi: status.ready });
+    const curated = attachSpokenText(curatedTurn({ message: input.message, facts, liveAi: status.ready }), speakOpts);
 
     if (curated.facts.intent === "secrets" || curated.facts.intent === "injection") {
       return { ...curated, liveAi: false, reason: curated.facts.intent };
@@ -75,15 +79,18 @@ export class ConciergeEngine {
         this.modelClient ??
         new OpenAI({ apiKey: config.openAiKey, timeout: config.openAiTimeoutMs });
       const page = conciergePageContext(input.pagePath);
+      const tokenCap = rta ? RTA_MAX_TOKENS : input.spoken ? 420 : 700;
       const completion = await client.chat.completions.create({
         model: config.openAiModel,
         temperature: 0.4,
-        max_tokens: Math.min(config.openAiMaxOutputTokens, input.spoken ? 420 : 700),
+        max_tokens: Math.min(config.openAiMaxOutputTokens, tokenCap),
         messages: [
-          { role: "system", content: conciergeSystemPrompt() },
+          { role: "system", content: conciergeSystemPrompt(input.mode) },
           { role: "system", content: conciergeContextPrompt({ page, facts }) },
-          ...(input.spoken ? [{ role: "system" as const, content: CONCIERGE_SPOKEN_RULE }] : []),
-          ...input.history.slice(-10).map((item) => ({
+          ...(input.spoken
+            ? [{ role: "system" as const, content: rta ? RTA_SPOKEN_RULE : CONCIERGE_SPOKEN_RULE }]
+            : []),
+          ...input.history.slice(rta ? -RTA_HISTORY_SEND : -10).map((item) => ({
             role: item.role,
             content: item.role === "user" ? wrapUntrustedUserText(item.body) : item.body
           })),
@@ -91,9 +98,9 @@ export class ConciergeEngine {
         ]
       });
       const text = completion.choices?.[0]?.message?.content ?? "";
-      return attachSpokenText(liveReply(text, facts, curated));
+      return attachSpokenText(liveReply(text, facts, curated), speakOpts);
     } catch {
-      return unavailableTurn({ facts, liveAi: status.ready, reason: "request_failed" });
+      return attachSpokenText(unavailableTurn({ facts, liveAi: status.ready, reason: "request_failed" }), speakOpts);
     }
   }
 }

@@ -157,6 +157,7 @@ describe("concierge knowledge and context", () => {
     expect(conciergeVisibleOnPath("/")).toBe(true);
     expect(conciergeVisibleOnPath("/project/abc")).toBe(false);
     expect(conciergeVisibleOnPath("/companion/talk")).toBe(false);
+    expect(conciergeVisibleOnPath("/rta")).toBe(false);
     expect(conciergeInlineOnPath("/concierge")).toBe(true);
     expect(buildWelcome("/about", false).disclosure).toMatch(/not active/);
     expect(messageForStarter("website")).toMatch(/outdated/);

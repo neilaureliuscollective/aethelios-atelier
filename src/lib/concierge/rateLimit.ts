@@ -7,9 +7,9 @@ export function resetConciergeRateLimitForTests() {
   hits.clear();
 }
 
-export function conciergeRateLimited(key: string, now = Date.now()): boolean {
+export function conciergeRateLimited(key: string, now = Date.now(), max = MAX_PER_WINDOW): boolean {
   const recent = (hits.get(key) ?? []).filter((stamp) => now - stamp < WINDOW_MS);
-  if (recent.length >= MAX_PER_WINDOW) {
+  if (recent.length >= max) {
     hits.set(key, recent);
     return true;
   }

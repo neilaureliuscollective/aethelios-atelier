@@ -6,7 +6,7 @@ import {
   type ConciergeStoredSession
 } from "@/lib/concierge/types";
 
-const MAX_STORED = 40;
+const MAX_STORED = 80;
 
 export function createConciergeMessage(
   role: ConciergeMessage["role"],
@@ -62,10 +62,13 @@ export function parseConciergeSession(raw: unknown): ConciergeStoredSession {
   };
 }
 
-export function readConciergeSession(storage?: Storage | null): ConciergeStoredSession {
+export function readConciergeSession(
+  storage?: Storage | null,
+  key = CONCIERGE_STORAGE_KEY
+): ConciergeStoredSession {
   if (!storage) return emptyConciergeSession();
   try {
-    const raw = storage.getItem(CONCIERGE_STORAGE_KEY);
+    const raw = storage.getItem(key);
     if (!raw) return emptyConciergeSession();
     return parseConciergeSession(JSON.parse(raw));
   } catch {
@@ -73,11 +76,15 @@ export function readConciergeSession(storage?: Storage | null): ConciergeStoredS
   }
 }
 
-export function writeConciergeSession(session: ConciergeStoredSession, storage?: Storage | null) {
+export function writeConciergeSession(
+  session: ConciergeStoredSession,
+  storage?: Storage | null,
+  key = CONCIERGE_STORAGE_KEY
+) {
   if (!storage) return;
   try {
     storage.setItem(
-      CONCIERGE_STORAGE_KEY,
+      key,
       JSON.stringify({
         ...session,
         messages: session.messages.slice(-MAX_STORED),
@@ -89,10 +96,10 @@ export function writeConciergeSession(session: ConciergeStoredSession, storage?:
   }
 }
 
-export function clearConciergeSession(storage?: Storage | null) {
+export function clearConciergeSession(storage?: Storage | null, key = CONCIERGE_STORAGE_KEY) {
   if (!storage) return;
   try {
-    storage.removeItem(CONCIERGE_STORAGE_KEY);
+    storage.removeItem(key);
   } catch {
     /* ignore */
   }

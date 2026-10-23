@@ -108,6 +108,20 @@ img { max-width: 100%; height: auto; display: block; }
 .app-root[data-surface="studio"] {
   color-scheme: dark;
 }
+.app-root[data-surface="rta"] {
+  --bg: #000;
+  --bg-raised: #050807;
+  --bg-panel: #0a100e;
+  --text: var(--ivory);
+  --text-muted: color-mix(in srgb, var(--ivory) 62%, var(--sage));
+  color-scheme: dark;
+  background: #000;
+  min-height: 100dvh;
+}
+.app-root[data-surface="rta"] main {
+  padding: 0;
+  min-height: 100dvh;
+}
 .app-root[data-surface="atelier"] {
   --bg: var(--ivory);
   --bg-raised: #fffaf1;
@@ -1933,5 +1947,191 @@ a.chip {
   }
   .hero-actions .btn-ghost {
     width: 100%;
+  }
+}
+
+.rta-stage {
+  position: relative;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 28px 20px 32px;
+  background:
+    radial-gradient(720px 420px at 50% 38%, rgba(11, 70, 53, 0.22), transparent 58%),
+    radial-gradient(900px 540px at 80% 110%, rgba(199, 164, 90, 0.06), transparent 52%),
+    #000;
+  color: var(--ivory);
+  overflow: hidden;
+}
+.rta-stage.is-min {
+  position: fixed;
+  inset: auto 16px 16px auto;
+  min-height: 0;
+  width: min(220px, calc(100vw - 24px));
+  padding: 10px;
+  border-radius: 28px;
+  background: rgba(0, 0, 0, 0.72);
+  border: 1px solid color-mix(in srgb, var(--gold) 28%, transparent);
+  z-index: 50;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+.rta-brand {
+  position: absolute;
+  top: max(22px, env(safe-area-inset-top));
+  left: 0;
+  right: 0;
+  text-align: center;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  font-size: 12px;
+}
+.rta-brand p {
+  margin: 0;
+  color: color-mix(in srgb, var(--ivory) 72%, transparent);
+}
+.rta-brand p:last-child {
+  margin-top: 6px;
+  color: var(--gold-pale);
+  letter-spacing: 0.42em;
+}
+.rta-orb-hit {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+.rta-orb {
+  width: min(52vw, 420px);
+  height: min(52vw, 420px);
+  display: block;
+}
+.rta-orb.is-compact,
+.rta-stage.is-min .rta-orb {
+  width: 112px;
+  height: 112px;
+}
+.rta-copy {
+  text-align: center;
+  margin-top: 8px;
+}
+.rta-status {
+  margin: 0;
+  font-size: 28px;
+  letter-spacing: 0.04em;
+}
+.rta-presence {
+  margin: 8px 0 0;
+  color: color-mix(in srgb, var(--ivory) 70%, transparent);
+  font-size: 18px;
+}
+.rta-hint,
+.rta-live,
+.rta-error,
+.rta-note {
+  margin: 10px 0 0;
+}
+.rta-live {
+  color: var(--gold-pale);
+  max-width: 36rem;
+}
+.rta-error {
+  color: var(--danger);
+}
+.rta-controls,
+.rta-min-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 22px;
+}
+.rta-ctrl {
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--ivory) 18%, transparent);
+  background: color-mix(in srgb, #080c0b 70%, transparent);
+  color: var(--ivory);
+  cursor: pointer;
+}
+.rta-ctrl.is-on,
+.rta-ctrl-start {
+  border-color: color-mix(in srgb, var(--gold) 55%, transparent);
+  color: var(--gold-pale);
+}
+.rta-ctrl-end {
+  border-color: color-mix(in srgb, var(--danger) 50%, transparent);
+  color: #e7b3a4;
+}
+.rta-transcript {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: min(420px, 100%);
+  height: 100%;
+  padding: 22px 18px;
+  background: color-mix(in srgb, #050807 92%, #0b4635 8%);
+  border-left: 1px solid color-mix(in srgb, var(--gold) 22%, transparent);
+  display: grid;
+  grid-template-rows: auto auto 1fr auto auto;
+  gap: 10px;
+  overflow: hidden;
+}
+.rta-transcript-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.rta-transcript-head h2 {
+  margin: 0;
+  font-size: 28px;
+}
+.rta-thread {
+  overflow: auto;
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+.rta-msg {
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border-soft);
+}
+.rta-msg p { margin: 0; white-space: pre-wrap; }
+.rta-msg-user { background: color-mix(in srgb, #121a17 80%, var(--gold) 12%); }
+.rta-msg-assistant { background: color-mix(in srgb, #0b4635 28%, #080c0b); }
+.rta-type {
+  display: grid;
+  gap: 8px;
+}
+.rta-type textarea {
+  width: 100%;
+  min-height: 72px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: #080c0b;
+  color: var(--ivory);
+}
+.rta-ended {
+  position: absolute;
+  bottom: 28px;
+  text-align: center;
+}
+@media (max-width: 720px) {
+  .rta-orb {
+    width: min(72vw, 320px);
+    height: min(72vw, 320px);
+  }
+  .rta-transcript {
+    width: 100%;
+    height: min(52dvh, 420px);
+    top: auto;
+    bottom: 0;
+    border-left: 0;
+    border-top: 1px solid color-mix(in srgb, var(--gold) 22%, transparent);
   }
 }

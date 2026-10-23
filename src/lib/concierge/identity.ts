@@ -32,3 +32,14 @@ export const CONCIERGE_PRIVACY_NOTE =
 
 export const CONCIERGE_SPOKEN_RULE =
   "If the visitor is speaking, the first two sentences must stand alone as a spoken answer. Do not read lists, long process steps, or legal caveats aloud. Keep those in the written reply.";
+
+export const RTA_PRESENCE = "I'm here with you.";
+
+export const RTA_CONVERSATION_NOTE =
+  "This is a spoken conversation on this device. Atelier receives the words, not an audio recording. You can type in the transcript at any time.";
+
+export const RTA_SPOKEN_RULE =
+  "This is a spoken, ongoing conversation. Answer in a complete natural voice. You may use several sentences when the visitor needs a real working answer. Do not clip mid-thought. Do not end every turn with a closer. Do not read legal caveats or long numbered lists aloud.";
+
+export const RTA_CONVERSATION_RULE =
+  "Hold a long-form discovery conversation. Stay with the visitor while they think. Remember facts already given. Help them name the business problem, the customer, the offer, and the next useful step. If they are an affiliate or referring other businesses, help them describe the offer they want to send people toward. Do not rush a brief or inquiry. Conversion only after they ask, or after the problem is clearly named.";

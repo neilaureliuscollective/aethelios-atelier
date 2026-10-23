@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AppLink } from "@/components/ui/AppLink";
 
 export const metadata: Metadata = {
   title: "Aethelios",
@@ -15,6 +16,11 @@ export default function ConciergePage() {
         An AI guide for Aethelios Atelier — not a person, and not a substitute for Neil Stutes. Use it to
         understand the problem, see which path may fit, and prepare a request when you are ready.
       </p>
+      <div className="row">
+        <AppLink className="btn btn-gold" href="/rta">
+          Open the voice room
+        </AppLink>
+      </div>
     </section>
   );
 }

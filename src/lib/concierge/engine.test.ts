@@ -95,6 +95,45 @@ describe("concierge engine", () => {
     expect(result.actions.some((action) => action.kind === "start_inquiry")).toBe(true);
   });
 
+  it("gives RTA longer spoken turns and more conversation history", async () => {
+    let body: { max_tokens?: number; messages?: Array<{ role: string }> } | undefined;
+    const engine = new ConciergeEngine({
+      chat: {
+        completions: {
+          create: async (request) => {
+            body = request;
+            return {
+              choices: [
+                {
+                  message: {
+                    content:
+                      "Start with who already pays you. Growth is either visibility or the offer. Stay with that until it is named. There is no need to send a brief yet."
+                  }
+                }
+              ]
+            };
+          }
+        }
+      }
+    });
+    const history = Array.from({ length: 20 }, (_, index) => ({
+      role: (index % 2 === 0 ? "user" : "assistant") as "user" | "assistant",
+      body: `turn ${index}`
+    }));
+    const result = await engine.turn({
+      message: "I want to grow my shop and I am not sure what I need.",
+      history,
+      facts: emptyConciergeFacts(),
+      pagePath: "/rta",
+      spoken: true,
+      mode: "rta"
+    });
+    expect(result.liveAi).toBe(true);
+    expect(body?.max_tokens).toBeGreaterThanOrEqual(800);
+    expect((body?.messages ?? []).filter((item) => item.role !== "system").length).toBeGreaterThan(10);
+    expect(result.spokenText).toMatch(/no need to send a brief yet/);
+  });
+
   it("falls back to curated copy when the model returns an empty body", async () => {
     const engine = new ConciergeEngine(mockClient("   "));
     const result = await engine.turn({

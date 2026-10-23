@@ -88,6 +88,9 @@ export default function HomePage() {
         </div>
         <div className="row">
           <ConciergeOpenButton className="btn btn-gold">Talk with Aethelios</ConciergeOpenButton>
+          <AppLink className="btn btn-ghost" href="/rta">
+            Open Aethelios RTA
+          </AppLink>
           <AppLink className="btn btn-ghost" href="/concierge">
             Open the dedicated view
           </AppLink>

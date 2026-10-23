@@ -1,6 +1,17 @@
 import type { ConciergePageContext, ConciergeSuggestion } from "@/lib/concierge/types";
 
 const PAGES: Record<string, { title: string; summary: string; awareness: string; starters: ConciergeSuggestion[] }> = {
+  "/rta": {
+    title: "Aethelios RTA",
+    summary: "A full-screen voice room for long-form conversation about what the business needs.",
+    awareness: "You are in Aethelios RTA, a spoken conversation. Stay with the visitor. Do not rush a handoff.",
+    starters: [
+      { id: "explore", label: "I'm not sure what my business needs" },
+      { id: "presence", label: "I want a stronger digital presence" },
+      { id: "website", label: "I need a better website" },
+      { id: "handoff", label: "I want to discuss a project with Neil" }
+    ]
+  },
   "/": {
     title: "Home",
     summary: "The public entrance. Founder-led websites, custom platforms, storefronts, and digital infrastructure.",
@@ -149,7 +160,9 @@ export function conciergeVisibleOnPath(path: string | null | undefined): boolean
     normalized.startsWith("/workspace") ||
     normalized.startsWith("/project") ||
     normalized.startsWith("/account") ||
-    normalized.startsWith("/offline")
+    normalized.startsWith("/offline") ||
+    normalized === "/rta" ||
+    normalized.startsWith("/rta/")
   ) {
     return false;
   }

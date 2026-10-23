@@ -50,6 +50,12 @@ export function voiceStatusCopy(state: ConciergeVoiceState, support: BrowserVoic
   }
 }
 
-export function attachSpokenText<T extends { message: string }>(result: T): T & { spokenText: string } {
-  return { ...result, spokenText: spokenSummary(result.message) };
+export function attachSpokenText<T extends { message: string }>(
+  result: T,
+  options?: { maxSentences?: number; maxChars?: number }
+): T & { spokenText: string } {
+  return {
+    ...result,
+    spokenText: spokenSummary(result.message, options?.maxSentences ?? 2, options?.maxChars ?? 320)
+  };
 }
