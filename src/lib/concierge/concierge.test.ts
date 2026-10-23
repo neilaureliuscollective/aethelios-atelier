@@ -120,7 +120,8 @@ describe("concierge homepage seating", () => {
     expect(voice).not.toContain("SpeechRecognition");
     expect(voice).not.toContain("webkitSpeechRecognition");
     const session = readFileSync("src/lib/concierge/voiceSession.ts", "utf8");
-    expect(session).toContain("/v1/realtime/sessions");
+    expect(session).toContain("/v1/realtime/calls");
+    expect(session).not.toContain("/v1/realtime/sessions");
     expect(session).toContain("verse");
     expect(session).toContain("Speak out loud");
     const architect = readFileSync("src/components/orb/ArchitectOrb.tsx", "utf8");
