@@ -140,7 +140,11 @@ export function ConciergeStage() {
             <ConciergeOrb
               size={orbSize}
               state={
-                voiceListening ? "listening" : voice.phase === "transcribing" ? "thinking" : orbState
+                voiceListening || (workspace === "listening" && !voice.error)
+                  ? "listening"
+                  : voice.phase === "transcribing"
+                    ? "thinking"
+                    : orbState
               }
               label={
                 voiceListening
@@ -153,18 +157,18 @@ export function ConciergeStage() {
               }
               onToggle={() => void engageOrb()}
             />
-            <p className={styles.orbStatus} aria-live="polite">
-              {voice.phase === "transcribing"
-                ? "Hearing that into words…"
-                : voiceListening
-                  ? "Listening · tap the orb when you are done speaking"
-                  : orbState === "composing"
-                    ? `${INTELLIGENCE_DISPLAY_NAME} is composing`
-                    : orbState === "thinking"
-                      ? `${INTELLIGENCE_DISPLAY_NAME} is listening through what you said`
-                      : workspace === "idle"
-                        ? `Tap the orb to speak with ${INTELLIGENCE_DISPLAY_NAME}`
-                        : `${INTELLIGENCE_DISPLAY_NAME} is ready`}
+            <p className={styles.orbStatus} data-tone={voice.error ? "warn" : undefined} aria-live="polite">
+              {voice.error
+                ? voice.error
+                : voice.phase === "transcribing"
+                  ? "Hearing that into words…"
+                  : voiceListening || workspace === "listening"
+                    ? "Listening · tap the orb when you are done speaking"
+                    : orbState === "composing"
+                      ? `${INTELLIGENCE_DISPLAY_NAME} is composing`
+                      : orbState === "thinking"
+                        ? `${INTELLIGENCE_DISPLAY_NAME} is listening through what you said`
+                        : `Tap the orb to speak with ${INTELLIGENCE_DISPLAY_NAME}`}
             </p>
           </div>
 

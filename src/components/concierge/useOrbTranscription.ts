@@ -66,17 +66,15 @@ export function useOrbTranscription() {
     const phaseNow = () => phaseRef.current;
     if (phaseNow() !== "idle") return;
     setError("");
-    if (ready === false) {
-      setError("Voice is not connected on this host. Type instead.");
-      return;
-    }
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
       setError("This browser cannot record speech. Type instead.");
       return;
     }
     setVoicePhase("starting");
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices
+        .getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
+        .catch(() => navigator.mediaDevices.getUserMedia({ audio: true }));
       if (phaseNow() !== "starting") {
         stream.getTracks().forEach((track) => track.stop());
         return;
@@ -88,7 +86,7 @@ export function useOrbTranscription() {
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) chunksRef.current.push(event.data);
       };
-      recorder.start();
+      recorder.start(250);
       recorderRef.current = recorder;
       setVoicePhase("recording");
     } catch {
@@ -96,7 +94,7 @@ export function useOrbTranscription() {
       setVoicePhase("idle");
       setError("The microphone was blocked. Allow it for this site, or type.");
     }
-  }, [ready, setVoicePhase, stopTracks]);
+  }, [setVoicePhase, stopTracks]);
 
   const stop = useCallback(async (): Promise<string> => {
     const recorder = recorderRef.current;
@@ -105,6 +103,9 @@ export function useOrbTranscription() {
     const type = recorder.mimeType || "audio/webm";
     const blob = await new Promise<Blob>((resolve) => {
       recorder.onstop = () => resolve(new Blob(chunksRef.current, { type }));
+      if (recorder.state === "recording" && typeof recorder.requestData === "function") {
+        recorder.requestData();
+      }
       if (recorder.state !== "inactive") recorder.stop();
       else resolve(new Blob(chunksRef.current, { type }));
     });

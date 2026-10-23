@@ -193,10 +193,13 @@
 
 .orbGlass,
 .orb :global(.rta-orb) {
+  position: relative;
+  z-index: 1;
   width: 100% !important;
   height: 100% !important;
   display: block;
   border-radius: 50%;
+  background: transparent;
 }
 
 .stage[data-orb="hero"] .orb,
@@ -275,6 +278,10 @@
   animation-duration: 1.8s;
 }
 
+.orb[data-state="listening"] .orbFallback {
+  animation-duration: 1.35s;
+}
+
 .orbRing {
   position: absolute;
   inset: -10%;
@@ -290,6 +297,13 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--concierge-muted);
+}
+
+.orbStatus[data-tone="warn"] {
+  max-width: 36ch;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--concierge-gold);
 }
 
 .rail {

@@ -59,6 +59,7 @@ export function ConciergeOrb({
   return (
     <button className={styles.orbButton} type="button" onClick={onToggle} aria-label={label}>
       <div className={styles.orb} data-state={state} data-size={size}>
+        <span className={styles.orbFallback} aria-hidden="true" />
         <span className={styles.orbRing} aria-hidden="true" />
         <ArchitectOrb
           state={toCallState(state)}
