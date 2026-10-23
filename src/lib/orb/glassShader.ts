@@ -174,6 +174,7 @@ void main() {
 
   color = aces(color * 0.98);
   color = pow(color, vec3(1.02));
-  fragColor = vec4(color, clamp(alpha, 0.0, 1.0));
+  float a = clamp(alpha, 0.0, 1.0);
+  fragColor = vec4(color * a, a);
 }
 `;

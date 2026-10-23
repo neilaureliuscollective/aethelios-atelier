@@ -23,6 +23,7 @@ describe("Architect orb motion", () => {
     const glass = readFileSync("src/lib/orb/glassShader.ts", "utf8");
     expect(glass).toContain("uv *= 0.56");
     expect(glass).toContain("sin(u_time * 0.11)");
+    expect(glass).toContain("color * a");
     const atmosphere = readFileSync("src/lib/concierge/atmosphere.ts", "utf8");
     expect(atmosphere).toContain("float z = 1.0 / fy");
     expect(atmosphere).toContain("paintChamber");
