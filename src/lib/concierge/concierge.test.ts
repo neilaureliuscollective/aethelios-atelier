@@ -98,11 +98,13 @@ describe("concierge homepage seating", () => {
     const orb = readFileSync("src/components/concierge/ConciergeOrb.tsx", "utf8");
     expect(orb).toContain("ArchitectOrb");
     expect(orb).toContain("orbFallback");
-    expect(orb).toContain("liveLevelRef");
+    expect(orb).toContain("liveOutputRef");
+    expect(orb).toContain("envelopeToward");
     expect(orb).not.toContain("gl_FragColor");
     const stage = readFileSync("src/components/concierge/ConciergeStage.tsx", "utf8");
     expect(stage).toContain("Meet {INTELLIGENCE_DISPLAY_NAME}");
     expect(stage).toContain("StageAtmosphere");
+    expect(stage).toContain("sanctum");
     expect(stage).not.toContain("colonnade.webp");
     expect(stage).not.toContain("Talk with Aethelios");
     expect(stage).not.toMatch(/btn-gold/);

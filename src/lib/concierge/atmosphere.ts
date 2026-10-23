@@ -39,7 +39,7 @@ float noise(vec3 x) {
 float fbm(vec3 p) {
   float sum = 0.0;
   float amp = 0.55;
-  for (int i = 0; i < 6; i++) {
+  for (int i = 0; i < 5; i++) {
     sum += amp * noise(p);
     p = p * 2.03 + 11.7;
     amp *= 0.51;
@@ -55,30 +55,36 @@ void main() {
   float aspect = u_res.x / max(u_res.y, 1.0);
   vec2 uv = v_uv;
   vec2 p = (uv - 0.5) * vec2(aspect, 1.0);
-  float t = u_time * 0.07;
+  float t = u_time * 0.035;
 
-  vec3 obsidian = vec3(0.031, 0.047, 0.043);
+  vec3 obsidian = vec3(0.02, 0.027, 0.024);
+  vec3 charcoal = vec3(0.047, 0.067, 0.059);
   vec3 deep = vec3(0.043, 0.176, 0.133);
-  vec3 emerald = vec3(0.141, 0.514, 0.408);
   vec3 gold = vec3(0.780, 0.643, 0.353);
   vec3 pale = vec3(0.886, 0.788, 0.533);
 
-  float fog = fbm(vec3(p * 1.15 + vec2(0.0, t * 0.35), t * 0.22));
-  float ribbon = fbm(vec3(p * 2.4 + vec2(-t * 0.2, t * 0.08), 3.2 + t * 0.4));
-  float well = smoothstep(0.78, 0.12, length(p - vec2(0.0, 0.04)));
-  float halo = smoothstep(0.42, 0.08, length(p - vec2(0.0, 0.02)));
-  float caustic = pow(max(0.0, sin((p.x * 2.8 + p.y * 1.6 + ribbon * 2.0 + t) * 1.8)), 10.0);
-  float grain = (hash(vec3(uv * u_res.xy, floor(u_time * 18.0))) - 0.5) * 0.035;
-  float vignette = smoothstep(1.22, 0.28, length(p * vec2(0.72, 1.02)));
+  float fog = fbm(vec3(p * 0.85 + vec2(0.0, t * 0.18), t * 0.12));
+  float well = smoothstep(0.34, 0.04, length(p - vec2(0.0, 0.02)));
+  float lamp = smoothstep(0.22, 0.0, length(p - vec2(0.0, -0.08)));
+  float floorDisc = exp(-pow((p.y - 0.18) * 6.2, 2.0)) * exp(-pow(p.x * 1.55, 2.0));
+  float grain = (hash(vec3(uv * u_res.xy, floor(u_time * 8.0))) - 0.5) * 0.02;
+  float vignette = smoothstep(1.18, 0.22, length(p * vec2(0.78, 1.05)));
+
+  float r1 = length(p * vec2(1.0, 1.18) - vec2(0.0, 0.04));
+  float ring1 = smoothstep(0.012, 0.0, abs(r1 - 0.42));
+  float ring2 = smoothstep(0.01, 0.0, abs(r1 - 0.62));
+  float meridian = pow(max(0.0, cos(atan(p.y - 0.02, p.x) * 6.0 + t * 0.4)), 42.0);
+  meridian *= smoothstep(0.72, 0.18, r1) * smoothstep(0.08, 0.2, r1);
 
   vec3 col = obsidian;
-  col = mix(col, deep, fog * 0.55 + well * 0.28);
-  col += emerald * (ribbon * 0.16 + well * 0.22);
-  col += gold * (caustic * 0.14 + halo * 0.18);
-  col += pale * halo * 0.08;
+  col = mix(col, charcoal, fog * 0.28);
+  col += deep * well * 0.16;
+  col += gold * lamp * 0.07;
+  col += pale * floorDisc * 0.08;
+  col += gold * (ring1 * 0.1 + ring2 * 0.06 + meridian * 0.08);
   col *= vignette;
   col += grain;
-  if (u_reduced > 0.5) col = mix(obsidian, col, 0.62);
-  fragColor = vec4(aces(col * 1.18), 1.0);
+  if (u_reduced > 0.5) col = mix(obsidian, col, 0.7);
+  fragColor = vec4(aces(col * 0.92), 1.0);
 }
 `;

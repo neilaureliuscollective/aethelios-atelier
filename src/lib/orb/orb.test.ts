@@ -15,8 +15,16 @@ describe("Architect orb motion", () => {
   it("falls back to a painted orb when WebGL2 cannot run", () => {
     const source = readFileSync("src/components/orb/ArchitectOrb.tsx", "utf8");
     expect(source).toContain("paintFallback");
+    expect(source).toContain("0.46");
     expect(source).toContain('setBackend("canvas2d")');
     expect(source).toContain("failIfMajorPerformanceCaveat");
     expect(source).not.toContain("gl_FragColor");
+    const glass = readFileSync("src/lib/orb/glassShader.ts", "utf8");
+    expect(glass).toContain("uv *= 0.56");
+    expect(glass).toContain("sin(u_time * 0.11)");
+    const atmosphere = readFileSync("src/lib/concierge/atmosphere.ts", "utf8");
+    expect(atmosphere).toContain("meridian");
+    expect(atmosphere).toContain("aces(col * 0.92)");
+    expect(atmosphere).not.toContain("aces(col * 1.18)");
   });
 });

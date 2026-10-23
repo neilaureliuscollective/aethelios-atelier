@@ -89,8 +89,8 @@ function paintFallback(
 ) {
   const cx = size / 2;
   const cy = size / 2;
-  const breath = reduced ? 0 : 0.018 * Math.sin(time * 0.85);
-  const radius = size * (0.34 + breath + output * 0.03 - (state === "thinking" ? 0.02 : 0));
+  const breath = reduced ? 0 : 0.01 * Math.sin(time * 0.55);
+  const radius = size * (0.46 + breath + output * 0.028 - (state === "thinking" ? 0.018 : 0));
   context.clearRect(0, 0, size, size);
 
   const floor = context.createRadialGradient(cx, cy + radius * 0.92, 4, cx, cy + radius * 1.05, radius * 1.2);
@@ -106,24 +106,31 @@ function paintFallback(
   context.fillStyle = bloom;
   context.fillRect(0, 0, size, size);
 
-  const body = context.createRadialGradient(cx - radius * 0.22, cy - radius * 0.28, radius * 0.08, cx, cy, radius);
-  body.addColorStop(0, `rgba(226, 201, 136, ${0.28 + output * 0.2})`);
-  body.addColorStop(0.28, `rgba(36, 131, 104, ${0.72 + output * 0.12})`);
-  body.addColorStop(0.7, "rgba(11, 70, 53, 0.92)");
-  body.addColorStop(1, "rgba(8, 12, 11, 0.15)");
+  const body = context.createRadialGradient(cx - radius * 0.28, cy - radius * 0.34, radius * 0.04, cx, cy, radius);
+  body.addColorStop(0, `rgba(255, 246, 220, ${0.62 + output * 0.22})`);
+  body.addColorStop(0.14, `rgba(226, 201, 136, ${0.34 + output * 0.16})`);
+  body.addColorStop(0.4, `rgba(11, 70, 53, ${0.78 + output * 0.1})`);
+  body.addColorStop(0.74, "rgba(8, 16, 14, 0.96)");
+  body.addColorStop(1, "rgba(8, 12, 11, 0.18)");
   context.fillStyle = body;
   context.beginPath();
   context.arc(cx, cy, radius, 0, Math.PI * 2);
   context.fill();
 
-  const sheen = context.createRadialGradient(cx - radius * 0.28, cy - radius * 0.32, 2, cx, cy, radius * 0.7);
-  sheen.addColorStop(0, "rgba(255, 246, 220, 0.42)");
-  sheen.addColorStop(0.35, "rgba(199, 164, 90, 0.12)");
+  const sheen = context.createRadialGradient(cx - radius * 0.3, cy - radius * 0.36, 2, cx, cy, radius * 0.62);
+  sheen.addColorStop(0, "rgba(255, 246, 220, 0.5)");
+  sheen.addColorStop(0.28, "rgba(199, 164, 90, 0.16)");
   sheen.addColorStop(1, "rgba(199, 164, 90, 0)");
   context.fillStyle = sheen;
   context.beginPath();
-  context.arc(cx, cy, radius * 0.92, 0, Math.PI * 2);
+  context.arc(cx, cy, radius * 0.9, 0, Math.PI * 2);
   context.fill();
+
+  context.strokeStyle = `rgba(226, 201, 136, ${0.22 + output * 0.2})`;
+  context.lineWidth = Math.max(1, size * 0.006);
+  context.beginPath();
+  context.arc(cx, cy, radius * 0.985, 0, Math.PI * 2);
+  context.stroke();
 
   if (state === "listening" && !reduced) {
     context.strokeStyle = `rgba(226, 201, 136, ${0.18 + input * 0.35})`;
