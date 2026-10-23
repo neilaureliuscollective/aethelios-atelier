@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { GET, POST } from "@/app/api/concierge/speak/route";
 import { atelierSurfaceForPath } from "@/lib/atelierSurface";
 import { conciergeVisibleOnPath, conciergePageContext } from "@/lib/concierge/pages";
 import { conciergeRateLimited, resetConciergeRateLimitForTests } from "@/lib/concierge/rateLimit";
 import { clipHistory, sanitizeConciergeMessage } from "@/lib/concierge/safety";
 import { envelopeToward, hexToRgb, ORB_EMERALD, springStep, stateWeights } from "@/lib/rta/orb";
 import { RTA_HISTORY_LIMIT, RTA_MESSAGE_MAX, RTA_RATE_MAX } from "@/lib/rta/limits";
+import { prepareSpokenInput, synthesizeRtaSpeech } from "@/lib/rta/speak";
 import {
   chunkSpokenText,
   mergeTranscript,
@@ -13,6 +15,7 @@ import {
   shouldRestartRecognition,
   spokenForRta
 } from "@/lib/rta/speech";
+import { isRtaTtsVoice, RTA_TTS_MODEL, RTA_TTS_VOICE, ttsVoiceChoice } from "@/lib/rta/tts";
 
 describe("Aethelios RTA conversation limits", () => {
   it("keeps long-form spoken answers instead of a two-sentence clip", () => {
@@ -119,5 +122,66 @@ describe("RTA surface", () => {
     expect(atelierSurfaceForPath("/rta")).toBe("rta");
     expect(conciergeVisibleOnPath("/rta")).toBe(false);
     expect(conciergePageContext("/rta").title).toMatch(/RTA/i);
+  });
+});
+
+describe("RTA OpenAI speech", () => {
+  it("selects Cedar as the built-in masculine Speech voice", () => {
+    const choice = ttsVoiceChoice();
+    expect(choice.voice).toBe("cedar");
+    expect(choice.model).toBe(RTA_TTS_MODEL);
+    expect(choice.provider).toBe("openai_tts");
+    expect(isRtaTtsVoice("cedar")).toBe(true);
+    expect(isRtaTtsVoice("marin")).toBe(true);
+    expect(isRtaTtsVoice("custom-neil")).toBe(false);
+    expect(RTA_TTS_VOICE).toBe("cedar");
+  });
+
+  it("rejects empty or hostile spoken input before a Speech call", () => {
+    expect(prepareSpokenInput("")).toBe("");
+    expect(prepareSpokenInput("   ")).toBe("");
+    expect(prepareSpokenInput("<script>alert(1)</script>")).toBe("");
+    expect(prepareSpokenInput("I'm here with you.")).toBe("I'm here with you.");
+  });
+
+  it("fails closed without authorized OpenAI and synthesizes Cedar when a client is injected", async () => {
+    process.env.ATELIER_OPENAI_ENABLED = "false";
+    expect(await synthesizeRtaSpeech("I'm here with you.")).toBeNull();
+    const bytes = new Uint8Array([1, 2, 3, 4]);
+    const audio = await synthesizeRtaSpeech("I'm here with you.", {
+      audio: {
+        speech: {
+          create: async (body) => {
+            expect(body.voice).toBe("cedar");
+            expect(body.model).toBe("gpt-4o-mini-tts");
+            expect(body.input).toBe("I'm here with you.");
+            return {
+              arrayBuffer: async () =>
+                bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
+            };
+          }
+        }
+      }
+    });
+    expect(Array.from(audio ?? [])).toEqual([1, 2, 3, 4]);
+  });
+
+  it("advertises Cedar and refuses speech when live OpenAI is off", async () => {
+    process.env.ATELIER_OPENAI_ENABLED = "false";
+    const advertised = await GET();
+    const body = (await advertised.json()) as { live: boolean; voice: string; fallback: string };
+    expect(body.live).toBe(false);
+    expect(body.voice).toBe("cedar");
+    expect(body.fallback).toBe("browser_speech");
+    const refused = await POST(
+      new Request("http://localhost/api/concierge/speak", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: "I'm here with you.", mode: "rta" })
+      })
+    );
+    expect(refused.status).toBe(503);
+    const payload = (await refused.json()) as { fallback?: string };
+    expect(payload.fallback).toBe("browser_speech");
   });
 });

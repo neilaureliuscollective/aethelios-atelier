@@ -97,6 +97,11 @@ export function RtaExperience() {
   const audioRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const sampleRef = useRef<Uint8Array | null>(null);
+  const playbackRef = useRef<HTMLAudioElement | null>(null);
+  const playbackUrlRef = useRef("");
+  const playAnalyserRef = useRef<AnalyserNode | null>(null);
+  const playSampleRef = useRef<Uint8Array | null>(null);
+  const speakGenRef = useRef(0);
   const messagesRef = useRef<ConciergeMessage[]>([]);
   const factsRef = useRef<ConciergeFacts>(emptyConciergeFacts());
   const threadRef = useRef<HTMLDivElement>(null);
@@ -143,7 +148,28 @@ export function RtaExperience() {
     );
   }, []);
 
+  const stopPlayback = useCallback(() => {
+    speakGenRef.current += 1;
+    const audio = playbackRef.current;
+    if (audio) {
+      audio.onended = null;
+      audio.onerror = null;
+      audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
+    }
+    playbackRef.current = null;
+    playAnalyserRef.current = null;
+    playSampleRef.current = null;
+    if (playbackUrlRef.current) {
+      URL.revokeObjectURL(playbackUrlRef.current);
+      playbackUrlRef.current = "";
+    }
+    window.speechSynthesis?.cancel();
+  }, []);
+
   const stopAudioGraph = useCallback(() => {
+    stopPlayback();
     analyserRef.current = null;
     sampleRef.current = null;
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -152,7 +178,7 @@ export function RtaExperience() {
       void audioRef.current.close();
       audioRef.current = null;
     }
-  }, []);
+  }, [stopPlayback]);
 
   const attachMicAnalyser = useCallback(async () => {
     if (analyserRef.current || !navigator.mediaDevices?.getUserMedia) return;
@@ -247,19 +273,23 @@ export function RtaExperience() {
     }
   }, [support.listen]);
 
-  const speakText = useCallback(
-    (text: string) => {
-      if (!support.speak || !text.trim()) {
-        speakingRef.current = false;
-        if (liveRef.current && !mutedRef.current) listen();
-        else setState(liveRef.current ? "idle" : "ended");
+  const finishSpeaking = useCallback(() => {
+    speakingRef.current = false;
+    pulseRef.current = 0;
+    playAnalyserRef.current = null;
+    playSampleRef.current = null;
+    if (!liveRef.current) return;
+    if (!mutedRef.current) listen();
+    else setState("idle");
+  }, [listen]);
+
+  const speakBrowser = useCallback(
+    (spoken: string) => {
+      if (!support.speak) {
+        finishSpeaking();
         return;
       }
-      window.speechSynthesis.cancel();
-      recRef.current?.abort();
-      speakingRef.current = true;
-      setState("speaking");
-      const chunks = chunkSpokenText(spokenForRta(text));
+      const chunks = chunkSpokenText(spoken);
       let index = 0;
       const next = () => {
         if (!liveRef.current) {
@@ -269,10 +299,7 @@ export function RtaExperience() {
         const chunk = chunks[index];
         index += 1;
         if (!chunk) {
-          speakingRef.current = false;
-          pulseRef.current = 0;
-          if (!mutedRef.current) listen();
-          else setState("idle");
+          finishSpeaking();
           return;
         }
         const utterance = new SpeechSynthesisUtterance(chunk);
@@ -286,7 +313,64 @@ export function RtaExperience() {
       };
       next();
     },
-    [listen, support.speak]
+    [finishSpeaking, support.speak]
+  );
+
+  const playOpenAiSpeech = useCallback(async (blob: Blob, generation: number) => {
+    const context = audioRef.current ?? new AudioContext();
+    audioRef.current = context;
+    if (context.state === "suspended") await context.resume();
+    if (generation !== speakGenRef.current || !liveRef.current) return;
+    const url = URL.createObjectURL(blob);
+    playbackUrlRef.current = url;
+    const element = new Audio(url);
+    playbackRef.current = element;
+    const source = context.createMediaElementSource(element);
+    const analyser = context.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.72;
+    source.connect(analyser);
+    analyser.connect(context.destination);
+    playAnalyserRef.current = analyser;
+    playSampleRef.current = new Uint8Array(analyser.frequencyBinCount);
+    await new Promise<void>((resolve) => {
+      element.onended = () => resolve();
+      element.onerror = () => resolve();
+      void element.play().catch(() => resolve());
+    });
+  }, []);
+
+  const speakText = useCallback(
+    async (text: string) => {
+      const spoken = spokenForRta(text);
+      if (!spoken) {
+        finishSpeaking();
+        return;
+      }
+      stopPlayback();
+      recRef.current?.abort();
+      const generation = speakGenRef.current;
+      speakingRef.current = true;
+      setState("speaking");
+      try {
+        const response = await fetch("/api/concierge/speak", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: spoken, mode: "rta" })
+        });
+        if (generation !== speakGenRef.current || !liveRef.current) return;
+        if (response.ok) {
+          await playOpenAiSpeech(await response.blob(), generation);
+          if (generation === speakGenRef.current) finishSpeaking();
+          return;
+        }
+      } catch {
+        /* browser speech remains the fail-closed fallback */
+      }
+      if (generation !== speakGenRef.current || !liveRef.current) return;
+      speakBrowser(spoken);
+    },
+    [finishSpeaking, playOpenAiSpeech, speakBrowser, stopPlayback]
   );
 
   const sendTurn = useCallback(
@@ -358,7 +442,10 @@ export function RtaExperience() {
       const listening = state === "listening" && !mutedRef.current;
       let rawIn = 0;
       let rawOut = 0;
-      if (speakingRef.current) {
+      if (speakingRef.current && playAnalyserRef.current && playSampleRef.current) {
+        playAnalyserRef.current.getByteTimeDomainData(playSampleRef.current as never);
+        rawOut = Math.max(rmsFromTimeDomain(playSampleRef.current), pulseRef.current * 0.25);
+      } else if (speakingRef.current) {
         rawOut = speakEnvelope(now, pulseRef.current);
       } else if (listening && analyserRef.current && sampleRef.current) {
         const analyser = analyserRef.current;
@@ -379,7 +466,6 @@ export function RtaExperience() {
       liveRef.current = false;
       window.clearTimeout(flushTimer.current);
       recRef.current?.abort();
-      window.speechSynthesis?.cancel();
       stopAudioGraph();
     };
   }, [stopAudioGraph]);
@@ -401,7 +487,7 @@ export function RtaExperience() {
       setError("The microphone was blocked. You can still type in the transcript.");
       void trackConciergeEvent("voice_denied", "/rta");
     }
-    speakText(RTA_PRESENCE);
+    void speakText(RTA_PRESENCE);
   }, [attachMicAnalyser, speakText, support.listen]);
 
   const endCall = useCallback(() => {
@@ -410,7 +496,6 @@ export function RtaExperience() {
     pendingRef.current = false;
     window.clearTimeout(flushTimer.current);
     recRef.current?.abort();
-    window.speechSynthesis.cancel();
     stopAudioGraph();
     setStarted(false);
     setMuted(false);

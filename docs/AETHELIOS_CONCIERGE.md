@@ -41,7 +41,8 @@ Layers, kept separate on purpose:
 Public Talk is a **modality** on this same engine, not a second assistant.
 
 - Browser `SpeechRecognition` / `webkitSpeechRecognition` for dictation where the browser supports it.
-- `speechSynthesis` reads only `spokenText` (first two sentences). The full reply stays on screen.
+- Dock Talk: `speechSynthesis` reads only `spokenText` (first two sentences). The full reply stays on screen.
+- RTA (`/rta`): spoken replies use `POST /api/concierge/speak` with OpenAI `gpt-4o-mini-tts` and the built-in `cedar` voice when live OpenAI is authorized. If that gate is closed, RTA falls back to the browser speech service.
 - `POST /api/concierge/talk` with `spoken: true` when the turn came from the microphone.
 - Firefox and other browsers without recognition fall back to typing. That is disclosed, not hidden.
 - Companion WebRTC (`/api/companion/voice`) stays authenticated and gated. Public visitors do not use it.

@@ -70,9 +70,10 @@ Same `POST /api/concierge/talk` engine with `mode: "rta"`. Inquiry and safety pa
 | `src/components/rta/RtaExperience.tsx` | Call UI, continuous speech, mute/transcript/minimize |
 | `src/components/rta/ArchitectOrb.tsx` | Liquid-glass WebGL2 orb |
 | `src/lib/rta/glassShader.ts` | Fragment/vertex program |
-| `src/lib/rta/*` | Limits, speech helpers, orb math, tests |
+| `src/lib/rta/*` | Limits, speech helpers, orb math, Cedar TTS, tests |
+| `src/app/api/concierge/speak/route.ts` | OpenAI Speech audio for RTA |
 | `docs/research/AETHELIOS_RTA.md` | This note |
 
 ## 6. Still true
 
-Public Realtime is still deferred (cost, abuse, Companion-only handshake). RTA is browser speech → the existing concierge → device TTS, configured so a thinking pause does not end the call.
+Public Realtime is still deferred (cost, abuse, Companion-only handshake). Recognition stays on the browser. Spoken replies use `POST /api/concierge/speak` with OpenAI `gpt-4o-mini-tts` and the built-in `cedar` voice when `ATELIER_OPENAI_ENABLED` and `OPENAI_API_KEY` are both set. If that gate is closed, RTA falls back to `window.speechSynthesis`. Cedar exists in OpenAI’s Speech roster (alongside marin, onyx, ash, echo, verse). OpenAI recommends marin or cedar for quality; cedar is the resonant masculine match. Verse stays on the private Companion path.
