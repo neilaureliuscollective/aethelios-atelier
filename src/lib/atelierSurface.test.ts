@@ -43,5 +43,8 @@ describe("atelierSurfaceForPath", () => {
       /\.app-root\[data-surface="luminous"\],\n\.app-root\[data-surface="workroom"\],\n\.app-root\[data-surface="atelier"\] \{[\s\S]*?--bg-read:\s*#fff;/
     );
     expect(css).not.toMatch(/--garnet/);
+    expect(css).toMatch(/--ink-glass-fill:/);
+    expect(css).toMatch(/backdrop-filter:\s*var\(--ink-glass-filter\)/);
+    expect(css).toMatch(/inset 0 1px 0 rgba\(243, 240, 231, 0\.34\)/);
   });
 });

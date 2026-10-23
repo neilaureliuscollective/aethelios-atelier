@@ -96,6 +96,16 @@ img { max-width: 100%; height: auto; display: block; }
   --border: color-mix(in srgb, var(--gold) 38%, transparent);
   --border-soft: color-mix(in srgb, var(--obsidian) 10%, transparent);
   --shadow: 0 24px 48px rgba(14, 28, 24, 0.14);
+  --ink-glass-fill:
+    linear-gradient(180deg, rgba(243, 240, 231, 0.16) 0%, rgba(36, 131, 104, 0.07) 36%, transparent 62%),
+    color-mix(in srgb, var(--ink) 76%, transparent);
+  --ink-glass-border: color-mix(in srgb, var(--ivory) 22%, transparent);
+  --ink-glass-filter: blur(24px) saturate(1.28);
+  --ink-glass-shadow:
+    0 18px 40px rgba(14, 28, 24, 0.12),
+    0 1px 3px rgba(14, 28, 24, 0.08),
+    inset 0 1px 0 rgba(243, 240, 231, 0.34),
+    inset 0 -28px 42px rgba(36, 131, 104, 0.1);
   color-scheme: light;
 }
 .app-root[data-surface="studio"] {
@@ -818,9 +828,7 @@ h3 { font-size: 28px; }
   padding: 16px;
   position: sticky;
   top: 96px;
-  background: var(--bg-raised);
   color: var(--on-raised, var(--ivory));
-  border: 1px solid var(--border);
   border-radius: var(--radius);
 }
 .step-nav ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
@@ -1033,11 +1041,22 @@ a.chip {
 }
 .attention-list { margin: 12px 0 0; padding-left: 18px; display: grid; gap: 6px; color: var(--sage); }
 
+.surface-ivory,
+.service-tile,
+.possibilities-panel,
+.step-nav,
+.surface-obsidian,
+.pricing-review-banner {
+  isolation: isolate;
+  transform: translateZ(0);
+  background: var(--ink-glass-fill, var(--ink));
+  border: 1px solid var(--ink-glass-border, color-mix(in srgb, var(--ivory) 22%, transparent));
+  backdrop-filter: var(--ink-glass-filter);
+  -webkit-backdrop-filter: var(--ink-glass-filter);
+  box-shadow: var(--ink-glass-shadow);
+}
 .surface-ivory {
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: var(--shadow), inset 0 1px 0 rgba(243, 240, 231, 0.08);
   color: var(--on-raised, var(--ivory));
 }
 .surface-ivory .muted,
@@ -1076,12 +1095,8 @@ a.chip {
   color: var(--gold-edge);
 }
 .surface-obsidian {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--charcoal) 70%, var(--smoked)), var(--obsidian));
-  border: 1px solid color-mix(in srgb, var(--gold-pale) 22%, transparent);
   border-radius: var(--radius);
   color: var(--ivory);
-  box-shadow: 0 28px 64px rgba(8, 12, 11, 0.28), inset 0 1px 0 rgba(243, 240, 231, 0.12);
 }
 .surface-obsidian .lede, .surface-obsidian .muted, .surface-obsidian .kicker {
   color: color-mix(in srgb, var(--ivory) 78%, var(--sage));
@@ -1294,9 +1309,6 @@ a.chip {
   min-height: 100%;
   padding: 16px 16px 20px;
   border-radius: var(--radius);
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow);
   color: var(--on-raised, var(--ivory));
 }
 .service-tile-visual { pointer-events: none; }
@@ -1339,8 +1351,6 @@ a.chip {
   align-items: center;
   padding: 18px;
   border-radius: var(--radius);
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
   color: var(--on-raised, var(--ivory));
 }
 .possibilities-visual .device-screen { min-height: 320px; }
@@ -1383,8 +1393,6 @@ a.chip {
   margin: 18px auto 0;
   padding: 12px 16px;
   border-radius: 14px;
-  border: 1px solid var(--border);
-  background: var(--bg-raised);
   color: var(--on-raised, var(--ivory));
   font-size: 14px;
 }
@@ -1758,6 +1766,17 @@ a.chip {
   .surface-glass, .site-header, .bottom-nav, .glass {
     background: #121a17;
     backdrop-filter: none;
+  }
+  .surface-ivory,
+  .service-tile,
+  .possibilities-panel,
+  .step-nav,
+  .surface-obsidian,
+  .pricing-review-banner {
+    background: var(--ink);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: var(--shadow), inset 0 1px 0 rgba(243, 240, 231, 0.16);
   }
 }
 

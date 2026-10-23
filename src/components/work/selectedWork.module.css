@@ -19,9 +19,13 @@
   padding: 32px 28px 28px;
   border-radius: var(--radius);
   color: var(--on-raised, var(--ivory));
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow), inset 0 1px 0 rgba(243, 240, 231, 0.08);
+  isolation: isolate;
+  transform: translateZ(0);
+  background: var(--ink-glass-fill, var(--bg-raised));
+  border: 1px solid var(--ink-glass-border, var(--border));
+  backdrop-filter: var(--ink-glass-filter);
+  -webkit-backdrop-filter: var(--ink-glass-filter);
+  box-shadow: var(--ink-glass-shadow, var(--shadow));
 }
 
 .preview {

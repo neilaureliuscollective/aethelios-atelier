@@ -75,9 +75,12 @@
   padding: 6px 8px 6px 12px;
   border: 1px solid var(--d-edge);
   border-radius: 18px;
-  background: var(--d-paper);
+  background: var(--ink-glass-fill, var(--d-paper));
   color: var(--d-ivory);
-  box-shadow: 0 10px 28px rgba(8, 12, 11, 0.22), inset 0 1px 0 rgba(243, 240, 231, 0.08);
+  border-color: var(--ink-glass-border, var(--d-edge));
+  backdrop-filter: var(--ink-glass-filter);
+  -webkit-backdrop-filter: var(--ink-glass-filter);
+  box-shadow: var(--ink-glass-shadow);
 }
 
 .toolbarMeta {
@@ -312,10 +315,12 @@
   position: relative;
   border-radius: 28px;
   padding: 18px;
-  background: var(--d-paper);
-  border: 1px solid var(--d-edge);
+  background: var(--ink-glass-fill, var(--d-paper));
+  border: 1px solid var(--ink-glass-border, var(--d-edge));
   color: var(--d-ivory);
-  box-shadow: 0 28px 56px rgba(8, 12, 11, 0.28), inset 0 1px 0 rgba(243, 240, 231, 0.08);
+  backdrop-filter: var(--ink-glass-filter);
+  -webkit-backdrop-filter: var(--ink-glass-filter);
+  box-shadow: var(--ink-glass-shadow);
 }
 
 .stageChrome {
@@ -509,21 +514,26 @@
 }
 
 .solid {
-  background: var(--d-paper);
-  border: 1px solid var(--d-edge);
+  background: var(--ink-glass-fill, var(--d-paper));
+  border: 1px solid var(--ink-glass-border, var(--d-edge));
   border-radius: 20px;
   padding: 16px;
   color: var(--d-ivory);
-  box-shadow: 0 16px 36px rgba(8, 12, 11, 0.22), inset 0 1px 0 rgba(243, 240, 231, 0.08);
+  backdrop-filter: var(--ink-glass-filter);
+  -webkit-backdrop-filter: var(--ink-glass-filter);
+  box-shadow: var(--ink-glass-shadow);
 }
 
 .glass,
 .saveDrawer {
-  background: color-mix(in srgb, var(--d-paper) 82%, transparent);
-  border: 1px solid var(--d-edge);
+  background: var(--ink-glass-fill, color-mix(in srgb, var(--d-paper) 82%, transparent));
+  border: 1px solid var(--ink-glass-border, var(--d-edge));
   border-radius: 20px;
   padding: 16px;
   color: var(--d-ivory);
+  backdrop-filter: var(--ink-glass-filter);
+  -webkit-backdrop-filter: var(--ink-glass-filter);
+  box-shadow: var(--ink-glass-shadow);
 }
 
 .rail h2,
