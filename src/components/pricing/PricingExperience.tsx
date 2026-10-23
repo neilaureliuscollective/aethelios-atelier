@@ -106,9 +106,11 @@ export function PricingExperience({ presentation }: { presentation: PricingPrese
           <p className="lede">
             Describe the need. Neil confirms deliverables, price, and timing before work is
             accepted. A monthly plan is not required to begin, and a rebrand is not required to
-            start. Independent barbers and salons can also begin from a{" "}
-            <AppLink href="/services/barbers-salons">focused website offer</AppLink> — that is not a
-            fourth published plan, and its exact proposal is confirmed by Neil.
+            start.             Independent barbers and salons can also begin from a{" "}
+            <AppLink href="/services/barbers-salons">focused website offer</AppLink>, and storefront
+            work can begin from{" "}
+            <AppLink href="/services/commerce">Atelier Commerce</AppLink> — those are not fourth
+            published plans, and each exact proposal is confirmed by Neil.
           </p>
         </div>
         <div className="pricing-commission-list">

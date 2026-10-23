@@ -1639,6 +1639,90 @@ a.chip {
   border-color: color-mix(in srgb, var(--gold-champagne) 40%, transparent);
 }
 
+.commerce-hero,
+.barbers-hero {
+  min-height: min(72vh, 760px);
+}
+.commerce-hero .cinematic-media img {
+  object-position: 50% 42%;
+  filter: brightness(0.92) saturate(1.02) contrast(1.04);
+}
+.commerce-hero .cinematic-shade {
+  background:
+    linear-gradient(90deg, rgba(8, 12, 11, 0.42) 0%, rgba(8, 12, 11, 0.12) 40%, transparent 62%),
+    linear-gradient(180deg, rgba(8, 12, 11, 0.16) 0%, transparent 36%, rgba(8, 12, 11, 0.28) 100%);
+}
+.commerce-hero-shell {
+  grid-template-columns: minmax(0, 1fr);
+  padding-top: 28px;
+}
+.commerce-path-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+}
+.commerce-path {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 22px 22px 20px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  background: var(--ivory);
+  color: inherit;
+  cursor: pointer;
+}
+.commerce-path h3 {
+  font-family: var(--font-display);
+  font-size: 28px;
+  margin: 8px 0 10px;
+  font-weight: 500;
+}
+.commerce-path-active {
+  border-color: color-mix(in srgb, var(--gold) 55%, transparent);
+}
+.commerce-compare-table {
+  display: grid;
+  gap: 0;
+  padding: 6px 0;
+}
+.commerce-compare-row {
+  display: grid;
+  grid-template-columns: minmax(8rem, 0.8fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  padding: 14px 20px;
+  border-top: 1px solid color-mix(in srgb, var(--sage) 28%, transparent);
+}
+.commerce-compare-head {
+  border-top: 0;
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.commerce-compare-row [data-active="true"] {
+  color: var(--text);
+}
+.commerce-compare-row [data-active="false"] {
+  color: var(--text-muted);
+}
+@media (max-width: 720px) {
+  .commerce-hero .cinematic-media img {
+    object-position: 50% 48%;
+  }
+  .commerce-path-toggle,
+  .commerce-compare-row {
+    grid-template-columns: 1fr;
+  }
+  .commerce-compare-head {
+    display: none;
+  }
+  .commerce-compare-row [role="rowheader"] {
+    font-weight: 600;
+  }
+}
+
 .barbers-hero {
   min-height: min(72vh, 760px);
 }

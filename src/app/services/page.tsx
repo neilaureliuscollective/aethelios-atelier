@@ -126,6 +126,34 @@ export default function ServicesPage() {
       <Reveal as="article" className="service-feature surface-ivory" delay={1}>
         <div>
           <p className="tiny">Focused service</p>
+          <h2>Atelier Commerce</h2>
+          <p className="lede">
+            Source a first assortment and launch a storefront the client owns. This is a descriptive
+            service page under Atelier, not a second company and not a fourth general plan.
+          </p>
+          <AppLink className="btn btn-emerald-glass" href="/services/commerce">
+            See the commerce division
+          </AppLink>
+        </div>
+        <div className="surface-read service-spec">
+          <h3>What this is</h3>
+          <ul>
+            <li>A storefront commission for products the client already has, or help sourcing a first assortment</li>
+            <li>The client owns the brand, the store account, and remains the seller of record</li>
+            <li>The same founder review path as other commissions</li>
+          </ul>
+          <h3>What this is not</h3>
+          <ul>
+            <li>An Atelier product catalog or a separate company</li>
+            <li>A replacement for published Atelier plans</li>
+            <li>A promise of sales, demand, or supplier reliability</li>
+          </ul>
+        </div>
+      </Reveal>
+
+      <Reveal as="article" className="service-feature surface-ivory" delay={1}>
+        <div>
+          <p className="tiny">Focused service</p>
           <h2>Atelier for Barbers & Salons</h2>
           <p className="lede">
             A branded website and installable web app for one shop or salon, connected to the

@@ -1,7 +1,7 @@
 import { displayFieldValue, fieldLabel, provenanceLabel } from "@/lib/brief";
 import { displayPurposeLabel } from "@/lib/commissionContext";
 import { OfferReview } from "@/components/project/OfferReview";
-import { displayOfferLabel } from "@/lib/offers/barbersSalons";
+import { displayFocusedOfferLabel } from "@/lib/offers/registry";
 import { displayShowcaseLabel } from "@/lib/work/fixItShop";
 import { historicalProjectTypeNote } from "@/lib/serviceCategories";
 import { INTELLIGENCE_DISPLAY_NAME } from "@/lib/copy";
@@ -21,10 +21,10 @@ export function LivingBrief({
       <p className="tiny">Your direction</p>
       <h2 style={{ fontSize: 28 }}>Living brief</h2>
       {displayPurposeLabel(brief.context?.purpose) ||
-      displayOfferLabel(brief.context?.offerId) ||
+      displayFocusedOfferLabel(brief.context?.offerId) ||
       displayShowcaseLabel(brief.context?.showcaseId) ? (
         <p className="notice">
-          Context: {displayOfferLabel(brief.context?.offerId) ||
+          Context: {displayFocusedOfferLabel(brief.context?.offerId) ||
             displayPurposeLabel(brief.context?.purpose) ||
             `${displayShowcaseLabel(brief.context?.showcaseId)} showcase`}
           {brief.context?.route === "custom_project" ? " · other custom project" : ""}

@@ -6,6 +6,7 @@ const PUBLIC_PATHS = [
   "/pricing",
   "/services",
   "/services/barbers-salons",
+  "/services/commerce",
   "/custom-projects",
   "/approach",
   "/about"

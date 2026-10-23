@@ -53,6 +53,29 @@ describe("commission context metadata", () => {
     expect(fieldsForStep(4, tool)).not.toContain("references");
   });
 
+  it("starts Atelier Commerce as a business storefront without booking", () => {
+    const launch = applyCommissionIntent(
+      createEmptyBrief(),
+      parseCommissionIntent(new URLSearchParams("offer=commerce_launch"))
+    );
+    expect(launch.context?.offerId).toBe("commerce_launch");
+    expect(launch.context?.purpose).toBe("business");
+    expect(launch.context?.route).toBe("business");
+    expect(launch.context?.bookingNeeded).toBe(false);
+    expect(launch.projectType.value).toBe("ecommerce_storefronts");
+    expect(isBookingConnected(launch)).toBe(false);
+    expect(launch.vision.value).toMatch(/own brand/i);
+    expect(fieldsForStep(4, launch)).toContain("bookingProvider");
+
+    const foundation = applyCommissionIntent(
+      createEmptyBrief(),
+      parseCommissionIntent(new URLSearchParams("offer=commerce_foundation"))
+    );
+    expect(foundation.context?.offerId).toBe("commerce_foundation");
+    expect(foundation.projectType.value).toBe("ecommerce_storefronts");
+    expect(foundation.vision.value).toMatch(/already know I will sell/i);
+  });
+
   it("starts the barbers and salons offer as a business website with booking", () => {
     const offer = applyCommissionIntent(
       createEmptyBrief(),

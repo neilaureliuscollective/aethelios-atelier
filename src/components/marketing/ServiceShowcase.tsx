@@ -8,6 +8,7 @@ import {
   DeviceFrame
 } from "@/components/marketing/DeviceFrame";
 import { SERVICE_CATALOG } from "@/lib/catalog";
+import { ATELIER_COMMERCE_HREF } from "@/lib/offers/commerce";
 import { SERVICE_CATEGORY_COPY, serviceBriefHref } from "@/lib/serviceCategories";
 
 const CARDS = [
@@ -33,7 +34,7 @@ const CARDS = [
   },
   {
     id: "ecommerce_storefronts" as const,
-    href: serviceBriefHref("ecommerce_storefronts"),
+    href: ATELIER_COMMERCE_HREF,
     icon: StoreIcon,
     visual: (
       <DeviceFrame variant="tablet" depth="tile" label="Storefront demonstration">
