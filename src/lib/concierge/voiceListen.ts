@@ -26,3 +26,29 @@ export function shouldFinishRecording(input: {
   if (!input.heardSpeech) return false;
   return input.now - input.lastLoudAt >= SILENCE_MS;
 }
+
+export function holdSpokenPhase(input: {
+  current: "listening" | "speaking";
+  remoteLoud: boolean;
+  loudForMs: number;
+  quietForMs: number;
+}): "listening" | "speaking" {
+  if (input.current === "speaking") {
+    return input.quietForMs >= 420 ? "listening" : "speaking";
+  }
+  return input.loudForMs >= 180 ? "speaking" : "listening";
+}
+
+export function orbPresenceLabel(input: {
+  name: string;
+  error?: string;
+  phase: "idle" | "starting" | "listening" | "speaking";
+  pending?: boolean;
+  hasDocument?: boolean;
+}) {
+  if (input.error) return input.error;
+  if (input.phase === "speaking") return `${input.name} is speaking`;
+  if (input.phase === "listening" || input.phase === "starting") return "Listening";
+  if (input.pending) return input.hasDocument ? `${input.name} is writing the document` : `${input.name} is writing`;
+  return `Tap the orb to talk with ${input.name}`;
+}

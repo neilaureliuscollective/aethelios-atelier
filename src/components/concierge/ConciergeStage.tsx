@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useAethelios } from "@/components/aethelios/AetheliosProvider";
+import { shouldOpenCanvas } from "@/lib/concierge/intent";
+import { orbPresenceLabel } from "@/lib/concierge/voiceListen";
 import { INTELLIGENCE_DISPLAY_NAME } from "@/lib/copy";
 import { ConciergeHandoff } from "./ConciergeHandoff";
 import { ConciergeOrb } from "./ConciergeOrb";
@@ -31,33 +33,53 @@ export function ConciergeStage() {
     setInput,
     orbState,
     send,
+    composeDocument,
     abort,
     voice
   } = useAethelios();
   const [workspace, setWorkspace] = useState<Workspace>(document ? "canvas" : messages.length ? "chat" : "idle");
   const [orbSize, setOrbSize] = useState<"hero" | "docked">(document || messages.length ? "docked" : "hero");
+  const [writing, setWriting] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const voiceLive = voice.phase !== "idle";
 
   useEffect(() => {
-    if (document) {
+    if (document || writing) {
       setWorkspace("canvas");
       setOrbSize("docked");
     } else if (messages.length || pending) {
       setWorkspace("chat");
       setOrbSize("docked");
     }
-  }, [document, messages.length, pending]);
+  }, [document, messages.length, pending, writing]);
 
-  function submitText(value: string) {
+  useEffect(() => {
+    if (document) setWriting(false);
+  }, [document]);
+
+  function submitText(value: string, compose = false) {
     if (voiceLive) voice.stop();
-    void send(value);
+    if (compose || shouldOpenCanvas(value, Boolean(document), compose)) {
+      setWriting(true);
+      setWorkspace("canvas");
+      setOrbSize("docked");
+    }
+    void send(value, compose ? { compose: true } : undefined);
+  }
+
+  async function writeDocument() {
+    if (voiceLive) voice.stop();
+    setWriting(true);
+    setWorkspace("canvas");
+    setOrbSize("docked");
+    await composeDocument();
   }
 
   async function engageOrb() {
     if (pending) return;
     if (voiceLive) {
       voice.stop();
+      setWorkspace(document || writing ? "canvas" : "idle");
       return;
     }
     setWorkspace("listening");
@@ -143,20 +165,14 @@ export function ConciergeStage() {
               }
               onToggle={() => void engageOrb()}
             />
-            <p className={styles.orbStatus} data-tone={voice.error ? "warn" : undefined} aria-live="polite">
-              {voice.error
-                ? voice.error
-                : voice.phase === "speaking"
-                  ? `${INTELLIGENCE_DISPLAY_NAME} is speaking`
-                  : voice.hearing
-                    ? `${INTELLIGENCE_DISPLAY_NAME} hears you`
-                    : voiceLive
-                      ? "Speak. The orb will answer out loud."
-                      : orbState === "composing"
-                        ? `${INTELLIGENCE_DISPLAY_NAME} is composing`
-                        : orbState === "thinking"
-                          ? `${INTELLIGENCE_DISPLAY_NAME} is listening through what you said`
-                          : `Tap the orb to talk with ${INTELLIGENCE_DISPLAY_NAME}`}
+            <p className={styles.orbStatus} data-tone={voice.error ? "warn" : undefined}>
+              {orbPresenceLabel({
+                name: INTELLIGENCE_DISPLAY_NAME,
+                error: voice.error,
+                phase: voice.phase,
+                pending,
+                hasDocument: Boolean(document)
+              })}
             </p>
           </div>
 
@@ -189,9 +205,7 @@ export function ConciergeStage() {
                 <button
                   className="btn btn-ghost"
                   type="button"
-                  onClick={() =>
-                    submitText(input.trim() || "Write a first document from what I have said so far.")
-                  }
+                  onClick={() => void writeDocument()}
                 >
                   Compose a document
                 </button>
@@ -249,9 +263,7 @@ export function ConciergeStage() {
                 <button
                   className="btn btn-ghost"
                   type="button"
-                  onClick={() =>
-                    submitText(input.trim() || "Write a first document from what I have said so far.")
-                  }
+                  onClick={() => void writeDocument()}
                 >
                   Compose a document
                 </button>

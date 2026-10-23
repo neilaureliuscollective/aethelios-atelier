@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { envelopeToward } from "@/lib/orb/orb";
-import { rmsFromTimeDomain, speechGain, SPEECH_RMS } from "@/lib/concierge/voiceListen";
+import { holdSpokenPhase, rmsFromTimeDomain, speechGain, SPEECH_RMS } from "@/lib/concierge/voiceListen";
 
 export type SpokenPhase = "idle" | "starting" | "listening" | "speaking";
 
@@ -188,6 +188,8 @@ export function useOrbVoice(options?: OrbVoiceOptions) {
     const localSamples = new Uint8Array(localAnalyser.fftSize);
     const remoteSamples = new Uint8Array(remoteAnalyser.fftSize);
     lastLevelAt.current = performance.now();
+    let loudForMs = 0;
+    let quietForMs = 0;
     const tick = (now: number) => {
       const dt = Math.min(0.05, (now - lastLevelAt.current) / 1000);
       lastLevelAt.current = now;
@@ -198,11 +200,25 @@ export function useOrbVoice(options?: OrbVoiceOptions) {
       inputLevelRef.current = envelopeToward(inputLevelRef.current, speechGain(localRms), dt, 0.06, 0.2);
       outputLevelRef.current = envelopeToward(outputLevelRef.current, speechGain(remoteRms), dt, 0.05, 0.22);
       levelRef.current = Math.max(inputLevelRef.current, outputLevelRef.current);
+      const remoteLoud = remoteRms >= SPEECH_RMS;
+      if (remoteLoud) {
+        loudForMs += dt * 1000;
+        quietForMs = 0;
+      } else {
+        quietForMs += dt * 1000;
+        loudForMs = 0;
+      }
       const loudIn = localRms >= SPEECH_RMS;
       setHearing((current) => (current === loudIn ? current : loudIn));
       setPhase((current) => {
         if (current === "idle" || current === "starting") return current;
-        return remoteRms >= SPEECH_RMS ? "speaking" : "listening";
+        const next = holdSpokenPhase({
+          current: current === "speaking" ? "speaking" : "listening",
+          remoteLoud,
+          loudForMs,
+          quietForMs
+        });
+        return next === current ? current : next;
       });
       frameRef.current = window.requestAnimationFrame(tick);
     };

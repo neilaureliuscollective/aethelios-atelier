@@ -20,6 +20,7 @@ describe("concierge display contract", () => {
   it("opens a canvas for business talk and stays in chat for greetings", () => {
     expect(shouldOpenCanvas("hello")).toBe(false);
     expect(shouldOpenCanvas("I run a barbershop in Austin and need a site that feels considered.")).toBe(true);
+    expect(shouldOpenCanvas("Write a first document from this conversation.", false, true)).toBe(true);
     expect(isRevisionRequest("make it quieter and more gold", true)).toBe(true);
     expect(isRevisionRequest("make it quieter", false)).toBe(false);
   });
@@ -85,6 +86,17 @@ describe("concierge display contract", () => {
     expect(events).toContain("canvas.complete");
     expect(containsForbiddenPayload(turn.document)).toBe(false);
   });
+
+  it("opens a document when compose is asked even without a business sentence", async () => {
+    process.env.ATELIER_OPENAI_ENABLED = "false";
+    delete process.env.OPENAI_API_KEY;
+    const turn = await runConciergeTurn({
+      message: "Write a first document from this conversation.",
+      compose: true
+    });
+    expect(turn.presented).toBe(true);
+    expect(turn.document?.slides.length).toBeGreaterThan(3);
+  });
 });
 
 describe("concierge homepage seating", () => {
@@ -112,6 +124,7 @@ describe("concierge homepage seating", () => {
     expect(css).toContain("perspective(720px)");
     expect(css).toContain("rotateX(58deg)");
     expect(css).toContain("overflow: hidden");
+    expect(css).toContain("clip-path: circle(50%");
     expect(css).toContain("clamp(212px, 38vmin, 300px)");
     expect(css).toContain("atelier-hall.jpg");
     expect(css).toContain(".brief");
@@ -124,12 +137,16 @@ describe("concierge homepage seating", () => {
     expect(stage).not.toContain("Talk with Aethelios");
     expect(stage).not.toMatch(/btn-gold/);
     expect(stage).toContain("Compose a document");
+    expect(stage).toContain("writeDocument");
+    expect(stage).toContain("orbPresenceLabel");
     expect(stage).toContain("styles.hall");
     expect(stage).toContain("answers out loud");
     const provider = readFileSync("src/components/aethelios/AetheliosProvider.tsx", "utf8");
     expect(provider).toContain("useOrbVoice");
     expect(provider).toContain("shouldCommitSpoken");
+    expect(provider).toContain("compose: true");
     expect(provider).toContain("playsInline");
+    expect(provider).not.toContain("SPOKEN_COMMIT_MS");
     const atmosphere = readFileSync("src/components/concierge/StageAtmosphere.tsx", "utf8");
     expect(atmosphere).toContain("paintChamber");
     expect(stage).not.toContain("SpeechRecognition");

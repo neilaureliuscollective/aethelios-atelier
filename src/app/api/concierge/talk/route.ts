@@ -19,6 +19,7 @@ export async function POST(request: Request) {
           message: body.message,
           history: body.history,
           document: body.document,
+          compose: body.compose,
           signal: request.signal,
           onEvent: send
         })

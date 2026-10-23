@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { rmsFromTimeDomain, shouldFinishRecording, speechGain, SILENCE_MS, MAX_RECORD_MS } from "./voiceListen";
+import {
+  holdSpokenPhase,
+  orbPresenceLabel,
+  rmsFromTimeDomain,
+  shouldFinishRecording,
+  speechGain,
+  SILENCE_MS,
+  MAX_RECORD_MS
+} from "./voiceListen";
 
 describe("orb hearing", () => {
   it("measures silence versus a loud cycle", () => {
@@ -26,5 +34,25 @@ describe("orb hearing", () => {
     expect(
       shouldFinishRecording({ heardSpeech: false, lastLoudAt: 0, startedAt: 0, now: MAX_RECORD_MS })
     ).toBe(true);
+  });
+
+  it("holds speaking until silence lasts, and keeps the status line still", () => {
+    expect(
+      holdSpokenPhase({ current: "listening", remoteLoud: true, loudForMs: 80, quietForMs: 0 })
+    ).toBe("listening");
+    expect(
+      holdSpokenPhase({ current: "listening", remoteLoud: true, loudForMs: 180, quietForMs: 0 })
+    ).toBe("speaking");
+    expect(
+      holdSpokenPhase({ current: "speaking", remoteLoud: false, loudForMs: 0, quietForMs: 200 })
+    ).toBe("speaking");
+    expect(
+      holdSpokenPhase({ current: "speaking", remoteLoud: false, loudForMs: 0, quietForMs: 420 })
+    ).toBe("listening");
+    expect(orbPresenceLabel({ name: "Aethelios", phase: "listening" })).toBe("Listening");
+    expect(orbPresenceLabel({ name: "Aethelios", phase: "speaking" })).toBe("Aethelios is speaking");
+    expect(orbPresenceLabel({ name: "Aethelios", phase: "idle", pending: true, hasDocument: true })).toBe(
+      "Aethelios is writing the document"
+    );
   });
 });

@@ -15,6 +15,7 @@ export type ConciergeTalkInput = {
   history?: ConciergeHistoryItem[];
   document?: PresentationDocument;
   preview?: SitePreview;
+  compose?: boolean;
   signal?: AbortSignal;
   onEvent?: (event: ConciergeStreamEvent) => void;
 };
@@ -60,7 +61,7 @@ async function refineWithModel(input: {
 }
 
 export async function runConciergeTurn(input: ConciergeTalkInput) {
-  const presented = shouldOpenCanvas(input.message, Boolean(input.document));
+  const presented = shouldOpenCanvas(input.message, Boolean(input.document), Boolean(input.compose));
   const sketch = extractBusinessSketch(input.message);
   const reply = composeReply(sketch, presented);
   input.onEvent?.({ type: "user", text: input.message });
