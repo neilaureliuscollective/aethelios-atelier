@@ -36,7 +36,19 @@ export function ConciergeStage() {
   const [workspace, setWorkspace] = useState<Workspace>(document ? "canvas" : messages.length ? "chat" : "idle");
   const [orbSize, setOrbSize] = useState<"hero" | "docked">(document || messages.length ? "docked" : "hero");
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
-  const voice = useOrbTranscription();
+  const latestInput = useRef(input);
+  latestInput.current = input;
+
+  function focusComposer() {
+    window.requestAnimationFrame(() => inputRef.current?.focus());
+  }
+
+  const voice = useOrbTranscription({
+    onTranscript: (spoken) => {
+      setInput(appendTranscript(latestInput.current, spoken));
+      focusComposer();
+    }
+  });
   const voiceListening = voice.phase === "starting" || voice.phase === "recording";
   const voiceBusy = voiceListening || voice.phase === "transcribing";
 
@@ -49,10 +61,6 @@ export function ConciergeStage() {
       setOrbSize("docked");
     }
   }, [document, messages.length, pending]);
-
-  function focusComposer() {
-    window.requestAnimationFrame(() => inputRef.current?.focus());
-  }
 
   function submitText(value: string) {
     if (voiceBusy) voice.cancel();
@@ -139,6 +147,7 @@ export function ConciergeStage() {
           <div className={styles.orbDock}>
             <ConciergeOrb
               size={orbSize}
+              liveLevelRef={voice.levelRef}
               state={
                 voiceListening || (workspace === "listening" && !voice.error)
                   ? "listening"
@@ -161,14 +170,16 @@ export function ConciergeStage() {
               {voice.error
                 ? voice.error
                 : voice.phase === "transcribing"
-                  ? "Hearing that into words…"
-                  : voiceListening || workspace === "listening"
-                    ? "Listening · tap the orb when you are done speaking"
-                    : orbState === "composing"
-                      ? `${INTELLIGENCE_DISPLAY_NAME} is composing`
-                      : orbState === "thinking"
-                        ? `${INTELLIGENCE_DISPLAY_NAME} is listening through what you said`
-                        : `Tap the orb to speak with ${INTELLIGENCE_DISPLAY_NAME}`}
+                  ? "Writing that into the box…"
+                  : voice.hearing
+                    ? "I hear you — pause when you are done"
+                    : voiceListening || workspace === "listening"
+                      ? "Speak now. I will write it when you pause."
+                      : orbState === "composing"
+                        ? `${INTELLIGENCE_DISPLAY_NAME} is composing`
+                        : orbState === "thinking"
+                          ? `${INTELLIGENCE_DISPLAY_NAME} is listening through what you said`
+                          : `Tap the orb, then speak`}
             </p>
           </div>
 
