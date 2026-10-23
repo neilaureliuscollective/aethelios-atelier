@@ -33,9 +33,9 @@ const DISCIPLINES = [
 ] as const;
 
 const STANDARDS = [
-  ["Founder-reviewed", "Neil Stutes reads every brief, sets every scope, and answers for every delivery."],
-  ["Built around you", "The booking, payment, and tools you already use stay. The experience is built around them."],
-  ["Clear from the start", "Plan prices are published. Nothing is final until Neil confirms the proposal."]
+  ["Founder-reviewed", "I read every brief, set every scope, and answer for every delivery myself."],
+  ["Built around you", "The booking, payment, and tools you already use stay. I build the experience around them."],
+  ["Clear from the start", "Plan prices are published. Nothing is final until I confirm the proposal."]
 ] as const;
 
 /** Second homepage beat: says what the studio is before the work proves it. */
@@ -64,17 +64,17 @@ export function AtelierManifesto() {
             <em>Personally built.</em>
           </h2>
           <p className={styles.lede}>
-            We design and build digital presence for businesses that refuse to look ordinary — branded
+            I design and build digital presence for businesses that refuse to look ordinary — branded
             websites, custom platforms, storefronts, and the systems underneath them.
           </p>
           <p className={styles.body}>
-            One founder holds the work from first brief to final delivery. No agency handoffs, no template
+            I hold the work myself, from first brief to final delivery. No agency handoffs, no template
             mill, and no subscription to begin.
           </p>
         </Reveal>
 
         <Reveal className={styles.index} delay={1}>
-          <p className={styles.indexLabel}>What the atelier builds</p>
+          <p className={styles.indexLabel}>What I build</p>
           <ol className={styles.disciplines}>
             {DISCIPLINES.map((item) => (
               <li key={item.num}>

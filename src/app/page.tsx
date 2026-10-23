@@ -32,13 +32,13 @@ export default function HomePage() {
       <Reveal as="section" className="container section" delay={1}>
         <div className="section-head split-head">
           <div>
-            <p className="kicker">Our services</p>
+            <p className="kicker">Services</p>
             <h2 id="services-heading">Four ways a commission can begin.</h2>
           </div>
           <p className="lede">
             Branding is a quality across this work, and it can also be scoped on its own. A rebrand is
             not required to start. Plan prices are listed on{" "}
-            <AppLink href="/pricing">Pricing</AppLink>. Neil still confirms every proposal.
+            <AppLink href="/pricing">Pricing</AppLink>. I still confirm every proposal myself.
           </p>
         </div>
         <ServiceShowcase />
@@ -47,12 +47,11 @@ export default function HomePage() {
 
       <Reveal as="section" className="container section" delay={2}>
         <div className="section-head">
-          <p className="kicker">Our approach</p>
+          <p className="kicker">How I work</p>
           <h2 id="path-heading">A more considered way to build.</h2>
           <p className="lede">
             Nothing is sent until you review the brief and consent. Sending a brief is a request.
-            Neil accepts work only after he reviews it. Price and timing stay unconfirmed until he
-            says so.
+            I accept work only after I review it. Price and timing stay unconfirmed until I say so.
           </p>
         </div>
         <div className="process process-editorial">
@@ -60,7 +59,7 @@ export default function HomePage() {
             [
               ["01", "Understanding your vision", "Discover a direction and write what the business actually needs.", "/discover"],
               ["02", "Thinking strategically", "A living brief keeps statements, suggestions, and unknowns distinct.", "/project"],
-              ["03", "Designing with intent", "Neil reviews accepted work and publishes versioned proposals.", "/approach"],
+              ["03", "Designing with intent", "I review accepted work and publish versioned proposals.", "/approach"],
               ["04", "Building for what’s next", "Design and development proceed against the agreed version — not an open-ended studio.", "/approach"]
             ] as const
           ).map(([num, title, copy, href], index) => (
