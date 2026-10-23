@@ -1,11 +1,21 @@
 "use client";
 
 import { DEFAULT_THEME } from "@/lib/concierge/slideField";
-import type { PresentationDocument, SitePreview } from "@/lib/concierge/types";
+import type { PresentationDocument, PresentationSlide, SitePreview } from "@/lib/concierge/types";
 import { ConciergeHandoff } from "./ConciergeHandoff";
 import { SitePreviewFrame } from "./SitePreviewFrame";
 import { SlideView } from "./SlideView";
 import styles from "./concierge.module.css";
+
+const COMPOSING: PresentationSlide = {
+  id: "slide_composing",
+  layout: "hero",
+  kicker: "Aethelios · document",
+  headline: "A direction is being written.",
+  subhead: "Keep talking. This becomes a document you can send to Neil.",
+  enter: "fade",
+  emphasis: "headline"
+};
 
 export function PresentationCanvas({
   document,
@@ -18,8 +28,8 @@ export function PresentationCanvas({
   index: number;
   onSelect: (index: number) => void;
 }) {
-  const safeIndex = document ? Math.min(Math.max(index, 0), Math.max(document.slides.length - 1, 0)) : 0;
-  const slide = document?.slides[safeIndex];
+  const slides = document?.slides.length ? document.slides : [COMPOSING];
+  const safeIndex = Math.min(Math.max(index, 0), Math.max(slides.length - 1, 0));
   const theme = document?.theme ?? DEFAULT_THEME;
   return (
     <div className={styles.canvasWrap}>
@@ -34,30 +44,27 @@ export function PresentationCanvas({
         </div>
         <ConciergeHandoff />
       </div>
-      <div className={styles.stageFrame} data-theme={theme.mood} data-preview={preview ? "site" : "slides"}>
+      <div className={styles.stageFrame} data-theme={theme.mood} data-preview={preview ? "site" : "brief"}>
         <div className={styles.stageScale}>
           {preview ? (
             <SitePreviewFrame preview={preview} />
-          ) : slide && document ? (
-            <SlideView slide={slide} theme={theme} />
           ) : (
-            <SlideView
-              slide={{
-                id: "slide_composing",
-                layout: "hero",
-                kicker: "Aethelios · document",
-                headline: "A direction is being written.",
-                subhead: "Keep talking. This becomes a document you can send to Neil.",
-                enter: "fade",
-                emphasis: "headline"
-              }}
-              theme={theme}
-              composing
-            />
+            <div className={styles.brief} data-document="atelier-brief">
+              {slides.map((slide, slideIndex) => (
+                <div
+                  key={slide.id}
+                  className={styles.briefSection}
+                  data-active={slideIndex === safeIndex}
+                  id={`document-section-${slide.id}`}
+                >
+                  <SlideView slide={slide} theme={theme} composing={!document} />
+                </div>
+              ))}
+            </div>
           )}
         </div>
-        {document?.slides.length ? (
-          <div className={styles.film} role="tablist" aria-label="Presentation slides">
+        {!preview && document?.slides.length ? (
+          <div className={styles.film} role="tablist" aria-label="Document sections">
             {document.slides.map((item, slideIndex) => (
               <button
                 key={item.id}

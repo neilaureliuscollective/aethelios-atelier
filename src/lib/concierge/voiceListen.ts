@@ -3,7 +3,7 @@ export const SILENCE_MS = 1300;
 export const MAX_RECORD_MS = 18_000;
 
 export function speechGain(rms: number) {
-  return Math.max(0, Math.min(1, (rms - 0.018) / 0.14));
+  return Math.max(0, Math.min(1, (rms - 0.01) / 0.11));
 }
 
 export function rmsFromTimeDomain(bytes: Uint8Array) {

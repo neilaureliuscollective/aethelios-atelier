@@ -32,7 +32,7 @@ export function conciergeRealtimeSession(env: NodeJS.ProcessEnv = process.env) {
     output_modalities: ["audio"] as const,
     audio: {
       input: {
-        transcription: { model: "whisper-1" },
+        transcription: { model: "whisper-1", language: "en" },
         turn_detection: { type: "server_vad", create_response: true, interrupt_response: true }
       },
       output: { voice: conciergeVoiceValue(env) }

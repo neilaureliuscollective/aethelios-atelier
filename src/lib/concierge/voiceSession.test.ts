@@ -23,8 +23,10 @@ describe("homepage spoken orb", () => {
     expect(conciergeVoiceReady()).toBe(false);
     expect(conciergeVoiceInstructions()).toMatch(/Aethelios/);
     expect(conciergeVoiceInstructions()).toMatch(/Speak out loud/);
+    expect(conciergeVoiceInstructions()).toMatch(/only in English/);
     expect(conciergeRealtimeSession().type).toBe("realtime");
     expect(conciergeRealtimeSession().audio.output.voice).toBe("verse");
+    expect(conciergeRealtimeSession().audio.input.transcription.language).toBe("en");
   });
 
   it("uses a commissioned OpenAI voice id when one is set", () => {

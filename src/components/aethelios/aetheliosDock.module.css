@@ -70,10 +70,12 @@
 
 .miniCanvas {
   position: relative;
-  aspect-ratio: 16 / 9;
-  overflow: hidden;
+  max-height: 168px;
+  overflow: auto;
   border-radius: 14px;
   border: 1px solid rgba(232, 213, 163, 0.16);
+  padding: 12px 14px;
+  background: #080c0b;
 }
 
 .composer {

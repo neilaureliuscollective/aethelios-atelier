@@ -30,7 +30,10 @@ describe("Architect orb motion", () => {
     expect(radiusSum / 64).toBeGreaterThan(0.85);
     const spun = swirlParticle(1, 0, 0, 0.4, 1, 0.5);
     expect(Math.hypot(spun.x, spun.z)).toBeCloseTo(1, 5);
-    expect(spun.y).toBe(0);
+    expect(Math.abs(spun.y)).toBeLessThan(0.08);
+    const idle = swirlParticle(1, 0, 0, 1, 0, 0, 0);
+    const live = swirlParticle(1, 0, 0, 1, 1, 0.8, 0.7);
+    expect(Math.abs(Math.atan2(live.z, live.x))).toBeGreaterThan(Math.abs(Math.atan2(idle.z, idle.x)));
     const source = readFileSync("src/components/orb/ArchitectOrb.tsx", "utf8");
     expect(source).toContain("paintParticleOrb");
     expect(source).toContain("gl.POINTS");
@@ -42,6 +45,8 @@ describe("Architect orb motion", () => {
     const shader = readFileSync("src/lib/orb/particleShader.ts", "utf8");
     expect(shader).toContain("gl_PointSize");
     expect(shader).toContain("color * a");
+    expect(shader).toContain("u_input");
+    expect(shader).toContain("0.42 + energy");
     expect(PARTICLE_COUNT_GL).toBeGreaterThan(8000);
     const atmosphere = readFileSync("src/lib/concierge/atmosphere.ts", "utf8");
     expect(atmosphere).toContain("float z = 1.0 / fy");

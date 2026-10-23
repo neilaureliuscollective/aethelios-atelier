@@ -2,12 +2,27 @@
 
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
 import type { OrbState } from "@/components/concierge/ConciergeOrb";
+import { useOrbVoice, type SpokenPhase } from "@/components/concierge/useOrbVoice";
 import { applySlide, mergePresentation } from "@/lib/concierge/merge";
 import { parseConciergeChunk } from "@/lib/concierge/stream";
 import type { ConciergeHistoryItem, PresentationDocument, SitePreview } from "@/lib/concierge/types";
+import { appendTranscript, shouldCommitSpoken, SPOKEN_COMMIT_MS } from "@/lib/concierge/voiceText";
 import { INTELLIGENCE_DISPLAY_NAME } from "@/lib/copy";
+import styles from "@/components/concierge/concierge.module.css";
 
 export type AetheliosMessage = { id: string; role: "user" | "assistant"; body: string };
+
+export type AetheliosVoice = {
+  phase: SpokenPhase;
+  error: string;
+  ready: boolean | null;
+  hearing: boolean;
+  levelRef: { current: number };
+  inputLevelRef: { current: number };
+  outputLevelRef: { current: number };
+  start: () => Promise<void>;
+  stop: () => void;
+};
 
 type AetheliosValue = {
   sessionId: string;
@@ -26,6 +41,7 @@ type AetheliosValue = {
   orbState: OrbState;
   send: (message: string) => Promise<void>;
   abort: () => void;
+  voice: AetheliosVoice;
 };
 
 const AetheliosContext = createContext<AetheliosValue | null>(null);
@@ -53,6 +69,14 @@ export function AetheliosProvider({ children }: { children: ReactNode }) {
   const [input, setInput] = useState("");
   const [panelOpen, setPanelOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const inputLatest = useRef("");
+  const sendLatest = useRef<(message: string) => Promise<void>>(async () => undefined);
+  const pendingLatest = useRef(false);
+  const greetedRef = useRef(false);
+  const spokenTimer = useRef(0);
+  inputLatest.current = input;
+  pendingLatest.current = pending;
+  if (messages.length) greetedRef.current = true;
 
   const history = useMemo<ConciergeHistoryItem[]>(
     () => messages.slice(-8).map((item) => ({ role: item.role, content: item.body })),
@@ -137,9 +161,51 @@ export function AetheliosProvider({ children }: { children: ReactNode }) {
     [document, history, pending, preview]
   );
 
+  sendLatest.current = send;
+
+  const flushSpoken = useCallback((text?: string) => {
+    window.clearTimeout(spokenTimer.current);
+    const next = (text ?? inputLatest.current).trim();
+    if (!shouldCommitSpoken(next) || pendingLatest.current) return;
+    void sendLatest.current(next);
+  }, []);
+
+  const engine = useOrbVoice({
+    shouldGreet: () => !greetedRef.current,
+    onHeard: (spoken) => {
+      const next = appendTranscript(inputLatest.current, spoken);
+      setInput(next);
+      window.clearTimeout(spokenTimer.current);
+      if (shouldCommitSpoken(next)) {
+        spokenTimer.current = window.setTimeout(() => flushSpoken(next), SPOKEN_COMMIT_MS);
+      }
+    }
+  });
+
+  const stopVoice = useCallback(() => {
+    const leftover = inputLatest.current;
+    engine.stop();
+    flushSpoken(leftover);
+  }, [engine, flushSpoken]);
+
   const abort = useCallback(() => {
     abortRef.current?.abort();
   }, []);
+
+  const voice = useMemo<AetheliosVoice>(
+    () => ({
+      phase: engine.phase,
+      error: engine.error,
+      ready: engine.ready,
+      hearing: engine.hearing,
+      levelRef: engine.levelRef,
+      inputLevelRef: engine.inputLevelRef,
+      outputLevelRef: engine.outputLevelRef,
+      start: engine.start,
+      stop: stopVoice
+    }),
+    [engine.error, engine.hearing, engine.inputLevelRef, engine.levelRef, engine.outputLevelRef, engine.phase, engine.ready, engine.start, stopVoice]
+  );
 
   const orbState: OrbState = pending ? (document ? "composing" : "thinking") : panelOpen ? "listening" : "idle";
 
@@ -160,10 +226,16 @@ export function AetheliosProvider({ children }: { children: ReactNode }) {
       setPanelOpen,
       orbState,
       send,
-      abort
+      abort,
+      voice
     }),
-    [abort, document, error, input, messages, orbState, panelOpen, pending, preview, send, sessionId, slideIndex, streaming]
+    [abort, document, error, input, messages, orbState, panelOpen, pending, preview, send, sessionId, slideIndex, streaming, voice]
   );
 
-  return <AetheliosContext.Provider value={value}>{children}</AetheliosContext.Provider>;
+  return (
+    <AetheliosContext.Provider value={value}>
+      <audio ref={engine.audioRef} autoPlay playsInline className={styles.voiceOut} />
+      {children}
+    </AetheliosContext.Provider>
+  );
 }

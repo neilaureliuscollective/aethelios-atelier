@@ -2,7 +2,6 @@
 
 import { AppLink } from "@/components/ui/AppLink";
 import type { PresentationSlide, PresentationTheme } from "@/lib/concierge/types";
-import { SlideField } from "./SlideField";
 import styles from "./concierge.module.css";
 
 function Plate({ title, body, mark }: { title: string; body?: string; mark?: string }) {
@@ -33,9 +32,8 @@ export function SlideView({
       data-enter={slide.enter}
       data-emphasis={slide.emphasis}
       data-layout={slide.layout}
+      data-composing={composing ? "true" : undefined}
     >
-      <SlideField theme={theme} layout={slide.layout} seed={slide.id} composing={composing} />
-      <div className={styles.slideDepth} aria-hidden="true" />
       <div className={styles.slideCopy}>
         {slide.kicker ? <p className={styles.slideKicker}>{slide.kicker}</p> : null}
         {slide.headline ? <h3>{slide.headline}</h3> : null}
@@ -84,7 +82,7 @@ export function SlideView({
           <p className={styles.slideFoot}>{slide.body}</p>
         ) : null}
         {slide.cta ? (
-          <AppLink className={`btn btn-gold ${styles.slideCta}`} href={slide.cta.href}>
+          <AppLink className={`btn btn-ghost ${styles.slideCta}`} href={slide.cta.href}>
             {slide.cta.label}
           </AppLink>
         ) : null}

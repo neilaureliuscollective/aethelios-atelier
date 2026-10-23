@@ -48,6 +48,8 @@ describe("Aethelios persona", () => {
     expect(aetheliosPersonaPrompt()).toMatch(/dry sparkle/);
     expect(aetheliosPersonaPrompt()).toMatch(/Never a lecture\. Never dry/);
     expect(aetheliosSpokenPrompt()).toMatch(/Speak out loud/);
+    expect(aetheliosSpokenPrompt()).toMatch(/only in English/);
+    expect(aetheliosSpokenPrompt()).toMatch(/Never switch languages/);
     expect(aetheliosSpokenPrompt()).toMatch(/enjoy talking to you/);
     expect(aetheliosSpokenPrompt()).toMatch(/hint of wit/);
   });

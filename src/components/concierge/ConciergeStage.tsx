@@ -7,8 +7,6 @@ import { ConciergeHandoff } from "./ConciergeHandoff";
 import { ConciergeOrb } from "./ConciergeOrb";
 import { PresentationCanvas } from "./PresentationCanvas";
 import { StageAtmosphere } from "./StageAtmosphere";
-import { appendTranscript } from "@/lib/concierge/voiceText";
-import { useOrbVoice } from "./useOrbVoice";
 import styles from "./concierge.module.css";
 
 const PROMPTS = [
@@ -33,19 +31,12 @@ export function ConciergeStage() {
     setInput,
     orbState,
     send,
-    abort
+    abort,
+    voice
   } = useAethelios();
   const [workspace, setWorkspace] = useState<Workspace>(document ? "canvas" : messages.length ? "chat" : "idle");
   const [orbSize, setOrbSize] = useState<"hero" | "docked">(document || messages.length ? "docked" : "hero");
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
-  const latestInput = useRef(input);
-  latestInput.current = input;
-
-  const voice = useOrbVoice({
-    onHeard: (spoken) => {
-      setInput(appendTranscript(latestInput.current, spoken));
-    }
-  });
   const voiceLive = voice.phase !== "idle";
 
   useEffect(() => {
@@ -86,6 +77,8 @@ export function ConciergeStage() {
       <div className={styles.media} aria-hidden="true">
         <div className={styles.sanctum} />
         <StageAtmosphere />
+        <div className={styles.hall} />
+        <div className={styles.well} />
         <div className={styles.shade} />
         <div className={styles.field} />
       </div>
@@ -132,7 +125,6 @@ export function ConciergeStage() {
 
         <div className={styles.left}>
           <div className={styles.orbDock}>
-            <audio ref={voice.audioRef} autoPlay playsInline className={styles.voiceOut} />
             <ConciergeOrb
               size={orbSize}
               liveInputRef={voice.inputLevelRef}
@@ -193,6 +185,18 @@ export function ConciergeStage() {
                 />
                 {voice.error || error ? <p className="notice notice-warn">{voice.error || error}</p> : null}
               </form>
+              <div className={styles.actions}>
+                <button
+                  className="btn btn-ghost"
+                  type="button"
+                  onClick={() =>
+                    submitText(input.trim() || "Write a first document from what I have said so far.")
+                  }
+                >
+                  Compose a document
+                </button>
+              </div>
+              <ConciergeHandoff />
               <p className={styles.invitesLabel}>Try speaking as a founder would</p>
               <div className={styles.prompts}>
                 {PROMPTS.map((prompt) => (
@@ -242,6 +246,15 @@ export function ConciergeStage() {
                   />
                   {voice.error || error ? <p className="notice notice-warn">{voice.error || error}</p> : null}
                 </form>
+                <button
+                  className="btn btn-ghost"
+                  type="button"
+                  onClick={() =>
+                    submitText(input.trim() || "Write a first document from what I have said so far.")
+                  }
+                >
+                  Compose a document
+                </button>
                 <ConciergeHandoff />
               </div>
             </div>
