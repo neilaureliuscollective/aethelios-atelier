@@ -91,7 +91,8 @@ describe("inline cinematic playback", () => {
 
   it("places the homepage showcase after the hero and before possibilities", () => {
     const home = readFileSync("src/app/page.tsx", "utf8");
-    expect(home.indexOf("<ConciergeStage")).toBeLessThan(home.indexOf('variant="featured"'));
+    expect(home.indexOf("<ConciergeStage")).toBeLessThan(home.indexOf("<AtelierThreshold"));
+    expect(home.indexOf("<AtelierThreshold")).toBeLessThan(home.indexOf('variant="featured"'));
     expect(home.indexOf('variant="featured"')).toBeLessThan(home.indexOf("<PossibilitiesStage"));
     expect(home).toContain("SelectedWork");
   });

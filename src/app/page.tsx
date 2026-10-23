@@ -1,5 +1,6 @@
 import { AppLink } from "@/components/ui/AppLink";
 import { ConciergeStage } from "@/components/concierge/ConciergeStage";
+import { AtelierThreshold } from "@/components/marketing/AtelierThreshold";
 import { CustomProjectsInvite } from "@/components/marketing/CustomProjectsInvite";
 import { PossibilitiesStage } from "@/components/marketing/PossibilitiesStage";
 import { ServiceShowcase } from "@/components/marketing/ServiceShowcase";
@@ -11,6 +12,7 @@ export default function HomePage() {
   return (
     <>
       <ConciergeStage />
+      <AtelierThreshold />
       <SelectedWork variant="featured" />
 
       <Reveal as="section" className="container section ivory-section" delay={1}>

@@ -27,6 +27,7 @@ const CUSTOMER_FILES = [
   "src/components/founder/FounderClient.tsx",
   "src/components/marketing/PossibilitiesStage.tsx",
   "src/components/marketing/HeroComposition.tsx",
+  "src/components/marketing/AtelierThreshold.tsx",
   "src/components/project/GuidedBrief.tsx",
   "src/components/project/InquiryForm.tsx",
   "src/app/inquire/page.tsx",
