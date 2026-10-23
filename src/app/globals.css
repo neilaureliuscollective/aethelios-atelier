@@ -75,7 +75,37 @@ img { max-width: 100%; height: auto; display: block; }
 }
 .skip-link:focus { top: 12px; }
 
-.app-root[data-surface="luminous"],
+.app-root[data-surface="luminous"] {
+  --bg: var(--obsidian);
+  --bg-raised: var(--smoked);
+  --bg-panel: var(--charcoal);
+  --bg-panel-strong: color-mix(in srgb, var(--smoked) 78%, var(--charcoal));
+  --bg-glass: color-mix(in srgb, var(--smoked) 58%, transparent);
+  --bg-input: #fff;
+  --bg-read: #fff;
+  --input-ink: #14110c;
+  --read-ink: #14110c;
+  --read-muted: #3f4a43;
+  --on-raised: var(--ivory);
+  --on-raised-muted: color-mix(in srgb, var(--ivory) 78%, var(--sage));
+  --text: var(--ivory);
+  --text-muted: var(--sage);
+  --text-gold: var(--gold-pale);
+  --border: color-mix(in srgb, var(--gold) 28%, transparent);
+  --border-soft: color-mix(in srgb, var(--ivory) 10%, transparent);
+  --shadow: 0 28px 64px rgba(0, 0, 0, 0.45);
+  --ink-glass-fill:
+    linear-gradient(180deg, rgba(226, 201, 136, 0.1) 0%, rgba(36, 131, 104, 0.22) 40%, transparent 72%),
+    color-mix(in srgb, var(--smoked) 82%, var(--deep) 10%);
+  --ink-glass-border: color-mix(in srgb, var(--gold-pale) 26%, transparent);
+  --ink-glass-filter: blur(28px) saturate(1.4);
+  --ink-glass-shadow:
+    0 24px 48px rgba(0, 0, 0, 0.42),
+    0 2px 8px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(243, 240, 231, 0.2),
+    inset 0 -40px 56px rgba(36, 131, 104, 0.24);
+  color-scheme: dark;
+}
 .app-root[data-surface="workroom"],
 .app-root[data-surface="atelier"] {
   --bg: var(--ivory);
@@ -139,7 +169,13 @@ img { max-width: 100%; height: auto; display: block; }
     radial-gradient(820px 540px at 18% 110%, rgba(199, 164, 90, 0.07), transparent 54%),
     linear-gradient(180deg, var(--bg) 0%, color-mix(in srgb, var(--bg) 88%, var(--smoked) 12%) 100%);
 }
-.app-root[data-surface="luminous"] .atmosphere,
+.app-root[data-surface="luminous"] .atmosphere {
+  background:
+    radial-gradient(920px 520px at 88% -8%, rgba(226, 201, 136, 0.14), transparent 58%),
+    radial-gradient(700px 520px at 8% 8%, rgba(36, 131, 104, 0.18), transparent 62%),
+    radial-gradient(880px 560px at 50% 108%, rgba(11, 70, 53, 0.28), transparent 56%),
+    linear-gradient(180deg, #080c0b 0%, #050807 100%);
+}
 .app-root[data-surface="workroom"] .atmosphere,
 .app-root[data-surface="atelier"] .atmosphere {
   background:
@@ -156,7 +192,12 @@ img { max-width: 100%; height: auto; display: block; }
     linear-gradient(90deg, rgba(8, 12, 11, 0.35), transparent 16%, transparent 84%, rgba(8, 12, 11, 0.5));
   opacity: 0.85;
 }
-.app-root[data-surface="luminous"] .atmosphere::before,
+.app-root[data-surface="luminous"] .atmosphere::before {
+  opacity: 0.9;
+  background:
+    linear-gradient(118deg, transparent 44%, rgba(232, 213, 163, 0.06) 45.5%, transparent 48%),
+    linear-gradient(90deg, rgba(5, 8, 7, 0.55), transparent 18%, transparent 82%, rgba(5, 8, 7, 0.62));
+}
 .app-root[data-surface="workroom"] .atmosphere::before,
 .app-root[data-surface="atelier"] .atmosphere::before {
   opacity: 0.35;
@@ -358,6 +399,11 @@ main, .site-header, .site-footer, .sim-banner { position: relative; z-index: 1; 
   backdrop-filter: blur(18px);
   background: color-mix(in srgb, var(--bg) 82%, transparent);
   border-bottom: 1px solid var(--border-soft);
+}
+.app-root[data-surface="luminous"] .site-header {
+  background: color-mix(in srgb, var(--obsidian) 74%, transparent);
+  border-bottom-color: color-mix(in srgb, var(--gold) 20%, transparent);
+  box-shadow: inset 0 1px 0 rgba(226, 201, 136, 0.08);
 }
 .site-header-inner {
   display: flex;
@@ -627,7 +673,6 @@ h1 { font-size: clamp(42px, 6vw, 84px); }
 h2 { font-size: clamp(32px, 4vw, 52px); }
 h3 { font-size: 28px; }
 .gold-em { color: var(--gold-pale); font-style: italic; }
-.app-root[data-surface="luminous"] .gold-em,
 .app-root[data-surface="workroom"] .gold-em,
 .app-root[data-surface="atelier"] .gold-em { color: var(--gold-edge); }
 .cinematic-hero .gold-em { color: var(--gold-pale); }
@@ -1190,6 +1235,11 @@ a.chip {
   background: radial-gradient(closest-side, rgba(226, 201, 136, 0.22), transparent 72%);
   filter: blur(8px);
   pointer-events: none;
+}
+.app-root[data-surface="luminous"] .hero-stage-glow {
+  background:
+    radial-gradient(closest-side, rgba(226, 201, 136, 0.3), transparent 72%),
+    radial-gradient(ellipse at 70% 86%, rgba(36, 131, 104, 0.26), transparent 68%);
 }
 .hero-desktop-wrap {
   transform: rotateY(-8deg) rotateX(5deg);
@@ -1773,7 +1823,7 @@ a.chip {
   .step-nav,
   .surface-obsidian,
   .pricing-review-banner {
-    background: var(--ink);
+    background: var(--bg-raised, var(--ink));
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
     box-shadow: var(--shadow), inset 0 1px 0 rgba(243, 240, 231, 0.16);

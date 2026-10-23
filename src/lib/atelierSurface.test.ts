@@ -24,27 +24,33 @@ describe("atelierSurfaceForPath", () => {
     );
   });
 
-  it("uses cream as the room, smoked ink as raised furniture, and white for paper inputs", () => {
+  it("keeps marketing on the dark cinema stage and workrooms on cream", () => {
     const css = readFileSync("src/app/globals.css", "utf8");
     expect(css).toMatch(/--emerald:\s*#248368;/);
     expect(css).toMatch(/--gold:\s*#c7a45a;/);
     expect(css).toMatch(/--ivory:\s*#f3f0e7;/);
-    expect(css).toMatch(/--ink:\s*#0e1c18;/);
+    expect(css).toMatch(/--obsidian:\s*#080c0b;/);
+    expect(css).toMatch(/--smoked:\s*#102e25;/);
     expect(css).toMatch(
-      /\.app-root\[data-surface="luminous"\],\n\.app-root\[data-surface="workroom"\],\n\.app-root\[data-surface="atelier"\] \{[\s\S]*?--bg:\s*var\(--ivory\);/
+      /\.app-root\[data-surface="luminous"\] \{[\s\S]*?--bg:\s*var\(--obsidian\);/
     );
     expect(css).toMatch(
-      /\.app-root\[data-surface="luminous"\],\n\.app-root\[data-surface="workroom"\],\n\.app-root\[data-surface="atelier"\] \{[\s\S]*?--bg-raised:\s*var\(--ink\);/
+      /\.app-root\[data-surface="luminous"\] \{[\s\S]*?--bg-raised:\s*var\(--smoked\);/
     );
     expect(css).toMatch(
-      /\.app-root\[data-surface="luminous"\],\n\.app-root\[data-surface="workroom"\],\n\.app-root\[data-surface="atelier"\] \{[\s\S]*?--bg-input:\s*#fff;/
+      /\.app-root\[data-surface="luminous"\] \{[\s\S]*?--text:\s*var\(--ivory\);/
     );
     expect(css).toMatch(
-      /\.app-root\[data-surface="luminous"\],\n\.app-root\[data-surface="workroom"\],\n\.app-root\[data-surface="atelier"\] \{[\s\S]*?--bg-read:\s*#fff;/
+      /\.app-root\[data-surface="workroom"\],\n\.app-root\[data-surface="atelier"\] \{[\s\S]*?--bg:\s*var\(--ivory\);/
+    );
+    expect(css).toMatch(
+      /\.app-root\[data-surface="luminous"\] \{[\s\S]*?--bg-input:\s*#fff;/
+    );
+    expect(css).toMatch(
+      /\.app-root\[data-surface="luminous"\] \{[\s\S]*?--bg-read:\s*#fff;/
     );
     expect(css).not.toMatch(/--garnet/);
     expect(css).toMatch(/--ink-glass-fill:/);
     expect(css).toMatch(/backdrop-filter:\s*var\(--ink-glass-filter\)/);
-    expect(css).toMatch(/inset 0 1px 0 rgba\(243, 240, 231, 0\.34\)/);
   });
 });
