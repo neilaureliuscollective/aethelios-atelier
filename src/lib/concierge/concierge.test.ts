@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { composePresentation, composeReply } from "./compose";
+import { spokenTurnFrom } from "./voiceText";
 import { CONCIERGE_RENDER_CONTRACT, containsForbiddenPayload } from "./contract";
 import { extractBusinessSketch, sketchLabel } from "./extract";
 import { isRevisionRequest, shouldOpenCanvas } from "./intent";
@@ -187,5 +188,38 @@ describe("concierge homepage seating", () => {
     expect(transcribe).toContain("readOpenAiApiKey");
     expect(transcribe).not.toContain("ATELIER_OPENAI_ENABLED");
     expect(transcribe).not.toContain("aureliusStatus");
+  });
+});
+
+describe("concierge send flow", () => {
+  it("keeps one Send to Neil, docked to the document", () => {
+    const stage = readFileSync("src/components/concierge/ConciergeStage.tsx", "utf8");
+    const canvas = readFileSync("src/components/concierge/PresentationCanvas.tsx", "utf8");
+    expect(stage).not.toContain("ConciergeHandoff");
+    expect(canvas.match(/<ConciergeHandoff/g)).toHaveLength(1);
+    expect(canvas).toContain("sendDock");
+    expect(stage).toContain("composerSend");
+  });
+
+  it("records only finished spoken turns from both speakers", () => {
+    expect(spokenTurnFrom({ type: "conversation.item.input_audio_transcription.delta", transcript: "I run" })).toBeNull();
+    expect(
+      spokenTurnFrom({ type: "conversation.item.input_audio_transcription.completed", transcript: " I run a barbershop. " })
+    ).toEqual({ role: "user", text: "I run a barbershop." });
+    expect(spokenTurnFrom({ type: "response.output_audio_transcript.done", transcript: "Tell me more." })).toEqual({
+      role: "assistant",
+      text: "Tell me more."
+    });
+    expect(spokenTurnFrom({ type: "response.audio_transcript.delta", transcript: "Tell" })).toBeNull();
+  });
+
+  it("quotes the visitor and never titles a document 'this business'", () => {
+    const deck = composePresentation("I run a barbershop called Northridge in Austin. I want it quiet.");
+    const words = deck.slides.find((slide) => slide.id === "slide_words");
+    expect(words?.quote).toContain("Northridge");
+    const blank = composePresentation("Write a first document from this conversation.");
+    expect(blank.title).toBe("Your direction");
+    expect(JSON.stringify(blank)).not.toMatch(/this business/);
+    expect(presentationSchema.safeParse(blank).success).toBe(true);
   });
 });

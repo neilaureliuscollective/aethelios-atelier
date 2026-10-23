@@ -433,7 +433,7 @@
   border: 1px solid rgba(232, 213, 163, 0.2);
   background: rgba(7, 10, 9, 0.45);
   color: var(--concierge-ink);
-  padding: 10px 12px;
+  padding: 10px 54px 10px 12px;
   font: inherit;
 }
 
@@ -486,25 +486,81 @@
 }
 
 .canvasHead {
-  display: flex;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: end;
+  display: grid;
+  gap: 4px;
 }
 
-.canvasHead .handoff,
-.canvasHead .handoffForm,
-.canvasHead .handoffReceipt {
-  margin-top: 0;
-  padding-top: 0;
-  border-top: 0;
-  max-width: 22rem;
+.canvasHead .kicker {
+  margin-top: 6px;
+}
+
+.steps {
+  list-style: none;
+  margin: 0 0 6px;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--concierge-muted);
+}
+
+.steps li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  opacity: 0.6;
+  transition: opacity var(--motion-scene) var(--ease-out), color var(--motion-scene) var(--ease-out);
+}
+
+.steps li + li::before {
+  content: "";
+  width: 22px;
+  height: 1px;
+  margin-right: 2px;
+  background: rgba(232, 213, 163, 0.28);
+}
+
+.steps li[data-state="current"],
+.steps li[data-state="done"] {
+  opacity: 1;
+}
+
+.steps li[data-state="current"] {
+  color: var(--concierge-gold);
+}
+
+.stepMark {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: 1px solid rgba(232, 213, 163, 0.28);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.steps li[data-state="current"] .stepMark {
+  border-color: var(--concierge-gold);
+  box-shadow: 0 0 0 4px rgba(226, 201, 136, 0.08), 0 0 18px rgba(226, 201, 136, 0.22);
+}
+
+.steps li[data-state="done"] .stepMark {
+  border-color: transparent;
+  background: linear-gradient(135deg, #e8d5a3, #c7a45a);
+  color: #1a1408;
 }
 
 .canvasHead h2 {
   margin: 0;
-  font-size: 18px;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: clamp(24px, 2.6vw, 32px);
+  line-height: 1.1;
 }
 
 .canvasHead p {
@@ -515,10 +571,12 @@
 
 .stageFrame {
   position: relative;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   border-radius: 26px;
   border: 1px solid rgba(232, 213, 163, 0.2);
   background: #0b100f;
-  overflow: hidden;
+  overflow: clip;
   perspective: 1600px;
   min-height: 320px;
   box-shadow:
@@ -571,12 +629,23 @@
 .brief {
   display: grid;
   gap: 0;
-  padding: 28px 26px 88px;
-  max-height: min(64vh, 740px);
+  padding: 28px 26px 40px;
+  max-height: min(58vh, 680px);
   overflow: auto;
   background:
     linear-gradient(180deg, rgba(226, 201, 136, 0.05), transparent 18%),
     #080c0b;
+}
+
+.stageFrame[data-writing="true"] .brief::after {
+  content: "";
+  display: block;
+  height: 1px;
+  margin-top: 26px;
+  background: linear-gradient(90deg, transparent, var(--concierge-gold), transparent);
+  background-size: 40% 100%;
+  background-repeat: no-repeat;
+  animation: writing-sweep 1.6s var(--ease-out) infinite;
 }
 
 .briefSection + .briefSection {
@@ -744,9 +813,11 @@
 
 .quote {
   font-family: var(--font-display-loaded), Palatino, serif;
-  font-size: clamp(22px, 3vw, 36px);
+  font-size: clamp(21px, 2.2vw, 28px);
+  line-height: 1.35;
+  font-style: italic;
   color: var(--concierge-ink);
-  max-width: 22ch;
+  max-width: 38ch;
 }
 
 .slideCta {
@@ -755,9 +826,16 @@
 
 .film {
   display: flex;
-  flex-wrap: wrap;
   gap: 8px;
-  padding: 0 22px 18px;
+  padding: 14px 18px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: 1px solid rgba(232, 213, 163, 0.1);
+  background: rgba(8, 12, 11, 0.6);
+}
+
+.film::-webkit-scrollbar {
+  display: none;
 }
 
 .thumb {
@@ -770,6 +848,8 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   padding: 7px 12px;
+  white-space: nowrap;
+  flex: none;
   cursor: pointer;
 }
 
@@ -784,46 +864,188 @@
   color: var(--concierge-muted);
 }
 
-.handoff,
-.handoffForm,
-.handoffReceipt {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid rgba(232, 213, 163, 0.14);
+.sendDock {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  padding: 14px;
+  border-top: 1px solid rgba(232, 213, 163, 0.16);
+  background:
+    linear-gradient(180deg, rgba(226, 201, 136, 0.06), transparent 60%),
+    rgba(8, 12, 11, 0.86);
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
 }
 
-.handoffLead,
-.handoffReceipt p {
-  margin: 0 0 12px;
+.sendBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 18px;
+  animation: slide-fade 420ms ease both;
+}
+
+.sendBar[data-state="open"] {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+.sendCopy {
+  min-width: 0;
+  flex: 1 1 260px;
+}
+
+.sendTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 1.2;
   color: var(--concierge-ink);
 }
 
-.handoffForm {
-  display: grid;
-  gap: 12px;
+.sendBar[data-state="writing"] .sendTitle {
+  color: var(--concierge-muted);
 }
 
-.handoffForm label {
+.sendNote {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--concierge-muted);
+}
+
+.sendNote strong {
+  color: var(--concierge-gold);
+  font-weight: 500;
+}
+
+.sendBar[data-state="ready"] :global(.btn-gold) {
+  box-shadow: 0 0 0 0 rgba(226, 201, 136, 0.4);
+  animation: send-glow 2.8s ease-in-out infinite;
+}
+
+.sendFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.sendFields label {
   display: grid;
   gap: 6px;
+  min-width: 0;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   color: var(--concierge-muted);
-  font-size: 13px;
 }
 
-.handoffForm input {
+.sendWide {
+  grid-column: 1 / -1;
+}
+
+.sendFields input {
   width: 100%;
-  border: 1px solid rgba(232, 213, 163, 0.2);
+  min-height: 46px;
+  border: 1px solid rgba(232, 213, 163, 0.22);
   border-radius: 12px;
-  background: rgba(8, 12, 11, 0.45);
+  background: rgba(8, 12, 11, 0.6);
   color: var(--concierge-ink);
-  padding: 10px 12px;
+  padding: 10px 14px;
   font: inherit;
+  font-size: 16px;
+  letter-spacing: normal;
+  text-transform: none;
+  transition: border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
 }
 
-.handoffActions {
+.sendFields input:focus {
+  outline: none;
+  border-color: var(--concierge-gold);
+  box-shadow: 0 0 0 3px rgba(226, 201, 136, 0.16);
+}
+
+.sendActions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.sendConsent {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--concierge-muted);
+}
+
+.sendBar[data-state="sent"] {
+  justify-content: flex-start;
+}
+
+.sendSeal {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #f1dfae, #c7a45a);
+  color: #1a1408;
+  font-size: 18px;
+  box-shadow: 0 0 28px rgba(226, 201, 136, 0.35);
+  animation: seal-in 520ms var(--ease-out) both;
+}
+
+.composer {
+  position: relative;
+}
+
+.composerSend {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 0;
+  background: linear-gradient(135deg, #e8d5a3, #c7a45a);
+  color: #1a1408;
+  font-size: 18px;
+  cursor: pointer;
+  transition: opacity var(--motion-fast) ease, transform var(--motion-fast) var(--ease-out);
+}
+
+.composerSend:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.composerSend:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.composeButton {
+  width: 100%;
+  justify-content: center;
+}
+
+.caption {
+  max-width: 34rem;
+  margin: 4px auto 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--concierge-ink);
+  opacity: 0.86;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  animation: slide-fade 320ms ease both;
+}
+
+.caption[data-role="assistant"] {
+  color: var(--concierge-gold);
 }
 
 .honey {
@@ -848,6 +1070,21 @@
   to { opacity: 1; transform: none; }
 }
 
+@keyframes writing-sweep {
+  from { background-position: -40% 0; }
+  to { background-position: 140% 0; }
+}
+
+@keyframes send-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(226, 201, 136, 0); }
+  50% { box-shadow: 0 0 0 6px rgba(226, 201, 136, 0.12), 0 0 28px rgba(226, 201, 136, 0.2); }
+}
+
+@keyframes seal-in {
+  from { opacity: 0; transform: scale(0.6); }
+  to { opacity: 1; transform: none; }
+}
+
 @keyframes slide-fade {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -863,7 +1100,12 @@
   .orbRing,
   .slide[data-enter="rise"],
   .slide[data-enter="fade"],
-  .slide[data-enter="split"] {
+  .slide[data-enter="split"],
+  .sendBar,
+  .sendSeal,
+  .caption,
+  .sendBar[data-state="ready"] :global(.btn-gold),
+  .stageFrame[data-writing="true"] .brief::after {
     animation: none;
   }
 }
@@ -881,5 +1123,24 @@
   }
   .stage {
     min-height: 0;
+  }
+  .stage[data-workspace="canvas"] .canvasWrap {
+    order: -1;
+    scroll-margin-top: calc(var(--header-h) + 12px);
+  }
+  .stage[data-workspace="canvas"] .intro {
+    order: -2;
+  }
+  .brief {
+    max-height: none;
+    overflow: visible;
+    padding: 22px 18px 28px;
+  }
+  .sendFields {
+    grid-template-columns: 1fr;
+  }
+  .sendActions :global(.btn) {
+    flex: 1 1 auto;
+    justify-content: center;
   }
 }
