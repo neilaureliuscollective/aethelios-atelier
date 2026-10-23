@@ -9,14 +9,14 @@
   --d-champagne: var(--gold-champagne, #e8d5a3);
   --d-ivory: var(--ivory, #f3f0e7);
   --d-sage: var(--sage, #a7b6ac);
-  --d-ink: color-mix(in srgb, var(--d-obsidian) 88%, var(--d-sage));
-  --d-muted: color-mix(in srgb, var(--d-obsidian) 58%, var(--d-sage));
-  --d-paper: #fffdf8;
-  --d-read: color-mix(in srgb, var(--d-ivory) 82%, #ffffff 18%);
+  --d-ink: var(--text, var(--d-ivory));
+  --d-muted: var(--text-muted, color-mix(in srgb, var(--d-ivory) 72%, var(--d-sage)));
+  --d-paper: var(--bg-raised, #14241e);
+  --d-read: var(--bg-read, #fffaf1);
   --d-edge: color-mix(in srgb, var(--d-gold) 34%, transparent);
   position: relative;
   min-height: calc(100vh - var(--header-h, 76px));
-  color: var(--d-obsidian);
+  color: var(--text, var(--d-ivory));
   padding: 8px 0 72px;
 }
 
@@ -73,11 +73,10 @@
   gap: 12px;
   margin: 4px 0 14px;
   padding: 6px 8px 6px 12px;
-  border: 1px solid color-mix(in srgb, var(--d-obsidian) 8%, transparent);
+  border: 1px solid var(--d-edge);
   border-radius: 18px;
-  background:
-    linear-gradient(180deg, rgba(255, 253, 248, 0.96), rgba(243, 240, 231, 0.88));
-  box-shadow: 0 10px 28px rgba(18, 26, 23, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  background: var(--d-paper);
+  box-shadow: 0 10px 28px rgba(8, 12, 11, 0.22), inset 0 1px 0 rgba(243, 240, 231, 0.08);
 }
 
 .toolbarMeta {
@@ -110,7 +109,7 @@
   font-family: var(--font-display);
   letter-spacing: 0.12em;
   font-size: 13px;
-  color: #8a6a32;
+  color: var(--d-pale);
 }
 
 .brandCopy span {
@@ -187,7 +186,7 @@
   font-size: 12px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: #8a6a32;
+  color: var(--d-gold);
   margin-bottom: 14px;
 }
 
@@ -198,11 +197,11 @@
   line-height: 0.98;
   font-weight: 500;
   margin: 0 0 16px;
-  color: var(--d-obsidian);
+  color: inherit;
 }
 
 .gold {
-  color: #8a6a32;
+  color: var(--d-pale);
   font-style: italic;
 }
 
@@ -258,8 +257,8 @@
 
 .btnGhost {
   background: transparent;
-  border-color: color-mix(in srgb, var(--d-obsidian) 16%, transparent);
-  color: var(--d-obsidian);
+  border-color: var(--d-edge);
+  color: inherit;
 }
 
 .btnEmerald {
@@ -312,9 +311,9 @@
   position: relative;
   border-radius: 28px;
   padding: 18px;
-  background: linear-gradient(180deg, #fffdf8, #f3efe4);
-  border: 1px solid color-mix(in srgb, var(--d-obsidian) 8%, transparent);
-  box-shadow: 0 28px 56px rgba(18, 26, 23, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  background: var(--d-paper);
+  border: 1px solid var(--d-edge);
+  box-shadow: 0 28px 56px rgba(8, 12, 11, 0.28), inset 0 1px 0 rgba(243, 240, 231, 0.08);
 }
 
 .stageChrome {
@@ -358,11 +357,12 @@
 }
 
 .panel {
-  background: linear-gradient(180deg, #fffdf8, #f4f0e6);
-  border: 1px solid color-mix(in srgb, var(--d-obsidian) 8%, transparent);
+  background: var(--d-read);
+  border: 1px solid color-mix(in srgb, var(--d-gold) 34%, transparent);
   border-radius: 24px;
   padding: 28px;
-  box-shadow: 0 20px 44px rgba(18, 26, 23, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  color: var(--d-obsidian);
+  box-shadow: 0 20px 44px rgba(8, 12, 11, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
 .panel h2 {
@@ -422,7 +422,7 @@
   padding: 14px 16px;
   border-radius: 16px;
   border: 1px solid color-mix(in srgb, var(--d-obsidian) 10%, transparent);
-  background: var(--d-paper);
+  background: var(--d-read);
   cursor: pointer;
 }
 
@@ -440,7 +440,7 @@
 
 .option em {
   display: block;
-  color: var(--d-muted);
+  color: color-mix(in srgb, var(--d-obsidian) 58%, var(--d-sage));
   font-style: normal;
   font-size: 14px;
 }
@@ -456,8 +456,8 @@
   text-align: left;
   border-radius: 22px;
   border: 1px solid color-mix(in srgb, var(--d-obsidian) 10%, transparent);
-  background: linear-gradient(180deg, #fffdf8, #f3efe4);
-  color: inherit;
+  background: var(--d-read);
+  color: var(--d-obsidian);
   min-height: 220px;
   padding: 0 0 16px;
   cursor: pointer;
@@ -507,17 +507,17 @@
 }
 
 .solid {
-  background: linear-gradient(180deg, #fffdf8, #f4f0e6);
-  border: 1px solid color-mix(in srgb, var(--d-obsidian) 8%, transparent);
+  background: var(--d-paper);
+  border: 1px solid var(--d-edge);
   border-radius: 20px;
   padding: 16px;
-  box-shadow: 0 16px 36px rgba(18, 26, 23, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  box-shadow: 0 16px 36px rgba(8, 12, 11, 0.22), inset 0 1px 0 rgba(243, 240, 231, 0.08);
 }
 
 .glass,
 .saveDrawer {
-  background: color-mix(in srgb, #fffdf8 82%, transparent);
-  border: 1px solid color-mix(in srgb, var(--d-obsidian) 8%, transparent);
+  background: color-mix(in srgb, var(--d-paper) 82%, transparent);
+  border: 1px solid var(--d-edge);
   border-radius: 20px;
   padding: 16px;
 }
@@ -530,7 +530,7 @@
   font-size: 15px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #8a6a32;
+  color: var(--d-pale);
   margin: 0 0 10px;
   font-family: var(--font-body);
   font-weight: 650;
@@ -671,9 +671,9 @@
   min-height: 44px;
   padding: 0 14px;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--d-obsidian) 14%, transparent);
+  border: 1px solid var(--d-edge);
   background: transparent;
-  color: var(--d-obsidian);
+  color: inherit;
   cursor: pointer;
 }
 
@@ -821,9 +821,9 @@
   min-height: 44px;
   padding: 0 14px;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--d-obsidian) 14%, transparent);
+  border: 1px solid var(--d-edge);
   background: transparent;
-  color: var(--d-obsidian);
+  color: inherit;
   cursor: pointer;
 }
 
@@ -845,7 +845,7 @@
 }
 
 .selectedHint {
-  color: #8a6a32;
+  color: var(--d-pale);
   font-size: 13px;
   margin: 8px 0 0;
   overflow-wrap: anywhere;
@@ -916,7 +916,7 @@
   font-size: 13px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #8a6a32;
+  color: var(--d-pale);
   font-family: var(--font-body);
 }
 
@@ -931,7 +931,7 @@
   min-height: 44px;
   display: flex;
   align-items: center;
-  color: #8a6a32;
+  color: var(--d-pale);
 }
 
 .dockActions {
@@ -981,9 +981,9 @@
     position: sticky;
     top: var(--header-h, 76px);
     z-index: 12;
-    background: #fffdf8;
+    background: var(--d-paper);
     padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
-    border: 1px solid color-mix(in srgb, var(--d-obsidian) 10%, transparent);
+    border: 1px solid var(--d-edge);
     border-radius: 18px;
     margin-bottom: 10px;
     box-shadow: 0 12px 28px rgba(18, 26, 23, 0.08);
@@ -1038,9 +1038,12 @@
   .glass,
   .saveDrawer,
   .stage,
-  .panel,
   .solid {
-    background: #fffdf8;
+    background: var(--d-paper);
+    backdrop-filter: none;
+  }
+  .panel {
+    background: var(--d-read);
     backdrop-filter: none;
   }
 }
@@ -1051,7 +1054,7 @@
   .glass,
   .saveDrawer,
   .stage {
-    background: #fffdf8;
+    background: var(--d-paper);
   }
 }
 

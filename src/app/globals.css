@@ -10,6 +10,8 @@
   --gold-edge: #8a6a32;
   --ivory: #f3f0e7;
   --sage: #a7b6ac;
+  --ink: #0e1c18;
+  --ink-raised: #14241e;
 
   --bg: var(--obsidian);
   --bg-raised: var(--charcoal);
@@ -73,55 +75,31 @@ img { max-width: 100%; height: auto; display: block; }
 }
 .skip-link:focus { top: 12px; }
 
-.app-root[data-surface="luminous"] {
-  --bg: var(--ivory);
-  --bg-raised: #fffaf1;
-  --bg-panel: #fffdf8;
-  --bg-panel-strong: #fff;
-  --bg-glass: color-mix(in srgb, #ffffff 62%, transparent);
-  --bg-input: #fff;
-  --bg-read: color-mix(in srgb, var(--ivory) 82%, #ffffff 18%);
-  --text: var(--obsidian);
-  --text-muted: color-mix(in srgb, var(--obsidian) 58%, var(--sage));
-  --text-gold: #8a6a32;
-  --border: color-mix(in srgb, var(--gold) 34%, transparent);
-  --border-soft: color-mix(in srgb, var(--obsidian) 10%, transparent);
-  --shadow: 0 24px 48px rgba(18, 26, 23, 0.12);
-  color-scheme: light;
-}
-.app-root[data-surface="workroom"] {
-  --bg: #f4f1e8;
-  --bg-raised: #fffdf8;
-  --bg-panel: #fffdf8;
-  --bg-panel-strong: #fff;
-  --bg-glass: color-mix(in srgb, #ffffff 70%, transparent);
+.app-root[data-surface="luminous"],
+.app-root[data-surface="workroom"],
+.app-root[data-surface="atelier"] {
+  --bg: var(--ink);
+  --bg-raised: var(--ink-raised);
+  --bg-panel: color-mix(in srgb, var(--charcoal) 70%, var(--smoked) 30%);
+  --bg-panel-strong: color-mix(in srgb, var(--charcoal) 88%, black 12%);
+  --bg-glass: color-mix(in srgb, var(--charcoal) 55%, transparent);
   --bg-input: #fff;
   --bg-read: #fffaf1;
-  --text: var(--obsidian);
-  --text-muted: color-mix(in srgb, var(--obsidian) 60%, var(--sage));
-  --text-gold: #8a6a32;
-  --border: color-mix(in srgb, var(--gold) 30%, transparent);
-  --border-soft: color-mix(in srgb, var(--obsidian) 9%, transparent);
-  --shadow: 0 18px 40px rgba(18, 26, 23, 0.1);
-  color-scheme: light;
+  --input-ink: #14110c;
+  --read-ink: #14110c;
+  --read-muted: #3f4a43;
+  --text: var(--ivory);
+  --text-muted: color-mix(in srgb, var(--ivory) 72%, var(--sage));
+  --text-gold: var(--gold-pale);
+  --border: color-mix(in srgb, var(--gold) 28%, transparent);
+  --border-soft: color-mix(in srgb, var(--ivory) 12%, transparent);
+  --shadow: 0 28px 64px rgba(8, 12, 11, 0.28);
+  color-scheme: dark;
 }
 .app-root[data-surface="studio"] {
   color-scheme: dark;
 }
 .app-root[data-surface="atelier"] {
-  --bg: var(--ivory);
-  --bg-raised: #fffaf1;
-  --bg-panel: #fffdf8;
-  --bg-panel-strong: #fff;
-  --bg-glass: color-mix(in srgb, #ffffff 62%, transparent);
-  --bg-input: #fff;
-  --bg-read: color-mix(in srgb, var(--ivory) 82%, #ffffff 18%);
-  --text: var(--obsidian);
-  --text-muted: color-mix(in srgb, var(--obsidian) 58%, var(--sage));
-  --text-gold: #8a6a32;
-  --border: color-mix(in srgb, var(--gold) 34%, transparent);
-  --border-soft: color-mix(in srgb, var(--obsidian) 10%, transparent);
-  --shadow: 0 24px 48px rgba(18, 26, 23, 0.12);
   --atelier-read-ink: #14110c;
   --atelier-read-muted: #3f4a43;
   --atelier-stage: #070a09;
@@ -133,7 +111,6 @@ img { max-width: 100%; height: auto; display: block; }
   --header-h: 72px;
   --radius: 18px;
   --radius-sm: 12px;
-  color-scheme: light;
 }
 .on-glass {
   /* Marker for emerald-glass surfaces so ghost buttons beat the ivory-page selector. */
@@ -151,11 +128,13 @@ img { max-width: 100%; height: auto; display: block; }
     linear-gradient(180deg, var(--bg) 0%, color-mix(in srgb, var(--bg) 88%, var(--smoked) 12%) 100%);
 }
 .app-root[data-surface="luminous"] .atmosphere,
-.app-root[data-surface="workroom"] .atmosphere {
+.app-root[data-surface="workroom"] .atmosphere,
+.app-root[data-surface="atelier"] .atmosphere {
   background:
-    radial-gradient(900px 480px at 92% -8%, rgba(226, 201, 136, 0.28), transparent 58%),
-    radial-gradient(640px 420px at 4% 0%, rgba(36, 131, 104, 0.08), transparent 60%),
-    linear-gradient(180deg, #f7f4eb 0%, var(--ivory) 42%, #efebe0 100%);
+    radial-gradient(920px 520px at 88% -10%, rgba(226, 201, 136, 0.1), transparent 58%),
+    radial-gradient(640px 480px at 6% 0%, rgba(36, 131, 104, 0.1), transparent 62%),
+    radial-gradient(820px 540px at 18% 110%, rgba(199, 164, 90, 0.07), transparent 54%),
+    linear-gradient(180deg, var(--bg) 0%, color-mix(in srgb, var(--bg) 88%, var(--smoked) 12%) 100%);
 }
 .atmosphere::before {
   content: "";
@@ -167,18 +146,9 @@ img { max-width: 100%; height: auto; display: block; }
   opacity: 0.85;
 }
 .app-root[data-surface="luminous"] .atmosphere::before,
-.app-root[data-surface="workroom"] .atmosphere::before {
-  opacity: 0.35;
-  background: linear-gradient(118deg, transparent 42%, rgba(226, 201, 136, 0.14) 46%, transparent 50%);
-}
-.app-root[data-surface="atelier"] .atmosphere {
-  background:
-    radial-gradient(900px 480px at 92% -8%, rgba(226, 201, 136, 0.22), transparent 58%),
-    linear-gradient(180deg, #f7f4eb 0%, var(--ivory) 42%, #efebe0 100%);
-}
+.app-root[data-surface="workroom"] .atmosphere::before,
 .app-root[data-surface="atelier"] .atmosphere::before {
-  opacity: 0.35;
-  background: linear-gradient(118deg, transparent 42%, rgba(226, 201, 136, 0.14) 46%, transparent 50%);
+  opacity: 0.85;
 }
 .app-root[data-surface="atelier"] .site-header {
   background:
@@ -251,7 +221,7 @@ img { max-width: 100%; height: auto; display: block; }
 .app-root[data-surface="atelier"] .site-footer {
   background: transparent;
   color: var(--text-muted);
-  border-top-color: color-mix(in srgb, var(--obsidian) 10%, transparent);
+  border-top-color: var(--border-soft);
   padding: 18px 0 28px;
   font-size: 13px;
 }
@@ -266,8 +236,8 @@ img { max-width: 100%; height: auto; display: block; }
 .app-root[data-surface="atelier"] .section { padding: 20px 0 48px; }
 .app-root[data-surface="atelier"] .gold-em { color: var(--text-gold); }
 .app-root[data-surface="atelier"] .btn-ghost {
-  color: var(--obsidian);
-  border-color: color-mix(in srgb, var(--obsidian) 16%, transparent);
+  color: var(--text);
+  border-color: var(--border);
 }
 .app-root[data-surface="atelier"] .notice {
   background: color-mix(in srgb, var(--ivory) 70%, #fff);
@@ -603,9 +573,10 @@ main, .site-header, .site-footer, .sim-banner { position: relative; z-index: 1; 
 }
 .surface-read {
   background: var(--bg-read);
-  border: 1px solid var(--border-soft);
+  border: 1px solid color-mix(in srgb, var(--gold-edge) 28%, transparent);
   border-radius: 18px;
-  box-shadow: inset 0 1px 0 rgba(243, 240, 231, 0.04);
+  color: var(--read-ink, #14110c);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 .surface-glass {
   background: color-mix(in srgb, #101214 55%, rgba(8, 12, 11, 0.72));
@@ -644,8 +615,6 @@ h1 { font-size: clamp(42px, 6vw, 84px); }
 h2 { font-size: clamp(32px, 4vw, 52px); }
 h3 { font-size: 28px; }
 .gold-em { color: var(--gold-pale); font-style: italic; }
-.app-root[data-surface="luminous"] .gold-em,
-.app-root[data-surface="workroom"] .gold-em { color: #8a6a32; }
 .cinematic-hero .gold-em { color: var(--gold-pale); }
 .lede { color: var(--text-muted); font-size: 18px; max-width: 58ch; }
 .lede-bright { color: color-mix(in srgb, var(--ivory) 82%, var(--sage)); }
@@ -870,12 +839,12 @@ label .lbl { display: block; margin-bottom: 8px; color: var(--text-gold); }
 textarea, input[type="text"], input[type="url"], input[type="email"], select {
   width: 100%;
   background: var(--bg-input);
-  border: 1px solid var(--border-soft);
+  border: 1px solid color-mix(in srgb, var(--gold-edge) 28%, transparent);
   border-radius: 16px;
   padding: 14px 16px;
   min-height: 48px;
   font-size: 16px;
-  color: var(--text);
+  color: var(--input-ink, var(--text));
 }
 textarea { min-height: 160px; resize: vertical; line-height: 1.5; }
 .inquiry-form { gap: 16px; }
@@ -1052,12 +1021,39 @@ a.chip {
 .attention-list { margin: 12px 0 0; padding-left: 18px; display: grid; gap: 6px; color: var(--sage); }
 
 .surface-ivory {
-  background:
-    linear-gradient(180deg, rgba(255, 253, 248, 0.96), rgba(243, 240, 231, 0.92));
-  border: 1px solid color-mix(in srgb, var(--obsidian) 8%, transparent);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
+  box-shadow: var(--shadow), inset 0 1px 0 rgba(243, 240, 231, 0.08);
+  color: var(--text);
+}
+.surface-ivory .muted,
+.surface-ivory .lede {
+  color: var(--text-muted);
+}
+.surface-paper,
+.surface-read {
+  background: var(--bg-read);
+  border: 1px solid color-mix(in srgb, var(--gold-edge) 28%, transparent);
+  border-radius: var(--radius);
+  color: var(--read-ink, #14110c);
   box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.7);
-  color: var(--obsidian);
+}
+.surface-paper .muted,
+.surface-paper .lede,
+.surface-paper .tiny,
+.surface-read .muted,
+.surface-read .lede,
+.surface-read .tiny {
+  color: var(--read-muted, #3f4a43);
+}
+.surface-paper label .lbl,
+.surface-read label .lbl,
+.inquiry-page-form label .lbl,
+.brief-stage label .lbl,
+.living-brief label .lbl,
+.proposal-stage label .lbl {
+  color: var(--gold-edge);
 }
 .surface-obsidian {
   background:
@@ -1278,16 +1274,16 @@ a.chip {
   min-height: 100%;
   padding: 16px 16px 20px;
   border-radius: var(--radius);
-  background: linear-gradient(180deg, #fffdf8, #f3efe4);
-  border: 1px solid color-mix(in srgb, var(--obsidian) 8%, transparent);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
   box-shadow: var(--shadow);
-  color: var(--obsidian);
+  color: var(--text);
 }
 .service-tile-visual { pointer-events: none; }
 .service-tile-visual .device { transform: scale(0.96); }
 .service-tile-action {
   margin: 10px 0 0;
-  color: var(--deep);
+  color: var(--gold-pale);
   font-weight: 600;
 }
 .service-spec-visual {
@@ -1323,8 +1319,8 @@ a.chip {
   align-items: center;
   padding: 18px;
   border-radius: var(--radius);
-  background: #fffdf8;
-  border: 1px solid color-mix(in srgb, var(--obsidian) 8%, transparent);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
 }
 .possibilities-visual .device-screen { min-height: 320px; }
 .service-tile-visual {
@@ -1334,21 +1330,8 @@ a.chip {
 }
 .process-editorial { align-items: stretch; }
 
-.save-status-ok .tiny { color: var(--deep); }
+.save-status-ok .tiny { color: var(--ok); }
 
-.app-root[data-surface="luminous"] .surface-dimensional,
-.app-root[data-surface="workroom"] .surface-dimensional,
-.app-root[data-surface="luminous"] .surface-glass,
-.app-root[data-surface="workroom"] .surface-glass,
-.app-root[data-surface="workroom"] .surface-dense,
-.app-root[data-surface="workroom"] .surface-read,
-.app-root[data-surface="workroom"] .panel,
-.app-root[data-surface="luminous"] .panel {
-  background: linear-gradient(180deg, #fffdf8, #f4f0e6);
-  color: var(--obsidian);
-  border-color: color-mix(in srgb, var(--obsidian) 10%, transparent);
-  box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.7);
-}
 .app-root[data-surface="workroom"] .step-nav button[aria-current="step"],
 .app-root[data-surface="workroom"] .step-nav button.active {
   background: color-mix(in srgb, var(--deep) 90%, black);
@@ -1356,9 +1339,18 @@ a.chip {
 }
 .app-root[data-surface="workroom"] .brief-stage,
 .app-root[data-surface="workroom"] .living-brief,
-.app-root[data-surface="workroom"] .workspace-card,
-.app-root[data-surface="workroom"] .proposal-stage {
-  background: #fffdf8;
+.app-root[data-surface="workroom"] .proposal-stage,
+.inquiry-page-form {
+  background: var(--bg-read);
+  color: var(--read-ink, #14110c);
+  border: 1px solid color-mix(in srgb, var(--gold-edge) 28%, transparent);
+  border-radius: var(--radius);
+}
+.app-root[data-surface="workroom"] .brief-stage .muted,
+.app-root[data-surface="workroom"] .living-brief .muted,
+.app-root[data-surface="workroom"] .proposal-stage .muted,
+.inquiry-page-form .muted {
+  color: var(--read-muted, #3f4a43);
 }
 .app-root[data-surface="studio"] .site-header {
   background: color-mix(in srgb, var(--obsidian) 78%, transparent);
@@ -1370,9 +1362,9 @@ a.chip {
   margin: 18px auto 0;
   padding: 12px 16px;
   border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--deep) 35%, transparent);
-  background: color-mix(in srgb, var(--deep) 10%, var(--ivory));
-  color: var(--obsidian);
+  border: 1px solid color-mix(in srgb, var(--gold) 34%, transparent);
+  background: var(--bg-raised);
+  color: var(--text);
   font-size: 14px;
 }
 .pricing-hero {

@@ -23,4 +23,22 @@ describe("atelierSurfaceForPath", () => {
       /\.app-root\[data-surface="atelier"\] \.workspace-nav a \{[^}]*color: var\(--text-muted\)/
     );
   });
+
+  it("uses smoked ink as the default field and keeps emerald, gold, and paper inputs", () => {
+    const css = readFileSync("src/app/globals.css", "utf8");
+    expect(css).toMatch(/--emerald:\s*#248368;/);
+    expect(css).toMatch(/--gold:\s*#c7a45a;/);
+    expect(css).toMatch(/--ink:\s*#0e1c18;/);
+    expect(css).toMatch(/--ink-raised:\s*#14241e;/);
+    expect(css).toMatch(
+      /\.app-root\[data-surface="luminous"\],\n\.app-root\[data-surface="workroom"\],\n\.app-root\[data-surface="atelier"\] \{[\s\S]*?--bg:\s*var\(--ink\);/
+    );
+    expect(css).toMatch(
+      /\.app-root\[data-surface="luminous"\],\n\.app-root\[data-surface="workroom"\],\n\.app-root\[data-surface="atelier"\] \{[\s\S]*?--bg-input:\s*#fff;/
+    );
+    expect(css).toMatch(
+      /\.app-root\[data-surface="luminous"\],\n\.app-root\[data-surface="workroom"\],\n\.app-root\[data-surface="atelier"\] \{[\s\S]*?--bg-read:\s*#fffaf1;/
+    );
+    expect(css).not.toMatch(/--garnet/);
+  });
 });
