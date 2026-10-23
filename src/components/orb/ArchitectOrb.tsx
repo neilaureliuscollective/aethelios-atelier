@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GLASS_FRAG, GLASS_VERT } from "@/lib/orb/glassShader";
 import {
   clamp01,
@@ -144,6 +144,7 @@ export function ArchitectOrb({
 }: ArchitectOrbProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stateRef = useRef(state);
+  const [backend, setBackend] = useState<"gl" | "canvas2d">("gl");
 
   useEffect(() => {
     stateRef.current = state;
@@ -159,12 +160,16 @@ export function ArchitectOrb({
     };
     reducedMedia.addEventListener("change", onMotion);
 
-    const gl = canvas.getContext("webgl2", {
-      alpha: true,
-      antialias: false,
-      premultipliedAlpha: true,
-      powerPreference: "high-performance"
-    });
+    const use2d = backend === "canvas2d";
+    const gl = use2d
+      ? null
+      : canvas.getContext("webgl2", {
+          alpha: true,
+          antialias: false,
+          premultipliedAlpha: true,
+          powerPreference: "high-performance",
+          failIfMajorPerformanceCaveat: true
+        });
     const mix: Record<keyof OrbStateMix, SpringValue> = {
       idle: { value: 1, vel: 0 },
       listen: { value: 0, vel: 0 },
@@ -198,6 +203,13 @@ export function ArchitectOrb({
     };
 
     if (!gl) {
+      if (backend === "gl") {
+        reducedMedia.removeEventListener("change", onMotion);
+        observer.disconnect();
+        document.removeEventListener("visibilitychange", onVis);
+        setBackend("canvas2d");
+        return;
+      }
       const context = canvas.getContext("2d", { alpha: true });
       if (!context) {
         reducedMedia.removeEventListener("change", onMotion);
@@ -239,8 +251,14 @@ export function ArchitectOrb({
       reducedMedia.removeEventListener("change", onMotion);
       observer.disconnect();
       document.removeEventListener("visibilitychange", onVis);
+      setBackend("canvas2d");
       return;
     }
+    const onLost = (event: Event) => {
+      event.preventDefault();
+      setBackend("canvas2d");
+    };
+    canvas.addEventListener("webglcontextlost", onLost);
     const buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
@@ -303,13 +321,15 @@ export function ArchitectOrb({
       reducedMedia.removeEventListener("change", onMotion);
       observer.disconnect();
       document.removeEventListener("visibilitychange", onVis);
+      canvas.removeEventListener("webglcontextlost", onLost);
       gl.deleteBuffer(buffer);
       gl.deleteProgram(program);
     };
-  }, [inputRef, outputRef]);
+  }, [backend, inputRef, outputRef]);
 
   return (
     <canvas
+      key={backend}
       ref={canvasRef}
       className={`rta-orb${compact ? " is-compact" : ""}${className ? ` ${className}` : ""}`}
       width={640}

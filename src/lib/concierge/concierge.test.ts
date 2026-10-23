@@ -97,6 +97,7 @@ describe("concierge homepage seating", () => {
     expect(renderer).toContain("data-layout");
     const orb = readFileSync("src/components/concierge/ConciergeOrb.tsx", "utf8");
     expect(orb).toContain("ArchitectOrb");
+    expect(orb).toContain("orbFallback");
     expect(orb).not.toContain("gl_FragColor");
     const stage = readFileSync("src/components/concierge/ConciergeStage.tsx", "utf8");
     expect(stage).toContain("Meet {INTELLIGENCE_DISPLAY_NAME}");
@@ -110,8 +111,14 @@ describe("concierge homepage seating", () => {
     const voice = readFileSync("src/components/concierge/useOrbTranscription.ts", "utf8");
     expect(voice).toContain("getUserMedia");
     expect(voice).toContain("/api/concierge/transcribe");
+    expect(voice).toContain("recorder.start(250)");
+    expect(voice).not.toContain("ready === false");
     expect(voice).not.toContain("SpeechRecognition");
     expect(voice).not.toContain("webkitSpeechRecognition");
+    const architect = readFileSync("src/components/orb/ArchitectOrb.tsx", "utf8");
+    expect(architect).toContain('setBackend("canvas2d")');
+    expect(architect).toContain("failIfMajorPerformanceCaveat");
+    expect(architect).toContain("webglcontextlost");
     const transcribe = readFileSync("src/lib/concierge/transcribe.ts", "utf8");
     expect(transcribe).toContain("whisper-1");
     expect(transcribe).toContain("readOpenAiApiKey");
