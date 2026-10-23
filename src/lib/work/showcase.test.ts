@@ -108,3 +108,22 @@ describe("inline cinematic playback", () => {
     expect(globalShade).toMatch(/0\.72/);
   });
 });
+
+describe("Acadiana marketing mockups", () => {
+  it("shows fictional Lafayette businesses on the cinema stage", () => {
+    const examples = readFileSync("src/components/marketing/ExampleBusinesses.tsx", "utf8");
+    const hero = readFileSync("src/components/marketing/HeroShowcase.tsx", "utf8");
+    expect(examples).toContain("Coteau Field");
+    expect(examples).toContain("Nightjar Roast");
+    expect(examples).toContain("Coteau Yard");
+    expect(examples).toContain("Sable Hearth");
+    expect(examples).toContain("Lafayette");
+    expect(examples).toContain("/atmosphere/coteau-field.webp");
+    expect(hero).toContain("Coteau Field");
+    expect(hero).not.toContain("Northridge");
+    expect(examples).not.toMatch(/>Northridge</);
+    expect(examples).not.toContain("Halcyon Still");
+    expect(examples).not.toContain("Marlow Studio");
+    expect(examples).not.toContain("Harbor Relay");
+  });
+});

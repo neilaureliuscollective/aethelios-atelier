@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { DeviceFrame } from "@/components/marketing/DeviceFrame";
-import { NorthridgeSite } from "@/components/marketing/ExampleBusinesses";
+import { CoteauFieldSite } from "@/components/marketing/ExampleBusinesses";
 import styles from "./examples.module.css";
 
 export function HeroShowcase() {
@@ -21,13 +21,13 @@ export function HeroShowcase() {
     <div className="hero-stage">
       <div className="hero-stage-glow" aria-hidden="true" />
       <div className="hero-desktop-wrap">
-        <DeviceFrame variant="desktop" depth="hero" label="Illustrative Northridge website on a desktop">
-          <NorthridgeSite density="desktop" />
+        <DeviceFrame variant="desktop" depth="hero" label="Illustrative Coteau Field website on a desktop">
+          <CoteauFieldSite density="desktop" />
         </DeviceFrame>
       </div>
       <div className="hero-phone-wrap" aria-hidden="true">
-        <DeviceFrame variant="phone" depth="hero" label="Illustrative Northridge website on a phone">
-          <NorthridgeSite density="phone" />
+        <DeviceFrame variant="phone" depth="hero" label="Illustrative Coteau Field website on a phone">
+          <CoteauFieldSite density="phone" />
         </DeviceFrame>
       </div>
       <p className="hero-stage-note">
@@ -43,14 +43,14 @@ export function HeroShowcase() {
         onClose={() => setOpen(false)}
       >
         <p className="tiny">Illustrative concept</p>
-        <h2 id={titleId}>Northridge — a distinctive service website</h2>
+        <h2 id={titleId}>Coteau Field — a distinctive builder website</h2>
         <p>
-          This is a working layout for a fictional custom-home studio. It shows how a branded website
-          can carry photography, a clear promise, and a next step. It is not a finished commission,
-          testimonial, or live booking tool.
+          This is a working layout for a fictional Lafayette custom-home builder. It shows how a
+          branded website can carry parish photography, a clear promise, and a next step. It is not a
+          finished commission, testimonial, or live booking tool.
         </p>
-        <DeviceFrame variant="desktop" label="Larger Northridge website example">
-          <NorthridgeSite density="desktop" />
+        <DeviceFrame variant="desktop" label="Larger Coteau Field website example">
+          <CoteauFieldSite density="desktop" />
         </DeviceFrame>
         <div className={styles.inspectActions}>
           <button className="btn btn-gold" type="button" onClick={() => setOpen(false)}>

@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
 import {
-  HarborRelay,
-  HalcyonStore,
-  MarlowPortal,
-  NorthridgeSite
+  CoteauFieldSite,
+  CoteauYard,
+  NightjarRoast,
+  SableReserve
 } from "@/components/marketing/ExampleBusinesses";
 
 export function DeviceFrame({
@@ -32,17 +32,17 @@ export function DeviceFrame({
 }
 
 export function DemoWebsite() {
-  return <NorthridgeSite />;
+  return <CoteauFieldSite />;
 }
 
 export function DemoApp() {
-  return <MarlowPortal />;
+  return <CoteauYard />;
 }
 
 export function DemoStore() {
-  return <HalcyonStore />;
+  return <NightjarRoast />;
 }
 
 export function DemoInfra() {
-  return <HarborRelay />;
+  return <SableReserve />;
 }

@@ -4,56 +4,58 @@ export function IllustrativeBadge() {
   return <p className={styles.badge}>Illustrative concept · not a completed commission</p>;
 }
 
-export function NorthridgeSite({ density = "desktop" }: { density?: "desktop" | "phone" }) {
+export function CoteauFieldSite({ density = "desktop" }: { density?: "desktop" | "phone" }) {
   return (
     <div className={`${styles.site} ${density === "phone" ? styles.phone : ""}`}>
       <IllustrativeBadge />
       <header>
-        <strong className={styles.word}>Northridge</strong>
+        <strong className={styles.word}>Coteau Field</strong>
         <div className={styles.nav} aria-hidden="true">
-          <span>Home</span>
-          <span>Approach</span>
-          <span>Our work</span>
-          <span>Journal</span>
+          <span>Work</span>
+          <span>Process</span>
+          <span>Parish</span>
         </div>
         <span className={styles.enquire}>Enquire</span>
       </header>
       <section className={styles.hero}>
         <div>
-          <p className={styles.kicker}>Custom homes · lasting places</p>
-          <h3>Homes in harmony with place</h3>
+          <p className={styles.kicker}>Custom homes · Lafayette &amp; Youngsville</p>
+          <h3>Homes built for this parish.</h3>
           <p className={styles.lede}>
-            Timber houses designed for the land they occupy — a public presence that explains the work
-            before anyone writes.
+            A public presence for a builder who already knows the land, the light, and the next
+            conversation. No booking product — a clear enquire.
           </p>
-          <span className={styles.cta}>View our work</span>
+          <span className={styles.cta}>View the work</span>
         </div>
         <figure>
-          <img
-            src="/atmosphere/hearth.webp"
-            alt="Illustrative timber house used inside a branded website example"
-            width={1200}
-            height={800}
-          />
+          <picture>
+            <source srcSet="/atmosphere/coteau-field.webp" type="image/webp" />
+            <img
+              src="/atmosphere/coteau-field.jpg"
+              alt="Illustrative night house used inside a Lafayette builder website example"
+              width={1600}
+              height={900}
+            />
+          </picture>
         </figure>
       </section>
       {density === "desktop" ? (
         <ul className={styles.pillars}>
           <li>
-            <strong>Considered design</strong>
-            Plans that begin with light, land, and how a family actually lives.
+            <strong>Parish land</strong>
+            Lots in Lafayette, Youngsville, and the coteau — not a catalog of other climates.
           </li>
           <li>
-            <strong>Natural materials</strong>
-            Timber, stone, and linen used with restraint rather than spectacle.
+            <strong>Night presence</strong>
+            Photography that shows how a house holds after dark, when people actually arrive.
           </li>
           <li>
-            <strong>Lasting craft</strong>
-            Details meant to age in place, not chase a season of trends.
+            <strong>Named process</strong>
+            From first walk to last punch, with a price said only after review.
           </li>
           <li>
             <strong>Clear next step</strong>
-            A visitor can enquire. This example does not add a booking product.
+            Enquire. This example does not invent a booking engine.
           </li>
         </ul>
       ) : null}
@@ -61,55 +63,64 @@ export function NorthridgeSite({ density = "desktop" }: { density?: "desktop" | 
   );
 }
 
-export function HalcyonStore({ density = "desktop" }: { density?: "desktop" | "phone" }) {
+export function NightjarRoast({ density = "desktop" }: { density?: "desktop" | "phone" }) {
   return (
-    <div className={`${styles.site} ${styles.halcyon} ${density === "phone" ? styles.phone : ""}`}>
+    <div className={`${styles.site} ${styles.storefront} ${density === "phone" ? styles.phone : ""}`}>
       <IllustrativeBadge />
       <header>
-        <strong className={styles.word}>Halcyon Still</strong>
+        <strong className={styles.word}>Nightjar Roast</strong>
         <div className={styles.nav} aria-hidden="true">
-          <span>Shop</span>
-          <span>Journal</span>
+          <span>Roast</span>
+          <span>Pantry</span>
           <span>Visit</span>
         </div>
-        <span className={styles.enquire}>Collection</span>
+        <span className={styles.enquire}>Shop</span>
       </header>
       <section className={styles.store}>
         <figure className={styles.product}>
-          <img
-            src="/atmosphere/storefront.webp"
-            alt="Illustrative amber bottle used inside a storefront example"
-            width={800}
-            height={600}
-          />
+          <picture>
+            <source srcSet="/atmosphere/nightjar-roast.webp" type="image/webp" />
+            <img
+              src="/atmosphere/nightjar-roast.jpg"
+              alt="Illustrative coffee bag and amber bottle used inside a storefront example"
+              width={800}
+              height={600}
+            />
+          </picture>
         </figure>
         <div>
-          <p className={styles.kicker}>Seasonal edit</p>
+          <p className={styles.kicker}>Parish pantry</p>
           <h3>Quiet objects, clearly offered.</h3>
           <p className={styles.lede}>
-            A commerce page that can carry scent, cloth, and still-life with room to decide. Payments
-            are not collected in this demonstration.
+            A Lafayette roast and a small-batch extract, shown the way a shop would hold them —
+            dark still-life, one gold price. Payments are not collected here.
           </p>
-          <p className={styles.price}>Rest oil · shown as an example product, not for sale here</p>
-          <span className={styles.cta}>View the collection</span>
+          <p className={styles.price}>Parish roast · shown as an example, not for sale</p>
+          <span className={styles.cta}>Shop the roast</span>
         </div>
       </section>
       {density === "desktop" ? (
         <div className={styles.products}>
           <article className={styles.product}>
-            <img src="/atmosphere/storefront.webp" alt="" width={400} height={240} />
+            <picture>
+              <source srcSet="/atmosphere/nightjar-roast.webp" type="image/webp" />
+              <img src="/atmosphere/nightjar-roast.jpg" alt="" width={400} height={240} />
+            </picture>
             <p>
-              <strong>Amber rest</strong>
+              <strong>Parish roast</strong>
               <br />
-              Evening oil in corked glass
+              Whole bean, dark bag
             </p>
           </article>
           <article className={styles.product}>
-            <img src="/atmosphere/hearth.webp" alt="" width={400} height={240} />
+            <picture>
+              <source srcSet="/atmosphere/sable-hearth.webp" type="image/webp" />
+              <img src="/atmosphere/sable-hearth.jpg" alt="" width={400} height={240} />
+            </picture>
             <p>
-              <strong>Linen hour</strong>
+              <strong>Table reserve</strong>
               <br />
-              A still-life for the shop journal
+              A still for the shop journal
             </p>
           </article>
         </div>
@@ -118,54 +129,54 @@ export function HalcyonStore({ density = "desktop" }: { density?: "desktop" | "p
   );
 }
 
-export function MarlowPortal({ density = "desktop" }: { density?: "desktop" | "phone" }) {
+export function CoteauYard({ density = "desktop" }: { density?: "desktop" | "phone" }) {
   return (
     <div className={`${styles.app} ${density === "phone" ? styles.phone : ""}`}>
       <p className={styles.badge}>Illustrative app · not a live operations product</p>
       <header>
-        <strong className={styles.word}>Marlow Studio</strong>
+        <strong className={styles.word}>Coteau Yard</strong>
         <div className={styles.nav} aria-hidden="true">
-          <span>Overview</span>
-          <span>Queue</span>
-          <span>Files</span>
+          <span>Jobs</span>
+          <span>Selections</span>
+          <span>Punch</span>
         </div>
-        <span className={styles.enquire}>Review</span>
+        <span className={styles.enquire}>Today</span>
       </header>
       <div className={styles.appGrid}>
         <article className={styles.card}>
-          <p>Today’s queue</p>
-          <strong>Finish drawings for the river house</strong>
+          <p>Today’s site</p>
+          <strong>Walk the Youngsville lot before the pour.</strong>
           <ul>
             <li>
-              Site notes <span>Ready</span>
+              Selections <span>3 open</span>
             </li>
             <li>
-              Client questions <span>3 open</span>
+              Punch items <span>Ready</span>
             </li>
             <li>
-              Next sitting <span>Thursday</span>
+              Next visit <span>Thursday</span>
             </li>
           </ul>
         </article>
         <article className={styles.card}>
           <p>Purpose-built screens</p>
-          <strong>A workshop portal, not a generic dashboard.</strong>
+          <strong>A builder’s yard book, not a generic dashboard.</strong>
           <ul>
             <li>
-              Role <span>Studio lead</span>
+              Role <span>Superintendent</span>
             </li>
             <li>
-              Status <span>In review</span>
+              Job <span>Coteau Field 14</span>
             </li>
           </ul>
         </article>
         {density === "desktop" ? (
           <article className={`${styles.card} ${styles.wide}`}>
             <p>What this kind of commission is for</p>
-            <strong>Tools that match how the business already works.</strong>
+            <strong>Tools that match how the crew already works.</strong>
             <ul>
               <li>
-                Shared files, a review queue, and a next step — without inventing a CRM.
+                Shared files, a punch list, and a next site visit — without inventing a CRM.
               </li>
             </ul>
           </article>
@@ -175,35 +186,68 @@ export function MarlowPortal({ density = "desktop" }: { density?: "desktop" | "p
   );
 }
 
-export function HarborRelay({ density = "desktop" }: { density?: "desktop" | "phone" }) {
+export function SableReserve({ density = "desktop" }: { density?: "desktop" | "phone" }) {
   return (
     <div className={`${styles.relay} ${density === "phone" ? styles.phone : ""}`}>
       <p className={styles.badge}>Illustrative workflow · not a proprietary platform</p>
       <header>
-        <strong className={styles.word}>Harbor Relay</strong>
+        <strong className={styles.word}>Sable Hearth</strong>
+        <span className={styles.enquire}>Reserve</span>
       </header>
+      <figure className={styles.relayStill}>
+        <picture>
+          <source srcSet="/atmosphere/sable-hearth.webp" type="image/webp" />
+          <img
+            src="/atmosphere/sable-hearth.jpg"
+            alt="Illustrative dining still used inside a reservation-handoff example"
+            width={1600}
+            height={900}
+          />
+        </picture>
+      </figure>
       <div className={styles.flow}>
         <article className={styles.step}>
           <span>01</span>
           <strong>Public site</strong>
-          <p>The presence people find first.</p>
+          <p>Jefferson Street dining, found first.</p>
         </article>
         <article className={styles.step}>
           <span>02</span>
-          <strong>Existing tools</strong>
-          <p>Booking, files, or mail they already trust.</p>
+          <strong>Existing tool</strong>
+          <p>The reservation book they already trust.</p>
         </article>
         <article className={styles.step}>
           <span>03</span>
           <strong>Handoff</strong>
-          <p>A practical path, not a new system to learn.</p>
+          <p>A table held — not a new system to learn.</p>
         </article>
       </div>
       {density === "desktop" ? (
         <p className={styles.note}>
-          Demonstration of practical connections — Atelier does not operate the booking or payment tools.
+          Demonstration of a practical connection — Atelier does not operate the reservation or
+          payment tools.
         </p>
       ) : null}
     </div>
   );
+}
+
+/** @deprecated Use CoteauFieldSite */
+export function NorthridgeSite(props: { density?: "desktop" | "phone" }) {
+  return <CoteauFieldSite {...props} />;
+}
+
+/** @deprecated Use NightjarRoast */
+export function HalcyonStore(props: { density?: "desktop" | "phone" }) {
+  return <NightjarRoast {...props} />;
+}
+
+/** @deprecated Use CoteauYard */
+export function MarlowPortal(props: { density?: "desktop" | "phone" }) {
+  return <CoteauYard {...props} />;
+}
+
+/** @deprecated Use SableReserve */
+export function HarborRelay(props: { density?: "desktop" | "phone" }) {
+  return <SableReserve {...props} />;
 }

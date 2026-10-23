@@ -17,7 +17,7 @@ export default function InquirePage() {
         No account is required. Sending this is a request for review — not a booking, quote, or
         payment. If you would rather shape a fuller brief first, start there.
       </p>
-      <div className="inquiry-page-form surface-ivory" style={{ padding: 28, marginTop: 24, maxWidth: 640 }}>
+      <div className="inquiry-page-form surface-paper" style={{ padding: 28, marginTop: 24, maxWidth: 640 }}>
         <InquiryForm source="inquire" />
       </div>
       <div className="row" style={{ marginTop: 24 }}>
