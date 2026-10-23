@@ -278,7 +278,8 @@ export function publicRuntimeConfig() {
     inquiry: publicInquiryState(),
     voice: {
       transcribeReady: Boolean(readOpenAiApiKey()),
-      note: "Homepage speech-to-text uses the OpenAI key only. It does not turn on live sketch AI."
+      speakReady: Boolean(readOpenAiApiKey()),
+      note: "Homepage orb speech is a live two-way OpenAI voice path. It does not use browser speech recognition."
     }
   };
 }
