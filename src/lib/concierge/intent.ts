@@ -4,8 +4,9 @@ const SHORT_QUESTION = /^(hi|hello|hey|what is this|who are you|how does this wo
 const REVISION =
   /\b(make it|more|less|shorter|longer|luxury|quieter|warmer|gold|emerald|rewrite|change|add a slide|tighten)\b/i;
 
-export function shouldOpenCanvas(message: string, hasDocument = false): boolean {
+export function shouldOpenCanvas(message: string, hasDocument = false, compose = false): boolean {
   const text = message.trim();
+  if (compose && text.length > 0) return true;
   if (text.length < 18) return false;
   if (SHORT_QUESTION.test(text) && text.length < 48) return false;
   if (hasDocument && REVISION.test(text)) return true;

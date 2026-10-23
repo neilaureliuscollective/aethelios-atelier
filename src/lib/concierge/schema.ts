@@ -97,5 +97,6 @@ export const conciergeTalkRequestSchema = z.object({
   message: z.string().min(1).max(2000),
   history: z.array(conciergeHistorySchema).max(8).optional(),
   document: presentationSchema.optional(),
-  preview: sitePreviewSchema.optional()
+  preview: sitePreviewSchema.optional(),
+  compose: z.boolean().optional()
 });

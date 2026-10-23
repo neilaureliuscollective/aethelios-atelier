@@ -24,6 +24,7 @@ export function AetheliosDock() {
     setPanelOpen,
     orbState,
     send,
+    composeDocument,
     abort,
     voice
   } = useAethelios();
@@ -97,7 +98,11 @@ export function AetheliosDock() {
             <button
               className="btn btn-ghost btn-compact"
               type="button"
-              onClick={() => void send(input.trim() || "Write a first document from what I have said so far.")}
+              onClick={() => {
+                if (voiceLive) voice.stop();
+                setPanelOpen(true);
+                void composeDocument();
+              }}
             >
               Compose a document
             </button>

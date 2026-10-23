@@ -228,6 +228,9 @@
   padding: 0;
   cursor: pointer;
   border-radius: 50%;
+  overflow: hidden;
+  clip-path: circle(50% at 50% 50%);
+  -webkit-clip-path: circle(50% at 50% 50%);
 }
 
 .orbButton:focus-visible {
@@ -241,6 +244,8 @@
   height: var(--orb-size, 268px);
   border-radius: 50%;
   overflow: hidden;
+  clip-path: circle(50% at 50% 50%);
+  -webkit-clip-path: circle(50% at 50% 50%);
   transition: width 420ms ease, height 420ms ease, transform 420ms ease;
   box-shadow: none;
   background: transparent;
@@ -254,6 +259,8 @@
   height: 100% !important;
   display: block;
   border-radius: 50%;
+  clip-path: circle(50% at 50% 50%);
+  -webkit-clip-path: circle(50% at 50% 50%);
   background: transparent;
 }
 
