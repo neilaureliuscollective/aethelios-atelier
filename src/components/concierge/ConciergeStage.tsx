@@ -6,7 +6,8 @@ import { INTELLIGENCE_DISPLAY_NAME } from "@/lib/copy";
 import { ConciergeOrb } from "./ConciergeOrb";
 import { PresentationCanvas } from "./PresentationCanvas";
 import { StageAtmosphere } from "./StageAtmosphere";
-import { appendTranscript, useOrbTranscription } from "./useOrbTranscription";
+import { appendTranscript } from "@/lib/concierge/voiceText";
+import { useOrbVoice } from "./useOrbVoice";
 import styles from "./concierge.module.css";
 
 const PROMPTS = [
@@ -39,18 +40,12 @@ export function ConciergeStage() {
   const latestInput = useRef(input);
   latestInput.current = input;
 
-  function focusComposer() {
-    window.requestAnimationFrame(() => inputRef.current?.focus());
-  }
-
-  const voice = useOrbTranscription({
-    onTranscript: (spoken) => {
+  const voice = useOrbVoice({
+    onHeard: (spoken) => {
       setInput(appendTranscript(latestInput.current, spoken));
-      focusComposer();
     }
   });
-  const voiceListening = voice.phase === "starting" || voice.phase === "recording";
-  const voiceBusy = voiceListening || voice.phase === "transcribing";
+  const voiceLive = voice.phase !== "idle";
 
   useEffect(() => {
     if (document) {
@@ -63,28 +58,18 @@ export function ConciergeStage() {
   }, [document, messages.length, pending]);
 
   function submitText(value: string) {
-    if (voiceBusy) voice.cancel();
+    if (voiceLive) voice.stop();
     void send(value);
   }
 
   async function engageOrb() {
-    if (pending || voice.phase === "transcribing") return;
-    if (voiceListening) {
-      const spoken = await voice.stop();
-      if (spoken) setInput(appendTranscript(input, spoken));
-      focusComposer();
+    if (pending) return;
+    if (voiceLive) {
+      voice.stop();
       return;
     }
-    if (input.trim()) {
-      submitText(input);
-      return;
-    }
-    if (workspace === "idle" || workspace === "listening") {
-      setWorkspace("listening");
-      setOrbSize("hero");
-      await voice.start();
-      return;
-    }
+    setWorkspace("listening");
+    setOrbSize("hero");
     await voice.start();
   }
 
@@ -122,8 +107,8 @@ export function ConciergeStage() {
             </h1>
             {orbCentered ? (
               <p className={styles.lede}>
-                Tap the orb to speak, or type below. {INTELLIGENCE_DISPLAY_NAME} writes what you said into the
-                box and composes a live presentation beside you — a sketch, not a commission.
+                Tap the orb and speak. {INTELLIGENCE_DISPLAY_NAME} answers out loud — a conversation, then a
+                sketch, not a commission. You can still type below.
               </p>
             ) : null}
           </div>
@@ -145,41 +130,38 @@ export function ConciergeStage() {
 
         <div className={styles.left}>
           <div className={styles.orbDock}>
+            <audio ref={voice.audioRef} autoPlay playsInline hidden />
             <ConciergeOrb
               size={orbSize}
               liveLevelRef={voice.levelRef}
               state={
-                voiceListening || (workspace === "listening" && !voice.error)
-                  ? "listening"
-                  : voice.phase === "transcribing"
-                    ? "thinking"
+                voice.phase === "speaking"
+                  ? "speaking"
+                  : voiceLive || (workspace === "listening" && !voice.error)
+                    ? "listening"
                     : orbState
               }
               label={
-                voiceListening
-                  ? `Stop speaking and write it for ${INTELLIGENCE_DISPLAY_NAME}`
-                  : voice.phase === "transcribing"
-                    ? `Hearing your words for ${INTELLIGENCE_DISPLAY_NAME}`
-                    : input.trim()
-                      ? `Send this to ${INTELLIGENCE_DISPLAY_NAME}`
-                      : `Speak to ${INTELLIGENCE_DISPLAY_NAME}`
+                voiceLive
+                  ? `End the spoken conversation with ${INTELLIGENCE_DISPLAY_NAME}`
+                  : `Talk with ${INTELLIGENCE_DISPLAY_NAME}`
               }
               onToggle={() => void engageOrb()}
             />
             <p className={styles.orbStatus} data-tone={voice.error ? "warn" : undefined} aria-live="polite">
               {voice.error
                 ? voice.error
-                : voice.phase === "transcribing"
-                  ? "Writing that into the box…"
+                : voice.phase === "speaking"
+                  ? `${INTELLIGENCE_DISPLAY_NAME} is speaking`
                   : voice.hearing
-                    ? "I hear you — pause when you are done"
-                    : voiceListening || workspace === "listening"
-                      ? "Speak now. I will write it when you pause."
+                    ? `${INTELLIGENCE_DISPLAY_NAME} hears you`
+                    : voiceLive
+                      ? "Speak. The orb will answer out loud."
                       : orbState === "composing"
                         ? `${INTELLIGENCE_DISPLAY_NAME} is composing`
                         : orbState === "thinking"
                           ? `${INTELLIGENCE_DISPLAY_NAME} is listening through what you said`
-                          : `Tap the orb, then speak`}
+                          : `Tap the orb to talk with ${INTELLIGENCE_DISPLAY_NAME}`}
             </p>
           </div>
 

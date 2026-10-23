@@ -4,7 +4,8 @@ import { useRef } from "react";
 import { usePathname } from "next/navigation";
 import { ConciergeOrb } from "@/components/concierge/ConciergeOrb";
 import { SlideView } from "@/components/concierge/SlideView";
-import { appendTranscript, useOrbTranscription } from "@/components/concierge/useOrbTranscription";
+import { useOrbVoice } from "@/components/concierge/useOrbVoice";
+import { appendTranscript } from "@/lib/concierge/voiceText";
 import { aetheliosDockVisible } from "@/lib/aethelios/presence";
 import { INTELLIGENCE_DISPLAY_NAME } from "@/lib/copy";
 import { useAethelios } from "./AetheliosProvider";
@@ -29,13 +30,13 @@ export function AetheliosDock() {
   } = useAethelios();
   const latestInput = useRef(input);
   latestInput.current = input;
-  const voice = useOrbTranscription({
-    onTranscript: (spoken) => {
+  const voice = useOrbVoice({
+    onHeard: (spoken) => {
       setInput(appendTranscript(latestInput.current, spoken));
       setPanelOpen(true);
     }
   });
-  const voiceListening = voice.phase === "starting" || voice.phase === "recording";
+  const voiceLive = voice.phase !== "idle";
 
   if (!aetheliosDockVisible(pathname)) return null;
 
@@ -83,7 +84,7 @@ export function AetheliosDock() {
             className={styles.composer}
             onSubmit={(event) => {
               event.preventDefault();
-              if (voiceListening || voice.phase === "transcribing") voice.cancel();
+              if (voiceLive) voice.stop();
               void send(input);
             }}
           >
@@ -95,7 +96,7 @@ export function AetheliosDock() {
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey) {
                   event.preventDefault();
-                  if (voiceListening || voice.phase === "transcribing") voice.cancel();
+                  if (voiceLive) voice.stop();
                   void send(input);
                 }
               }}
@@ -111,47 +112,30 @@ export function AetheliosDock() {
         </section>
       ) : null}
       <div className={styles.orbWrap}>
+        <audio ref={voice.audioRef} autoPlay playsInline hidden />
         <ConciergeOrb
           size="docked"
           liveLevelRef={voice.levelRef}
-          state={voiceListening ? "listening" : voice.phase === "transcribing" ? "thinking" : orbState}
+          state={voice.phase === "speaking" ? "speaking" : voiceLive ? "listening" : orbState}
           label={
-            voiceListening
-              ? `Stop speaking and write it for ${INTELLIGENCE_DISPLAY_NAME}`
-              : voice.phase === "transcribing"
-                ? `Hearing your words for ${INTELLIGENCE_DISPLAY_NAME}`
-                : input.trim() && !panelOpen
-                  ? `Send this to ${INTELLIGENCE_DISPLAY_NAME}`
-                  : `Speak with ${INTELLIGENCE_DISPLAY_NAME} from this page`
+            voiceLive
+              ? `End the spoken conversation with ${INTELLIGENCE_DISPLAY_NAME}`
+              : `Talk with ${INTELLIGENCE_DISPLAY_NAME} from this page`
           }
           onToggle={() => {
             void (async () => {
-              if (pending || voice.phase === "transcribing") return;
-              if (voiceListening) {
-                const spoken = await voice.stop();
-                if (spoken) setInput(appendTranscript(input, spoken));
-                setPanelOpen(true);
-                return;
-              }
-              if (input.trim() && !panelOpen) {
-                void send(input);
-                return;
-              }
-              if (panelOpen && input.trim()) {
-                setPanelOpen(false);
+              if (pending) return;
+              if (voiceLive) {
+                voice.stop();
                 return;
               }
               setPanelOpen(true);
-              if (!input.trim()) await voice.start();
+              await voice.start();
             })();
           }}
         />
         <p className={styles.caption}>
-          {voice.phase === "transcribing"
-            ? "Hearing…"
-            : voiceListening
-              ? "Listening"
-              : INTELLIGENCE_DISPLAY_NAME}
+          {voice.phase === "speaking" ? "Speaking" : voiceLive ? "Listening" : INTELLIGENCE_DISPLAY_NAME}
         </p>
       </div>
     </div>

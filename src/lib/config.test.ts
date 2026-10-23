@@ -34,6 +34,7 @@ describe("fail-closed configuration", () => {
     expect(JSON.stringify(pub)).not.toContain("249");
     expect(pub.companion.billingActivated).toBe(false);
     expect(pub.voice.transcribeReady).toBe(true);
+    expect(pub.voice.speakReady).toBe(true);
     expect(pub.inquiry).toBeDefined();
     expect(JSON.stringify(pub.inquiry)).not.toContain("@");
   });
