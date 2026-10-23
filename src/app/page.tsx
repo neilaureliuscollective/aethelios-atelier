@@ -38,7 +38,7 @@ export default function HomePage() {
           <p className="lede">
             Branding is a quality across this work, and it can also be scoped on its own. A rebrand is
             not required to start. Plan prices are listed on{" "}
-            <AppLink href="/pricing">Pricing</AppLink>. I still confirm every proposal myself.
+            <AppLink href="/pricing">Pricing</AppLink>. Neil still confirms every proposal.
           </p>
         </div>
         <ServiceShowcase />
@@ -47,11 +47,12 @@ export default function HomePage() {
 
       <Reveal as="section" className="container section" delay={2}>
         <div className="section-head">
-          <p className="kicker">How I work</p>
+          <p className="kicker">Neil’s approach</p>
           <h2 id="path-heading">A more considered way to build.</h2>
           <p className="lede">
             Nothing is sent until you review the brief and consent. Sending a brief is a request.
-            I accept work only after I review it. Price and timing stay unconfirmed until I say so.
+            Neil accepts work only after he reviews it. Price and timing stay unconfirmed until he
+            says so.
           </p>
         </div>
         <div className="process process-editorial">
@@ -59,7 +60,7 @@ export default function HomePage() {
             [
               ["01", "Understanding your vision", "Discover a direction and write what the business actually needs.", "/discover"],
               ["02", "Thinking strategically", "A living brief keeps statements, suggestions, and unknowns distinct.", "/project"],
-              ["03", "Designing with intent", "I review accepted work and publish versioned proposals.", "/approach"],
+              ["03", "Designing with intent", "Neil reviews accepted work and publishes versioned proposals.", "/approach"],
               ["04", "Building for what’s next", "Design and development proceed against the agreed version — not an open-ended studio.", "/approach"]
             ] as const
           ).map(([num, title, copy, href], index) => (
@@ -81,8 +82,8 @@ export default function HomePage() {
             <h2 id="founder-heading">Reviewed and built by Neil Stutes.</h2>
             <p className="lede lede-bright">
               Aethelios Atelier is founder-led studio work, separate from the main Aethelios product.
-              I read every brief I accept, and I remain accountable for scope, price, and delivery. You
-              can explore without a subscription.
+              Neil reads every brief he accepts and remains accountable for scope, price, and delivery.
+              You can explore without a subscription.
             </p>
             <AppLink className="btn btn-gold" href="/project">
               Begin a brief

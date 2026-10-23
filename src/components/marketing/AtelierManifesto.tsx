@@ -33,9 +33,9 @@ const DISCIPLINES = [
 ] as const;
 
 const STANDARDS = [
-  ["Founder-reviewed", "I read every brief, set every scope, and answer for every delivery myself."],
-  ["Built around you", "The booking, payment, and tools you already use stay. I build the experience around them."],
-  ["Clear from the start", "Plan prices are published. Nothing is final until I confirm the proposal."]
+  ["Founder-reviewed", "Neil reads every brief, sets every scope, and answers for every delivery himself."],
+  ["Built around you", "The booking, payment, and tools you already use stay. Neil builds the experience around them."],
+  ["Clear from the start", "Plan prices are published. Nothing is final until Neil confirms the proposal."]
 ] as const;
 
 /** Second homepage beat: says what the studio is before the work proves it. */
@@ -57,24 +57,24 @@ export function AtelierManifesto() {
             loading="lazy"
             decoding="async"
           />
-          <p className={styles.kicker}>Aethelios Atelier · A founder-led digital studio</p>
+          <p className={styles.kicker}>Aethelios Atelier · Founded and led by Neil Stutes</p>
           <h2 id="atelier-heading" className={styles.heading}>
             Your vision.
             <br />
             <em>Personally built.</em>
           </h2>
           <p className={styles.lede}>
-            I design and build digital presence for businesses that refuse to look ordinary — branded
+            Neil Stutes designs and builds digital presence for businesses that refuse to look ordinary — branded
             websites, custom platforms, storefronts, and the systems underneath them.
           </p>
           <p className={styles.body}>
-            I hold the work myself, from first brief to final delivery. No agency handoffs, no template
-            mill, and no subscription to begin.
+            Neil holds every commission himself, from first brief to final delivery. No agency handoffs, no
+            template mill, and no subscription to begin.
           </p>
         </Reveal>
 
         <Reveal className={styles.index} delay={1}>
-          <p className={styles.indexLabel}>What I build</p>
+          <p className={styles.indexLabel}>What Neil builds</p>
           <ol className={styles.disciplines}>
             {DISCIPLINES.map((item) => (
               <li key={item.num}>
