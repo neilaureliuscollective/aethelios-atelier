@@ -1,5 +1,5 @@
 import { AppLink } from "@/components/ui/AppLink";
-import { CinematicHero } from "@/components/marketing/CinematicHero";
+import { ConciergeStage } from "@/components/concierge/ConciergeStage";
 import { CustomProjectsInvite } from "@/components/marketing/CustomProjectsInvite";
 import { PossibilitiesStage } from "@/components/marketing/PossibilitiesStage";
 import { ServiceShowcase } from "@/components/marketing/ServiceShowcase";
@@ -10,7 +10,7 @@ import { FULL_LOGO } from "@/lib/brand/fullLogo";
 export default function HomePage() {
   return (
     <>
-      <CinematicHero />
+      <ConciergeStage />
       <SelectedWork variant="featured" />
 
       <Reveal as="section" className="container section ivory-section" delay={1}>
