@@ -61,3 +61,9 @@ export class LimitError extends DomainError {
     super(message, "limit", 429);
   }
 }
+
+export class InquiryDeliveryError extends DomainError {
+  constructor(message: string) {
+    super(message, "delivery_failed", 502);
+  }
+}

@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { INQUIRY_CONSENT_TEXT } from "@/lib/copy";
-import { UnconfiguredError, LimitError, ForbiddenError } from "@/lib/domain/errors";
+import { UnconfiguredError, LimitError, ForbiddenError, InquiryDeliveryError } from "@/lib/domain/errors";
 import { createId, createReceiptId } from "@/lib/ids";
 import { loadConfig } from "@/lib/config";
 import {
@@ -131,7 +131,19 @@ export async function submitInquiry(
 
   if (resolved.delivery === "email") {
     const inquiry = toStored(input, "email");
-    await sendInquiryEmail(inquiry, `${text}\n\n${INQUIRY_CONSENT_TEXT}`, resolved.destination);
+    try {
+      await sendInquiryEmail(inquiry, `${text}\n\n${INQUIRY_CONSENT_TEXT}`, resolved.destination);
+    } catch (error) {
+      return {
+        ok: false,
+        error: "delivery_failed",
+        message:
+          error instanceof InquiryDeliveryError
+            ? error.message
+            : "Resend could not send this inquiry. You can still open the mail app.",
+        mailto: inquiryMailto(input, resolved.destination)
+      };
+    }
     const accepted = acceptedFrom(inquiry, false);
     if (input.idempotencyKey) acceptedByKey.set(input.idempotencyKey, accepted);
     return accepted;
