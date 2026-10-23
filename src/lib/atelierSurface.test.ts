@@ -24,20 +24,23 @@ describe("atelierSurfaceForPath", () => {
     );
   });
 
-  it("uses smoked ink as the default field and keeps emerald, gold, and paper inputs", () => {
+  it("uses cream as the room, smoked ink as raised furniture, and white for paper inputs", () => {
     const css = readFileSync("src/app/globals.css", "utf8");
     expect(css).toMatch(/--emerald:\s*#248368;/);
     expect(css).toMatch(/--gold:\s*#c7a45a;/);
+    expect(css).toMatch(/--ivory:\s*#f3f0e7;/);
     expect(css).toMatch(/--ink:\s*#0e1c18;/);
-    expect(css).toMatch(/--ink-raised:\s*#14241e;/);
     expect(css).toMatch(
-      /\.app-root\[data-surface="luminous"\],\n\.app-root\[data-surface="workroom"\],\n\.app-root\[data-surface="atelier"\] \{[\s\S]*?--bg:\s*var\(--ink\);/
+      /\.app-root\[data-surface="luminous"\],\n\.app-root\[data-surface="workroom"\],\n\.app-root\[data-surface="atelier"\] \{[\s\S]*?--bg:\s*var\(--ivory\);/
+    );
+    expect(css).toMatch(
+      /\.app-root\[data-surface="luminous"\],\n\.app-root\[data-surface="workroom"\],\n\.app-root\[data-surface="atelier"\] \{[\s\S]*?--bg-raised:\s*var\(--ink\);/
     );
     expect(css).toMatch(
       /\.app-root\[data-surface="luminous"\],\n\.app-root\[data-surface="workroom"\],\n\.app-root\[data-surface="atelier"\] \{[\s\S]*?--bg-input:\s*#fff;/
     );
     expect(css).toMatch(
-      /\.app-root\[data-surface="luminous"\],\n\.app-root\[data-surface="workroom"\],\n\.app-root\[data-surface="atelier"\] \{[\s\S]*?--bg-read:\s*#fffaf1;/
+      /\.app-root\[data-surface="luminous"\],\n\.app-root\[data-surface="workroom"\],\n\.app-root\[data-surface="atelier"\] \{[\s\S]*?--bg-read:\s*#fff;/
     );
     expect(css).not.toMatch(/--garnet/);
   });

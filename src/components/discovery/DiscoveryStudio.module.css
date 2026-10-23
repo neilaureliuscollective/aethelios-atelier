@@ -9,14 +9,14 @@
   --d-champagne: var(--gold-champagne, #e8d5a3);
   --d-ivory: var(--ivory, #f3f0e7);
   --d-sage: var(--sage, #a7b6ac);
-  --d-ink: var(--text, var(--d-ivory));
-  --d-muted: var(--text-muted, color-mix(in srgb, var(--d-ivory) 72%, var(--d-sage)));
-  --d-paper: var(--bg-raised, #14241e);
-  --d-read: var(--bg-read, #fffaf1);
+  --d-ink: var(--text, var(--d-obsidian));
+  --d-muted: var(--text-muted, color-mix(in srgb, var(--d-obsidian) 58%, var(--d-sage)));
+  --d-paper: var(--bg-raised, #0e1c18);
+  --d-read: var(--bg-read, #fff);
   --d-edge: color-mix(in srgb, var(--d-gold) 34%, transparent);
   position: relative;
   min-height: calc(100vh - var(--header-h, 76px));
-  color: var(--text, var(--d-ivory));
+  color: var(--text, var(--d-obsidian));
   padding: 8px 0 72px;
 }
 
@@ -76,6 +76,7 @@
   border: 1px solid var(--d-edge);
   border-radius: 18px;
   background: var(--d-paper);
+  color: var(--d-ivory);
   box-shadow: 0 10px 28px rgba(8, 12, 11, 0.22), inset 0 1px 0 rgba(243, 240, 231, 0.08);
 }
 
@@ -313,6 +314,7 @@
   padding: 18px;
   background: var(--d-paper);
   border: 1px solid var(--d-edge);
+  color: var(--d-ivory);
   box-shadow: 0 28px 56px rgba(8, 12, 11, 0.28), inset 0 1px 0 rgba(243, 240, 231, 0.08);
 }
 
@@ -511,6 +513,7 @@
   border: 1px solid var(--d-edge);
   border-radius: 20px;
   padding: 16px;
+  color: var(--d-ivory);
   box-shadow: 0 16px 36px rgba(8, 12, 11, 0.22), inset 0 1px 0 rgba(243, 240, 231, 0.08);
 }
 
@@ -520,6 +523,7 @@
   border: 1px solid var(--d-edge);
   border-radius: 20px;
   padding: 16px;
+  color: var(--d-ivory);
 }
 
 .rail h2,

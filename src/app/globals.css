@@ -78,23 +78,25 @@ img { max-width: 100%; height: auto; display: block; }
 .app-root[data-surface="luminous"],
 .app-root[data-surface="workroom"],
 .app-root[data-surface="atelier"] {
-  --bg: var(--ink);
-  --bg-raised: var(--ink-raised);
-  --bg-panel: color-mix(in srgb, var(--charcoal) 70%, var(--smoked) 30%);
-  --bg-panel-strong: color-mix(in srgb, var(--charcoal) 88%, black 12%);
-  --bg-glass: color-mix(in srgb, var(--charcoal) 55%, transparent);
+  --bg: var(--ivory);
+  --bg-raised: var(--ink);
+  --bg-panel: var(--ink);
+  --bg-panel-strong: var(--ink-raised);
+  --bg-glass: color-mix(in srgb, var(--ink) 62%, transparent);
   --bg-input: #fff;
-  --bg-read: #fffaf1;
+  --bg-read: #fff;
   --input-ink: #14110c;
   --read-ink: #14110c;
   --read-muted: #3f4a43;
-  --text: var(--ivory);
-  --text-muted: color-mix(in srgb, var(--ivory) 72%, var(--sage));
-  --text-gold: var(--gold-pale);
-  --border: color-mix(in srgb, var(--gold) 28%, transparent);
-  --border-soft: color-mix(in srgb, var(--ivory) 12%, transparent);
-  --shadow: 0 28px 64px rgba(8, 12, 11, 0.28);
-  color-scheme: dark;
+  --on-raised: var(--ivory);
+  --on-raised-muted: color-mix(in srgb, var(--ivory) 78%, var(--sage));
+  --text: var(--obsidian);
+  --text-muted: color-mix(in srgb, var(--obsidian) 58%, var(--sage));
+  --text-gold: var(--gold-edge);
+  --border: color-mix(in srgb, var(--gold) 38%, transparent);
+  --border-soft: color-mix(in srgb, var(--obsidian) 10%, transparent);
+  --shadow: 0 24px 48px rgba(14, 28, 24, 0.14);
+  color-scheme: light;
 }
 .app-root[data-surface="studio"] {
   color-scheme: dark;
@@ -131,10 +133,9 @@ img { max-width: 100%; height: auto; display: block; }
 .app-root[data-surface="workroom"] .atmosphere,
 .app-root[data-surface="atelier"] .atmosphere {
   background:
-    radial-gradient(920px 520px at 88% -10%, rgba(226, 201, 136, 0.1), transparent 58%),
-    radial-gradient(640px 480px at 6% 0%, rgba(36, 131, 104, 0.1), transparent 62%),
-    radial-gradient(820px 540px at 18% 110%, rgba(199, 164, 90, 0.07), transparent 54%),
-    linear-gradient(180deg, var(--bg) 0%, color-mix(in srgb, var(--bg) 88%, var(--smoked) 12%) 100%);
+    radial-gradient(900px 480px at 92% -8%, rgba(226, 201, 136, 0.22), transparent 58%),
+    radial-gradient(640px 420px at 4% 0%, rgba(36, 131, 104, 0.08), transparent 60%),
+    linear-gradient(180deg, #f7f4eb 0%, var(--ivory) 42%, #efebe0 100%);
 }
 .atmosphere::before {
   content: "";
@@ -148,7 +149,8 @@ img { max-width: 100%; height: auto; display: block; }
 .app-root[data-surface="luminous"] .atmosphere::before,
 .app-root[data-surface="workroom"] .atmosphere::before,
 .app-root[data-surface="atelier"] .atmosphere::before {
-  opacity: 0.85;
+  opacity: 0.35;
+  background: linear-gradient(118deg, transparent 42%, rgba(226, 201, 136, 0.14) 46%, transparent 50%);
 }
 .app-root[data-surface="atelier"] .site-header {
   background:
@@ -615,6 +617,9 @@ h1 { font-size: clamp(42px, 6vw, 84px); }
 h2 { font-size: clamp(32px, 4vw, 52px); }
 h3 { font-size: 28px; }
 .gold-em { color: var(--gold-pale); font-style: italic; }
+.app-root[data-surface="luminous"] .gold-em,
+.app-root[data-surface="workroom"] .gold-em,
+.app-root[data-surface="atelier"] .gold-em { color: var(--gold-edge); }
 .cinematic-hero .gold-em { color: var(--gold-pale); }
 .lede { color: var(--text-muted); font-size: 18px; max-width: 58ch; }
 .lede-bright { color: color-mix(in srgb, var(--ivory) 82%, var(--sage)); }
@@ -809,7 +814,15 @@ h3 { font-size: 28px; }
   padding: 22px 0 80px;
   align-items: start;
 }
-.step-nav { padding: 16px; position: sticky; top: 96px; }
+.step-nav {
+  padding: 16px;
+  position: sticky;
+  top: 96px;
+  background: var(--bg-raised);
+  color: var(--on-raised, var(--ivory));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
 .step-nav ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .step-nav button {
   width: 100%;
@@ -1025,19 +1038,26 @@ a.chip {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow), inset 0 1px 0 rgba(243, 240, 231, 0.08);
-  color: var(--text);
+  color: var(--on-raised, var(--ivory));
 }
 .surface-ivory .muted,
 .surface-ivory .lede {
-  color: var(--text-muted);
+  color: var(--on-raised-muted, color-mix(in srgb, var(--ivory) 78%, var(--sage)));
+}
+.surface-ivory .kicker {
+  color: var(--gold-pale);
+}
+.surface-ivory .btn-ghost {
+  color: var(--on-raised, var(--ivory));
+  border-color: color-mix(in srgb, var(--ivory) 28%, transparent);
 }
 .surface-paper,
 .surface-read {
   background: var(--bg-read);
-  border: 1px solid color-mix(in srgb, var(--gold-edge) 28%, transparent);
+  border: 1px solid color-mix(in srgb, var(--gold-edge) 22%, transparent);
   border-radius: var(--radius);
   color: var(--read-ink, #14110c);
-  box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 .surface-paper .muted,
 .surface-paper .lede,
@@ -1277,7 +1297,7 @@ a.chip {
   background: var(--bg-raised);
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
-  color: var(--text);
+  color: var(--on-raised, var(--ivory));
 }
 .service-tile-visual { pointer-events: none; }
 .service-tile-visual .device { transform: scale(0.96); }
@@ -1321,6 +1341,7 @@ a.chip {
   border-radius: var(--radius);
   background: var(--bg-raised);
   border: 1px solid var(--border);
+  color: var(--on-raised, var(--ivory));
 }
 .possibilities-visual .device-screen { min-height: 320px; }
 .service-tile-visual {
@@ -1343,7 +1364,7 @@ a.chip {
 .inquiry-page-form {
   background: var(--bg-read);
   color: var(--read-ink, #14110c);
-  border: 1px solid color-mix(in srgb, var(--gold-edge) 28%, transparent);
+  border: 1px solid color-mix(in srgb, var(--gold-edge) 22%, transparent);
   border-radius: var(--radius);
 }
 .app-root[data-surface="workroom"] .brief-stage .muted,
@@ -1362,9 +1383,9 @@ a.chip {
   margin: 18px auto 0;
   padding: 12px 16px;
   border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--gold) 34%, transparent);
+  border: 1px solid var(--border);
   background: var(--bg-raised);
-  color: var(--text);
+  color: var(--on-raised, var(--ivory));
   font-size: 14px;
 }
 .pricing-hero {
