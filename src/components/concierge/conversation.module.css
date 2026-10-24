@@ -1,12 +1,28 @@
 .stage {
   color: var(--ivory);
-  background: radial-gradient(ellipse at 85% 15%, var(--smoked), transparent 55%), var(--obsidian);
-  padding: 72px 0 0;
+  background: var(--obsidian);
   --focus: var(--gold-pale);
 }
 .shell, .document, .signature { width: min(1280px, calc(100% - 64px)); margin: 0 auto; }
 .shell { display: grid; grid-template-columns: 1fr 1.08fr; gap: clamp(32px, 5vw, 80px); align-items: center; }
-.intro { padding: 20px 0; }
+.hero { position: relative; isolation: isolate; overflow: hidden; }
+.heroMedia, .heroShade { position: absolute; inset: 0; pointer-events: none; z-index: -1; }
+.heroMedia img { width: 100%; height: 100%; object-fit: cover; object-position: center; }
+.heroShade {
+  background: linear-gradient(90deg, var(--obsidian) 0%, color-mix(in srgb, var(--obsidian) 88%, transparent) 28%, transparent 72%),
+    linear-gradient(0deg, var(--obsidian), transparent 28%);
+}
+.heroInner { width: min(1280px, calc(100% - 64px)); margin: 0 auto; }
+.intro { width: min(100%, 600px); min-height: 680px; padding: 96px 0 72px; display: flex; flex-direction: column; justify-content: center; }
+.hero .lede { color: var(--ivory); }
+.shell { padding-top: 56px; }
+@media (prefers-reduced-motion: no-preference) {
+  .heroMedia { animation: atelier-arrive 4.8s var(--ease-out) both; }
+}
+@keyframes atelier-arrive {
+  from { transform: scale(1.045); }
+  to { transform: scale(1); }
+}
 .eyebrow { color: var(--gold-pale); font-size: 11px; text-transform: uppercase; letter-spacing: .16em; }
 .intro h1 { font-family: var(--font-display); font-size: clamp(44px, 4.5vw, 70px); font-weight: 500; line-height: 1.04; letter-spacing: -.035em; margin: 26px 0; }
 .intro h1 em { color: var(--gold-pale); font-weight: 500; }
@@ -54,16 +70,19 @@
 .signature span:first-child { color: var(--gold-pale); }
 .stage button:disabled { opacity: .5; cursor: not-allowed; }
 @media (max-width: 980px) {
-  .stage { padding-top: 36px; }
   .shell { grid-template-columns: 1fr; gap: 30px; }
-  .intro { max-width: 680px; }
+  .intro { width: min(100%, 560px); }
   .intro h1 { font-size: clamp(44px, 8vw, 68px); }
   .path { display: none; }
   .links { margin-bottom: 20px; }
   .note { margin-top: 20px; }
 }
 @media (max-width: 540px) {
-  .shell, .document, .signature { width: calc(100% - 32px); }
+  .shell, .document, .signature, .heroInner { width: calc(100% - 32px); }
+  .intro { min-height: 700px; padding: 220px 0 40px; }
+  .heroMedia img { object-position: center top; }
+  .heroShade { background: linear-gradient(0deg, var(--obsidian) 0%, color-mix(in srgb, var(--obsidian) 94%, transparent) 42%, transparent 90%); }
+  .shell { padding-top: 24px; }
   .panelHead, .messages { padding: 20px; }
   .badge { font-size: 9px; }
   .composer { margin: 0 12px; padding: 12px; }
