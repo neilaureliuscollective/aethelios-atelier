@@ -15,7 +15,6 @@ import { ForbiddenError } from "@/lib/domain/errors";
 import { ProjectService } from "@/lib/domain/projects";
 import { createGuestDraft } from "@/lib/guest/draft";
 import { BARBERS_SALONS_OFFER } from "@/lib/offers/barbersSalons";
-import { COMMERCE_LAUNCH_OFFER } from "@/lib/offers/commerce";
 import {
   applyOfferImportDecisions,
   barbersSalonReviewSummary,
@@ -32,14 +31,14 @@ function offerIntent() {
 }
 
 describe("barbers and salons intake", () => {
-  it("prefills a Commerce Launch brief without inventing products or a catalog", () => {
+  it("selects Commerce Launch context without inventing visitor statements", () => {
     const brief = applyCommissionIntent(
       createEmptyBrief(),
       parseCommissionIntent(new URLSearchParams("offer=commerce_launch&interest=ecommerce_storefronts&purpose=business"))
     );
     expect(brief.context?.offerId).toBe("commerce_launch");
     expect(brief.projectType.value).toBe("ecommerce_storefronts");
-    expect(brief.vision.value).toBe(COMMERCE_LAUNCH_OFFER.starter.vision);
+    expect(brief.vision.value).toBe("");
     expect(briefTitle(brief)).toBe("Commerce Launch");
     expect(fieldLabel("bookingProvider", brief)).toMatch(/products, suppliers/i);
     expect(isBookingConnected(brief)).toBe(false);
@@ -48,18 +47,18 @@ describe("barbers and salons intake", () => {
     expect(proposal.fields.some((field) => field.key === "goals")).toBe(true);
   });
 
-  it("prefills offer context on an empty brief without inventing a business identity", () => {
+  it("selects offer context on an empty brief without inventing a business identity", () => {
     const brief = applyCommissionIntent(createEmptyBrief(), offerIntent());
     expect(brief.context?.offerId).toBe("barbers_salons");
     expect(brief.context?.purpose).toBe("business");
     expect(brief.context?.bookingNeeded).toBe(true);
     expect(brief.projectType.value).toBe("website");
-    expect(brief.vision.value).toBe(BARBERS_SALONS_OFFER.starter.vision);
+    expect(brief.vision.value).toBe("");
     expect(brief.audience.value).toBe("");
     expect(brief.existingWebsite.value).toBe("");
     expect(brief.bookingProvider.value).toBe("");
     expect(briefTitle(brief)).toBe("Atelier for Barbers & Salons");
-    expect(fieldLabel("vision", brief)).toBe("Business name");
+    expect(fieldLabel("vision", brief)).toBe("Project vision");
     expect(fieldLabel("bookingProvider", brief)).toBe("Booking provider and public URL");
     expect(isBookingConnected(brief)).toBe(true);
     expect(fieldsForStep(3, brief)).toEqual(["existingWebsite", "references"]);
@@ -74,7 +73,7 @@ describe("barbers and salons intake", () => {
     expect(proposeOfferImport(next).fields.find((field) => field.key === "vision")?.defaultDecision).toBe("skip");
   });
 
-  it("lets a client dismiss imported starters without wiping unrelated wording", () => {
+  it("lets a client dismiss offer context without wiping unrelated wording", () => {
     const seeded = applyCommissionIntent(createEmptyBrief(), offerIntent());
     const edited = applyClientValue(seeded, "audience", "Independent stylist");
     const dismissed = dismissOfferImport(edited);
@@ -90,6 +89,8 @@ describe("barbers and salons intake", () => {
       goals: "append",
       constraints: "replace"
     });
+    expect(next.audience.value).toBe("");
+    expect(next.priorities.value).toBe("");
     expect(next.vision.value).toBe("My own shop name.");
     expect(next.goals.value).toMatch(/existing provider/i);
     expect(next.constraints.value).toBe(BARBERS_SALONS_OFFER.starter.constraints);

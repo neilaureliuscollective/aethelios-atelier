@@ -53,7 +53,6 @@ export function applyOfferStarterField(
   brief: Brief,
   key: BriefFieldKey,
   value: string,
-  previousStarter: string,
   decision: FieldDecision = "skip"
 ): Brief {
   const nextValue = value.trim();
@@ -65,9 +64,7 @@ export function applyOfferStarterField(
     if (current === nextValue) return brief;
     return applyClientValue(brief, key, `${current}\n\n${nextValue}`);
   }
-  if (current && current !== previousStarter.trim()) return brief;
-  if (current === nextValue) return brief;
-  return current ? brief : applyClientValue(brief, key, nextValue);
+  return brief;
 }
 
 export { applyOfferStarters, clearMatchingOfferStarters };
@@ -115,15 +112,13 @@ export function applyOfferImportDecisions(
   }
   for (const key of OFFER_STARTER_KEYS) {
     const decision = decisions[key] ?? "skip";
-    next = applyOfferStarterField(next, key, starter[key], "", decision);
+    next = applyOfferStarterField(next, key, starter[key], decision);
   }
   return next;
 }
 
 export function dismissOfferImport(brief: Brief): Brief {
-  const offerId = brief.context?.offerId;
-  const cleared = offerId ? clearMatchingOfferStarters(brief, offerId) : brief;
-  return applyBriefContext(cleared, { offerId: "" });
+  return applyBriefContext(brief, { offerId: "" });
 }
 
 export function barbersSalonReviewSummary(brief: Brief) {
