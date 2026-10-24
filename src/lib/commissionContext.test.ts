@@ -64,7 +64,7 @@ describe("commission context metadata", () => {
     expect(launch.context?.bookingNeeded).toBe(false);
     expect(launch.projectType.value).toBe("ecommerce_storefronts");
     expect(isBookingConnected(launch)).toBe(false);
-    expect(launch.vision.value).toMatch(/own brand/i);
+    expect(launch.vision.value).toBe("");
     expect(fieldsForStep(4, launch)).toContain("bookingProvider");
 
     const foundation = applyCommissionIntent(
@@ -73,7 +73,7 @@ describe("commission context metadata", () => {
     );
     expect(foundation.context?.offerId).toBe("commerce_foundation");
     expect(foundation.projectType.value).toBe("ecommerce_storefronts");
-    expect(foundation.vision.value).toMatch(/already know I will sell/i);
+    expect(foundation.vision.value).toBe("");
   });
 
   it("starts the barbers and salons offer as a business website with booking", () => {
@@ -87,7 +87,7 @@ describe("commission context metadata", () => {
     expect(offer.context?.bookingNeeded).toBe(true);
     expect(offer.projectType.value).toBe("website");
     expect(isBookingConnected(offer)).toBe(true);
-    expect(offer.vision.value).toMatch(/barber shop or salon/i);
+    expect(offer.vision.value).toBe("");
     expect(offer.context?.showcaseId).toBe("");
   });
 
@@ -147,7 +147,7 @@ describe("commission context metadata", () => {
     );
   });
 
-  it("replaces an illustrative starter when a different example arrives, without touching edited text", () => {
+  it("changes example context without inventing statements or touching edited text", () => {
     const study = applyCommissionIntent(
       createEmptyBrief(),
       parseCommissionIntent(new URLSearchParams("purpose=study&example=study_organizer"))
@@ -156,7 +156,7 @@ describe("commission context metadata", () => {
       study,
       parseCommissionIntent(new URLSearchParams("purpose=personal&example=personal_tracker"))
     );
-    expect(switched.vision.value).toMatch(/personal commitments/i);
+    expect(switched.vision.value).toBe("");
     expect(switched.context?.exampleId).toBe("personal_tracker");
 
     const edited = applyClientValue(study, "vision", "My own study idea, written by me.");
@@ -174,7 +174,7 @@ describe("commission context metadata", () => {
     );
     expect(study.context?.purpose).toBe("study");
     expect(study.projectType.value).toBe("undecided");
-    expect(study.vision.value).toMatch(/study list/i);
+    expect(study.vision.value).toBe("");
     expect(needsBrandQuestions(study)).toBe(false);
     expect(fieldsForStep(3, study)).toEqual(["existingWebsite"]);
     expect(fieldsForStep(4, study)).not.toContain("bookingProvider");

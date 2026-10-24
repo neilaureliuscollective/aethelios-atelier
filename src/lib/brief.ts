@@ -10,7 +10,6 @@ import {
   type CommissionContext,
   type CommissionIntent
 } from "@/lib/commissionContext";
-import { exampleById } from "@/lib/customProjectExamples";
 import { isBarbersSalonOffer, type BarbersSalonStarterKey } from "@/lib/offers/barbersSalons";
 import { isCommerceOffer } from "@/lib/offers/commerce";
 import { isServiceOfferId } from "@/lib/offers/ids";
@@ -142,15 +141,6 @@ export function applyBriefContext(brief: Brief, patch: Partial<CommissionContext
   };
 }
 
-const EXAMPLE_STARTER_KEYS = [
-  "vision",
-  "audience",
-  "existingWebsite",
-  "goals",
-  "priorities",
-  "constraints"
-] as const;
-
 function applyStarterField(
   brief: Brief,
   key: BriefFieldKey,
@@ -161,18 +151,6 @@ function applyStarterField(
   const current = brief[key].value.trim();
   if (current && current !== previousStarter.trim()) return brief;
   return applyClientValue(brief, key, value);
-}
-
-function clearMatchingStarter(brief: Brief, exampleId: string | undefined): Brief {
-  const previous = exampleId ? exampleById(exampleId) : undefined;
-  if (!previous) return brief;
-  let next = brief;
-  for (const key of EXAMPLE_STARTER_KEYS) {
-    if (brief[key].value.trim() === previous.starter[key].trim()) {
-      next = applyClientValue(next, key, "");
-    }
-  }
-  return next;
 }
 
 const OFFER_STARTER_KEYS = [
@@ -214,21 +192,9 @@ export function clearMatchingOfferStarters(brief: Brief, offerId: string | undef
 }
 
 export function applyCommissionIntent(brief: Brief, intent: CommissionIntent): Brief {
-  const previousExample = brief.context?.exampleId || "";
-  const nextExample = intent.context.exampleId || "";
-  const previousOffer = brief.context?.offerId || "";
-  const nextOffer = intent.context.offerId || "";
-  const purposeChanged = Boolean(intent.context.purpose && intent.context.purpose !== brief.context?.purpose);
-  const exampleChanged = Boolean(nextExample && nextExample !== previousExample);
-  const offerChanged = Boolean(nextOffer && nextOffer !== previousOffer);
-  let next = brief;
-  if ((exampleChanged || (purposeChanged && !nextExample)) && previousExample) {
-    next = clearMatchingStarter(next, previousExample);
-  }
-  if ((offerChanged || (purposeChanged && !nextOffer)) && previousOffer && previousOffer !== nextOffer) {
-    next = clearMatchingOfferStarters(next, previousOffer);
-  }
-  next = applyBriefContext(next, intent.context);
+  // Entry links choose context, never supply statements on the visitor's behalf.
+  // Preserve saved wording: legacy drafts do not record whether a starter was confirmed.
+  let next = applyBriefContext(brief, intent.context);
   if (intent.projectType) {
     const stored = serviceInterestToStoredProjectType(intent.projectType);
     if (stored) next = applyClientValue(next, "projectType", stored);
@@ -239,18 +205,6 @@ export function applyCommissionIntent(brief: Brief, intent: CommissionIntent): B
     (isFunctionalPurpose(intent.context.purpose) || intent.context.route === "custom_project")
   ) {
     next = applyClientValue(next, "projectType", "undecided");
-  }
-  if (intent.applyExampleStarter && intent.context.exampleId) {
-    const example = exampleById(intent.context.exampleId);
-    const previous = exampleById(previousExample);
-    if (example) {
-      for (const key of EXAMPLE_STARTER_KEYS) {
-        next = applyStarterField(next, key, example.starter[key], previous?.starter[key] ?? "");
-      }
-    }
-  }
-  if (nextOffer) {
-    next = applyOfferStarters(next, nextOffer, previousOffer);
   }
   return next;
 }

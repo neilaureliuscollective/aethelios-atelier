@@ -58,7 +58,7 @@ export const BARBERS_SALONS_OFFER: BarbersSalonOffer = {
 };
 
 export const BARBERS_SALON_FIELD_LABELS = {
-  vision: "Business name",
+  vision: "Project vision",
   projectType: "Project type",
   audience: "Professional type",
   existingWebsite: "Existing website",
@@ -72,7 +72,7 @@ export const BARBERS_SALON_FIELD_LABELS = {
 } as const;
 
 export const BARBERS_SALON_FIELD_HINTS = {
-  vision: "The name clients already know — or the name this site should carry.",
+  vision: "What would you like this website project to make possible?",
   projectType: "This offer is a branded website with a booking handoff. You can still change the type.",
   audience: "Barber, independent stylist, salon owner, or another professional type. Unknown is fine.",
   existingWebsite: "A current site, if there is one. Leave blank if there is not.",

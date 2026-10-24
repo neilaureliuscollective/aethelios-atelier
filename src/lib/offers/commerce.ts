@@ -92,7 +92,7 @@ export const COMMERCE_LAUNCH_OFFER: CommerceOffer = {
 export const ATELIER_COMMERCE_OFFERS = [COMMERCE_FOUNDATION_OFFER, COMMERCE_LAUNCH_OFFER] as const;
 
 export const COMMERCE_FIELD_LABELS: Record<BriefFieldKey, string> = {
-  vision: "Business or brand name",
+  vision: "Project vision",
   projectType: "Project type",
   audience: "Who you want to sell to",
   existingWebsite: "Existing website or store",
@@ -106,7 +106,7 @@ export const COMMERCE_FIELD_LABELS: Record<BriefFieldKey, string> = {
 };
 
 export const COMMERCE_FIELD_HINTS: Record<BriefFieldKey, string> = {
-  vision: "The name customers should know — or the name this store should carry.",
+  vision: "What would you like this storefront project to make possible?",
   projectType: "This offer is an e-commerce storefront commission. You can still change the type.",
   audience: "Who should buy, and what should feel considered about the offer. Unknown is fine.",
   existingWebsite: "A current site or store, if there is one. Leave blank if there is not.",
