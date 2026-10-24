@@ -118,9 +118,9 @@ describe("concierge homepage seating", () => {
     expect(orb).toContain("envelopeToward");
     expect(orb).not.toContain("gl_FragColor");
     const stage = readFileSync("src/components/concierge/ConciergeStage.tsx", "utf8");
-    expect(stage).toContain("Meet {INTELLIGENCE_DISPLAY_NAME}");
-    expect(stage).toContain("StageAtmosphere");
-    expect(stage).toContain("sanctum");
+    expect(stage).toContain("Your ambition.");
+    expect(stage).not.toContain("StageAtmosphere");
+    expect(stage).not.toContain("ConciergeOrb");
     const css = readFileSync("src/components/concierge/concierge.module.css", "utf8");
     expect(css).toContain("perspective(720px)");
     expect(css).toContain("rotateX(58deg)");
@@ -136,12 +136,11 @@ describe("concierge homepage seating", () => {
     expect(css).toMatch(/listening[\s\S]*canvasWrap[\s\S]*display: none/);
     expect(stage).not.toContain("colonnade.webp");
     expect(stage).not.toContain("Talk with Aethelios");
-    expect(stage).not.toMatch(/btn-gold/);
-    expect(stage).toContain("Compose a document");
-    expect(stage).toContain("writeDocument");
-    expect(stage).toContain("orbPresenceLabel");
-    expect(stage).toContain("styles.hall");
-    expect(stage).toContain("answers out loud");
+    expect(stage).toContain("Create my direction");
+    expect(stage).toContain("composeDocument");
+    expect(stage).toContain('role="log"');
+    expect(stage).toContain("event.nativeEvent.isComposing");
+    expect(stage).toContain("maxLength={2000}");
     const provider = readFileSync("src/components/aethelios/AetheliosProvider.tsx", "utf8");
     expect(provider).toContain("useOrbVoice");
     expect(provider).toContain("shouldCommitSpoken");
@@ -192,13 +191,14 @@ describe("concierge homepage seating", () => {
 });
 
 describe("concierge send flow", () => {
-  it("keeps one Send to Neil, docked to the document", () => {
+  it("offers a handoff with or without a document", () => {
     const stage = readFileSync("src/components/concierge/ConciergeStage.tsx", "utf8");
     const canvas = readFileSync("src/components/concierge/PresentationCanvas.tsx", "utf8");
-    expect(stage).not.toContain("ConciergeHandoff");
+    expect(stage).toContain("ConciergeHandoff");
+    expect(stage).toContain("document ?");
     expect(canvas.match(/<ConciergeHandoff/g)).toHaveLength(1);
     expect(canvas).toContain("sendDock");
-    expect(stage).toContain("composerSend");
+    expect(stage).toContain("Send message");
   });
 
   it("records only finished spoken turns from both speakers", () => {

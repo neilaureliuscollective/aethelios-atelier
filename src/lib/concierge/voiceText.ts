@@ -10,7 +10,11 @@ export function shouldCommitSpoken(text: string) {
 
 export function documentSourceFromTalk(input: string, spokenTurns: string[] = []) {
   const parts = [...spokenTurns, input.trim()].filter(Boolean);
-  return parts.join("\n") || "Write a first document from this conversation.";
+  const source = parts.join("\n") || "Write a first document from this conversation.";
+  // Match the talk endpoint's message limit, retaining the opening context and latest details.
+  if (source.length <= 2000) return source;
+  const separator = "\n[Earlier details omitted from this draft source]\n";
+  return source.slice(0, 800) + separator + source.slice(-(2000 - 800 - separator.length));
 }
 
 /** Only completed transcripts become turns; streaming deltas would repeat words. */

@@ -1,324 +1,100 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useAethelios } from "@/components/aethelios/AetheliosProvider";
-import { shouldOpenCanvas } from "@/lib/concierge/intent";
-import { orbPresenceLabel } from "@/lib/concierge/voiceListen";
-import { INTELLIGENCE_DISPLAY_NAME } from "@/lib/copy";
-import { ConciergeOrb } from "./ConciergeOrb";
+import { AppLink } from "@/components/ui/AppLink";
+import { ConciergeHandoff } from "./ConciergeHandoff";
 import { PresentationCanvas } from "./PresentationCanvas";
-import { StageAtmosphere } from "./StageAtmosphere";
-import styles from "./concierge.module.css";
+import styles from "./conversation.module.css";
 
-const PROMPTS = [
-  "I run a barbershop in Austin and need a site that feels as considered as the chair.",
-  "We're a custom home studio. I want a digital presence that matches the work.",
-  "I have a salon and I already use a booking system."
-];
-
-type Workspace = "idle" | "listening" | "chat" | "canvas";
+const STARTERS = [
+  ["A better website", "I’d like a new website for my business. "],
+  ["An app or client portal", "I’d like an app or client portal for my business. "],
+  ["Connected systems", "I’d like to connect and automate my business systems. "]
+] as const;
 
 export function ConciergeStage() {
-  const {
-    messages,
-    document,
-    preview,
-    slideIndex,
-    setSlideIndex,
-    pending,
-    streaming,
-    error,
-    input,
-    setInput,
-    orbState,
-    send,
-    composeDocument,
-    abort,
-    voice
-  } = useAethelios();
-  const [workspace, setWorkspace] = useState<Workspace>(document ? "canvas" : messages.length ? "chat" : "idle");
-  const [orbSize, setOrbSize] = useState<"hero" | "docked">(document || messages.length ? "docked" : "hero");
-  const [writing, setWriting] = useState(false);
-  const inputRef = useRef<HTMLTextAreaElement | null>(null);
-  const messagesRef = useRef<HTMLDivElement | null>(null);
+  const { messages, document, preview, slideIndex, setSlideIndex, pending, streaming,
+    error, input, setInput, send, composeDocument, abort, voice } = useAethelios();
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const messagesRef = useRef<HTMLDivElement>(null);
   const pinnedRef = useRef(true);
-  const voiceLive = voice.phase !== "idle";
-  const lastSpoken = messages.at(-1);
+  const hasConversation = messages.some((message) => message.role === "user");
 
-  useEffect(() => {
-    if (document || writing) {
-      setWorkspace("canvas");
-      setOrbSize("docked");
-    } else if ((messages.length || pending) && !voiceLive) {
-      setWorkspace("chat");
-      setOrbSize("docked");
-    }
-  }, [document, messages.length, pending, voiceLive, writing]);
-
-  useEffect(() => {
-    if (!writing) return;
-    // On a phone the document stacks first; bring it into view as it starts writing.
-    if (!window.matchMedia("(max-width: 980px)").matches) return;
-    globalThis.document
-      ?.getElementById("live-document")
-      ?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
-  }, [writing]);
-
-  useEffect(() => {
-    if (document) setWriting(false);
-  }, [document]);
-
-  // New turns scroll inside the conversation panel only — never the page —
-  // and only while the visitor is reading the latest line.
   useEffect(() => {
     const panel = messagesRef.current;
     if (panel && pinnedRef.current) panel.scrollTop = panel.scrollHeight;
   }, [messages.length, streaming]);
 
-  function submitText(value: string, compose = false) {
-    if (voiceLive) voice.stop();
-    if (compose || shouldOpenCanvas(value, Boolean(document), compose)) {
-      setWriting(true);
-      setWorkspace("canvas");
-      setOrbSize("docked");
-    }
-    void send(value, compose ? { compose: true } : undefined);
-  }
+  const condensed = [...messages.filter((message) => message.role === "user").map((message) => message.body), input.trim()].filter(Boolean).join("\n").length > 2000;
 
-  async function writeDocument() {
-    if (voiceLive) voice.stop();
-    setWriting(true);
-    setWorkspace("canvas");
-    setOrbSize("docked");
-    await composeDocument();
+  function submit() {
+    if (pending || !input.trim()) return;
+    voice.stop();
+    void send(input);
   }
-
-  async function engageOrb() {
-    if (pending) return;
-    if (voiceLive) {
-      voice.stop();
-      setWorkspace(document || writing ? "canvas" : "idle");
-      return;
-    }
-    setWorkspace("listening");
-    setOrbSize("hero");
-    await voice.start();
-  }
-
-  const orbCentered = workspace === "idle" || workspace === "listening";
 
   return (
-    <section
-      className={styles.stage}
-      data-workspace={workspace}
-      data-orb={orbSize}
-      aria-labelledby="concierge-heading"
-    >
-      <div className={styles.media} aria-hidden="true">
-        <div className={styles.sanctum} />
-        <StageAtmosphere />
-        <div className={styles.hall} />
-        <div className={styles.well} />
-        <div className={styles.shade} />
-        <div className={styles.field} />
-      </div>
+    <section className={styles.stage} aria-labelledby="concierge-heading">
       <div className={styles.shell}>
-        <header className={styles.intro}>
-          <div>
-            <p className={styles.kicker}>{INTELLIGENCE_DISPLAY_NAME}</p>
-            <h1 id="concierge-heading" className={styles.heading}>
-              {orbCentered ? (
-                <>
-                  Meet {INTELLIGENCE_DISPLAY_NAME}.
-                  <br />
-                  <em>The orb is the door.</em>
-                </>
-              ) : (
-                <>
-                  {INTELLIGENCE_DISPLAY_NAME}
-                  <em> is composing.</em>
-                </>
-              )}
-            </h1>
-            {orbCentered ? (
-              <p className={styles.lede}>
-                Tap the orb and speak. {INTELLIGENCE_DISPLAY_NAME} answers out loud — a conversation, then a
-                sketch, not a commission. You can still type below.
-              </p>
-            ) : null}
+        <div className={styles.intro}>
+          <p className={styles.eyebrow}>Aethelios Atelier · Built for what’s next</p>
+          <h1 id="concierge-heading">Your ambition.<br /><em>Our next conversation.</em></h1>
+          <p className={styles.lede}>A considered website. A smarter app. A business that works better. Tell us what you have in mind — we’ll help shape the direction.</p>
+          <div className={styles.links}>
+            <button className="btn btn-gold" type="button" onClick={() => inputRef.current?.focus()}>Let’s talk about your project <span aria-hidden="true">↗</span></button>
+            <AppLink href="/inquire" className={styles.textLink}>Prefer to enquire directly? →</AppLink>
           </div>
-          {workspace === "canvas" || workspace === "chat" ? (
-            <div className={styles.actions}>
-              <button
-                className="btn btn-ghost"
-                type="button"
-                onClick={() => setOrbSize((current) => (current === "hero" ? "docked" : "hero"))}
-              >
-                {orbSize === "hero" ? "Keep the orb large" : "Dock the orb"}
-              </button>
-              <button className="btn btn-ghost" type="button" onClick={abort} disabled={!pending}>
-                Interrupt
-              </button>
-            </div>
-          ) : null}
-        </header>
-
-        <div className={styles.left}>
-          <div className={styles.orbDock}>
-            <ConciergeOrb
-              size={orbSize}
-              liveInputRef={voice.inputLevelRef}
-              liveOutputRef={voice.outputLevelRef}
-              state={
-                voice.phase === "speaking"
-                  ? "speaking"
-                  : voiceLive || (workspace === "listening" && !voice.error)
-                    ? "listening"
-                    : orbState
-              }
-              label={
-                voiceLive
-                  ? `End the spoken conversation with ${INTELLIGENCE_DISPLAY_NAME}`
-                  : `Talk with ${INTELLIGENCE_DISPLAY_NAME}`
-              }
-              onToggle={() => void engageOrb()}
-            />
-            <p className={styles.orbStatus} data-tone={voice.error ? "warn" : undefined}>
-              {orbPresenceLabel({
-                name: INTELLIGENCE_DISPLAY_NAME,
-                error: voice.error,
-                phase: voice.phase,
-                pending,
-                hasDocument: Boolean(document)
-              })}
-            </p>
-            {voiceLive ? (
-              <p className={styles.caption} aria-live="polite" data-role={lastSpoken?.role}>
-                {lastSpoken ? `${lastSpoken.role === "user" ? "You" : INTELLIGENCE_DISPLAY_NAME}: ${lastSpoken.body}` : null}
-              </p>
-            ) : null}
-          </div>
-
-          {orbCentered ? (
-            <div className={styles.orbEntry}>
-              <form
-                className={styles.whisper}
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  submitText(input);
-                }}
-              >
-                <label htmlFor="concierge-idle-input">Or type to {INTELLIGENCE_DISPLAY_NAME}</label>
-                <textarea
-                  id="concierge-idle-input"
-                  ref={inputRef}
-                  value={input}
-                  onChange={(event) => setInput(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && !event.shiftKey) {
-                      event.preventDefault();
-                      submitText(input);
-                    }
-                  }}
-                  placeholder="I run a quiet studio in…"
-                />
-                {voice.error || error ? <p className="notice notice-warn">{voice.error || error}</p> : null}
-              </form>
-              <div className={styles.actions}>
-                <button
-                  className="btn btn-ghost"
-                  type="button"
-                  onClick={() => void writeDocument()}
-                >
-                  Compose a document
-                </button>
-              </div>
-              <p className={styles.invitesLabel}>Try speaking as a founder would</p>
-              <div className={styles.prompts}>
-                {PROMPTS.map((prompt) => (
-                  <button key={prompt} className={styles.prompt} type="button" onClick={() => submitText(prompt)}>
-                    {prompt}
-                  </button>
-                ))}
-              </div>
-              <p className={styles.fine}>
-                No account is required. Neil Stutes reviews every commission he accepts.
-              </p>
-            </div>
-          ) : (
-            <div className={styles.rail}>
-              <div className={`${styles.chat} on-glass`}>
-                <div
-                  className={styles.messages}
-                  aria-live="polite"
-                  ref={messagesRef}
-                  onScroll={(event) => {
-                    const panel = event.currentTarget;
-                    pinnedRef.current = panel.scrollHeight - panel.scrollTop - panel.clientHeight < 48;
-                  }}
-                >
-                  {messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={`${styles.bubble} ${message.role === "user" ? styles.bubbleUser : ""}`}
-                    >
-                      <p className={styles.meta}>{message.role === "user" ? "You" : INTELLIGENCE_DISPLAY_NAME}</p>
-                      <p>{message.body}</p>
-                    </div>
-                  ))}
-                  {streaming ? (
-                    <div className={styles.bubble}>
-                      <p className={styles.meta}>{INTELLIGENCE_DISPLAY_NAME} · composing</p>
-                      <p>{streaming}</p>
-                    </div>
-                  ) : null}
-                </div>
-                <form
-                  className={styles.composer}
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    submitText(input);
-                  }}
-                >
-                  <label htmlFor="concierge-input">Continue with {INTELLIGENCE_DISPLAY_NAME}</label>
-                  <textarea
-                    id="concierge-input"
-                    ref={inputRef}
-                    value={input}
-                    onChange={(event) => setInput(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" && !event.shiftKey) {
-                        event.preventDefault();
-                        submitText(input);
-                      }
-                    }}
-                    placeholder="Add a fact, a place, or ask to make it quieter."
-                  />
-                  <button
-                    className={styles.composerSend}
-                    type="submit"
-                    disabled={pending || !input.trim()}
-                    aria-label={`Send to ${INTELLIGENCE_DISPLAY_NAME}`}
-                  >
-                    ↑
-                  </button>
-                  {voice.error || error ? <p className="notice notice-warn">{voice.error || error}</p> : null}
-                </form>
-                <button
-                  className={`btn ${document ? "btn-ghost" : "btn-emerald-glass"} ${styles.composeButton}`}
-                  type="button"
-                  onClick={() => void writeDocument()}
-                  disabled={pending}
-                >
-                  {document ? "Update the document" : "Compose a document"}
-                </button>
-              </div>
-            </div>
-          )}
+          <ol className={styles.path} aria-label="Your path to a proposal">
+            <li><span>01</span><div><strong>Start with your business</strong><p>Your goals, your challenges, your next chapter.</p></div></li>
+            <li><span>02</span><div><strong>Shape a direction</strong><p>Turn the conversation into a document you can review.</p></div></li>
+            <li><span>03</span><div><strong>Take it to Neil</strong><p>Send your brief for a personal review and next steps.</p></div></li>
+          </ol>
+          <p className={styles.note}>Founder-led design & development. No account required.</p>
         </div>
 
-        <PresentationCanvas document={document} preview={preview} index={slideIndex} onSelect={setSlideIndex} />
+        <div className={styles.panel}>
+          <header className={styles.panelHead}>
+            <span className={styles.monogram} aria-hidden="true">A</span>
+            <div><h2>Aethelios</h2><p>Your project conversation</p></div>
+            <span className={styles.badge}>Guided discovery</span>
+          </header>
+          <div className={styles.messages} ref={messagesRef} role="log" aria-label="Project conversation" aria-live="polite" tabIndex={0}
+            onScroll={(event) => { const panel = event.currentTarget; pinnedRef.current = panel.scrollHeight - panel.scrollTop - panel.clientHeight < 48; }}>
+            <div className={styles.welcome}>
+              <p className={styles.eyebrow}>A good project starts with understanding.</p>
+              <h3>What would you like<br />to make possible?</h3>
+              <p>Tell me a little about your business and what you’d like to improve. It doesn’t need to be a finished idea.</p>
+            </div>
+            {!hasConversation && <div className={styles.starters} aria-label="Conversation starters">
+              {STARTERS.map(([label, text]) => <button key={label} type="button" disabled={pending} onClick={() => { setInput(text); inputRef.current?.focus(); }}>{label}<span aria-hidden="true">↗</span></button>)}
+            </div>}
+            {messages.map((message) => <div key={message.id} className={styles.message} data-role={message.role}>
+              <span>{message.role === "user" ? "You" : "Aethelios"}</span><p>{message.body}</p>
+            </div>)}
+            {pending && <div className={styles.message}><span>Aethelios · {document ? "shaping your direction" : "considering your project"}</span><p>{streaming || "Working on your direction…"}</p></div>}
+          </div>
+          <form className={styles.composer} onSubmit={(event) => { event.preventDefault(); submit(); }}>
+            <label htmlFor="concierge-input">Tell us about your project</label>
+            <textarea id="concierge-input" ref={inputRef} value={input} maxLength={2000} disabled={pending}
+              onChange={(event) => setInput(event.target.value)}
+              onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); submit(); } }}
+              placeholder="I run a business in… and I’m looking to…" rows={3} aria-describedby="conversation-privacy" />
+            <div className={styles.composerActions}><span>Shift + Enter for a new line</span>
+              {pending ? <button type="button" className="btn btn-ghost" onClick={abort}>Stop response</button> : <button type="submit" className="btn btn-gold" disabled={!input.trim()}>Send message <span aria-hidden="true">↑</span></button>}
+            </div>
+          </form>
+          {error && <div className={styles.error} role="alert"><p>{error}</p><p>Your message remains above. Try again, or <AppLink href="/inquire">send an enquiry directly</AppLink>.</p></div>}
+          <footer className={styles.panelFoot}>
+            <p id="conversation-privacy">A draft, not a commitment. Nothing is sent to Neil until you review and choose to send. Avoid sharing sensitive information.</p>
+            {condensed && <p>For longer conversations, the direction uses your opening and latest details. Review it for missing requirements before sending.</p>}
+            {hasConversation && <button type="button" className="btn btn-ghost" disabled={pending} onClick={() => void composeDocument()}>{document ? "Update your direction" : "Create my direction"} <span aria-hidden="true">→</span></button>}
+          </footer>
+        </div>
       </div>
+      {document ? <div className={styles.document}><PresentationCanvas document={document} preview={preview} index={slideIndex} onSelect={setSlideIndex} /></div>
+        : hasConversation && !pending ? <div className={styles.document}><ConciergeHandoff /></div> : null}
+      <div className={styles.signature}><span>Strategy meets craft.</span><span>Websites / Applications / Digital infrastructure</span></div>
     </section>
   );
 }

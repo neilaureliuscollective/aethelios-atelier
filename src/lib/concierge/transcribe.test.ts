@@ -52,6 +52,17 @@ describe("homepage voice transcription", () => {
     expect(documentSourceFromTalk("I run a shop in Austin.", [])).toBe("I run a shop in Austin.");
   });
 
+  it("bounds a long document source while preserving opening context and latest requirements", () => {
+    const opening = "I run a salon in Austin. ";
+    const latest = "The booking system must remain connected.";
+    const source = documentSourceFromTalk(latest, [opening + "detail ".repeat(500)]);
+    expect(source.length).toBe(2000);
+    expect(source.startsWith(opening)).toBe(true);
+    expect(source.endsWith(latest)).toBe(true);
+    expect(source).toContain("omitted");
+    expect(documentSourceFromTalk("x".repeat(2000))).toBe("x".repeat(2000));
+  });
+
   it("GET reports not ready and POST refuses audio when the key is missing", async () => {
     clearOpenAiKeys();
     const status = await GET();

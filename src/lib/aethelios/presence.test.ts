@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { aetheliosDockVisible, aetheliosSurfaceForPath } from "./presence";
 
 describe("Aethelios presence surfaces", () => {
-  it("keeps the homepage as the hero orb and docks everywhere else", () => {
+  it("keeps the homepage as the project conversation and docks everywhere else", () => {
     expect(aetheliosSurfaceForPath("/")).toBe("hero");
     expect(aetheliosSurfaceForPath("/discover")).toBe("dock");
     expect(aetheliosSurfaceForPath("/project")).toBe("dock");
@@ -24,12 +24,11 @@ describe("Aethelios presence surfaces", () => {
     expect(shell).toContain("AetheliosDock");
     expect(home).toContain("<ConciergeStage");
     expect(stage).toContain("useAethelios");
-    expect(stage).toContain("StageAtmosphere");
-    expect(stage).not.toContain("colonnade.webp");
-    expect(stage).not.toContain("Talk with Aethelios");
-    expect(stage).not.toMatch(/btn-gold/);
-    expect(stage).toContain("INTELLIGENCE_DISPLAY_NAME");
-    expect(stage).toContain("Compose a document");
+    expect(stage).not.toContain("ConciergeOrb");
+    expect(stage).not.toContain("StageAtmosphere");
+    expect(stage).toContain("Create my direction");
+    expect(stage).toContain("PresentationCanvas");
+    expect(stage).toContain('href="/inquire"');
     const provider = readFileSync("src/components/aethelios/AetheliosProvider.tsx", "utf8");
     expect(provider).toContain("useOrbVoice");
     expect(provider).toContain("shouldCommitSpoken");
