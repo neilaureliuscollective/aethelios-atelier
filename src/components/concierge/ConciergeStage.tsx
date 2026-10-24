@@ -36,22 +36,33 @@ export function ConciergeStage() {
 
   return (
     <section className={styles.stage} aria-labelledby="concierge-heading">
-      <div className={styles.shell}>
-        <div className={styles.intro}>
-          <p className={styles.eyebrow}>Aethelios Atelier · Built for what’s next</p>
-          <h1 id="concierge-heading">Your ambition.<br /><em>Our next conversation.</em></h1>
-          <p className={styles.lede}>A considered website. A smarter app. A business that works better. Tell us what you have in mind — we’ll help shape the direction.</p>
-          <div className={styles.links}>
-            <button className="btn btn-gold" type="button" onClick={() => inputRef.current?.focus()}>Let’s talk about your project <span aria-hidden="true">↗</span></button>
-            <AppLink href="/inquire" className={styles.textLink}>Prefer to enquire directly? →</AppLink>
+      <div className={styles.hero}>
+        <picture className={styles.heroMedia}>
+          <source media="(max-width: 540px)" srcSet="/atmosphere/atelier-hero-mobile.webp" />
+          <img src="/atmosphere/atelier-hero.webp"
+            alt="Conceptual atelier architecture: emerald glass and champagne brass rising through warm light above an obsidian floor."
+            width={2560} height={1440} fetchPriority="high" decoding="async" />
+        </picture>
+        <div className={styles.heroShade} aria-hidden="true" />
+        <div className={styles.heroInner}>
+          <div className={styles.intro}>
+            <p className={styles.eyebrow}>Aethelios Atelier · Built for what’s next</p>
+            <h1 id="concierge-heading">Your ambition.<br /><em>Our next conversation.</em></h1>
+            <p className={styles.lede}>A considered website. A smarter app. A business that works better. Tell us what you have in mind — we’ll help shape the direction.</p>
+            <div className={styles.links}>
+              <button className="btn btn-gold" type="button" onClick={() => inputRef.current?.focus()}>Let’s talk about your project <span aria-hidden="true">↗</span></button>
+              <AppLink href="/inquire" className={styles.textLink}>Prefer to enquire directly? →</AppLink>
+            </div>
+            <p className={styles.note}>Founder-led design & development. No account required.</p>
           </div>
-          <ol className={styles.path} aria-label="Your path to a proposal">
-            <li><span>01</span><div><strong>Start with your business</strong><p>Your goals, your challenges, your next chapter.</p></div></li>
-            <li><span>02</span><div><strong>Shape a direction</strong><p>Turn the conversation into a document you can review.</p></div></li>
-            <li><span>03</span><div><strong>Take it to Neil</strong><p>Send your brief for a personal review and next steps.</p></div></li>
-          </ol>
-          <p className={styles.note}>Founder-led design & development. No account required.</p>
         </div>
+      </div>
+      <div className={styles.shell}>
+        <ol className={styles.path} aria-label="Your path to a proposal">
+          <li><span>01</span><div><strong>Start with your business</strong><p>Your goals, your challenges, your next chapter.</p></div></li>
+          <li><span>02</span><div><strong>Shape a direction</strong><p>Turn the conversation into a document you can review.</p></div></li>
+          <li><span>03</span><div><strong>Take it to Neil</strong><p>Send your brief for a personal review and next steps.</p></div></li>
+        </ol>
 
         <div className={styles.panel}>
           <header className={styles.panelHead}>
