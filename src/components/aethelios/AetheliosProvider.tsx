@@ -1,13 +1,18 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
+import { briefReady, emptyBrief, type DiscoveryBrief } from "@/lib/concierge/brief";
 import { applySlide, mergePresentation } from "@/lib/concierge/merge";
+import { CONCIERGE_HISTORY_LIMIT } from "@/lib/concierge/schema";
 import { parseConciergeChunk } from "@/lib/concierge/stream";
 import type { ConciergeHistoryItem, PresentationDocument, SitePreview } from "@/lib/concierge/types";
 import { documentSourceFromTalk, isUsableDocumentSource } from "@/lib/concierge/documentSource";
 import { INTELLIGENCE_DISPLAY_NAME } from "@/lib/copy";
 
 export type AetheliosMessage = { id: string; role: "user" | "assistant"; body: string };
+
+/** Mirrors MAX_VISITOR_TURNS on the server. */
+export const MAX_VISITOR_TURNS = 30;
 
 type AetheliosValue = {
   sessionId: string;
@@ -21,6 +26,9 @@ type AetheliosValue = {
   error: string;
   input: string;
   setInput: (value: string) => void;
+  brief: DiscoveryBrief;
+  ready: boolean;
+  atLimit: boolean;
   send: (message: string, options?: SendOptions) => Promise<void>;
   composeDocument: () => Promise<void>;
   abort: () => void;
@@ -52,6 +60,7 @@ export function AetheliosProvider({ children }: { children: ReactNode }) {
   const [streaming, setStreaming] = useState("");
   const [error, setError] = useState("");
   const [input, setInput] = useState("");
+  const [brief, setBrief] = useState<DiscoveryBrief>(() => emptyBrief());
   const abortRef = useRef<AbortController | null>(null);
   const inputLatest = useRef("");
   const sendLatest = useRef<(message: string, options?: SendOptions) => Promise<void>>(
@@ -64,7 +73,7 @@ export function AetheliosProvider({ children }: { children: ReactNode }) {
   messagesLatest.current = messages;
 
   const history = useMemo<ConciergeHistoryItem[]>(
-    () => messages.slice(-8).map((item) => ({ role: item.role, content: item.body.slice(0, 2000) })),
+    () => messages.slice(-CONCIERGE_HISTORY_LIMIT).map((item) => ({ role: item.role, content: item.body.slice(0, 2000) })),
     [messages]
   );
 
@@ -73,6 +82,8 @@ export function AetheliosProvider({ children }: { children: ReactNode }) {
       const text = message.trim();
       if (!text) return;
       if (pendingLatest.current && !options?.compose) return;
+      const turn = messagesLatest.current.filter((item) => item.role === "user").length;
+      if (!options?.compose && turn >= MAX_VISITOR_TURNS) return;
       setPending(true);
       setError("");
       setStreaming("");
@@ -89,6 +100,8 @@ export function AetheliosProvider({ children }: { children: ReactNode }) {
           body: JSON.stringify({
             message: text,
             history,
+            brief,
+            turn,
             document: document ?? undefined,
             preview: preview ?? undefined,
             compose: options?.compose
@@ -124,6 +137,9 @@ export function AetheliosProvider({ children }: { children: ReactNode }) {
             if (event.type === "canvas.replace") {
               setDocument((current) => mergePresentation(current, event.document) ?? event.document);
             }
+            if (event.type === "brief") {
+              setBrief(event.brief);
+            }
             if (event.type === "preview.ready") {
               setPreview(event.preview);
             }
@@ -146,7 +162,7 @@ export function AetheliosProvider({ children }: { children: ReactNode }) {
         if (abortRef.current === controller) setPending(false);
       }
     },
-    [document, history, preview]
+    [brief, document, history, preview]
   );
 
   sendLatest.current = send;
@@ -183,11 +199,14 @@ export function AetheliosProvider({ children }: { children: ReactNode }) {
       error,
       input,
       setInput,
+      brief,
+      ready: briefReady(brief),
+      atLimit: messages.filter((item) => item.role === "user").length >= MAX_VISITOR_TURNS,
       send,
       composeDocument,
       abort
     }),
-    [abort, composeDocument, document, error, input, messages, pending, preview, send, sessionId, slideIndex, streaming]
+    [abort, brief, composeDocument, document, error, input, messages, pending, preview, send, sessionId, slideIndex, streaming]
   );
 
   return (

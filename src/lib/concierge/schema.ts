@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { BEGIN_HREF } from "@/lib/publicSite";
+import { discoveryBriefSchema } from "./brief";
 
 export const SLIDE_LAYOUTS = [
   "hero",
@@ -94,9 +95,14 @@ export const sitePreviewSchema = z.object({
   labeled: z.literal("illustrative_sketch")
 });
 
+/** Turns of history the talk endpoint accepts; the brief carries everything older. */
+export const CONCIERGE_HISTORY_LIMIT = 16;
+
 export const conciergeTalkRequestSchema = z.object({
   message: z.string().min(1).max(2000),
-  history: z.array(conciergeHistorySchema).max(8).optional(),
+  history: z.array(conciergeHistorySchema).max(CONCIERGE_HISTORY_LIMIT).optional(),
+  brief: discoveryBriefSchema.optional(),
+  turn: z.number().int().min(0).max(200).optional(),
   document: presentationSchema.optional(),
   preview: sitePreviewSchema.optional(),
   compose: z.boolean().optional()

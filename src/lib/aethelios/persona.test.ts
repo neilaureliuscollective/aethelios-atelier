@@ -55,7 +55,7 @@ describe("Aethelios persona", () => {
     expect(aetheliosPreviewPrompt()).toMatch(/product and website expert/);
     const sketch = extractBusinessSketch("I run a barbershop called Northridge in Austin.");
     expect(composeReply(sketch, true)).toBe(aetheliosComposeReply("Northridge in Austin", true));
-    expect(composeReply(sketch, true)).toMatch(/sketch/);
+    expect(composeReply(sketch, true)).toMatch(/direction/);
     expect(composeReply(sketch, false)).toMatch(/business you actually run/);
     expect(composeReply(sketch, false)).not.toMatch(/I can keep this in conversation/);
   });

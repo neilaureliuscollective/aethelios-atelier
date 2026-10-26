@@ -22,28 +22,64 @@ export function explainResendFailure(status: number, bodyText: string): string {
   return `Resend could not send this inquiry. Confirm AUTH_RESEND_FROM is ${RESEND_TEST_FROM} and ATELIER_INQUIRY_TO is the email on your Resend account. You can still open the mail app.`;
 }
 
-export async function sendInquiryEmail(inquiry: StoredInquiry, text: string, destination: string) {
+async function postResend(payload: { to: string; reply_to: string; subject: string; text: string }) {
   const resend = readResendEmail();
   if (!resend.apiKey || !resend.from) {
     throw new InquiryDeliveryError("Inquiry email is not configured.");
   }
-  const response = await fetch("https://api.resend.com/emails", {
+  return fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${resend.apiKey}`,
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({
-      from: resend.from,
-      to: destination,
-      reply_to: inquiry.email,
-      subject: `Atelier inquiry from ${inquiry.name}`,
-      text
-    })
+    body: JSON.stringify({ from: resend.from, ...payload })
+  });
+}
+
+export async function sendInquiryEmail(
+  inquiry: StoredInquiry,
+  text: string,
+  destination: string,
+  options: { subject?: string } = {}
+) {
+  const response = await postResend({
+    to: destination,
+    reply_to: inquiry.email,
+    subject: options.subject ?? `Atelier inquiry from ${inquiry.name}`,
+    text
   });
   if (!response.ok) {
     const bodyText = await response.text().catch(() => "");
     console.error("atelier_inquiry_resend", response.status);
     throw new InquiryDeliveryError(explainResendFailure(response.status, bodyText));
+  }
+}
+
+export function visitorConfirmationText(inquiry: Pick<StoredInquiry, "name" | "business">) {
+  const first = inquiry.name.trim().split(/\s+/)[0] || inquiry.name.trim();
+  return [
+    `${first},`,
+    "",
+    `Your direction for ${inquiry.business} has reached Neil Stutes. He reads every one personally and will reply to this address with next steps.`,
+    "",
+    "Nothing has been booked or charged. If anything changes before he writes, simply reply to this email.",
+    "",
+    "— Aethelios, for Aethelios Atelier"
+  ].join("\n");
+}
+
+/** A courtesy receipt to the visitor. Never fails the handoff: Neil already has the message. */
+export async function sendVisitorConfirmation(inquiry: StoredInquiry, founderInbox: string) {
+  try {
+    const response = await postResend({
+      to: inquiry.email,
+      reply_to: founderInbox,
+      subject: "Neil has your direction · Aethelios Atelier",
+      text: visitorConfirmationText(inquiry)
+    });
+    if (!response.ok) console.error("atelier_visitor_confirmation", response.status);
+  } catch {
+    console.error("atelier_visitor_confirmation", "unsent");
   }
 }

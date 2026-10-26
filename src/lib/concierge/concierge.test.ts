@@ -43,7 +43,8 @@ describe("concierge display contract", () => {
     expect(deck.theme.accent).toBe("gold");
     expect(JSON.stringify(deck.theme)).not.toMatch(/ember/);
     expect(JSON.stringify(deck)).not.toMatch(/\$79|testimonial|dangerouslySetInnerHTML|<script/i);
-    expect(composeReply(sketch, true)).toMatch(/sketch/);
+    expect(composeReply(sketch, true)).toMatch(/direction/);
+    expect(composeReply(sketch, true)).not.toMatch(/\$\d|quote you/i);
   });
 
   it("merges streamed slides without dropping earlier ones", () => {
@@ -70,21 +71,23 @@ describe("concierge display contract", () => {
     expect(events.map((item) => item.type)).toEqual(["delta", "done"]);
   });
 
-  it("runs a guest turn without a live model and never emits HTML", async () => {
+  it("holds a guest conversation without a live model: one question, a brief, no canvas", async () => {
     process.env.ATELIER_OPENAI_ENABLED = "false";
     delete process.env.OPENAI_API_KEY;
     const events: string[] = [];
     const turn = await runConciergeTurn({
-      message: "I run a salon in Chicago and I already use a booking system.",
+      message: "I run a salon called Lumen in Chicago and I already use a booking system.",
       onEvent: (event) => events.push(event.type)
     });
-    expect(turn.presented).toBe(true);
+    expect(turn.presented).toBe(false);
     expect(turn.liveAi).toBe(false);
-    expect(turn.document?.slides.length).toBeGreaterThan(3);
-    expect(events).toContain("canvas.open");
-    expect(events).toContain("canvas.slide");
-    expect(events).toContain("canvas.complete");
-    expect(containsForbiddenPayload(turn.document)).toBe(false);
+    expect(events).toEqual(["user", "delta", "brief", "done"]);
+    expect(turn.reply.match(/\?/g)).toHaveLength(1);
+    expect(turn.brief.business).toMatch(/salon/);
+    expect(turn.brief.businessName).toBe("Lumen");
+    expect(turn.brief.location).toBe("Chicago");
+    expect(turn.brief.lastAsked).toBe("audience");
+    expect(containsForbiddenPayload(turn.reply)).toBe(false);
   });
 
   it("opens a document when compose is asked even without a business sentence", async () => {

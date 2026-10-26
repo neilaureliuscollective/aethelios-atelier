@@ -1,5 +1,6 @@
 import { aetheliosComposeReply } from "@/lib/aethelios/persona";
 import { INTELLIGENCE_DISPLAY_NAME } from "@/lib/copy";
+import { coveredTopics, type DiscoveryBrief } from "./brief";
 import { extractBusinessSketch, sketchLabel } from "./extract";
 import { isRevisionRequest } from "./intent";
 import type { BusinessKind, BusinessSketch, PresentationDocument, PresentationSlide, PresentationTheme } from "./types";
@@ -213,6 +214,117 @@ export function composePresentation(
         : `${sketchLabel(sketch).replace(/^this /, "Your ")} · direction`,
     thesis: qualityLine(sketch, KIND_COPY[sketch.kind].promise),
     theme,
+    slides
+  };
+}
+
+function clip(text: string, max: number) {
+  const value = text.trim();
+  if (value.length <= max) return value;
+  const cut = value.slice(0, max - 1);
+  return `${cut.slice(0, Math.max(cut.lastIndexOf(" "), max - 24)).replace(/[,;:]$/, "")}…`;
+}
+
+function sentenceCase(value: string) {
+  return value.slice(0, 1).toUpperCase() + value.slice(1);
+}
+
+/**
+ * A direction written from the discovery brief. Falls back to the sketch composer
+ * when the conversation has not yet covered enough to say anything specific.
+ */
+export function composeFromBrief(
+  brief: DiscoveryBrief,
+  visitorText: string,
+  existing?: PresentationDocument | null
+): PresentationDocument {
+  if (coveredTopics(brief).length < 2) return composePresentation(visitorText, existing);
+  const sketch = extractBusinessSketch(visitorText);
+  const name = brief.businessName || sketch.name;
+  const place = brief.location || sketch.place;
+  // The quote is the visitor's opening description, not the whole conversation run together.
+  const opening = visitorText.split("\n").find((line) => line.trim().length >= 18) ?? visitorText;
+  const words = visitorWords(opening);
+  const build = brief.recommendation || brief.needs;
+  const bullets = [
+    brief.needs && brief.recommendation ? `You asked for: ${brief.needs}` : "",
+    brief.currentSetup ? `Works with what you run today: ${brief.currentSetup}` : "",
+    brief.feel ? `The feel: ${brief.feel}` : "",
+    brief.timeline ? `Timing: ${brief.timeline}` : ""
+  ]
+    .filter(Boolean)
+    .map((line) => clip(line, 160));
+  const slides: PresentationSlide[] = [
+    {
+      id: "slide_hero",
+      layout: "hero",
+      kicker: `${INTELLIGENCE_DISPLAY_NAME} · direction`,
+      headline: clip(name ?? "Your business, considered.", 160),
+      subhead: clip(brief.business || `For ${KIND_COPY[sketch.kind].subject}${place ? ` in ${place}` : ""}.`, 240),
+      body: brief.goals ? clip(sentenceCase(brief.goals), 600) : KIND_COPY[sketch.kind].promise,
+      enter: "rise",
+      emphasis: "headline"
+    },
+    {
+      id: "slide_words",
+      layout: "quote",
+      kicker: "In your words",
+      quote: clip(words ?? brief.business, 280),
+      attribution: "You, to Aethelios",
+      enter: "fade",
+      emphasis: "quote"
+    },
+    {
+      id: "slide_split",
+      layout: "split",
+      kicker: "The brief",
+      headline: "What has to work, and for whom.",
+      columns: [
+        { title: "What has to work better", body: clip(brief.goals || "Still to discuss with Neil.", 280) },
+        { title: "Who it serves", body: clip(brief.audience || "Still to discuss with Neil.", 280) }
+      ],
+      enter: "split",
+      emphasis: "none"
+    },
+    {
+      id: "slide_manifesto",
+      layout: "manifesto",
+      kicker: "What to build",
+      headline: "The smallest complete build that solves it.",
+      body: clip(build ? sentenceCase(build) : "Neil will shape the build with you from this brief.", 600),
+      ...(bullets.length ? { bullets } : {}),
+      enter: "fade",
+      emphasis: "none"
+    },
+    {
+      id: "slide_path",
+      layout: "path",
+      kicker: "What happens next",
+      headline: "From this direction to a proposal.",
+      steps: [
+        { title: "Send it to Neil", body: "Your direction and this conversation travel together. No account, no payment." },
+        { title: "Neil reviews it", body: "He reads it personally and follows up if anything needs clarifying." },
+        { title: "A written proposal", body: "Scope, investment, and timing — in writing, before anything is built." }
+      ],
+      enter: "fade",
+      emphasis: "none"
+    },
+    {
+      id: "slide_next",
+      layout: "next",
+      kicker: "Ready when you are",
+      headline: "Send this direction to Neil.",
+      body: `Keep talking and ${INTELLIGENCE_DISPLAY_NAME} will refine it, or send it now from the bar below.`,
+      enter: "rise",
+      emphasis: "none"
+    }
+  ];
+  return {
+    version: 1,
+    id: existing?.id ?? idFor("canvas"),
+    title: clip(name ? `${name} · direction` : "Your direction", 120),
+    thesis: clip(build ? sentenceCase(build) : KIND_COPY[sketch.kind].promise, 280),
+    theme: atelierDocumentTheme(),
     slides
   };
 }

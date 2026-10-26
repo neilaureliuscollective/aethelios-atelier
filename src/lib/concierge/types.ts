@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import type { DiscoveryBrief } from "./brief";
 import type { presentationDraftSchema, slideSchema, presentationThemeSchema } from "./schema";
 
 export type SlideLayout = z.infer<typeof slideSchema>["layout"];
@@ -29,6 +30,7 @@ export type ConciergeStreamEvent =
   | { type: "canvas.complete"; document: PresentationDocument }
   | { type: "preview.open" }
   | { type: "preview.ready"; preview: SitePreview }
+  | { type: "brief"; brief: DiscoveryBrief; ready: boolean }
   | { type: "done"; reply: string; liveAi: boolean; presented: boolean }
   | { type: "error"; message: string };
 
