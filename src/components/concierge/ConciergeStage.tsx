@@ -15,7 +15,7 @@ const STARTERS = [
 
 export function ConciergeStage() {
   const { messages, document, preview, slideIndex, setSlideIndex, pending, streaming,
-    error, input, setInput, send, composeDocument, abort, voice } = useAethelios();
+    error, input, setInput, send, composeDocument, abort } = useAethelios();
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
   const pinnedRef = useRef(true);
@@ -30,7 +30,6 @@ export function ConciergeStage() {
 
   function submit() {
     if (pending || !input.trim()) return;
-    voice.stop();
     void send(input);
   }
 
@@ -64,7 +63,7 @@ export function ConciergeStage() {
           <li><span>03</span><div><strong>Take it to Neil</strong><p>Send your brief for a personal review and next steps.</p></div></li>
         </ol>
 
-        <div className={styles.panel}>
+        <div className={styles.panel} id="aethelios">
           <header className={styles.panelHead}>
             <span className={styles.monogram} aria-hidden="true">A</span>
             <div><h2>Aethelios</h2><p>Your project conversation</p></div>

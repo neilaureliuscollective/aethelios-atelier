@@ -1,4 +1,5 @@
 import { BARBERS_SALONS_OFFER_ID, type ServiceOfferId } from "@/lib/offers/ids";
+import { BEGIN_HREF } from "@/lib/publicSite";
 
 export const BARBERS_SALONS_PUBLIC_TITLE = "Atelier for Barbers & Salons";
 
@@ -7,14 +8,13 @@ export const BARBERS_SALONS_CORE_MESSAGE =
 
 export const BARBERS_SALONS_HREF = "/services/barbers-salons";
 
-export const BARBERS_SALONS_BRIEF_HREF =
-  "/project?offer=barbers_salons&interest=website&purpose=business&booking=1";
+export const BARBERS_SALONS_BRIEF_HREF = BEGIN_HREF;
 
 export const KATIE_FIX_IT_PUBLIC_HREF = "https://fixitshop-app.vercel.app/";
 export const KATIE_FIX_IT_BOOKING_HREF = "https://fixitshop.glossgenius.com/";
 
 export const BARBERS_SALONS_PUBLIC_TERMS =
-  "This focused offer has a one-time build fee plus ongoing hosting and care. Neil confirms the exact proposal. It does not replace the published Atelier plan prices.";
+  "This focused offer has a one-time build fee plus ongoing hosting and care. Neil confirms the exact proposal.";
 
 export type BarbersSalonStarterKey =
   | "vision"

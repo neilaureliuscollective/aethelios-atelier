@@ -1,4 +1,5 @@
 import type { ProjectType } from "@/lib/types";
+import { BEGIN_HREF } from "@/lib/publicSite";
 
 /** Stored id kept for briefs saved before the Custom apps headline. */
 export const HISTORICAL_BOOKING_PROJECT_TYPE = "booking_connected_website" as const;
@@ -78,11 +79,9 @@ export function historicalProjectTypeNote(value: string): string | null {
   return "This brief was saved as a booking-connected website. That category is now listed as Custom apps & platforms. If you already use a booking tool, it can stay in the brief as an example — Atelier does not become that booking product. The saved type stays until you choose a category.";
 }
 
+/** Every service begins in the Aethelios conversation; the interest lets it open on that topic. */
 export function serviceBriefHref(id: Exclude<VisibleProjectType, "undecided">): string {
-  if (id === "custom_apps_platforms" || id === "digital_infrastructure") {
-    return `/project?interest=${id}&purpose=business`;
-  }
-  return `/discover?interest=${id}`;
+  return BEGIN_HREF.replace("/#", `/?interest=${id}#`);
 }
 
 export function asksBookingProvider(

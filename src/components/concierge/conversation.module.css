@@ -35,7 +35,7 @@
 .path strong { font-size: 14px; font-weight: 500; }
 .path p { color: var(--sage); font-size: 13px; margin: 4px 0 0; }
 .note { color: var(--sage); font-size: 12px; margin-top: 34px; }
-.panel { min-width: 0; border: 1px solid var(--border); border-radius: var(--radius); background: var(--charcoal); box-shadow: var(--shadow); overflow: hidden; }
+.panel { scroll-margin-top: 96px; min-width: 0; border: 1px solid var(--border); border-radius: var(--radius); background: var(--charcoal); box-shadow: var(--shadow); overflow: hidden; }
 .panelHead { padding: 22px 26px; display: flex; align-items: center; gap: 14px; border-bottom: 1px solid var(--border-soft); }
 .monogram { display: grid; place-items: center; border: 1px solid var(--gold-edge); color: var(--gold-pale); width: 40px; height: 44px; border-radius: 14px 14px 4px 4px; font-family: var(--font-display); font-size: 30px; }
 .panelHead h2 { font-size: 18px; margin: 0; }

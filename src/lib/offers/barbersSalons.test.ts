@@ -28,11 +28,9 @@ describe("barbers and salons public offer", () => {
   it("keeps the working title, core message, and brief destination stable", () => {
     expect(BARBERS_SALONS_OFFER.title).toBe("Atelier for Barbers & Salons");
     expect(BARBERS_SALONS_CORE_MESSAGE).toMatch(/booking system you already use/i);
-    expect(BARBERS_SALONS_BRIEF_HREF).toBe(
-      "/project?offer=barbers_salons&interest=website&purpose=business&booking=1"
-    );
+    expect(BARBERS_SALONS_BRIEF_HREF).toBe("/#aethelios");
     expect(BARBERS_SALONS_PUBLIC_TERMS).toMatch(/one-time build fee plus ongoing hosting and care/i);
-    expect(BARBERS_SALONS_PUBLIC_TERMS).toMatch(/does not replace the published Atelier plan prices/i);
+    expect(BARBERS_SALONS_PUBLIC_TERMS).not.toMatch(/plan prices/i);
   });
 
   it("keeps the unapproved commercial proposal out of public surfaces", () => {
@@ -50,9 +48,7 @@ describe("barbers and salons public offer", () => {
     }
   });
 
-  it("does not hide published Atelier plan prices while keeping this offer unpublished", () => {
-    const pricing = readFileSync("src/lib/pricing/terms.ts", "utf8");
-    expect(pricing).toMatch(/atelier/);
-    expect(readFileSync("src/lib/offers/barbersSalons.ts", "utf8")).not.toMatch(/\$249|\$399|\$699/);
+  it("keeps the unapproved offer figures out of the public offer module", () => {
+    expect(readFileSync("src/lib/offers/barbersSalons.ts", "utf8")).not.toMatch(/\$79|\$249|\$299|\$399|\$699/);
   });
 });

@@ -32,13 +32,10 @@ describe("Atelier Commerce public offer", () => {
     expect(COMMERCE_LAUNCH_OFFER.title).toBe("Commerce Launch");
     expect(ATELIER_COMMERCE_CORE_MESSAGE).toMatch(/storefront the client owns/i);
     expect(ATELIER_COMMERCE_HREF).toBe("/services/commerce");
-    expect(COMMERCE_FOUNDATION_BRIEF_HREF).toBe(
-      "/project?offer=commerce_foundation&interest=ecommerce_storefronts&purpose=business"
-    );
-    expect(COMMERCE_LAUNCH_BRIEF_HREF).toBe(
-      "/project?offer=commerce_launch&interest=ecommerce_storefronts&purpose=business"
-    );
-    expect(ATELIER_COMMERCE_PUBLIC_TERMS).toMatch(/does not replace the published Atelier plan prices/i);
+    expect(COMMERCE_FOUNDATION_BRIEF_HREF).toBe("/#aethelios");
+    expect(COMMERCE_LAUNCH_BRIEF_HREF).toBe("/#aethelios");
+    expect(ATELIER_COMMERCE_PUBLIC_TERMS).toMatch(/Neil confirms the exact proposal/i);
+    expect(ATELIER_COMMERCE_PUBLIC_TERMS).not.toMatch(/plan prices/i);
     expect(isServiceOfferId("commerce_foundation")).toBe(true);
     expect(isServiceOfferId("commerce_launch")).toBe(true);
     expect(isCommerceOfferId("commerce_foundation")).toBe(true);

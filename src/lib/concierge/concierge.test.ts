@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { composePresentation, composeReply } from "./compose";
-import { spokenTurnFrom } from "./voiceText";
 import { CONCIERGE_RENDER_CONTRACT, containsForbiddenPayload } from "./contract";
 import { extractBusinessSketch, sketchLabel } from "./extract";
 import { isRevisionRequest, shouldOpenCanvas } from "./intent";
@@ -111,29 +110,10 @@ describe("concierge homepage seating", () => {
     expect(renderer).not.toContain("eval(");
     expect(renderer).not.toContain("SlideField");
     expect(renderer).toContain("data-layout");
-    const orb = readFileSync("src/components/concierge/ConciergeOrb.tsx", "utf8");
-    expect(orb).toContain("ArchitectOrb");
-    expect(orb).toContain("orbFallback");
-    expect(orb).toContain("liveOutputRef");
-    expect(orb).toContain("envelopeToward");
-    expect(orb).not.toContain("gl_FragColor");
     const stage = readFileSync("src/components/concierge/ConciergeStage.tsx", "utf8");
     expect(stage).toContain("Your ambition.");
     expect(stage).not.toContain("StageAtmosphere");
     expect(stage).not.toContain("ConciergeOrb");
-    const css = readFileSync("src/components/concierge/concierge.module.css", "utf8");
-    expect(css).toContain("perspective(720px)");
-    expect(css).toContain("rotateX(58deg)");
-    expect(css).toContain("overflow: hidden");
-    expect(css).toContain("clip-path: circle(50%");
-    expect(css).toContain("clamp(212px, 38vmin, 300px)");
-    expect(css).toContain("atelier-hall.jpg");
-    expect(css).toContain(".brief");
-    expect(css).not.toContain('data-mood="ember"');
-    expect(existsSync("public/atmosphere/atelier-hall.jpg")).toBe(true);
-    expect(css).not.toContain("70vw");
-    expect(css).not.toContain("colonnade.webp");
-    expect(css).toMatch(/listening[\s\S]*canvasWrap[\s\S]*display: none/);
     expect(stage).not.toContain("colonnade.webp");
     expect(stage).not.toContain("Talk with Aethelios");
     expect(stage).toContain("Create my direction");
@@ -142,51 +122,20 @@ describe("concierge homepage seating", () => {
     expect(stage).toContain("event.nativeEvent.isComposing");
     expect(stage).toContain("maxLength={2000}");
     const provider = readFileSync("src/components/aethelios/AetheliosProvider.tsx", "utf8");
-    expect(provider).toContain("useOrbVoice");
-    expect(provider).toContain("shouldCommitSpoken");
+    expect(provider).toContain("isUsableDocumentSource");
     expect(provider).toContain("compose: true");
-    expect(provider).toContain("playsInline");
-    expect(provider).not.toContain("SPOKEN_COMMIT_MS");
-    const atmosphere = readFileSync("src/components/concierge/StageAtmosphere.tsx", "utf8");
-    expect(atmosphere).toContain("paintChamber");
+    expect(provider).not.toMatch(/useOrbVoice|<audio|getUserMedia/);
+    expect(existsSync("src/components/aethelios/AetheliosDock.tsx")).toBe(false);
+    expect(existsSync("src/app/api/concierge/voice/route.ts")).toBe(false);
+    expect(existsSync("src/app/api/concierge/transcribe/route.ts")).toBe(false);
     expect(stage).not.toContain("SpeechRecognition");
     expect(stage).not.toContain("webkitSpeechRecognition");
-    const voice = readFileSync("src/components/concierge/useOrbVoice.ts", "utf8");
-    expect(voice).toContain("getUserMedia");
-    expect(voice).toContain("RTCPeerConnection");
-    expect(voice).toContain("/api/concierge/voice");
-    expect(voice).toContain("response.create");
-    expect(voice).toContain("Speak first");
-    expect(voice).toContain("watchLevels");
-    expect(voice).toContain('language: "en"');
-    expect(voice).toContain("English only");
-    expect(voice).not.toContain("SpeechRecognition");
-    expect(voice).not.toContain("webkitSpeechRecognition");
-    const session = readFileSync("src/lib/concierge/voiceSession.ts", "utf8");
-    expect(session).toContain("/v1/realtime/calls");
-    expect(session).not.toContain("/v1/realtime/sessions");
-    expect(session).toContain("verse");
-    expect(session).toContain("aetheliosSpokenPrompt");
-    const architect = readFileSync("src/components/orb/ArchitectOrb.tsx", "utf8");
-    expect(architect).toContain('setBackend("canvas2d")');
-    expect(architect).toContain("failIfMajorPerformanceCaveat");
-    expect(architect).toContain("webglcontextlost");
-    expect(architect).toContain("getContextAttributes");
-    expect(architect).toContain("paintParticleOrb");
-    expect(architect).toContain("gl.POINTS");
-    expect(architect).toContain('data-ready');
     const canvas = readFileSync("src/components/concierge/PresentationCanvas.tsx", "utf8");
     expect(canvas).toContain("ConciergeHandoff");
     expect(canvas).toContain("Live document");
     expect(canvas).toContain("atelier-brief");
     expect(canvas).not.toContain("SlideField");
     expect(canvas).not.toContain("The room is assembling.");
-    const transcribe = readFileSync("src/lib/concierge/transcribe.ts", "utf8");
-    expect(transcribe).toContain("gpt-transcribe");
-    expect(transcribe).toContain("whisper-1");
-    expect(transcribe).toContain("readOpenAiApiKey");
-    expect(transcribe).not.toContain("ATELIER_OPENAI_ENABLED");
-    expect(transcribe).not.toContain("aureliusStatus");
   });
 });
 
@@ -199,18 +148,6 @@ describe("concierge send flow", () => {
     expect(canvas.match(/<ConciergeHandoff/g)).toHaveLength(1);
     expect(canvas).toContain("sendDock");
     expect(stage).toContain("Send message");
-  });
-
-  it("records only finished spoken turns from both speakers", () => {
-    expect(spokenTurnFrom({ type: "conversation.item.input_audio_transcription.delta", transcript: "I run" })).toBeNull();
-    expect(
-      spokenTurnFrom({ type: "conversation.item.input_audio_transcription.completed", transcript: " I run a barbershop. " })
-    ).toEqual({ role: "user", text: "I run a barbershop." });
-    expect(spokenTurnFrom({ type: "response.output_audio_transcript.done", transcript: "Tell me more." })).toEqual({
-      role: "assistant",
-      text: "Tell me more."
-    });
-    expect(spokenTurnFrom({ type: "response.audio_transcript.delta", transcript: "Tell" })).toBeNull();
   });
 
   it("quotes the visitor and never titles a document 'this business'", () => {

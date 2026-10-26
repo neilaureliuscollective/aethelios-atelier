@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BEGIN_HREF, BEGIN_LABEL } from "@/lib/publicSite";
 import { AppLink } from "@/components/ui/AppLink";
 import { InquiryForm } from "@/components/project/InquiryForm";
 
@@ -15,14 +16,14 @@ export default function InquirePage() {
       <h1>Tell Neil what you need.</h1>
       <p className="lede">
         No account is required. Sending this is a request for review — not a booking, quote, or
-        payment. If you would rather shape a fuller brief first, start there.
+        payment. If you would rather think it through first, Aethelios can help shape a fuller direction.
       </p>
       <div className="inquiry-page-form surface-paper" style={{ padding: 28, marginTop: 24, maxWidth: 640 }}>
         <InquiryForm source="inquire" />
       </div>
       <div className="row" style={{ marginTop: 24 }}>
-        <AppLink className="btn btn-ghost" href="/project">
-          Shape a fuller brief
+        <AppLink className="btn btn-ghost" href={BEGIN_HREF}>
+          {BEGIN_LABEL}
         </AppLink>
         <AppLink className="btn btn-ghost" href="/services">
           Review services

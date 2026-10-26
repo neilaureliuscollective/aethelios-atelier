@@ -1,4 +1,5 @@
 import { AppLink } from "@/components/ui/AppLink";
+import { BEGIN_HREF, BEGIN_LABEL } from "@/lib/publicSite";
 import { AtelierManifesto } from "@/components/marketing/AtelierManifesto";
 import { ConciergeStage } from "@/components/concierge/ConciergeStage";
 import { CustomProjectsInvite } from "@/components/marketing/CustomProjectsInvite";
@@ -37,8 +38,8 @@ export default function HomePage() {
           </div>
           <p className="lede">
             Branding is a quality across this work, and it can also be scoped on its own. A rebrand is
-            not required to start. Plan prices are listed on{" "}
-            <AppLink href="/pricing">Pricing</AppLink>. Neil still confirms every proposal.
+            not required to start. Every build is scoped to the business —{" "}
+            <AppLink href="/pricing">see how investment works</AppLink>. Neil confirms every proposal.
           </p>
         </div>
         <ServiceShowcase />
@@ -50,7 +51,7 @@ export default function HomePage() {
           <p className="kicker">Neil’s approach</p>
           <h2 id="path-heading">A more considered way to build.</h2>
           <p className="lede">
-            Nothing is sent until you review the brief and consent. Sending a brief is a request.
+            Nothing is sent until you review the direction and choose to send it. Sending is a request.
             Neil accepts work only after he reviews it. Price and timing stay unconfirmed until he
             says so.
           </p>
@@ -58,10 +59,10 @@ export default function HomePage() {
         <div className="process process-editorial">
           {(
             [
-              ["01", "Understanding your vision", "Discover a direction and write what the business actually needs.", "/discover"],
-              ["02", "Thinking strategically", "A living brief keeps statements, suggestions, and unknowns distinct.", "/project"],
-              ["03", "Designing with intent", "Neil reviews accepted work and publishes versioned proposals.", "/approach"],
-              ["04", "Building for what’s next", "Design and development proceed against the agreed version — not an open-ended studio.", "/approach"]
+              ["01", "Understanding your vision", "Talk the business through with Aethelios — what you run, who it serves, and what has to work better.", BEGIN_HREF],
+              ["02", "Thinking strategically", "Aethelios shapes the conversation into a written direction you review before anything is sent.", BEGIN_HREF],
+              ["03", "Designing with intent", "Neil reads the direction personally and replies with a scoped, written proposal.", "/approach"],
+              ["04", "Building for what’s next", "Design and development proceed against the agreed proposal — not an open-ended retainer.", "/approach"]
             ] as const
           ).map(([num, title, copy, href], index) => (
             <AppLink className="offer-link" href={href} key={num}>
@@ -83,10 +84,10 @@ export default function HomePage() {
             <p className="lede lede-bright">
               Aethelios Atelier is founder-led studio work, separate from the main Aethelios product.
               Neil reads every brief he accepts and remains accountable for scope, price, and delivery.
-              You can explore without a subscription.
+              No account and no subscription — just a conversation and a proposal.
             </p>
-            <AppLink className="btn btn-gold" href="/project">
-              Begin a brief
+            <AppLink className="btn btn-gold" href={BEGIN_HREF}>
+              {BEGIN_LABEL}
             </AppLink>
             <AppLink className="btn btn-ghost" href="/inquire">
               Send an inquiry

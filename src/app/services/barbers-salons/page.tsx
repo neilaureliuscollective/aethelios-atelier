@@ -179,7 +179,7 @@ export default function BarbersSalonsPage() {
             All services
           </AppLink>
           <AppLink className="btn btn-ghost" href="/pricing">
-            Published plan prices
+            How investment works
           </AppLink>
         </div>
       </section>

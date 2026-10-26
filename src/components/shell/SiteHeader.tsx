@@ -5,54 +5,25 @@ import { usePathname } from "next/navigation";
 import { BrandMark } from "@/components/brand/BrandMark";
 import { AppLink } from "@/components/ui/AppLink";
 import { FULL_LOGO } from "@/lib/brand/fullLogo";
-import type { User } from "@/lib/types";
+import { BEGIN_HREF, BEGIN_LABEL } from "@/lib/publicSite";
 
 export const MOBILE_NAV_ID = "site-mobile-nav";
 export const MOBILE_NAV_BREAKPOINT = "(max-width: 720px)";
 
 const links = [
-  { href: "/discover", label: "Discover" },
   { href: "/services", label: "Services" },
-  { href: "/pricing", label: "Pricing" },
+  { href: "/custom-projects", label: "Custom work" },
+  { href: "/pricing", label: "Investment" },
   { href: "/approach", label: "Approach" },
   { href: "/about", label: "About" },
   { href: "/inquire", label: "Inquire" }
 ];
 
-const workspaceLinks = [
-  { href: "/companion", label: "Today" },
-  { href: "/companion/talk", label: "Talk" },
-  { href: "/companion/studio", label: "Studio" },
-  { href: "/companion/work", label: "Work" },
-  { href: "/companion/business", label: "Business" },
-  { href: "/companion/confirm", label: "Confirm" }
-];
-
-function currentWorkspace(pathname: string, href: string) {
-  return href === "/companion" ? pathname === "/companion" : pathname.startsWith(href);
-}
-
-function currentPublic(pathname: string, href: string) {
-  const path = href.split("?")[0] ?? href;
-  if (path === "/") return pathname === "/";
-  if (path === "/project" || path === "/project/new") return pathname.startsWith("/project");
-  if (path === "/account") return pathname.startsWith("/account");
-  if (path === "/companion") return pathname.startsWith("/companion");
-  return pathname === path;
-}
-
-export function SiteHeader({ user }: { user: User | null }) {
+export function SiteHeader() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const toggleRef = useRef<HTMLButtonElement>(null);
-  const companion = pathname.startsWith("/companion");
   const home = pathname === "/";
-  const compact =
-    companion ||
-    pathname.startsWith("/project") ||
-    pathname.startsWith("/workspace") ||
-    pathname.startsWith("/founder") ||
-    pathname.startsWith("/discover");
 
   const close = useCallback((restoreFocus = false) => {
     setOpen(false);
@@ -91,63 +62,20 @@ export function SiteHeader({ user }: { user: User | null }) {
   return (
     <header className="site-header">
       <div className="site-header-inner">
-        <BrandMark
-          variant={companion ? "mark" : "lockup"}
-          withWordmark={false}
-          size={companion ? 40 : 76}
-          priority
-          lockupSrc={companion ? undefined : FULL_LOGO.lockupSrc}
-        />
-        {companion ? (
-          user ? (
-          <nav className="nav-desktop workspace-nav" aria-label="Atelier workspace">
-            {workspaceLinks.map((link) => (
-              <AppLink
-                key={link.href}
-                href={link.href}
-                aria-current={currentWorkspace(pathname, link.href) ? "page" : undefined}
-              >
-                {link.label}
-              </AppLink>
-            ))}
-          </nav>
-          ) : (
-            <nav className="nav-desktop workspace-nav" aria-label="Atelier workspace">
-              <span className="muted">Private workspace</span>
-            </nav>
-          )
-        ) : (
-          <nav className="nav-desktop" aria-label="Primary">
-            {links.map((link) => (
-              <AppLink key={link.href} href={link.href} aria-current={pathname === link.href ? "page" : undefined}>
-                {link.label}
-              </AppLink>
-            ))}
-            {user?.role === "founder" ? <AppLink href="/founder">Founder</AppLink> : null}
-            {user ? <AppLink href="/workspace">Commissions</AppLink> : null}
-            {user ? <AppLink href="/companion">Business Studio</AppLink> : null}
-          </nav>
-        )}
+        <BrandMark variant="lockup" withWordmark={false} size={76} priority lockupSrc={FULL_LOGO.lockupSrc} />
+        <nav className="nav-desktop" aria-label="Primary">
+          {links.map((link) => (
+            <AppLink key={link.href} href={link.href} aria-current={pathname === link.href ? "page" : undefined}>
+              {link.label}
+            </AppLink>
+          ))}
+        </nav>
         <div className="header-actions">
-          {companion ? (
-            <AppLink className="btn btn-ghost btn-compact" href="/">
-              Public site
+          {!home ? (
+            <AppLink className="btn btn-gold" href={BEGIN_HREF}>
+              {BEGIN_LABEL}
             </AppLink>
           ) : null}
-          {!compact && !home ? (
-            <AppLink className="btn btn-gold" href={user ? "/project/new" : "/project"}>
-              Begin your project
-            </AppLink>
-          ) : null}
-          {user ? (
-            <AppLink className="btn btn-ghost" href="/account">
-              {user.displayName}
-            </AppLink>
-          ) : (
-            <AppLink className="btn btn-ghost" href={companion ? "/account?next=/companion" : "/account"}>
-              Sign in
-            </AppLink>
-          )}
           <button
             ref={toggleRef}
             className="menu-toggle"
@@ -166,75 +94,19 @@ export function SiteHeader({ user }: { user: User | null }) {
         hidden={!open}
         aria-label="Mobile"
       >
-        {companion
-          ? (user ? workspaceLinks : []).map((link) => (
-              <AppLink
-                key={link.href}
-                href={link.href}
-                aria-current={currentWorkspace(pathname, link.href) ? "page" : undefined}
-                onClick={() => close()}
-              >
-                {link.label}
-              </AppLink>
-            ))
-          : links.map((link) => (
-              <AppLink
-                key={link.href}
-                href={link.href}
-                aria-current={currentPublic(pathname, link.href) ? "page" : undefined}
-                onClick={() => close()}
-              >
-                {link.label}
-              </AppLink>
-            ))}
-        {companion ? (
-          <AppLink href="/" aria-current={currentPublic(pathname, "/") ? "page" : undefined} onClick={() => close()}>
-            Public site
-          </AppLink>
-        ) : (
+        {links.map((link) => (
           <AppLink
-            className="mobile-nav-cta"
-            href={user ? "/project/new" : "/project"}
-            aria-current={currentPublic(pathname, "/project") ? "page" : undefined}
+            key={link.href}
+            href={link.href}
+            aria-current={pathname === link.href ? "page" : undefined}
             onClick={() => close()}
           >
-            Begin your project
+            {link.label}
           </AppLink>
-        )}
-        <AppLink
-          href={user ? "/account" : companion ? "/account?next=/companion" : "/account"}
-          aria-current={currentPublic(pathname, "/account") ? "page" : undefined}
-          onClick={() => close()}
-        >
-          {user ? "Account" : "Sign in"}
+        ))}
+        <AppLink className="mobile-nav-cta" href={BEGIN_HREF} onClick={() => close()}>
+          {BEGIN_LABEL}
         </AppLink>
-        {!companion && user ? (
-          <>
-            <AppLink
-              href="/workspace"
-              aria-current={currentPublic(pathname, "/workspace") ? "page" : undefined}
-              onClick={() => close()}
-            >
-              Commissions
-            </AppLink>
-            <AppLink
-              href="/companion"
-              aria-current={currentPublic(pathname, "/companion") ? "page" : undefined}
-              onClick={() => close()}
-            >
-              Business Studio
-            </AppLink>
-          </>
-        ) : null}
-        {user?.role === "founder" ? (
-          <AppLink
-            href="/founder"
-            aria-current={currentPublic(pathname, "/founder") ? "page" : undefined}
-            onClick={() => close()}
-          >
-            Founder
-          </AppLink>
-        ) : null}
       </nav>
     </header>
   );

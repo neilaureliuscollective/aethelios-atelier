@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BEGIN_HREF, BEGIN_LABEL } from "@/lib/publicSite";
 import { BrandMark } from "@/components/brand/BrandMark";
 import { AppLink } from "@/components/ui/AppLink";
 
@@ -32,8 +33,8 @@ export default function AboutPage() {
         </article>
       </div>
       <div className="row" style={{ marginTop: 28 }}>
-        <AppLink className="btn btn-gold" href="/project">
-          Begin a brief
+        <AppLink className="btn btn-gold" href={BEGIN_HREF}>
+          {BEGIN_LABEL}
         </AppLink>
         <AppLink className="btn btn-ghost" href="/inquire">
           Send an inquiry

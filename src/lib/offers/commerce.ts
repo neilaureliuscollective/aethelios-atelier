@@ -1,3 +1,4 @@
+import { BEGIN_HREF } from "@/lib/publicSite";
 import {
   COMMERCE_FOUNDATION_OFFER_ID,
   COMMERCE_LAUNCH_OFFER_ID,
@@ -13,14 +14,12 @@ export const ATELIER_COMMERCE_CORE_MESSAGE =
 
 export const ATELIER_COMMERCE_HREF = "/services/commerce";
 
-export const COMMERCE_FOUNDATION_BRIEF_HREF =
-  "/project?offer=commerce_foundation&interest=ecommerce_storefronts&purpose=business";
+export const COMMERCE_FOUNDATION_BRIEF_HREF = BEGIN_HREF;
 
-export const COMMERCE_LAUNCH_BRIEF_HREF =
-  "/project?offer=commerce_launch&interest=ecommerce_storefronts&purpose=business";
+export const COMMERCE_LAUNCH_BRIEF_HREF = BEGIN_HREF;
 
 export const ATELIER_COMMERCE_PUBLIC_TERMS =
-  "Atelier Commerce is a founder-led commission. Neil confirms the exact proposal. It does not replace the published Atelier plan prices. Payments for the client's store are not collected in Atelier.";
+  "Atelier Commerce is a founder-led commission. Neil confirms the exact proposal. Payments for the client's store are not collected in Atelier.";
 
 export type CommerceStarterKey =
   | "vision"

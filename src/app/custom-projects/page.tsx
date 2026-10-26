@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BEGIN_HREF } from "@/lib/publicSite";
 import { AppLink } from "@/components/ui/AppLink";
 import { DeviceFrame } from "@/components/marketing/DeviceFrame";
 import { FollowUpWorkspace } from "@/components/marketing/demos/FollowUpWorkspace";
@@ -55,7 +56,7 @@ export default function CustomProjectsPage() {
       })}
 
       <div className="row" style={{ marginTop: 28 }}>
-        <AppLink className="btn btn-gold" href="/project?route=custom_project&purpose=unsure">
+        <AppLink className="btn btn-gold" href={BEGIN_HREF}>
           Begin with your own idea
         </AppLink>
         <AppLink className="btn btn-ghost" href="/services">

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { BEGIN_HREF } from "@/lib/publicSite";
 
 export const SLIDE_LAYOUTS = [
   "hero",
@@ -11,7 +12,7 @@ export const SLIDE_LAYOUTS = [
   "next"
 ] as const;
 
-export const CONCIERGE_CTA_HREFS = ["/discover", "/project", "/inquire", "/approach"] as const;
+export const CONCIERGE_CTA_HREFS = [BEGIN_HREF, "/inquire", "/approach", "/services"] as const;
 
 export const slideSchema = z.object({
   id: z.string().min(1).max(40),
