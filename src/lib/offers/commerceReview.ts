@@ -36,7 +36,7 @@ export const COMMERCE_OFFER_REVIEW = {
   note:
     "Proposal only. Do not publish these amounts, SKU caps, or the extra-product rate until Neil explicitly approves them.",
   publicUntilApproved:
-    "A founder-reviewed commerce commission. Neil confirms the exact proposal. It does not replace the published Atelier plan prices."
+    "A founder-reviewed commerce commission. Neil confirms the exact proposal."
 };
 
 export type CommerceOfferReview = typeof COMMERCE_OFFER_REVIEW;

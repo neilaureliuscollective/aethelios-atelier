@@ -52,7 +52,7 @@ describe("concierge handoff", () => {
     expect(text).toContain("ada@client.test");
     expect(text).toContain("Northridge");
     expect(text).toContain("Austin");
-    expect(text).toContain("Visitor transcript");
+    expect(text).toContain("CONVERSATION");
     expect(text).toContain("Illustrative site preview: no");
     expect(text).toMatch(/not a booking/i);
     expect(text).not.toMatch(/invoice|payment collected/i);

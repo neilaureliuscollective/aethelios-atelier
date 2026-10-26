@@ -2,12 +2,27 @@ import { runConciergeTurn } from "@/lib/concierge/talk";
 import { conciergeTalkRequestSchema } from "@/lib/concierge/schema";
 import { encodeConciergeEvent } from "@/lib/concierge/stream";
 import type { ConciergeStreamEvent } from "@/lib/concierge/types";
+import { LimitError } from "@/lib/domain/errors";
 import { handleError, json, readJson } from "@/lib/http";
+import { createRateLimiter } from "@/lib/inquiry/rateLimit";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
+
+/** Generous for a real conversation; stops a script from running up the model bill. */
+const talkLimiter = createRateLimiter(120);
+
+function clientKey(request: Request) {
+  const forwarded = request.headers.get("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0]?.trim() || "unknown";
+  return request.headers.get("x-real-ip") || "unknown";
+}
 
 export async function POST(request: Request) {
   try {
+    if (talkLimiter.limited(`talk:${clientKey(request)}`)) {
+      throw new LimitError("Aethelios needs a short pause. Try again in a little while, or send an inquiry directly.");
+    }
     const body = conciergeTalkRequestSchema.parse(await readJson(request));
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
@@ -18,7 +33,10 @@ export async function POST(request: Request) {
         void runConciergeTurn({
           message: body.message,
           history: body.history,
+          brief: body.brief,
+          turn: body.turn,
           document: body.document,
+          preview: body.preview,
           compose: body.compose,
           signal: request.signal,
           onEvent: send
@@ -27,7 +45,7 @@ export async function POST(request: Request) {
           .catch((error) => {
             send({
               type: "error",
-              message: error instanceof Error ? error.message : "The sketch could not be completed."
+              message: error instanceof Error ? error.message : "Aethelios could not finish that reply."
             });
             controller.close();
           });
@@ -50,6 +68,6 @@ export async function GET() {
     ok: true,
     guest: true,
     labeled: "display_only",
-    note: "The concierge composes a visual sketch from conversation. It does not execute code or accept a commission."
+    note: "Aethelios holds a discovery conversation and writes a direction. It does not execute code, quote, or accept a commission."
   });
 }

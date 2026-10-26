@@ -10,9 +10,8 @@ describe("Fix It Shop showcase record", () => {
   it("keeps verified public destinations and a 20:13 silent master", () => {
     expect(FIX_IT_SHOP.liveHref).toBe("https://fixitshop-app.vercel.app/");
     expect(FIX_IT_SHOP.bookingHref).toBe("https://fixitshop.glossgenius.com/");
-    expect(FIX_IT_SHOP.inquireHref).toBe("/project?source=fix_it_shop");
-    expect(FIX_IT_SHOP.specialistInquireHref).toContain("offer=barbers_salons");
-    expect(FIX_IT_SHOP.specialistInquireHref).toContain("source=fix_it_shop");
+    expect(FIX_IT_SHOP.inquireHref).toBe("/#aethelios");
+    expect(FIX_IT_SHOP.specialistInquireHref).toBe("/#aethelios");
     expect(FIX_IT_SHOP.media.width / FIX_IT_SHOP.media.height).toBeCloseTo(20 / 13, 5);
     expect(FIX_IT_SHOP.media.silent).toBe(true);
     expect(FIX_IT_SHOP.media.loopSrc).toBe("/work/fix-it-shop/cinematic-loop.mp4");

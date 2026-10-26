@@ -1,4 +1,5 @@
 import { AppLink } from "@/components/ui/AppLink";
+import { BEGIN_HREF } from "@/lib/publicSite";
 import { DeviceFrame } from "@/components/marketing/DeviceFrame";
 import { FollowUpWorkspace } from "@/components/marketing/demos/FollowUpWorkspace";
 
@@ -17,7 +18,7 @@ export function CustomProjectsInvite() {
           <AppLink className="btn btn-emerald-glass" href="/custom-projects">
             Other custom projects
           </AppLink>
-          <AppLink className="btn btn-ghost" href="/project?route=custom_project&purpose=unsure">
+          <AppLink className="btn btn-ghost" href={BEGIN_HREF}>
             Begin with the idea
           </AppLink>
         </div>

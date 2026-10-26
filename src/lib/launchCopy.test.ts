@@ -2,13 +2,13 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { nextRovingIndex } from "@/lib/a11y/rovingTab";
 import { fieldDecisionLabel } from "@/lib/copy";
+import { BEGIN_HREF } from "@/lib/publicSite";
 import { serviceBriefHref } from "@/lib/serviceCategories";
 
 const CUSTOMER_FILES = [
   "src/app/page.tsx",
   "src/components/marketing/AtelierManifesto.tsx",
   "src/components/concierge/ConciergeStage.tsx",
-  "src/components/aethelios/AetheliosDock.tsx",
   "src/lib/concierge/compose.ts",
   "src/lib/aethelios/persona.ts",
   "src/app/about/page.tsx",
@@ -22,7 +22,8 @@ const CUSTOMER_FILES = [
   "src/components/project/OfferImport.tsx",
   "src/lib/catalog.ts",
   "src/lib/serviceCategories.ts",
-  "src/lib/pricing/presentation.ts",
+  "src/app/privacy/page.tsx",
+  "src/app/terms/page.tsx",
   "src/components/pricing/PricingExperience.tsx",
   "src/components/account/AccountClient.tsx",
   "src/components/founder/FounderClient.tsx",
@@ -82,15 +83,25 @@ describe("launch copy acceptance", () => {
     expect(commerce).toContain("COMMERCE_FOUNDATION_BRIEF_HREF");
     expect(commerce).toContain("Start a Commerce Launch brief");
     expect(commerce).not.toMatch(/\$8,000|\$12,000|winning products/i);
-    expect(serviceBriefHref("custom_apps_platforms")).toContain("purpose=business");
-    expect(serviceBriefHref("digital_infrastructure")).toContain("purpose=business");
+    expect(serviceBriefHref("custom_apps_platforms")).toMatch(new RegExp(`${BEGIN_HREF.split("#")[1]}$`));
+    expect(serviceBriefHref("digital_infrastructure")).toContain("interest=digital_infrastructure");
   });
 
-  it("restores mobile access to Commissions and labels Business Studio separately", () => {
+  it("keeps the header to public pages, with no workspace or account entries", () => {
     const header = readFileSync("src/components/shell/SiteHeader.tsx", "utf8");
-    expect(header).toContain("Commissions");
-    expect(header).toContain("Business Studio");
-    expect(header).toMatch(/!companion && user[\s\S]*href="\/workspace"[\s\S]*Commissions/);
+    expect(header).not.toContain("Commissions");
+    expect(header).not.toContain("Business Studio");
+    expect(header).toContain('label: "Investment"');
+  });
+
+  it("publishes no subscription prices on the investment page", () => {
+    const investment = readFileSync("src/components/pricing/PricingExperience.tsx", "utf8");
+    const page = readFileSync("src/app/pricing/page.tsx", "utf8");
+    for (const source of [investment, page]) {
+      expect(source).not.toMatch(/\$\d|\/month|per month|subscription plan/i);
+    }
+    expect(investment).toContain("Priced to the work.");
+    expect(investment).toContain("BEGIN_HREF");
   });
 
   it("labels field decisions in human language", () => {

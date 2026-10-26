@@ -2,14 +2,16 @@ import type { MetadataRoute } from "next";
 
 const PUBLIC_PATHS = [
   "/",
-  "/discover",
   "/pricing",
   "/services",
   "/services/barbers-salons",
   "/services/commerce",
   "/custom-projects",
   "/approach",
-  "/about"
+  "/about",
+  "/inquire",
+  "/privacy",
+  "/terms"
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {

@@ -57,8 +57,8 @@ describe("mobile navigation contrast", () => {
     expect(header).toContain('hidden={!open}');
     expect(header).toContain('Escape');
     expect(header).toContain("(max-width: 720px)");
-    expect(header).toContain('href="/account"');
-    expect(header).toContain('href={user ? "/project/new" : "/project"}');
+    expect(header).not.toContain('href="/account"');
+    expect(header).toContain("href={BEGIN_HREF}");
     expect(header).not.toMatch(/role=["']menu["']/);
     expect(header).not.toContain("menuitem");
   });

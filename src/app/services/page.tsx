@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BEGIN_HREF, BEGIN_LABEL } from "@/lib/publicSite";
 import { AppLink } from "@/components/ui/AppLink";
 import { AppsIcon, GlobeIcon, NodesIcon, StoreIcon } from "@/components/ui/Icons";
 import { Reveal } from "@/components/motion/Reveal";
@@ -69,8 +70,8 @@ export default function ServicesPage() {
       <p className="kicker">Services</p>
       <h1>What can be commissioned now.</h1>
       <p className="lede">
-        Plan prices are listed on the pricing page. Aethelios may explain only these approved
-        options. Neil confirms every proposal. Branding can be part of any of these paths, or a
+        Every engagement is scoped and priced to the business. Aethelios may explain only these
+        approved options. Neil confirms every proposal. Branding can be part of any of these paths, or a
         separately scoped identity commission — it is not required to begin.
       </p>
 
@@ -210,11 +211,8 @@ export default function ServicesPage() {
       </Reveal>
 
       <div className="row" style={{ marginTop: 28 }}>
-        <AppLink className="btn btn-emerald-glass" href="/discover">
-          Explore your direction
-        </AppLink>
-        <AppLink className="btn btn-gold" href="/project">
-          Begin a brief
+        <AppLink className="btn btn-gold" href={BEGIN_HREF}>
+          {BEGIN_LABEL}
         </AppLink>
         <AppLink className="btn btn-ghost" href="/approach">
           How a commission proceeds

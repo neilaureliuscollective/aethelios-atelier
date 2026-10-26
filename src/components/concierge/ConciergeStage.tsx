@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useAethelios } from "@/components/aethelios/AetheliosProvider";
+import { DISCOVERY_TOPICS, nextTopic } from "@/lib/concierge/brief";
 import { AppLink } from "@/components/ui/AppLink";
 import { ConciergeHandoff } from "./ConciergeHandoff";
 import { PresentationCanvas } from "./PresentationCanvas";
@@ -13,9 +14,17 @@ const STARTERS = [
   ["Connected systems", "I’d like to connect and automate my business systems. "]
 ] as const;
 
+/** Service pages link here with ?interest=…; the composer opens on that topic. */
+const INTEREST_OPENERS: Record<string, string> = {
+  website: STARTERS[0][1],
+  custom_apps_platforms: STARTERS[1][1],
+  ecommerce_storefronts: "I’d like to sell online with a storefront for my business. ",
+  digital_infrastructure: STARTERS[2][1]
+};
+
 export function ConciergeStage() {
   const { messages, document, preview, slideIndex, setSlideIndex, pending, streaming,
-    error, input, setInput, send, composeDocument, abort, voice } = useAethelios();
+    error, input, setInput, send, composeDocument, abort, brief, ready, atLimit } = useAethelios();
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
   const pinnedRef = useRef(true);
@@ -26,11 +35,21 @@ export function ConciergeStage() {
     if (panel && pinnedRef.current) panel.scrollTop = panel.scrollHeight;
   }, [messages.length, streaming]);
 
+  useEffect(() => {
+    const interest = new URLSearchParams(window.location.search).get("interest");
+    const opener = interest ? INTEREST_OPENERS[interest] : undefined;
+    if (opener && !input) setInput(opener);
+    // Only on arrival: a later edit by the visitor must not be replaced.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const covered = DISCOVERY_TOPICS.filter((topic) => brief[topic.id]);
+  const upNext = nextTopic(brief);
+
   const condensed = [...messages.filter((message) => message.role === "user").map((message) => message.body), input.trim()].filter(Boolean).join("\n").length > 2000;
 
   function submit() {
-    if (pending || !input.trim()) return;
-    voice.stop();
+    if (pending || atLimit || !input.trim()) return;
     void send(input);
   }
 
@@ -64,12 +83,28 @@ export function ConciergeStage() {
           <li><span>03</span><div><strong>Take it to Neil</strong><p>Send your brief for a personal review and next steps.</p></div></li>
         </ol>
 
-        <div className={styles.panel}>
+        <div className={styles.panel} id="aethelios">
           <header className={styles.panelHead}>
             <span className={styles.monogram} aria-hidden="true">A</span>
             <div><h2>Aethelios</h2><p>Your project conversation</p></div>
             <span className={styles.badge}>Guided discovery</span>
           </header>
+          {hasConversation ? (
+            <div className={styles.progress} data-ready={ready ? "true" : "false"}>
+              <ol aria-label={`Your brief: ${covered.length} of ${DISCOVERY_TOPICS.length} topics covered`}>
+                {DISCOVERY_TOPICS.map((topic) => (
+                  <li key={topic.id} title={topic.label} data-covered={brief[topic.id] ? "true" : "false"} />
+                ))}
+              </ol>
+              <p aria-live="polite">
+                {ready
+                  ? "Enough for Neil — your direction can be written."
+                  : upNext
+                    ? `Your brief · ${covered.length} of ${DISCOVERY_TOPICS.length} · next, ${upNext.label.toLowerCase()}`
+                    : "Your brief is complete."}
+              </p>
+            </div>
+          ) : null}
           <div className={styles.messages} ref={messagesRef} role="log" aria-label="Project conversation" aria-live="polite" tabIndex={0}
             onScroll={(event) => { const panel = event.currentTarget; pinnedRef.current = panel.scrollHeight - panel.scrollTop - panel.clientHeight < 48; }}>
             <div className={styles.welcome}>
@@ -83,14 +118,14 @@ export function ConciergeStage() {
             {messages.map((message) => <div key={message.id} className={styles.message} data-role={message.role}>
               <span>{message.role === "user" ? "You" : "Aethelios"}</span><p>{message.body}</p>
             </div>)}
-            {pending && <div className={styles.message}><span>Aethelios · {document ? "shaping your direction" : "considering your project"}</span><p>{streaming || "Working on your direction…"}</p></div>}
+            {pending && <div className={styles.message}><span>Aethelios · {document ? "shaping your direction" : "considering your project"}</span>{streaming ? <p>{streaming}</p> : <p className={styles.typing} aria-label="Aethelios is writing"><i /><i /><i /></p>}</div>}
           </div>
           <form className={styles.composer} onSubmit={(event) => { event.preventDefault(); submit(); }}>
             <label htmlFor="concierge-input">Tell us about your project</label>
-            <textarea id="concierge-input" ref={inputRef} value={input} maxLength={2000} disabled={pending}
+            <textarea id="concierge-input" ref={inputRef} value={input} maxLength={2000} disabled={pending || atLimit}
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); submit(); } }}
-              placeholder="I run a business in… and I’m looking to…" rows={3} aria-describedby="conversation-privacy" />
+              placeholder={atLimit ? "This conversation is complete — write your direction below." : "I run a business in… and I’m looking to…"} rows={3} aria-describedby="conversation-privacy" />
             <div className={styles.composerActions}><span>Shift + Enter for a new line</span>
               {pending ? <button type="button" className="btn btn-ghost" onClick={abort}>Stop response</button> : <button type="submit" className="btn btn-gold" disabled={!input.trim()}>Send message <span aria-hidden="true">↑</span></button>}
             </div>
@@ -99,7 +134,7 @@ export function ConciergeStage() {
           <footer className={styles.panelFoot}>
             <p id="conversation-privacy">A draft, not a commitment. Nothing is sent to Neil until you review and choose to send. Avoid sharing sensitive information.</p>
             {condensed && <p>For longer conversations, the direction uses your opening and latest details. Review it for missing requirements before sending.</p>}
-            {hasConversation && <button type="button" className="btn btn-ghost" disabled={pending} onClick={() => void composeDocument()}>{document ? "Update your direction" : "Create my direction"} <span aria-hidden="true">→</span></button>}
+            {hasConversation && <button type="button" className={ready && !document ? "btn btn-gold" : "btn btn-ghost"} disabled={pending} onClick={() => void composeDocument()}>{document ? "Update your direction" : "Create my direction"} <span aria-hidden="true">→</span></button>}
           </footer>
         </div>
       </div>

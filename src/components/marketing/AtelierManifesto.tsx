@@ -35,7 +35,7 @@ const DISCIPLINES = [
 const STANDARDS = [
   ["Founder-reviewed", "Neil reads every brief, sets every scope, and answers for every delivery himself."],
   ["Built around you", "The booking, payment, and tools you already use stay. Neil builds the experience around them."],
-  ["Clear from the start", "Plan prices are published. Nothing is final until Neil confirms the proposal."]
+  ["Clear from the start", "Every build is scoped and priced to the business. Nothing is final until Neil confirms the proposal."]
 ] as const;
 
 /** Second homepage beat: says what the studio is before the work proves it. */

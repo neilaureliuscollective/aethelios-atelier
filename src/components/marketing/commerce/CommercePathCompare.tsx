@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { BEGIN_HREF } from "@/lib/publicSite";
 import { AppLink } from "@/components/ui/AppLink";
 import {
   COMMERCE_COMPARISON,
@@ -65,8 +66,8 @@ export function CommercePathCompare() {
         <AppLink className="btn btn-gold" href={href}>
           {action}
         </AppLink>
-        <AppLink className="btn btn-ghost" href="/project">
-          Begin with a general brief
+        <AppLink className="btn btn-ghost" href={BEGIN_HREF}>
+          Talk it through with Aethelios
         </AppLink>
       </div>
     </div>

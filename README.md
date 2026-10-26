@@ -1,6 +1,10 @@
 # Aethelios Atelier
 
-Founder-led digital infrastructure studio. This repository is a **standalone** application: a public entrance, an AI-guided (optional) brief, a living commission, and a private founder review workspace.
+Founder-led digital infrastructure studio. This repository is a **standalone** public site: visitors see the work and the services, talk their business through with Aethelios by typing, and send Neil the direction it writes. There are no visitor accounts and no voice sessions in the public launch.
+
+Aethelios (`src/lib/concierge/talk.ts`) streams each reply from the model, keeps a discovery brief (`src/lib/concierge/brief.ts`) covering the business, audience, goals, current setup, what to build, feel, and timing, and invites the visitor to write their direction once the brief is ready. The send step emails Neil a structured summary, the direction, and the conversation, and sends the visitor a short confirmation. Without OpenAI configured it runs a scripted discovery flow over the same brief.
+
+Account, client-workspace, founder-console, Discover, and guided-brief routes are retired by `src/middleware.ts` (pages redirect to the Aethelios conversation at `/#aethelios`; their APIs return 404). Their code remains in the repository but is not reachable on the site. See `src/lib/publicSite.ts`.
 
 Neil Stutes remains responsible for accepting work, scope, price, timing, and delivery. Aethelios is the in-app intelligence; Aurelius is Neil’s separate personal assistant and is not this guide. This is not autonomous website generation, not an Aethelios subscription, and not a replacement for human expertise.
 
@@ -86,14 +90,14 @@ Approved logo and icon live in `public/brand/original/`. Optimized derivatives a
 
 ## Launch blockers (external)
 
-- Real authentication (the current adapter is simulated, labeled, and refused on Vercel)
-- Dedicated hosted database credentials in the Vercel project (adapter exists; do not reuse Aethelios production)
-- Authorized OpenAI spend (`ATELIER_OPENAI_ENABLED` + key)
-- Final service pricing
-- Production domain assignment after the first Vercel import
-- Guest inquiry delivery on a hosted site (`ATELIER_INQUIRY_TO` plus Resend, or a documented mailto fallback)
+The public launch needs no database and no sign-in provider.
+
+- Production domain, attached in Vercel, with Deployment Protection off for production
+- `ATELIER_PUBLIC_ORIGIN` set to the `https://` domain
+- Inquiry delivery: `ATELIER_INQUIRY_TO`, `AUTH_RESEND_KEY`, `AUTH_RESEND_FROM`, with the domain verified in Resend
+- Authorized OpenAI spend (`ATELIER_OPENAI_ENABLED=true` + `OPENAI_API_KEY`) with a hard monthly cap on the OpenAI account
+- Published investment guidance (the Investment page explains custom pricing without figures until Neil sets them)
 - Billing / Stripe (explicitly inactive)
-- Founder-reply notifications (still not implemented; inquiries email Neil when configured)
 
 ## Architecture
 

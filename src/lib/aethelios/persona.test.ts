@@ -4,7 +4,6 @@ import { aureliusSystemPrompt } from "@/lib/aurelius/instructions";
 import { companionSystemPrompt } from "@/lib/cofounder/instructions";
 import { composeReply } from "@/lib/concierge/compose";
 import { extractBusinessSketch } from "@/lib/concierge/extract";
-import { conciergeVoiceInstructions } from "@/lib/concierge/voiceSession";
 import {
   AETHELIOS_EXPERTISE,
   AETHELIOS_IDENTITY,
@@ -13,8 +12,7 @@ import {
   aetheliosCanvasPrompt,
   aetheliosComposeReply,
   aetheliosPersonaPrompt,
-  aetheliosPreviewPrompt,
-  aetheliosSpokenPrompt
+  aetheliosPreviewPrompt
 } from "./persona";
 
 describe("Aethelios persona", () => {
@@ -47,15 +45,9 @@ describe("Aethelios persona", () => {
     );
     expect(aetheliosPersonaPrompt()).toMatch(/dry sparkle/);
     expect(aetheliosPersonaPrompt()).toMatch(/Never a lecture\. Never dry/);
-    expect(aetheliosSpokenPrompt()).toMatch(/Speak out loud/);
-    expect(aetheliosSpokenPrompt()).toMatch(/only in English/);
-    expect(aetheliosSpokenPrompt()).toMatch(/Never switch languages/);
-    expect(aetheliosSpokenPrompt()).toMatch(/enjoy talking to you/);
-    expect(aetheliosSpokenPrompt()).toMatch(/hint of wit/);
   });
 
   it("is the source of every prompt he speaks from", () => {
-    expect(conciergeVoiceInstructions()).toBe(aetheliosSpokenPrompt());
     expect(aureliusSystemPrompt()).toContain(aetheliosPersonaPrompt());
     expect(companionSystemPrompt()).toContain(aetheliosPersonaPrompt());
     expect(companionSystemPrompt()).toMatch(/never Aurelius/);
@@ -63,16 +55,15 @@ describe("Aethelios persona", () => {
     expect(aetheliosPreviewPrompt()).toMatch(/product and website expert/);
     const sketch = extractBusinessSketch("I run a barbershop called Northridge in Austin.");
     expect(composeReply(sketch, true)).toBe(aetheliosComposeReply("Northridge in Austin", true));
-    expect(composeReply(sketch, true)).toMatch(/sketch/);
+    expect(composeReply(sketch, true)).toMatch(/direction/);
     expect(composeReply(sketch, false)).toMatch(/business you actually run/);
     expect(composeReply(sketch, false)).not.toMatch(/I can keep this in conversation/);
   });
 
-  it("is imported by the brief, companion, voice, canvas, and preview paths", () => {
+  it("is imported by the brief, companion, canvas, and preview paths", () => {
     const files = [
       "src/lib/aurelius/instructions.ts",
       "src/lib/cofounder/instructions.ts",
-      "src/lib/concierge/voiceSession.ts",
       "src/lib/concierge/talk.ts",
       "src/lib/concierge/sitePreview.ts",
       "src/lib/concierge/compose.ts"

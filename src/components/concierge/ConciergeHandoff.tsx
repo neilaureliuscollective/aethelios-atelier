@@ -28,10 +28,14 @@ function handoffTurns(messages: AetheliosMessage[], note: string) {
 
 /** The single way a visitor sends the conversation and its document to Neil. */
 export function ConciergeHandoff({ onSent }: { onSent?: () => void }) {
-  const { messages, document, preview, sessionId, pending } = useAethelios();
+  const { messages, document, preview, sessionId, pending, brief } = useAethelios();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [business, setBusiness] = useState("");
+  const [phone, setPhone] = useState("");
+  const [timeline, setTimeline] = useState("");
+  const [budget, setBudget] = useState("");
   const [note, setNote] = useState("");
   const [honey, setHoney] = useState("");
   const [sending, setSending] = useState(false);
@@ -46,6 +50,13 @@ export function ConciergeHandoff({ onSent }: { onSent?: () => void }) {
     if (open) nameRef.current?.focus();
   }, [open]);
 
+  function openForm() {
+    // What Aethelios already learned arrives filled in; the visitor can correct it.
+    setBusiness((current) => current || brief.businessName);
+    setTimeline((current) => current || brief.timeline);
+    setOpen(true);
+  }
+
   async function submit() {
     if (sending || receipt) return;
     setSending(true);
@@ -57,8 +68,13 @@ export function ConciergeHandoff({ onSent }: { onSent?: () => void }) {
         body: JSON.stringify({
           name,
           email,
+          business,
+          phone,
+          timeline,
+          budget,
           sessionId,
           messages: handoffTurns(messages, note),
+          brief,
           document: document ?? undefined,
           previewGenerated: Boolean(preview),
           honeypot: honey
@@ -109,7 +125,7 @@ export function ConciergeHandoff({ onSent }: { onSent?: () => void }) {
         <button
           className="btn btn-gold"
           type="button"
-          onClick={() => setOpen(true)}
+          onClick={openForm}
           disabled={writing || !hasWords}
           data-send-to-neil
         >
@@ -132,8 +148,8 @@ export function ConciergeHandoff({ onSent }: { onSent?: () => void }) {
       }}
     >
       <div className={styles.sendCopy}>
-        <p className={styles.sendTitle}>Where should Neil reply?</p>
-        <p className={styles.sendNote}>The direction and your conversation travel with it.</p>
+        <p className={styles.sendTitle}>A few details for Neil.</p>
+        <p className={styles.sendNote}>Your brief, the direction, and this conversation travel with it.</p>
       </div>
       <div className={styles.sendFields}>
         <label>
@@ -160,15 +176,60 @@ export function ConciergeHandoff({ onSent }: { onSent?: () => void }) {
             required
           />
         </label>
+        <label>
+          <span>Business name</span>
+          <input
+            type="text"
+            name="organization"
+            autoComplete="organization"
+            maxLength={160}
+            value={business}
+            onChange={(event) => setBusiness(event.target.value)}
+          />
+        </label>
+        <label>
+          <span>Phone (optional)</span>
+          <input
+            type="tel"
+            name="tel"
+            autoComplete="tel"
+            inputMode="tel"
+            maxLength={40}
+            value={phone}
+            onChange={(event) => setPhone(event.target.value)}
+          />
+        </label>
+        <label>
+          <span>Timing (optional)</span>
+          <input
+            type="text"
+            name="timeline"
+            maxLength={160}
+            value={timeline}
+            onChange={(event) => setTimeline(event.target.value)}
+            placeholder="A launch date, a season, or no rush"
+          />
+        </label>
+        <label>
+          <span>Investment in mind (optional)</span>
+          <input
+            type="text"
+            name="budget"
+            maxLength={160}
+            value={budget}
+            onChange={(event) => setBudget(event.target.value)}
+            placeholder="A range or a ceiling — whatever helps"
+          />
+        </label>
         <label className={styles.sendWide}>
-          <span>Anything to add? (optional)</span>
+          <span>Anything else for Neil? (optional)</span>
           <input
             type="text"
             name="note"
             maxLength={600}
             value={note}
             onChange={(event) => setNote(event.target.value)}
-            placeholder="Timeline, a link to your current site, the best time to talk…"
+            placeholder="A link to your current site, the best time to talk…"
           />
         </label>
         <label className={styles.honey} aria-hidden="true">

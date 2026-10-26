@@ -1967,3 +1967,10 @@ a.chip {
     background: #121a17;
   }
 }
+
+.legal-page .tiny { margin-top: 8px; }
+.legal-body { margin-top: 24px; padding: 28px; max-width: 760px; display: grid; gap: 22px; }
+.legal-body h2 { font-size: 1.25rem; margin: 0 0 8px; }
+.legal-body p { margin: 0 0 10px; line-height: 1.65; }
+.legal-body p:last-child { margin-bottom: 0; }
+.footer-legal { gap: 16px; font-size: 0.85rem; opacity: 0.8; }

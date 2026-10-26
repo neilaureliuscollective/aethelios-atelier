@@ -1,27 +1,18 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
-import type { OrbState } from "@/components/concierge/ConciergeOrb";
-import { useOrbVoice, type SpokenPhase } from "@/components/concierge/useOrbVoice";
+import { briefReady, emptyBrief, type DiscoveryBrief } from "@/lib/concierge/brief";
 import { applySlide, mergePresentation } from "@/lib/concierge/merge";
+import { CONCIERGE_HISTORY_LIMIT } from "@/lib/concierge/schema";
 import { parseConciergeChunk } from "@/lib/concierge/stream";
 import type { ConciergeHistoryItem, PresentationDocument, SitePreview } from "@/lib/concierge/types";
-import { documentSourceFromTalk, shouldCommitSpoken } from "@/lib/concierge/voiceText";
+import { documentSourceFromTalk, isUsableDocumentSource } from "@/lib/concierge/documentSource";
 import { INTELLIGENCE_DISPLAY_NAME } from "@/lib/copy";
-import styles from "@/components/concierge/concierge.module.css";
 
 export type AetheliosMessage = { id: string; role: "user" | "assistant"; body: string };
 
-export type AetheliosVoice = {
-  phase: SpokenPhase;
-  error: string;
-  ready: boolean | null;
-  levelRef: { current: number };
-  inputLevelRef: { current: number };
-  outputLevelRef: { current: number };
-  start: () => Promise<void>;
-  stop: () => void;
-};
+/** Mirrors MAX_VISITOR_TURNS on the server. */
+export const MAX_VISITOR_TURNS = 30;
 
 type AetheliosValue = {
   sessionId: string;
@@ -35,13 +26,12 @@ type AetheliosValue = {
   error: string;
   input: string;
   setInput: (value: string) => void;
-  panelOpen: boolean;
-  setPanelOpen: (open: boolean) => void;
-  orbState: OrbState;
+  brief: DiscoveryBrief;
+  ready: boolean;
+  atLimit: boolean;
   send: (message: string, options?: SendOptions) => Promise<void>;
   composeDocument: () => Promise<void>;
   abort: () => void;
-  voice: AetheliosVoice;
 };
 
 /** quiet: compose from turns already on screen without echoing them as a new bubble. */
@@ -70,22 +60,20 @@ export function AetheliosProvider({ children }: { children: ReactNode }) {
   const [streaming, setStreaming] = useState("");
   const [error, setError] = useState("");
   const [input, setInput] = useState("");
-  const [panelOpen, setPanelOpen] = useState(false);
+  const [brief, setBrief] = useState<DiscoveryBrief>(() => emptyBrief());
   const abortRef = useRef<AbortController | null>(null);
   const inputLatest = useRef("");
   const sendLatest = useRef<(message: string, options?: SendOptions) => Promise<void>>(
     async () => undefined
   );
   const pendingLatest = useRef(false);
-  const greetedRef = useRef(false);
   const messagesLatest = useRef(messages);
   inputLatest.current = input;
   pendingLatest.current = pending;
   messagesLatest.current = messages;
-  if (messages.length) greetedRef.current = true;
 
   const history = useMemo<ConciergeHistoryItem[]>(
-    () => messages.slice(-8).map((item) => ({ role: item.role, content: item.body.slice(0, 2000) })),
+    () => messages.slice(-CONCIERGE_HISTORY_LIMIT).map((item) => ({ role: item.role, content: item.body.slice(0, 2000) })),
     [messages]
   );
 
@@ -94,10 +82,11 @@ export function AetheliosProvider({ children }: { children: ReactNode }) {
       const text = message.trim();
       if (!text) return;
       if (pendingLatest.current && !options?.compose) return;
+      const turn = messagesLatest.current.filter((item) => item.role === "user").length;
+      if (!options?.compose && turn >= MAX_VISITOR_TURNS) return;
       setPending(true);
       setError("");
       setStreaming("");
-      setPanelOpen(true);
       if (!options?.quiet) {
         setMessages((current) => [...current, { id: `user_${current.length}`, role: "user", body: text }]);
       }
@@ -111,6 +100,8 @@ export function AetheliosProvider({ children }: { children: ReactNode }) {
           body: JSON.stringify({
             message: text,
             history,
+            brief,
+            turn,
             document: document ?? undefined,
             preview: preview ?? undefined,
             compose: options?.compose
@@ -146,6 +137,9 @@ export function AetheliosProvider({ children }: { children: ReactNode }) {
             if (event.type === "canvas.replace") {
               setDocument((current) => mergePresentation(current, event.document) ?? event.document);
             }
+            if (event.type === "brief") {
+              setBrief(event.brief);
+            }
             if (event.type === "preview.ready") {
               setPreview(event.preview);
             }
@@ -168,28 +162,16 @@ export function AetheliosProvider({ children }: { children: ReactNode }) {
         if (abortRef.current === controller) setPending(false);
       }
     },
-    [document, history, preview]
+    [brief, document, history, preview]
   );
 
   sendLatest.current = send;
 
-  const engine = useOrbVoice({
-    shouldGreet: () => !greetedRef.current,
-    onTurn: (role, spoken) => {
-      setMessages((current) => [...current, { id: `spoken_${role}_${current.length}`, role, body: spoken }]);
-    }
-  });
-
-  const stopVoice = useCallback(() => {
-    engine.stop();
-  }, [engine]);
-
   const composeDocument = useCallback(async () => {
-    engine.stop();
-    const spokenTurns = messagesLatest.current.filter((item) => item.role === "user").map((item) => item.body);
+    const visitorTurns = messagesLatest.current.filter((item) => item.role === "user").map((item) => item.body);
     const typed = inputLatest.current.trim();
-    const source = documentSourceFromTalk(typed, spokenTurns);
-    const usable = shouldCommitSpoken(source);
+    const source = documentSourceFromTalk(typed, visitorTurns);
+    const usable = isUsableDocumentSource(source);
     if (typed && usable) {
       setMessages((current) => [...current, { id: `user_${current.length}`, role: "user", body: typed }]);
       setInput("");
@@ -198,27 +180,11 @@ export function AetheliosProvider({ children }: { children: ReactNode }) {
       compose: true,
       quiet: usable
     });
-  }, [engine]);
+  }, []);
 
   const abort = useCallback(() => {
     abortRef.current?.abort();
   }, []);
-
-  const voice = useMemo<AetheliosVoice>(
-    () => ({
-      phase: engine.phase,
-      error: engine.error,
-      ready: engine.ready,
-      levelRef: engine.levelRef,
-      inputLevelRef: engine.inputLevelRef,
-      outputLevelRef: engine.outputLevelRef,
-      start: engine.start,
-      stop: stopVoice
-    }),
-    [engine.error, engine.inputLevelRef, engine.levelRef, engine.outputLevelRef, engine.phase, engine.ready, engine.start, stopVoice]
-  );
-
-  const orbState: OrbState = pending ? (document ? "composing" : "thinking") : panelOpen ? "listening" : "idle";
 
   const value = useMemo(
     () => ({
@@ -233,20 +199,18 @@ export function AetheliosProvider({ children }: { children: ReactNode }) {
       error,
       input,
       setInput,
-      panelOpen,
-      setPanelOpen,
-      orbState,
+      brief,
+      ready: briefReady(brief),
+      atLimit: messages.filter((item) => item.role === "user").length >= MAX_VISITOR_TURNS,
       send,
       composeDocument,
-      abort,
-      voice
+      abort
     }),
-    [abort, composeDocument, document, error, input, messages, orbState, panelOpen, pending, preview, send, sessionId, slideIndex, streaming, voice]
+    [abort, brief, composeDocument, document, error, input, messages, pending, preview, send, sessionId, slideIndex, streaming]
   );
 
   return (
     <AetheliosContext.Provider value={value}>
-      <audio ref={engine.audioRef} autoPlay playsInline className={styles.voiceOut} />
       {children}
     </AetheliosContext.Provider>
   );

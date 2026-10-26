@@ -1,9 +1,10 @@
 import { FIX_IT_SHOP_SHOWCASE_ID } from "@/lib/work/ids";
+import { BEGIN_HREF } from "@/lib/publicSite";
 
 export const FIX_IT_SHOP_PUBLIC_HREF = "https://fixitshop-app.vercel.app/";
 export const FIX_IT_SHOP_BOOKING_HREF = "https://fixitshop.glossgenius.com/";
 
-export const FIX_IT_SHOP_BRIEF_HREF = "/project?source=fix_it_shop";
+export const FIX_IT_SHOP_BRIEF_HREF = BEGIN_HREF;
 
 export const FIX_IT_SHOP = {
   id: FIX_IT_SHOP_SHOWCASE_ID,
@@ -25,7 +26,7 @@ export const FIX_IT_SHOP = {
   resumeLabel: "Resume",
   inquireLabel: "Start your project",
   inquireHref: FIX_IT_SHOP_BRIEF_HREF,
-  specialistInquireHref: "/project?offer=barbers_salons&interest=website&purpose=business&booking=1&source=fix_it_shop",
+  specialistInquireHref: BEGIN_HREF,
   media: {
     masterSrc: "/work/fix-it-shop/cinematic-showcase.mp4",
     loopSrc: "/work/fix-it-shop/cinematic-loop.mp4",

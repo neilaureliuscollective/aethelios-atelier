@@ -9,7 +9,6 @@ import {
   hostedPlatformName,
   readAuthSecret,
   readDatabaseUrl,
-  readOpenAiApiKey,
   simulatedAuthAllowed,
   type AuthjsProviderState
 } from "@/lib/runtime/hosted";
@@ -266,7 +265,7 @@ export function publicRuntimeConfig() {
     billing: config.billing,
     pricing: {
       status: "not_finalized" as const,
-      note: "Plan prices are shown in USD. Payments are not collected here. A written proposal confirms deliverables and remaining terms before work begins."
+      note: "Every engagement is scoped and priced in a written proposal. Payments are not collected here."
     },
     companion: {
       routes: ["/companion", "/companion/talk", "/companion/studio", "/companion/work", "/companion/business"],
@@ -275,11 +274,6 @@ export function publicRuntimeConfig() {
       billingActivated: false,
       note: "Companion entitlements are server-checked. Client flags do not grant access. Commercial prices stay out of this public config until billing is reviewed. Live voice stays gated until provider duration evidence exists."
     },
-    inquiry: publicInquiryState(),
-    voice: {
-      transcribeReady: Boolean(readOpenAiApiKey()),
-      speakReady: Boolean(readOpenAiApiKey()),
-      note: "Homepage orb speech is a live two-way OpenAI voice path. It does not use browser speech recognition."
-    }
+    inquiry: publicInquiryState()
   };
 }

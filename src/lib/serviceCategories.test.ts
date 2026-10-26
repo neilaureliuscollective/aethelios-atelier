@@ -56,14 +56,9 @@ describe("service category compatibility", () => {
     expect(asksBookingProvider("ecommerce_storefronts")).toBe(false);
   });
 
-  it("sends custom apps and infrastructure to the brief with interest and purpose", () => {
-    expect(serviceBriefHref("website")).toBe("/discover?interest=website");
-    expect(serviceBriefHref("ecommerce_storefronts")).toBe("/discover?interest=ecommerce_storefronts");
-    expect(serviceBriefHref("custom_apps_platforms")).toBe(
-      "/project?interest=custom_apps_platforms&purpose=business"
-    );
-    expect(serviceBriefHref("digital_infrastructure")).toBe(
-      "/project?interest=digital_infrastructure&purpose=business"
-    );
+  it("begins every service in the Aethelios conversation", () => {
+    for (const id of ["website", "ecommerce_storefronts", "custom_apps_platforms", "digital_infrastructure"] as const) {
+      expect(serviceBriefHref(id)).toBe(`/?interest=${id}#aethelios`);
+    }
   });
 });
